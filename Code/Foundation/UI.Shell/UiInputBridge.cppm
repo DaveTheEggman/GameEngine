@@ -381,6 +381,24 @@ export namespace foundation::ui
                 return KeyCode::Period;
             case SK::Slash:
                 return KeyCode::Slash;
+            // The modifier keys as KEYS: a chord capture (Preferences > Shortcuts) must see a
+            // modifier go down and keep waiting, not take an unknown key for the chord.
+            case SK::LeftCtrl:
+                return KeyCode::LeftCtrl;
+            case SK::LeftShift:
+                return KeyCode::LeftShift;
+            case SK::LeftAlt:
+                return KeyCode::LeftAlt;
+            case SK::RightCtrl:
+                return KeyCode::RightCtrl;
+            case SK::RightShift:
+                return KeyCode::RightShift;
+            case SK::RightAlt:
+                return KeyCode::RightAlt;
+            case SK::LeftGui:
+                return KeyCode::LeftGui;
+            case SK::RightGui:
+                return KeyCode::RightGui;
             default:
                 return KeyCode::Unknown;
             }

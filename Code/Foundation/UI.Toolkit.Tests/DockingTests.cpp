@@ -618,3 +618,75 @@ TEST_CASE("docking: closing a tool panel hides it and keeps it registered; the d
     ctx.BeginFrame(0.016f);
     CHECK(pin->Parent == nullptr);
 }
+
+TEST_CASE("docking: the owner's ActiveMark on a panel makes its group the active one - a click into "
+          "another panel does not move it, and only the mark does")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+    auto dm = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dm.Get());
+
+    // Two page groups side by side, and a tool panel below: every group has a selected tab.
+    DockablePanel* left = dm->AddPanel(StringView(u8"Scene A"), MakeLabel(u8"A").Get());
+    dm->DockPanel(left, DockPosition::Center);
+    DockablePanel* right = dm->AddPanel(StringView(u8"Scene B"), MakeLabel(u8"B").Get());
+    dm->DockPanel(right, DockPosition::Right);
+    DockablePanel* assets = dm->AddPanel(StringView(u8"Assets"), MakeLabel(u8"assets").Get());
+    dm->DockPanel(assets, DockPosition::Bottom);
+    auto* leftGroup = Cast<DockTabGroup>(left->Parent);
+    auto* rightGroup = Cast<DockTabGroup>(right->Parent);
+    auto* toolGroup = Cast<DockTabGroup>(assets->Parent);
+    REQUIRE(leftGroup != nullptr);
+    REQUIRE(rightGroup != nullptr);
+    REQUIRE(toolGroup != nullptr);
+    CHECK_FALSE(leftGroup->IsActiveGroup()); // nothing marked yet
+    CHECK_FALSE(rightGroup->IsActiveGroup());
+
+    // The owner marks the page a command goes to.
+    right->ActiveMark = true;
+    CHECK(rightGroup->IsActiveGroup());
+    CHECK_FALSE(leftGroup->IsActiveGroup());
+    // A click into the tool panel activates it for the DOCK (OnPanelActivated, ActivePanel)
+    // but moves no mark: the ring stays on the page.
+    DockablePanel* activated = nullptr;
+    dm->OnPanelActivated.Add(Event<void(DockablePanel*)>::Handler{
+        [&activated](DockablePanel* p) { activated = p; }});
+    MouseEventArgs press;
+    assets->OnMouseDownCapture(press);
+    CHECK(activated == assets);
+    CHECK(dm->ActivePanel() == assets);
+    CHECK(rightGroup->IsActiveGroup());
+    CHECK_FALSE(toolGroup->IsActiveGroup());
+    // The dock's active panel follows a tab selection too, and a closed one never stays it.
+    DockablePanel* extra = dm->AddPanel(StringView(u8"Scene D"), MakeLabel(u8"D").Get());
+    rightGroup->AddPanel(extra);
+    rightGroup->SetSelectedIndex(1);
+    CHECK(dm->ActivePanel() == extra);
+    dm->ClosePanel(extra);
+    CHECK(dm->ActivePanel() == right); // the group re-selected its remaining tab
+    rightGroup->SetSelectedIndex(0);
+    // A click on the tab that is ALREADY selected (the other group's one page) activates it
+    // too: the selection does not change, the activation still moves.
+    activated = nullptr;
+    leftGroup->ActivateSelected(); // its tab is already selected: only the click activates
+    CHECK(dm->ActivePanel() == left);
+    rightGroup->ActivateSelected();
+    CHECK(activated == right);
+    CHECK(dm->ActivePanel() == right);
+    // The owner moves the mark: the ring follows.
+    right->ActiveMark = false;
+    left->ActiveMark = true;
+    CHECK(leftGroup->IsActiveGroup());
+    CHECK_FALSE(rightGroup->IsActiveGroup());
+    // A second tab in the marked group, selected: the mark is the panel's, so the group is
+    // active only while the marked panel is the selected one.
+    DockablePanel* second = dm->AddPanel(StringView(u8"Scene C"), MakeLabel(u8"C").Get());
+    leftGroup->AddPanel(second);
+    leftGroup->SetSelectedIndex(1);
+    CHECK_FALSE(leftGroup->IsActiveGroup());
+    leftGroup->SetSelectedIndex(0);
+    CHECK(leftGroup->IsActiveGroup());
+}

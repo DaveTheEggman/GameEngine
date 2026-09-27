@@ -814,7 +814,13 @@ Context: the data source shipped with I5 this week (per-tag live/peak/total +
 `MemoryTagReport()` rollup rows - record in week-2026-08-29.md); the
 panel/graph work here remains.
 
-## Seeded: editor key rebinding (user 2026-08-26)
+## Seeded: editor key rebinding (user 2026-08-26) - BUILT 2026-09-27
+
+Landed as layer 6 of Documentation/Specs/editor-actions.md (branch editor-actions-palette):
+the named-action registry was layers 1 to 5, the per-user EditorShortcutSettings section,
+the Preferences > Shortcuts page with key capture and collision detection (a collision keeps
+the holder's chord and is reported by name; the policy chosen: warn and keep), and the
+command palette beside it. The seed below is kept as the record of the ask.
 
 Origin: parity doc, editor platform - "Lumix-ahead DECISIVELY on keybindings - a
 full rebinding UI with COLLISION DETECTION vs Draconic's four HARDCODED

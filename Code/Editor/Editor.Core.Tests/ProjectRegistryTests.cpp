@@ -269,17 +269,21 @@ TEST_CASE("editor.settings: every registered section type is INSTANTIABLE (facto
     // incident (EditorUiSettings had a type registration but no factory).
     RegisterEditorSettingsTypes();
     RegisterProjectRegistryTypes();
-    const TypeInfo* sectionTypes[] = {
-        &EditorExportSettings::StaticType(),
-        &EditorFontSettings::StaticType(),
-        &EditorUiSettings::StaticType(),
-        &EditorMcpSettings::StaticType(),
-        &RecentProjectsSettings::StaticType(),
-    };
-    for (const TypeInfo* type : sectionTypes)
+    // Every ISerializable registered in the Editor domain, asked of the registry - not a list
+    // kept by hand here, which the shortcut section proved nobody extends (it was missing).
+    usize checked = 0;
+    for (const TypeInfo* type : GlobalTypeRegistry().All())
     {
+        if (GlobalTypeRegistry().DomainOf(type->id) != TypeDomain(u8"Editor") ||
+            !IsDerivedFrom(type, &ISerializable::StaticType()))
+        {
+            continue;
+        }
+        INFO("section type: " << reinterpret_cast<const char*>(type->name));
         CHECK(GlobalSerializableRegistry().Create(type->id).Get() != nullptr);
+        ++checked;
     }
+    CHECK(checked >= 6u); // export, font, ui, mcp, shortcuts, recent projects - at least
 }
 
 TEST_CASE("editor.settings: the MCP section round-trips, and a minted token is a fresh Guid")

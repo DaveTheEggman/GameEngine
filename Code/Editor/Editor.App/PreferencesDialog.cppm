@@ -20,6 +20,7 @@ import foundation.core;
 import foundation.ui;
 import editor.core;
 import foundation.settings;
+import :shortcut_capture;
 
 using namespace foundation::core;
 
@@ -35,10 +36,10 @@ export namespace editor::app
         EditorPreferencesDialog(editor::EditorContext& context, settings::Settings& store)
             : ui::Dialog(u8"Preferences"), m_context(&context), m_settings(&store)
         {
-            MinWidth.SetValue(480.0f);
+            MinWidth.SetValue(560.0f);
             MinHeight.SetValue(220.0f);
-            MaxWidth.SetValue(640.0f);
-            MaxHeight.SetValue(300.0f);
+            MaxWidth.SetValue(760.0f);
+            MaxHeight.SetValue(560.0f);
 
             auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
@@ -143,6 +144,26 @@ export namespace editor::app
                 column->AddView(note.Get());
             }
 
+            // Shortcuts: every action with its effective chord; a click on the chord captures the
+            // next key, Reset forgets the override. Staged in m_shortcutEdits, applied on Save.
+            {
+                auto header = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Shortcuts"));
+                header->FontSize.SetValue(13.0f);
+                column->AddView(header.Get());
+                auto note = MakeRef<ui::Label>(
+                    MemoryAllocator(),
+                    StringView(u8"Click a chord and press the new keys (Esc cancels, Del clears). A "
+                               u8"chord another action holds is refused on Save, naming it."));
+                note->FontSize.SetValue(11.0f);
+                note->TextColor.SetValue(Optional<Color>(Color{0.55f, 0.55f, 0.55f, 1.0f}));
+                column->AddView(note.Get());
+                EditorActionRegistry& actions = context.Actions();
+                for (const editor::EditorActionDeclaration& action : actions.Actions())
+                {
+                    AddShortcutRow(*column, actions, action);
+                }
+            }
+
             // Domain-contributed categories (EditorContext::RegisterEditorSettingsContribution):
             // the app hardcodes nothing - each domain's fields render generically here and
             // write through their own closures (usually into the domain's user-store section).
@@ -244,6 +265,72 @@ export namespace editor::app
             return raw;
         }
 
+        // One action: its label, its menu path, the chord (a capture button) and Reset.
+        void AddShortcutRow(ui::FlexLayout& column, EditorActionRegistry& actions,
+                            const editor::EditorActionDeclaration& action)
+        {
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 8;
+            {
+                auto text = MakeRef<ui::Label>(MemoryAllocator(), action.label.AsView());
+                text->FontSize.SetValue(12.0f);
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(170));
+                lp.AlignSelf = ui::Align::Center;
+                row->AddView(text.Get(), lp);
+            }
+            {
+                auto where = MakeRef<ui::Label>(MemoryAllocator(), action.menuPath.AsView());
+                where->FontSize.SetValue(11.0f);
+                where->TextColor.SetValue(Optional<Color>(Color{0.55f, 0.55f, 0.55f, 1.0f}));
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                lp.AlignSelf = ui::Align::Center;
+                row->AddView(where.Get(), lp);
+            }
+            const StringView id = action.id.AsView();
+            auto capture = MakeRef<ShortcutCaptureButton>(MemoryAllocator(), actions.Shortcut(id));
+            capture->FontSize.SetValue(Optional<f32>(11.0f));
+            ShortcutCaptureButton* captureRaw = capture.Get();
+            {
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(150));
+                lp.AlignSelf = ui::Align::Center;
+                row->AddView(capture.Get(), lp);
+            }
+            auto reset = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Reset"));
+            reset->FontSize.SetValue(Optional<f32>(11.0f));
+            reset->IsEnabled = actions.HasOverride(id);
+            ui::Button* resetRaw = reset.Get();
+            {
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(60));
+                lp.AlignSelf = ui::Align::Center;
+                row->AddView(reset.Get(), lp);
+            }
+            EditorPreferencesDialog* self = this;
+            const String idText(id);
+            capture->OnChordChosen = [self, idText, resetRaw](EditorShortcut chord)
+            {
+                self->m_shortcutEdits.Set(idText.AsView(), chord);
+                resetRaw->IsEnabled = true;
+            };
+            const editor::EditorActionDeclaration* declaration = &action;
+            reset->OnClick.Add(
+                [self, idText, captureRaw, resetRaw, declaration](ui::ButtonBase*)
+                {
+                    self->m_shortcutEdits.Reset(idText.AsView());
+                    captureRaw->SetChord(declaration->shortcut); // the default, shown at once
+                    resetRaw->IsEnabled = false;
+                });
+            {
+                ui::LayoutStyle lp;
+                lp.Width = ui::SizeSpec::Match();
+                column.AddView(row.Get(), lp);
+            }
+        }
+
         ui::EditText* AddTextRow(ui::FlexLayout& column, StringView label, StringView value)
         {
             ui::FlexLayout* row = AddRow(column, label);
@@ -285,6 +372,19 @@ export namespace editor::app
             {
                 OnMcpSettingsApplied(); // live: the host follows the new enabled/port/token
             }
+            if (!m_shortcutEdits.IsEmpty())
+            {
+                Array<String> collisions;
+                (void)m_shortcutEdits.Apply(m_context->Actions(),
+                                            m_settings->Section<editor::EditorShortcutSettings>(),
+                                            &collisions);
+                m_settings->MarkChanged<editor::EditorShortcutSettings>();
+                for (const String& collision : collisions)
+                {
+                    m_context->Notify(editor::NoticeKind::Warning,
+                                      Format(u8"Shortcut kept: {}", collision.AsView()).AsView());
+                }
+            }
             if (editor::SaveEditorSettingsToUserData(*m_settings).IsOk())
             {
                 m_context->SetStatus(u8"Preferences saved.");
@@ -307,6 +407,7 @@ export namespace editor::app
         ui::CheckBox* m_mcpEnabled = nullptr;
         ui::EditText* m_mcpPortEdit = nullptr;
         ui::EditText* m_mcpTokenEdit = nullptr;
+        editor::ShortcutEdits m_shortcutEdits; // staged; applied and persisted on Save
     };
 
     RTTI_DEFINE_OBJECT(EditorPreferencesDialog, "rtti::editor::editor::app")

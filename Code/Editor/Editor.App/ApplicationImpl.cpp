@@ -407,6 +407,11 @@ namespace editor::app
             m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost);
         }
 
+        // The user's shortcut overrides, once every domain has declared its actions (an
+        // override names an id; a domain not loaded keeps its entry for a later run).
+        (void)editor::ApplyShortcutOverrides(m_editorSettings.Section<editor::EditorShortcutSettings>(),
+                                             m_context.Actions());
+
         // Menus AFTER registration - File > New builds from the creator registry. Built once;
         // both modes share them (the manager screen simply doesn't show the shell chrome).
         BuildMenus();
@@ -455,6 +460,23 @@ namespace editor::app
             return;
         }
         m_cookService.RequestCookFor(Move(roots), false);
+    }
+
+    void EditorApplication::RefreshActivePageMark()
+    {
+        editor::EditorPage* active = m_context.ActivePage();
+        for (const PagePanel& entry : m_pagePanels)
+        {
+            const bool mark = entry.page == active;
+            if (entry.panel != nullptr && entry.panel->ActiveMark != mark)
+            {
+                entry.panel->ActiveMark = mark;
+                if (entry.panel->Parent != nullptr)
+                {
+                    entry.panel->Parent->InvalidateVisual(); // the ring: colour only, no geometry
+                }
+            }
+        }
     }
 
     void EditorApplication::OpenGamePage(bool newInstance)
@@ -510,6 +532,7 @@ namespace editor::app
                     Function<void()>{[this, uiPage]() { ClosePage(uiPage); }});
             });
         m_pagePanels.PushBack(PagePanel{uiPage, panel});
+        RefreshActivePageMark(); // the panel exists now; the page may already be the active one
     }
 
     UIEditorPage* EditorApplication::OpenInstancePage(foundation::content::Instance& instance)
@@ -578,6 +601,7 @@ namespace editor::app
             return false;
         };
         m_pagePanels.PushBack(PagePanel{uiPage, panel});
+        RefreshActivePageMark(); // the panel exists now; the page may already be the active one
         CookMissingForPage(instance); // uncooked dependencies cook without a manual step
         return uiPage;
     }
@@ -2377,6 +2401,10 @@ namespace editor::app
         // Settings-derived session state re-applies on save (default font/theme -
         // without this a changed default kept the OLD bind until reopen).
         m_context.OnProjectSettingsChanged = [this]() { ApplyProjectUiDefaults(); };
+        // The active page's panel carries the dock's ActiveMark (the accent strip and ring): the
+        // page a command goes to, visible when two pages sit side by side. A tool panel never
+        // takes it - the mark follows the context's active page, not the dock's clicked panel.
+        m_context.OnPagesChanged = [this]() { RefreshActivePageMark(); };
         // A page revealed through the context (page_open, an agent's viewport_screenshot)
         // brings its tab to front: a background tab's viewport never renders.
         m_context.OnRevealPage = [this](editor::EditorPage* page)
@@ -3535,6 +3563,19 @@ namespace editor::app
             {
                 m_shell.ResetLayout();
                 m_context.SetStatus(u8"Layout reset to default.");
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d = Declare(u8"view.commandPalette", u8"Command Palette...",
+                                                u8"Every action by name: type to filter, Enter runs it",
+                                                u8"View/Command Palette...", 200);
+            d.shortcut = EditorShortcut{ui::KeyCode::P, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift};
+            d.readOnly = true; // the palette changes nothing itself
+            d.execute = [this](editor::EditorPage*)
+            {
+                auto palette = MakeRef<CommandPaletteDialog>(m_editorAllocator, m_context.Actions());
+                palette->Show(&m_uiHost->Context());
             };
             (void)actions.Register(Move(d));
         }

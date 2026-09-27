@@ -147,6 +147,11 @@ export namespace foundation::ui::toolkit
 
         f32 HeaderHeight = 24;
         IDockHost* DockHost = nullptr;
+        /// Set by the OWNER on the one panel its commands go to (the editor's active page):
+        /// the tab group draws the accent strip and a ring around its content for this panel
+        /// only. A dock-level notion (the panel clicked last) would be wrong here - a click into
+        /// a tool panel must not move the ring off the page.
+        bool ActiveMark = false;
 
         Event<void(DockablePanel*)> OnCloseRequested;
 
@@ -947,6 +952,16 @@ export namespace foundation::ui::toolkit
 
         [[nodiscard]] i32 SelectedIndex() const { return m_selectedIndex; }
         void SetSelectedIndex(i32 value); // out-of-line (needs DockManager for ancestor notify)
+        /// Activates the selected panel without changing the selection (a click on the tab that
+        /// is already selected): the dock's OnPanelActivated fires for it. Out of line.
+        void ActivateSelected();
+        /// Whether this group's selected panel carries the owner's ActiveMark (the one commands
+        /// go to): the group then draws the accent strip and the ring.
+        [[nodiscard]] bool IsActiveGroup() const
+        {
+            const DockablePanel* selected = SelectedPanel();
+            return selected != nullptr && selected->ActiveMark;
+        }
 
         [[nodiscard]] i32 PanelCount() const { return static_cast<i32>(m_panels.Size()); }
         [[nodiscard]] f32 TabHeight() const { return m_tabHeight; }
@@ -1085,6 +1100,19 @@ export namespace foundation::ui::toolkit
                 }
             }
 
+            // The marked panel's ring: a 1px accent border around its group's content, so the
+            // page a command goes to is visible at a glance when groups sit side by side.
+            if (IsActiveGroup() && contentH > 2.0f)
+            {
+                const Color accentColor = ResolveStyleColor(
+                    StyleProperty::AccentColor,
+                    Color{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f});
+                ctx.VG().FillRect(Rectangle{0, contentY, Width(), 1.0f}, accentColor);
+                ctx.VG().FillRect(Rectangle{0, contentY + contentH - 1.0f, Width(), 1.0f}, accentColor);
+                ctx.VG().FillRect(Rectangle{0, contentY, 1.0f, contentH}, accentColor);
+                ctx.VG().FillRect(Rectangle{Width() - 1.0f, contentY, 1.0f, contentH}, accentColor);
+            }
+
             // Draw tabs.
             m_tabRects.Clear();
             m_closeRects.Clear();
@@ -1191,7 +1219,9 @@ export namespace foundation::ui::toolkit
                                                   ControlState::Checked),
                               tabRect, Rgb(42, 44, 54, 255));
                     // Selected-tab accent strip (the same 2px indicator ui::TabView draws) -
-                    // dock tabs read as "active" the way regular tabs do.
+                    // every group's selected tab reads as selected. Which PAGE a command goes
+                    // to is the ring around the marked group's content, not this strip (a
+                    // neutral strip here made a selected tool panel look unselected).
                     const Color accentColor = ResolveStyleColor(
                         StyleProperty::AccentColor,
                         Color{80.0f / 255.0f, 150.0f / 255.0f, 240.0f / 255.0f, 1.0f});
@@ -1318,7 +1348,17 @@ export namespace foundation::ui::toolkit
                 const Rectangle r = m_tabRects[static_cast<usize>(i)];
                 if (e.X >= r.x && e.X < r.x + r.width && e.Y >= r.y && e.Y < r.y + r.height)
                 {
-                    SetSelectedIndex(i);
+                    if (i == m_selectedIndex)
+                    {
+                        // Already this group's selected tab - the click still means "this
+                        // one": with two groups side by side, each holding one page, this is
+                        // the click that moves the activation across.
+                        ActivateSelected();
+                    }
+                    else
+                    {
+                        SetSelectedIndex(i);
+                    }
                     m_dragTabIndex = i;
                     e.Handled = true;
                     return;
@@ -1516,6 +1556,18 @@ export namespace foundation::ui::toolkit
 
         /// Fired when a dock tab is selected (user click or programmatic).
         Event<void(DockablePanel*)> OnPanelActivated;
+        /// The panel activated last (a click into it, a tab selection): the dock's own notion of
+        /// where the user is, for whoever needs it. NOT the accent ring - that follows the
+        /// owner's ActiveMark on a panel, since a click into a tool panel must not move the
+        /// ring off the page commands go to.
+        [[nodiscard]] DockablePanel* ActivePanel() const noexcept { return m_activePanel; }
+        /// Records the activation and fires OnPanelActivated (the two sites that activate a
+        /// panel - a click into it, a tab selection - both come through here).
+        void NotifyPanelActivated(DockablePanel* panel)
+        {
+            m_activePanel = panel;
+            OnPanelActivated.Invoke(panel);
+        }
 
         DockManager()
         {
@@ -1718,6 +1770,10 @@ export namespace foundation::ui::toolkit
         /// Close a panel (undock and delete).
         void ClosePanel(DockablePanel* panel)
         {
+            if (m_activePanel == panel)
+            {
+                m_activePanel = nullptr; // the group's re-selection names the next one, if any
+            }
             UndockPanel(panel);
             // A TOOL panel (one with a persistence id: Console, Assets, Welcome) HIDES on close:
             // the registry keeps it, so Reset Layout and a layout restore re-dock the same
@@ -2758,6 +2814,7 @@ export namespace foundation::ui::toolkit
         Array<DockableWindow*>
             m_dockableWindows; // Non-owning tracking (PopupLayer owns floating windows).
         RefPtr<DockZoneIndicator> m_zoneIndicator; // Owned, drawn manually, never AddView'd.
+        DockablePanel* m_activePanel = nullptr;     // borrowed; cleared when that panel closes
         bool m_isCleaningUp = false;
     };
 
@@ -2768,7 +2825,24 @@ export namespace foundation::ui::toolkit
         {
             if (auto* dm = Cast<DockManager>(ancestor))
             {
-                dm->OnPanelActivated.Invoke(this);
+                dm->NotifyPanelActivated(this);
+                return;
+            }
+        }
+    }
+
+    inline void DockTabGroup::ActivateSelected()
+    {
+        DockablePanel* selected = SelectedPanel();
+        if (selected == nullptr)
+        {
+            return;
+        }
+        for (View* ancestor = Parent; ancestor != nullptr; ancestor = ancestor->Parent)
+        {
+            if (auto* dm = Cast<DockManager>(ancestor))
+            {
+                dm->NotifyPanelActivated(selected);
                 return;
             }
         }
@@ -2801,7 +2875,7 @@ export namespace foundation::ui::toolkit
             {
                 if (auto* dm = Cast<DockManager>(ancestor))
                 {
-                    dm->OnPanelActivated.Invoke(SelectedPanel());
+                    dm->NotifyPanelActivated(SelectedPanel());
                     break;
                 }
                 ancestor = ancestor->Parent;

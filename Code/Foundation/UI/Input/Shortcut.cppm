@@ -49,8 +49,9 @@ export namespace foundation::ui
             return Normalize(Modifiers) == Normalize(modifiers);
         }
 
-    private:
-        /// Collapse Left/Right modifier variants into combined flags; strip lock keys.
+        /// Collapse Left/Right modifier variants into combined flags; strip lock keys. Public:
+        /// the chord a key event carries and the chord a declaration spells (Ctrl, not LeftCtrl)
+        /// compare equal only through this - a capture control normalises what it records.
         [[nodiscard]] static KeyModifiers Normalize(KeyModifiers m)
         {
             KeyModifiers r = m;

@@ -336,3 +336,23 @@ TEST_CASE("edit-text: PasswordBox_CopyDisabled")
     auto pw = MakePassword();
     CHECK(pw->Behavior().AllowClipboardCopy == false);
 }
+
+TEST_CASE("edit-text: Escape is not the box's key - it bubbles, while an editing key is handled")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get());
+    auto edit = MakeEdit();
+    root->AddView(edit.Get());
+    edit->SetText(u8"abc");
+
+    KeyEventArgs escape;
+    escape.Key = KeyCode::Escape;
+    edit->OnKeyDown(escape);
+    CHECK_FALSE(escape.Handled); // the dialog around the box closes on it
+    KeyEventArgs left;
+    left.Key = KeyCode::Left;
+    edit->OnKeyDown(left);
+    CHECK(left.Handled);
+    CHECK(edit->Text() == u8"abc");
+}

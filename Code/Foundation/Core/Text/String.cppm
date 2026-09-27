@@ -113,6 +113,36 @@ export namespace foundation::core
                    BasicStringView{m_data + (m_size - suffix.m_size), suffix.m_size} == suffix;
         }
 
+        /// Whether `needle` occurs in this view, ASCII letters folded (the match a filter box
+        /// makes: "sav" finds "Save As..."). Bytes outside ASCII compare exactly. An empty
+        /// needle is found in everything.
+        [[nodiscard]] constexpr bool ContainsIgnoreCase(BasicStringView needle) const noexcept
+        {
+            if (needle.m_size == 0)
+            {
+                return true;
+            }
+            if (needle.m_size > m_size)
+            {
+                return false;
+            }
+            const auto fold = [](CharT c) -> CharT
+            { return (c >= CharT('A') && c <= CharT('Z')) ? static_cast<CharT>(c + 32) : c; };
+            for (usize start = 0; start + needle.m_size <= m_size; ++start)
+            {
+                usize i = 0;
+                while (i < needle.m_size && fold(m_data[start + i]) == fold(needle.m_data[i]))
+                {
+                    ++i;
+                }
+                if (i == needle.m_size)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// Byte-lexical order (code units, so UTF-8 orders by code point): negative when
         /// this sorts before `other`, zero when equal, positive after. A shorter prefix
         /// sorts first. The comparison a stable, locale-free listing sorts by.

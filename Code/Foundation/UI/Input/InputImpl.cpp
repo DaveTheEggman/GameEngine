@@ -378,11 +378,15 @@ namespace foundation::ui
         {
             output.PushBack(view);
         }
+        // The VISUAL children, as drawing and hit testing walk them: a dialog holds its content
+        // in an internal layout that is not a ViewGroup child, and its buttons were unreachable
+        // (Tab did nothing inside a dialog; FocusFirstIn found nothing, so Show fell back to
+        // focusing the dialog itself).
         if (ViewGroup* group = Cast<ViewGroup>(view))
         {
-            for (usize i = 0; i < group->ChildCount(); ++i)
+            for (usize i = 0; i < group->VisualChildCount(); ++i)
             {
-                CollectFocusable(group->GetChildAt(i), output);
+                CollectFocusable(group->GetVisualChild(i), output);
             }
         }
     }
@@ -573,7 +577,41 @@ namespace foundation::ui
             }
         }
 
-        if (hitView != nullptr)
+        // A click outside the topmost focus-scope popup (a modal dialog's backdrop, which the
+        // hit test reports as the layer) must not take the keyboard away from it: Escape and the
+        // dialog's buttons keep working. Focus stays where it was, or returns to the popup's
+        // first focusable when nothing inside holds it.
+        View* focusScope = nullptr;
+        if (RootView* root = m_context->ActiveInputRoot())
+        {
+            if (PopupLayer* popupLayer = root->GetPopupLayer())
+            {
+                focusScope = popupLayer->TopmostFocusScopePopup();
+            }
+        }
+        const auto within = [](View* view, View* scope)
+        {
+            for (View* v = view; v != nullptr; v = v->Parent)
+            {
+                if (v == scope)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
+        if (focusScope != nullptr && !within(hitView, focusScope))
+        {
+            FocusManager* focus = m_context->GetFocusManager();
+            if (!within(focus->FocusedView(), focusScope))
+            {
+                if (!focus->FocusFirstIn(focusScope))
+                {
+                    focus->SetFocus(focusScope); // as Show does: the popup itself, Escape works
+                }
+            }
+        }
+        else if (hitView != nullptr)
         {
             FocusNearestFocusable(hitView);
         }

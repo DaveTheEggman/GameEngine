@@ -343,3 +343,16 @@ TEST_CASE("string: StringView::Compare orders byte-lexically, a shorter prefix f
     CHECK(StringView(u8"\u00e9").Compare(u8"z") > 0); // UTF-8 lead byte 0xC3 sorts after ASCII
 }
 
+
+TEST_CASE("string: StringView::ContainsIgnoreCase folds ASCII letters only, and an empty needle is everywhere")
+{
+    CHECK(StringView(u8"Save As...").ContainsIgnoreCase(u8"sav"));
+    CHECK(StringView(u8"Save As...").ContainsIgnoreCase(u8"AS.."));
+    CHECK(StringView(u8"Reset Layout").ContainsIgnoreCase(u8"LAYOUT"));
+    CHECK_FALSE(StringView(u8"Reset Layout").ContainsIgnoreCase(u8"lay out"));
+    CHECK(StringView(u8"abc").ContainsIgnoreCase(u8""));
+    CHECK(StringView(u8"").ContainsIgnoreCase(u8""));
+    CHECK_FALSE(StringView(u8"ab").ContainsIgnoreCase(u8"abc"));
+    CHECK(StringView(u8"caf\u00e9").ContainsIgnoreCase(u8"CAF\u00e9")); // non-ASCII bytes compare exactly
+    CHECK_FALSE(StringView(u8"caf\u00e9").ContainsIgnoreCase(u8"CAF\u00c9"));
+}
