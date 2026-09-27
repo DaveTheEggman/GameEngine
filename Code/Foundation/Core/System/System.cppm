@@ -29,7 +29,6 @@ import :string;
 import :path;
 import :array;
 import :span;
-import :span;
 
 namespace foundation::core::detail
 {
