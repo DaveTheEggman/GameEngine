@@ -78,7 +78,12 @@ Pipeline libs. NOTE/refinement: Pipeline libs link Editor.Core (verified
 UI-FREE - project/import/export plumbing), so the headless bar holds, but
 the NAME now misleads; consider moving the importer framework into
 Pipeline.Core and leaving Editor.Core truly editor-only - fold into MCP P1
-if cheap, else later. Collision-cook root cause found WITHOUT the blocked
+if cheap, else later. RESOLVED 2026-09-27: the headless half (project,
+cook, export, jobs, log, project registry + manager, the root allocator
+seam) is Editor.Project (`editor.project`); Editor.Core keeps the context,
+pages, commands, selection, actions, thumbnails and settings and re-exports
+it. Editor.Mcp, Tools.Mcp, Tools.Cook and Tools.Export stand on
+Editor.Project and no longer link Editor.Core. Collision-cook root cause found WITHOUT the blocked
 user repro (9f7c6829: builder got the cooked PRODUCT but Cast the SOURCE
 type; the old test masked it by pointing ctx.db at a source db) +
 regression test. I2/I8/I10 per spec; I7 partial-with-reason (engine knob +

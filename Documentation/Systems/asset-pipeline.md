@@ -103,7 +103,7 @@ The bridge from cooked products to live scenes:
 
 - **CLI** (`Code/Tools/Cook`): the same `CookDriver`, headless (no shell/GPU), console progress,
   exit code = failures.
-- **Editor** (`EditorCookService`, `editor.core`): background-thread cook (one at a time,
+- **Editor** (`EditorCookService`, `editor.project`): background-thread cook (one at a time,
   progress -> status bar + Console), per-instance cook badges (Cooked / Missing / Failed /
   NoBuilder), a Build menu (Cook All / Rebuild All), an app-owned `ResourceManager` over the
   cooked DB + `ResolveSceneResources` on scene open, and inspector resource-ref picker rows

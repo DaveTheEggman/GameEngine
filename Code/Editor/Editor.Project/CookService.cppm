@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :cook_service partition.
+// Editor::Project - :cook_service partition.
 //
 // EditorCookService: the in-editor face of the cook driver. Owns the
 // project's sources/.cache mounts + a CookDriver over the project DBs, and runs cooks on a
@@ -28,7 +28,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module editor.core:cook_service;
+export module editor.project:cook_service;
 
 import foundation.core;
 import foundation.content;

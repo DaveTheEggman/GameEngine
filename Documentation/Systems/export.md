@@ -7,7 +7,7 @@
 Turning an authored project into a shippable per-platform dist, driven uniformly from the CLI and the
 editor (the same way cook is uniform). Shipped end to end: the template/preset architecture, template
 creation + the config axis, reachability pruning, the uniform driver, and both surfaces' UIs. Lives in
-`editor.core` (`:export_pipeline` + `:export_preset` + `:export_template` + `:export_roots` partitions);
+`editor.project` (`:export_pipeline` + `:export_preset` + `:export_template` + `:export_roots` partitions);
 the CLI is `Tools.Export`.
 
 ## Templates vs presets (the core split)

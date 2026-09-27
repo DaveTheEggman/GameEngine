@@ -19,7 +19,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module editor.core:project_registry;
+export module editor.project:project_registry;
 
 import foundation.core;
 import foundation.vfs;

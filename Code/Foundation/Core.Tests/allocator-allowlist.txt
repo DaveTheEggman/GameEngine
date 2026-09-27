@@ -1,9 +1,9 @@
-Code/Editor/Editor.Core/ContextImpl.cpp
+Code/Editor/Editor.Project/AllocatorImpl.cpp
 Code/Editor/Editor.Core/EditorSettings.cppm
-Code/Editor/Editor.Core/Export.cppm
-Code/Editor/Editor.Core/ExportTemplate.cppm
-Code/Editor/Editor.Core/ProjectManager.cppm
-Code/Editor/Editor.Core/ProjectRegistry.cppm
+Code/Editor/Editor.Project/Export.cppm
+Code/Editor/Editor.Project/ExportTemplate.cppm
+Code/Editor/Editor.Project/ProjectManager.cppm
+Code/Editor/Editor.Project/ProjectRegistry.cppm
 Code/Editor/Editor.Core/ThumbnailService.cppm
 Code/Editor/Editor.Scene/ComponentGizmos.cppm
 Code/Editor/Editor.Scene/EntityPickerDialog.cppm

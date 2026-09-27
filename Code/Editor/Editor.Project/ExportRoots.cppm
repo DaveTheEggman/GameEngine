@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :export_roots partition.
+// Editor::Project - :export_roots partition.
 //
 // The project's explicit "Always Export" set: the
 // entry points a user declares as export roots ON TOP of the automatic default-scene + startup-
@@ -24,7 +24,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module editor.core:export_roots;
+export module editor.project:export_roots;
 
 import foundation.core;
 import foundation.vfs;

@@ -16,7 +16,7 @@ import foundation.mcp;
 import pipeline.core;
 import pipeline.registration;
 import script.pipeline;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

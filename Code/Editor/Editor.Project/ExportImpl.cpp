@@ -19,7 +19,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-module editor.core;
+module editor.project;
 
 import foundation.core;
 import foundation.vfs;

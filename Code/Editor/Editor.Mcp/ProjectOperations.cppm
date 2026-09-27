@@ -21,7 +21,7 @@ export module editor.mcp:operations;
 
 import foundation.core;
 import pipeline.importer;
-import editor.core;
+import editor.project;
 
 using namespace foundation::core;
 

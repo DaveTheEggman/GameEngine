@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :export_template partition.
+// Editor::Project - :export_template partition.
 //
 // Export templates: portable, per-platform prebuilt bundles (a player binary + its runtime sidecars +
 // a template.xml manifest) that presets reference by id/platform. They live
@@ -21,7 +21,7 @@ module;
 #error "TEMPLATE_ID_PREFIX is not defined - set TEMPLATE_ID_PREFIX_VALUE in the root CMakeLists (policy target)"
 #endif
 
-export module editor.core:export_template;
+export module editor.project:export_template;
 
 import foundation.core;
 import foundation.vfs;

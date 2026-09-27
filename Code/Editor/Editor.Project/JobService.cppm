@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :job_service partition.
+// Editor::Project - :job_service partition.
 //
 // A GENERIC editor background-job runner with progress + step reporting (the pattern EditorCookService
 // hand-rolls, generalized): submit a unit of work, it runs on a worker thread so the UI stays live
@@ -13,7 +13,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module editor.core:job_service;
+export module editor.project:job_service;
 
 import foundation.core;
 

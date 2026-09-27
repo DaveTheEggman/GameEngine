@@ -21,7 +21,7 @@ import pipeline.importer;
 import pipeline.registration;
 import script.pipeline;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

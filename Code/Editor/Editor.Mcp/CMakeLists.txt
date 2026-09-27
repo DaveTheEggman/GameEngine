@@ -3,7 +3,7 @@
 
 util_add_engine_library(Editor.Mcp ALIAS Editor::Mcp)
 target_link_libraries(Editor.Mcp PUBLIC
-    Editor::Core Foundation::Content Foundation::VFS
+    Editor::Project Foundation::Content Foundation::VFS
     Pipeline::Core Pipeline::Importer Pipeline::Cook Pipeline::Audio # SoundCueAsset (health audit)
     Foundation::Scene Foundation::Scene.Resource Foundation::Xml.Serialization
     Foundation::Resource # factory-less ResourceManager = the scene-Ref collector (asset_uses)

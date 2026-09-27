@@ -22,7 +22,7 @@ import foundation.vfs;
 import foundation.script;
 import foundation.mcp;
 import script.pipeline;
-import editor.core;
+import editor.project;
 import :session;
 import :script_validate; // ScriptLanguageChoices (the shared language enum)
 

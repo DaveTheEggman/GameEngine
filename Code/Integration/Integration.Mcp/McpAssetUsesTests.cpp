@@ -23,7 +23,7 @@ import texture.pipeline;
 import audio.pipeline; // SoundCueAsset (empty-cue health warning)
 import engine.render;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

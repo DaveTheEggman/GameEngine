@@ -23,7 +23,7 @@ import foundation.vfs;
 import pipeline.core;
 import pipeline.registration;
 import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
-import editor.core;
+import editor.project;
 import pipeline.cook;
 
 using namespace foundation::core;

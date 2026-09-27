@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :export_preset partition.
+// Editor::Project - :export_preset partition.
 //
 // Export presets: named, per-platform descriptions of how to produce a shippable dist - which
 // export template (player + runtime sidecars) to use, plus game-specific extra files and output
@@ -15,7 +15,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
-export module editor.core:export_preset;
+export module editor.project:export_preset;
 
 import foundation.core;
 import foundation.vfs;

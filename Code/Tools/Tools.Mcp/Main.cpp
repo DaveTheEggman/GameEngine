@@ -23,7 +23,7 @@ import pipeline.importer;
 import pipeline.registration;
 import engine.scriptsurface;
 import engine.scenesurface;
-import editor.core; // EditorLogBuffer (the host's log capture)
+import editor.project; // EditorLogBuffer (the host's log capture)
 import editor.mcp;
 
 using namespace foundation::core;

@@ -13,7 +13,7 @@
 import foundation.core;
 import foundation.json;
 import foundation.mcp;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

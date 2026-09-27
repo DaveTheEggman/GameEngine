@@ -17,7 +17,7 @@ export module editor.mcp:resources;
 import foundation.core;
 import foundation.content;
 import foundation.mcp;
-import editor.core;
+import editor.project;
 import :session;
 
 using namespace foundation::core;

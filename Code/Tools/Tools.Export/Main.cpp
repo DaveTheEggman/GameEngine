@@ -34,7 +34,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import pipeline.core;
 import pipeline.registration;
-import editor.core;
+import editor.project;
 import texture.pipeline;
 import fonts.pipeline;
 import image.pipeline;

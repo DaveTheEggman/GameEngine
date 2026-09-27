@@ -29,7 +29,7 @@ import foundation.mcp;
 import pipeline.core;
 import pipeline.cook;
 import audio.pipeline; // SoundCueAsset (empty-cue audit)
-import editor.core;
+import editor.project;
 import :session;
 import :asset_uses; // shares the edge machinery (CollectSceneReferences, ContainsGuid)
 

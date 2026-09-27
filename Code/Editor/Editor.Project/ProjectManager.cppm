@@ -11,7 +11,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module editor.core:project_manager;
+export module editor.project:project_manager;
 
 import foundation.core;
 import foundation.settings;

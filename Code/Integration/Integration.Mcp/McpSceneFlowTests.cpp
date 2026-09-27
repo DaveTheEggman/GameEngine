@@ -18,7 +18,7 @@ import foundation.scene.resource;
 import foundation.net.replication;
 import foundation.mcp;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

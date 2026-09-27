@@ -4,7 +4,7 @@
 > Verified: 2026-08-12 @ 7e4ebae7
 > Track: [[editor-track]]
 
-`EditorJobService` (`Code/Editor/Editor.Core/JobService.cppm`, module `editor.core`) - owned by the
+`EditorJobService` (`Code/Editor/Editor.Project/JobService.cppm`, module `editor.project`) - owned by the
 editor application, pumped once per frame from the app's update (`m_jobService.Update(...)`), exposed to
 pages through `EditorContext::Jobs()` (may be null in headless/test contexts; callers must fall back to
 synchronous work). It is THE structural way editor code gets work off the UI thread, with two

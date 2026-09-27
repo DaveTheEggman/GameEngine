@@ -23,7 +23,7 @@ import pipeline.importer;
 import pipeline.registration;
 import engine.scenesurface;
 import engine.scriptsurface; // RegisterAllScriptFacades: the scripts cook against the full surface
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

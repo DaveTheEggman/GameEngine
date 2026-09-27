@@ -36,7 +36,7 @@ import foundation.mcp.script;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.cook;
-import editor.core;
+import editor.project;
 
 using namespace foundation::core;
 using foundation::json::JsonValue;

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :export partition.
+// Editor::Project - :export partition.
 //
 // The export pipeline as a LIBRARY (the Tools.Export CLI and the editor's Export menu are
 // thin callers; tests drive it headlessly): cook -> stage scenes as binary envelopes ->
@@ -19,7 +19,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module editor.core:export_pipeline;
+export module editor.project:export_pipeline;
 
 import foundation.core;
 import foundation.vfs;

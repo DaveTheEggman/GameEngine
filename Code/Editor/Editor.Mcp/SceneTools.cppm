@@ -29,7 +29,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.xml.serialization;
 import foundation.mcp;
-import editor.core;
+import editor.project;
 import engine.scenesurface; // AddAllSceneManagers - the full manager set for the validate scratch
 import :session;
 

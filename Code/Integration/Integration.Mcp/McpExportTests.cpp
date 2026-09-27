@@ -19,7 +19,7 @@ import foundation.mcp;
 import pipeline.core;
 import pipeline.registration;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import editor.mcp;
 
 using namespace foundation::core;

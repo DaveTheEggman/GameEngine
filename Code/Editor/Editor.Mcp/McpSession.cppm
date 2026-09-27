@@ -15,7 +15,7 @@ export module editor.mcp:session;
 import foundation.core;
 import foundation.json;
 import foundation.content;
-import editor.core;
+import editor.project;
 
 using namespace foundation::core;
 using foundation::json::JsonValue;

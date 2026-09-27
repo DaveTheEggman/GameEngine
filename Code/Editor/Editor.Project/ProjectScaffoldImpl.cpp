@@ -12,7 +12,7 @@
 module;
 #include "Core/Prelude.h"
 
-module editor.core;
+module editor.project;
 
 using namespace foundation::core;
 

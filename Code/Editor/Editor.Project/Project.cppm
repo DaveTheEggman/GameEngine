@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :project partition.
+// Editor::Project - :project partition.
 //
 // The project model: a project is a
 // self-contained directory with a fixed layout + an XML manifest:
@@ -23,7 +23,7 @@ module;
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 
-export module editor.core:project;
+export module editor.project:project;
 
 import foundation.core;
 import foundation.vfs;

@@ -20,7 +20,7 @@ export module editor.mcp:log_tools;
 import foundation.core;
 import foundation.json;
 import foundation.mcp;
-import editor.core;
+import editor.project;
 import :session;
 
 using namespace foundation::core;

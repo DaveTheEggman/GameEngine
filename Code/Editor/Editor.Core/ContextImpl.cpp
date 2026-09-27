@@ -22,19 +22,10 @@ import foundation.content;
 import :command;
 import :selection;
 import :page;
-import :project;
+import editor.project;
 
 using namespace foundation::core;
 
-namespace editor::detail
-{
-    // The editor-binary root-allocator seam (declared in Context.cppm).
-    IAllocator*& EditorRootSlot() noexcept
-    {
-        static IAllocator* slot = &DefaultAllocator();
-        return slot;
-    }
-} // namespace editor::detail
 
 namespace editor
 {

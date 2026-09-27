@@ -23,7 +23,7 @@ import foundation.core;
 import foundation.vfs;
 import foundation.xml.serialization;
 import foundation.settings;
-import :export_preset; // EditorExportSettings (registered below)
+import editor.project;  // EditorExportSettings (registered below)
 import :actions;       // EditorShortcutSettings captures from and applies to the registry
 
 using namespace foundation::core;

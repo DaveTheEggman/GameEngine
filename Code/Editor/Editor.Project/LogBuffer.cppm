@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :log_buffer partition.
+// Editor::Project - :log_buffer partition.
 //
 // EditorLogBuffer: the editor's log capture. ONE thread-safe
 // bounded ILogSink on core's GlobalLogger replaces Sedulous's logger+listener+buffer trio -
@@ -17,7 +17,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module editor.core:log_buffer;
+export module editor.project:log_buffer;
 
 import foundation.core;
 

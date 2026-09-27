@@ -14,7 +14,7 @@ module;
 #include "Core/Reflection/Reflect.h"
 #include <filesystem> // recursive dir copy when importing a template bundle
 
-module editor.core;
+module editor.project;
 
 import foundation.core;
 import foundation.vfs;

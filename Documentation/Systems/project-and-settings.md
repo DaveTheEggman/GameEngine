@@ -36,7 +36,7 @@ Rules:
   New Project... / Remove From List.
 - `Tools.Editor <dir>` or `--project <dir>` opens directly: the single-project lifecycle (no Close
   Project menu item; the CLI path keeps the scaffold-on-open fallback).
-- Decisions live in `ProjectManagerController` (`editor.core`/`editor.app`, headless, tested):
+- Decisions live in `ProjectManagerController` (`editor.project`/`editor.app`, headless, tested):
   `DecideOpen` probes the manifest and gates it - NotAProject / OpenDirectly / PromptOlderBackup /
   PromptNewerEngine - and composes the prompt copy. The App layer only renders dialogs. Project
   TEMPLATES will plug into `Create` here.

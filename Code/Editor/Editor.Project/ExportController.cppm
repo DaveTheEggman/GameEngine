@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Core - :export_controller partition.
+// Editor::Project - :export_controller partition.
 //
 // ExportPresetsController: the non-UI logic behind the editor's "Export presets" panel - a
 // load -> mutate (add / edit / duplicate / delete) -> save round-trip over a project's
@@ -14,7 +14,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module editor.core:export_controller;
+export module editor.project:export_controller;
 
 import foundation.core;
 import foundation.vfs;

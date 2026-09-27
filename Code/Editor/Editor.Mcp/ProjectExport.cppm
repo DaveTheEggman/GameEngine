@@ -25,7 +25,7 @@ import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import :session;
 import :operations;
 import :asset_uses; // CollectSceneReferences (the scene-edge scan the scanner delegates to)

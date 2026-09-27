@@ -32,7 +32,7 @@ import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
 import engine.scenesurface;
-import editor.core;
+import editor.project;
 import :session;
 
 using namespace foundation::core;

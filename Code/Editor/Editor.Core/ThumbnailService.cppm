@@ -40,7 +40,7 @@ import foundation.resource; // ResourceManager (scene-thumbnail generators bind 
 import foundation.scene;    // Scene (the stage's persistent preview scene, populated by generators)
 import foundation.ui;
 import foundation.vfs;
-import :job_service;
+import editor.project; // EditorJobService
 
 using namespace foundation::core;
 namespace content = foundation::content;
