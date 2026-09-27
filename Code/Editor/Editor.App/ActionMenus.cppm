@@ -35,11 +35,18 @@ export namespace editor::app
             : m_bar(&bar), m_actions(&actions)
         {
             ActionMenuBar* self = this;
-            m_actions->OnActionsChanged.Add([self]() { self->Rebuild(); });
+            m_changed = m_actions->OnActionsChanged.Add([self]() { self->Rebuild(); });
             Rebuild();
         }
         ActionMenuBar(const ActionMenuBar&) = delete;
         ActionMenuBar& operator=(const ActionMenuBar&) = delete;
+        /// The bar's items execute through this object, so they go with it: the bar is left
+        /// empty and the registry no longer calls back.
+        ~ActionMenuBar()
+        {
+            m_actions->OnActionsChanged.Remove(m_changed);
+            m_bar->ClearMenus();
+        }
 
         /// Items that are not actions, at the top of `menu` (created when absent): the
         /// list-driven sets. Rebuilt with the menu.
@@ -204,5 +211,6 @@ export namespace editor::app
         foundation::ui::toolkit::MenuBar* m_bar;
         EditorActionRegistry* m_actions;
         Array<Leading> m_leading;
+        foundation::ui::Event<void()>::Token m_changed = 0;
     };
 }

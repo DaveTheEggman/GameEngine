@@ -70,7 +70,12 @@ TEST_CASE("action-menus: the bar is generated from the registry - menus in first
     REQUIRE(actions.Register(Declare(u8"scene.sim.start", u8"Start", u8"Scene/Simulate/Start", 100)));
     REQUIRE(actions.Register(Declare(u8"hidden.one", u8"No menu", u8"", 0))); // not in the bar
 
+    ui::UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
     auto bar = MakeRef<ui::toolkit::MenuBar>(DefaultAllocator());
+    root->AddView(bar.Get());
     app::ActionMenuBar menus(*bar, actions);
     REQUIRE(bar->MenuCount() == 3u);
     CHECK(bar->MenuTitle(0) == u8"File");
@@ -85,12 +90,16 @@ TEST_CASE("action-menus: the bar is generated from the registry - menus in first
     REQUIRE(simulate->Submenu);
     CHECK(Labels(*Cast<ui::ContextMenu>(simulate->Submenu.Get())) == u8"Start|Stop");
 
-    // Enabled is the registry's answer at the moment the menu opens.
+    // Enabled is the registry's answer at the moment the menu opens - opened the way a click
+    // on the bar opens it, not by calling the hook by hand (the bar once skipped the hook).
     CHECK_FALSE(bar->MenuAt(0)->ItemAt(0)->Enabled);
     dirty = true;
     CHECK_FALSE(bar->MenuAt(0)->ItemAt(0)->Enabled); // not yet: built before the change
-    REQUIRE(bar->MenuAt(0)->OnOpening);
-    bar->MenuAt(0)->OnOpening(*bar->MenuAt(0));
+    bar->OpenMenuAt(0);
+    CHECK(bar->MenuAt(0)->ItemAt(0)->Enabled);
+    CHECK(root->GetPopupLayer()->PopupCount() == 1u);
+    bar->ClearMenus();
+    menus.Rebuild();
     CHECK(bar->MenuAt(0)->ItemAt(0)->Enabled);
     // A click executes through the registry.
     bar->MenuAt(0)->ItemAt(0)->Action();
@@ -116,6 +125,34 @@ TEST_CASE("action-menus: the bar is generated from the registry - menus in first
                           { recent.AddItem(u8"yesterday.scene", []() {}); });
     REQUIRE(bar->MenuCount() == 5u);
     CHECK(Labels(*bar->MenuAt(4)) == u8"yesterday.scene");
+}
+
+TEST_CASE("action-surfaces: a generated bar or shortcut set that dies leaves nothing behind - the "
+          "bar empty, the globals gone, the registry no longer calling back")
+{
+    ui::UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    EditorActionRegistry actions;
+    EditorActionDeclaration save = Declare(u8"file.save", u8"Save", u8"File/Save", 100);
+    save.shortcut = EditorShortcut{ui::KeyCode::S, ui::KeyModifiers::Ctrl};
+    REQUIRE(actions.Register(Move(save)));
+    auto bar = MakeRef<ui::toolkit::MenuBar>(DefaultAllocator());
+    const usize before = ctx.GetShortcuts()->Count();
+    {
+        app::ActionMenuBar menus(*bar, actions);
+        app::ActionShortcuts shortcuts(*ctx.GetShortcuts(), actions);
+        CHECK(bar->MenuCount() == 1u);
+        CHECK(shortcuts.BoundCount() == 1u);
+        CHECK(actions.OnActionsChanged.Count() == 2u);
+    }
+    CHECK(bar->MenuCount() == 0u);
+    CHECK(ctx.GetShortcuts()->Count() == before);
+    CHECK(actions.OnActionsChanged.Count() == 0u);
+    // A registration after they are gone reaches nobody (it once called into freed memory).
+    REQUIRE(actions.Register(Declare(u8"file.exit", u8"Exit", u8"File/Exit", 300)));
+    CHECK(bar->MenuCount() == 0u);
 }
 
 TEST_CASE("action-shortcuts: one global per effective chord and alternate, executing through "

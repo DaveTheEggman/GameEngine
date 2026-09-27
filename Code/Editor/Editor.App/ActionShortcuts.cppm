@@ -29,12 +29,18 @@ export namespace editor::app
             : m_shortcuts(&shortcuts), m_actions(&actions)
         {
             ActionShortcuts* self = this;
-            m_actions->OnActionsChanged.Add([self]() { self->Rebind(); });
+            m_changed = m_actions->OnActionsChanged.Add([self]() { self->Rebind(); });
             Rebind();
         }
         ActionShortcuts(const ActionShortcuts&) = delete;
         ActionShortcuts& operator=(const ActionShortcuts&) = delete;
-        ~ActionShortcuts() { Unbind(); }
+        /// The globals execute through this object, so they go with it, and the registry no
+        /// longer calls back.
+        ~ActionShortcuts()
+        {
+            m_actions->OnActionsChanged.Remove(m_changed);
+            Unbind();
+        }
 
         /// The bindings as the registry answers now.
         void Rebind()
@@ -73,5 +79,6 @@ export namespace editor::app
         foundation::ui::ShortcutManager* m_shortcuts;
         EditorActionRegistry* m_actions;
         Array<foundation::ui::Shortcut*> m_bound; // borrowed; the manager owns them
+        foundation::ui::Event<void()>::Token m_changed = 0;
     };
 }
