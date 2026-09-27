@@ -179,3 +179,34 @@ TEST_CASE("dialog: a context's DialogInterceptor answering false keeps the dialo
     CHECK(shown->Context != nullptr);
 }
 
+
+TEST_CASE("dialog: a click on the backdrop outside a modal keeps the keyboard inside it, so Escape still closes")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
+    auto dlg = MakeDialog(u8"Test");
+    dlg->AddButton(u8"OK", DialogResult::OK);
+    bool closed = false;
+    dlg->OnClosed.Add(Event<void(Dialog*, DialogResult)>::Handler{
+        [&closed](Dialog*, DialogResult) { closed = true; }});
+    dlg->Show(&ctx, false);
+    REQUIRE(dlg->IsFocusWithin());
+
+    // The backdrop: the hit test reports the popup layer, nothing focusable - focus used to
+    // clear here, and Escape then went nowhere.
+    ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, 2, 2, 0);
+    CHECK(dlg->IsFocusWithin());
+    // Even when nothing inside held it (cleared by other means), a backdrop click brings the
+    // keyboard back into the dialog rather than leaving it nowhere.
+    ctx.GetFocusManager()->ClearFocus();
+    ctx.GetInputManager()->ProcessMouseDown(MouseButton::Left, 2, 2, 0);
+    CHECK(dlg->IsFocusWithin());
+    // And the focus walk reaches the dialog's buttons now (they live in its visual layout).
+    CHECK(ctx.GetFocusManager()->FocusFirstIn(dlg.Get()));
+    CHECK(ctx.GetFocusManager()->FocusedView() != dlg.Get());
+
+    CHECK(ctx.GetInputManager()->ProcessKeyDown(KeyCode::Escape, KeyModifiers::None, false));
+    CHECK(closed);
+    ctx.MutationQueueRef().Drain();
+}
