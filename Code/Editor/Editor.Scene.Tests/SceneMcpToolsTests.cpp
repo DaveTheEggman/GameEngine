@@ -7,6 +7,7 @@
 // pages, and the simulate control reflecting the page's state.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 
 import foundation.core;
 import foundation.json;
@@ -48,6 +49,7 @@ namespace
         [[nodiscard]] bool IsSimulating() const noexcept override { return m_simulating; }
         [[nodiscard]] bool IsPaused() const noexcept override { return false; }
         [[nodiscard]] GizmoController* Gizmos() noexcept override { return nullptr; }
+        [[nodiscard]] bool CameraOwnsInput() const noexcept override { return false; }
         [[nodiscard]] bool MarkersShown() const noexcept override { return true; }
         void SetMarkersShown(bool) override {}
         void CreatePrefabFromEntity(const Guid&) override {}
@@ -409,3 +411,104 @@ TEST_CASE("scene-mcp-tools: component_set writes one property through the undo p
     context.ClosePage(page);
 }
 
+
+namespace
+{
+    // A component with the shapes the render components do not offer: a string, a vector, and
+    // a stored field the type publishes read-only.
+    struct PlaqueComponent
+    {
+        String text{u8"untitled"};
+        Float3 offset{0, 0, 0};
+        i32 serial = 7;
+    };
+    class PlaqueManager final : public scene::ComponentManager<PlaqueComponent>
+    {
+    };
+}
+
+REFLECT_VALUE(PlaqueComponent, "rtti::editor::scene::test")
+{
+    builder.Property<&PlaqueComponent::text>("text")
+        .Property<&PlaqueComponent::offset>("offset")
+        .Property<&PlaqueComponent::serial>("serial", PropertyFlags::ReadOnly);
+}
+
+TEST_CASE("scene-mcp-tools: component_set writes a string and a vector, clears a reference with null, "
+          "and refuses a read-only property before anything changes")
+{
+    RttiRegisterValue_PlaqueComponent();
+    engine::render::RegisterRenderComponentReflection();
+    Random rng(34);
+    const Guid sceneId = Guid::Generate(rng);
+    EditorContext context{DefaultAllocator()};
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Bistro", sceneId), DefaultAllocator())));
+    SceneEditContext& edit = page->EditContext();
+    scene::Scene& scene = edit.Scene();
+    auto* plaques = scene.AddSystem<PlaqueManager>();
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
+    const Guid signId = edit.CreateEntity(u8"Sign");
+    const scene::EntityHandle sign = edit.Resolve(signId);
+    plaques->Add(sign);
+    const Guid meshAsset = Guid::Generate(rng);
+    meshes->Add(sign).mesh.id = meshAsset;
+    page->ClearDirty();
+    edit.Commands().Clear();
+
+    McpServer server;
+    RegisterSceneLiveTools(server, context);
+    const String pageGuid = GuidText(sceneId);
+    const String signGuid = GuidText(signId);
+    const auto set = [&](StringView component, StringView property, StringView valueJson)
+    {
+        return Call(server, u8"component_set",
+                    Format(u8"{{\"page\":\"{}\",\"entity\":\"{}\",\"component\":\"{}\",\"property\":\"{}\","
+                           u8"\"value\":{}}}",
+                           pageGuid.AsView(), signGuid.AsView(), component, property, valueJson)
+                        .AsView());
+    };
+
+    // A string, by the component's type name (a plain manager has no serialization id).
+    Answer got = set(u8"PlaqueComponent", u8"text", u8"\"Open late\"");
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->text == u8"Open late");
+    CHECK(got.payload.Get(u8"value").AsString() == StringView(u8"Open late"));
+    // A vector as three numbers.
+    got = set(u8"PlaqueComponent", u8"offset", u8"[1,2,3]");
+    REQUIRE(got.ok);
+    CHECK(plaques->Get(sign)->offset.z == doctest::Approx(3.0f));
+    CHECK(got.payload.Get(u8"value").Count() == 3);
+    // null clears a reference.
+    got = set(u8"mesh", u8"mesh", u8"null");
+    REQUIRE(got.ok);
+    CHECK(meshes->Get(sign)->mesh.id.IsNil());
+    CHECK(got.payload.Get(u8"value").IsNull());
+    CHECK(edit.Commands().CanUndo());
+    CHECK(page->IsDirty());
+
+    // Read-only: refused by name before any group opens; the flag is the contract.
+    const i64 stackBefore = edit.Commands().UndoIndex();
+    got = set(u8"PlaqueComponent", u8"serial", u8"9");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'serial' of 'PlaqueComponent' is read-only"));
+    CHECK(plaques->Get(sign)->serial == 7);
+    // Wrong shapes for the new leaves name what they take.
+    got = set(u8"PlaqueComponent", u8"text", u8"5");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'text' of 'PlaqueComponent' takes a string"));
+    got = set(u8"PlaqueComponent", u8"offset", u8"[1,2]");
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().StartsWith(u8"property 'offset' of 'PlaqueComponent' takes "));
+    CHECK(edit.Commands().UndoIndex() == stackBefore);
+
+    // Three undos take the three writes back, newest first.
+    edit.Commands().Undo();
+    CHECK(meshes->Get(sign)->mesh.id == meshAsset);
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->offset.z == doctest::Approx(0.0f));
+    edit.Commands().Undo();
+    CHECK(plaques->Get(sign)->text == u8"untitled");
+
+    context.ClosePage(page);
+}
