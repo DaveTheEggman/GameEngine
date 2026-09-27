@@ -54,6 +54,12 @@ export namespace foundation::ui::toolkit
         {
             return index < m_menus.Size() ? m_menus[index].Title.AsView() : StringView();
         }
+        /// Open the menu at `index` as a click on its title would (the menu prepares to open
+        /// first: its OnOpening runs, so items built from live state are current); out of range
+        /// does nothing. Keyboard access and tests go through here.
+        void OpenMenuAt(usize index) { OpenMenu(static_cast<i32>(index)); }
+        /// The index of the open menu, -1 when none is.
+        [[nodiscard]] i32 ActiveIndex() const noexcept { return m_activeIndex; }
         /// Remove every menu (an open one closes first): a bar built from a registry rebuilds
         /// through this when the registry changes.
         void ClearMenus()
@@ -293,7 +299,10 @@ export namespace foundation::ui::toolkit
                 return;
             }
 
-            // Show via PopupLayer directly - MenuBar owns the ContextMenu (ownsView:false).
+            // Show via PopupLayer directly - MenuBar owns the ContextMenu (ownsView:false) - so
+            // what ContextMenu::Show would do first happens here: the menu prepares to open
+            // (hover reset, OnOpening rebuilds live items) BEFORE it measures.
+            entry.Menu->PrepareToOpen();
             entry.Menu->Measure(BoxConstraints::Loose(root->ViewportSize.x, root->ViewportSize.y));
             root->GetPopupLayer()->ShowPopup(entry.Menu.Get(), this, screenPos.x, screenPos.y,
                                              /*closeOnClickOutside*/ true, /*isModal*/ false,

@@ -213,3 +213,36 @@ TEST_CASE("context-menu: ItemAt, ClearItems, and OnOpening rebuilding the items 
     CHECK(menu->ItemAt(0)->Label == u8"Fresh");
 }
 
+
+TEST_CASE("context-menu: ClearItems closes an open submenu with the item that owned it")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto menu = MakeMenu();
+    menu->AddItem(u8"One", []() {});
+    MenuItem* more = menu->AddSubmenu(u8"More");
+    Cast<ContextMenu>(more->Submenu.Get())->AddItem(u8"Deep", []() {});
+    menu->Show(&ctx, 10.0f, 10.0f);
+    REQUIRE(root->GetPopupLayer()->PopupCount() == 1u);
+
+    // Down twice lands on the submenu item; Right opens it as a second popup.
+    KeyEventArgs down;
+    down.Key = KeyCode::Down;
+    menu->OnKeyDown(down);
+    menu->OnKeyDown(down);
+    REQUIRE(menu->HoveredIndex() == 1);
+    KeyEventArgs right;
+    right.Key = KeyCode::Right;
+    menu->OnKeyDown(right);
+    REQUIRE(root->GetPopupLayer()->PopupCount() == 2u);
+
+    // Rebuilding the items (what a live menu does on every opening) takes the submenu's popup
+    // down with the item; the menu itself stays open.
+    menu->ClearItems();
+    CHECK(root->GetPopupLayer()->PopupCount() == 1u);
+    CHECK(menu->ItemCount() == 0);
+    root->GetPopupLayer()->ClosePopup(menu.Get()); // now, not queued: the root dies with the test
+    CHECK(root->GetPopupLayer()->PopupCount() == 0u);
+}
