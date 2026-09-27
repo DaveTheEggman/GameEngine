@@ -65,7 +65,8 @@ is normal - clear it with `asset_cook`.
 then `scene_write`. Prefabs mirror it with a single-root rule.
 
 **Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
-never trust memorized signatures. `script_create` seeds a starter asset
+never trust memorized signatures. A member with `readOnly: true` (a network identity's
+`authority`, for one) reads and refuses assignment in every backend. `script_create` seeds a starter asset
 (behavior | level | game tier), then edit the returned source FILE, loop on
 `script_validate`, and `asset_cook` to make the class attachable.
 
