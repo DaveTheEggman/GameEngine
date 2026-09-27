@@ -1,6 +1,6 @@
 # Editor actions - one declaration behind menus, shortcuts, toolbars, the palette and MCP
 
-**Status:** PROPOSED 2026-09-26 (research + design; nothing built). Asked for by the user on
+**Status:** BUILT through layer 6 (2026-09-27); layer 7 lands as domains are touched. Originally PROPOSED 2026-09-26. Asked for by the user on
 2026-09-25 ("something I have been observing for a while") when the MCP action bridge showed
 there is no action system to bridge.
 
@@ -218,5 +218,13 @@ struct EditorActionDeclaration
    dialog appears, so a suppressed dialog closes as cancelled at once and the flow that asked
    proceeds as dismissed; the result names the titles. Layers 1 to 4 BUILT 2026-09-26 too.
 6. The command palette and Preferences > Shortcuts with persistence.
+   BUILT 2026-09-27 (branch editor-actions-palette): EditorShortcutSettings persists the
+   overrides by id (captured from the registry, applied after every domain registered, an
+   id this build never registered kept for a later run); CommandPaletteDialog is the
+   registry filtered (label, description, id; ASCII folded; label-starts first), Enter runs
+   over the active subject, Ctrl+Shift+P as view.commandPalette; Preferences > Shortcuts
+   lists every action with a ShortcutCaptureButton (the next key pressed, modifiers
+   normalised) and Reset, staged in ShortcutEdits and applied together on Save - swaps
+   allowed, a collision keeps the holder's chord and is reported by name.
 7. The remaining domains' menus and toolbars migrated as they are touched (AssetsView's 26
    items are mostly per-asset context items over the assets selection; same rule).
