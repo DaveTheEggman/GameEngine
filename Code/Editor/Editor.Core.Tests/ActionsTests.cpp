@@ -10,6 +10,8 @@
 
 import foundation.core;
 import foundation.ui;
+import foundation.settings;
+import foundation.xml.serialization;
 import editor.core;
 
 using namespace foundation::core;
@@ -330,3 +332,79 @@ TEST_CASE("actions: FormatShortcut spells a chord the way a shortcut column show
     CHECK(FormatShortcut(EditorShortcut{ui::KeyCode::Delete, ui::KeyModifiers::None}) == u8"Delete");
 }
 
+
+TEST_CASE("actions: shortcut overrides persist - captured from the registry into the settings section, "
+          "round-tripped through the store, applied back with unknown ids kept and collisions skipped")
+{
+    RegisterEditorSettingsTypes();
+    EditorContext context{DefaultAllocator()};
+    EditorActionRegistry& actions = context.Actions();
+    const auto declare = [&](StringView id, EditorShortcut chord)
+    {
+        EditorActionDeclaration d = Declare(id, id);
+        d.shortcut = chord;
+        d.execute = [](EditorPage*) {};
+        REQUIRE(actions.Register(Move(d)));
+    };
+    declare(u8"page.save", CtrlS);
+    declare(u8"sim.run", F5);
+    declare(u8"view.reset", EditorShortcut{});
+    const EditorShortcut ctrlShiftS{ui::KeyCode::S, ui::KeyModifiers::Ctrl | ui::KeyModifiers::Shift};
+    REQUIRE(actions.Rebind(u8"page.save", ctrlShiftS).IsOk());
+    REQUIRE(actions.Rebind(u8"sim.run", EditorShortcut{}).IsOk()); // cleared on purpose
+
+    // Capture: only the overridden ones; an entry for an id this build never registered stays.
+    foundation::settings::Settings store(DefaultAllocator());
+    EditorShortcutSettings& section = store.Section<EditorShortcutSettings>();
+    ShortcutOverrideEntry foreign;
+    foreign.id = String(u8"terrain.sculpt"); // a domain not loaded here
+    foreign.key = static_cast<u32>(ui::KeyCode::T);
+    section.overrides.PushBack(Move(foreign));
+    CHECK(CaptureShortcutOverrides(actions, section) == 3u);
+    REQUIRE(section.Find(u8"page.save") != nullptr);
+    CHECK(section.Find(u8"page.save")->Chord() == ctrlShiftS);
+    REQUIRE(section.Find(u8"sim.run") != nullptr);
+    CHECK_FALSE(section.Find(u8"sim.run")->Chord().IsSet());
+    CHECK(section.Find(u8"view.reset") == nullptr);
+    CHECK(section.Find(u8"terrain.sculpt") != nullptr);
+    // A reset override leaves the section on the next capture.
+    actions.ResetShortcut(u8"sim.run");
+    CHECK(CaptureShortcutOverrides(actions, section) == 2u);
+    CHECK(section.Find(u8"sim.run") == nullptr);
+
+    // Through the store and back.
+    MemoryStream buffer;
+    REQUIRE(store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings loaded(DefaultAllocator());
+    REQUIRE(loaded.Load(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    const EditorShortcutSettings* back = loaded.Find<EditorShortcutSettings>();
+    REQUIRE(back != nullptr);
+    REQUIRE(back->overrides.Size() == 2u);
+    CHECK(back->Find(u8"page.save")->Chord() == ctrlShiftS);
+    CHECK(back->Find(u8"terrain.sculpt")->Chord().key == ui::KeyCode::T);
+
+    // Apply to a fresh registry: the known override binds, the unknown id is skipped, and a
+    // chord another action holds is refused and skipped (the holder keeps it).
+    EditorContext other{DefaultAllocator()};
+    EditorActionRegistry& fresh = other.Actions();
+    {
+        EditorActionDeclaration d = Declare(u8"page.save", u8"Save");
+        d.shortcut = CtrlS;
+        d.execute = [](EditorPage*) {};
+        REQUIRE(fresh.Register(Move(d)));
+        EditorActionDeclaration taken = Declare(u8"edit.other", u8"Other");
+        taken.shortcut = ctrlShiftS; // holds the chord the override wants? no - page.save's own
+        taken.execute = [](EditorPage*) {};
+        REQUIRE(fresh.Register(Move(taken)));
+    }
+    // edit.other holds Ctrl+Shift+S, so page.save's override collides and is skipped.
+    CHECK(ApplyShortcutOverrides(*back, fresh) == 0u);
+    CHECK(fresh.Shortcut(u8"page.save") == CtrlS);
+    CHECK_FALSE(fresh.HasOverride(u8"page.save"));
+    // Free the chord: the override applies on the next apply; the unknown id still counts nothing.
+    REQUIRE(fresh.Rebind(u8"edit.other", EditorShortcut{}).IsOk());
+    CHECK(ApplyShortcutOverrides(*back, fresh) == 1u);
+    CHECK(fresh.Shortcut(u8"page.save") == ctrlShiftS);
+    CHECK(fresh.Find(u8"terrain.sculpt") == nullptr);
+}

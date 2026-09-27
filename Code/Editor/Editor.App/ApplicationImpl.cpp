@@ -407,6 +407,11 @@ namespace editor::app
             m_config.registerEditors(*this, *m_embeddedHost, *m_uiHost);
         }
 
+        // The user's shortcut overrides, once every domain has declared its actions (an
+        // override names an id; a domain not loaded keeps its entry for a later run).
+        (void)editor::ApplyShortcutOverrides(m_editorSettings.Section<editor::EditorShortcutSettings>(),
+                                             m_context.Actions());
+
         // Menus AFTER registration - File > New builds from the creator registry. Built once;
         // both modes share them (the manager screen simply doesn't show the shell chrome).
         BuildMenus();
