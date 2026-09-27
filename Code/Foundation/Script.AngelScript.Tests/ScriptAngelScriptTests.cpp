@@ -923,6 +923,7 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
 {
     RegisterCoreTypes();
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    manager->RegisterType(Widget::StaticType()); // a test-local type beside the registry's
     RegisterReflectedTypes(*manager);
 
     const Array<ScriptApiType> api = manager->DescribeBoundApi();
@@ -961,6 +962,20 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
     const ScriptApiMember* atan2 = findMember(*math, u8"Atan2");
     REQUIRE(atan2 != nullptr);
     CHECK(atan2->signature.AsView().EndsWith(u8" x)")); // Atan2(y, x)
+
+    // A read-only property says so: the flag for tooling, the suffix for a reader of the
+    // signature (the API browser), so an agent knows before it writes.
+    const ScriptApiType* widget = findType(u8"Widget");
+    REQUIRE(widget != nullptr);
+    const ScriptApiMember* serial = findMember(*widget, u8"serial");
+    REQUIRE(serial != nullptr);
+    CHECK(serial->readOnly);
+    CHECK(serial->kind == ScriptApiMemberKind::Property);
+    CHECK(serial->signature.AsView() == u8"Widget.serial (read only)");
+    const ScriptApiMember* id = findMember(*widget, u8"id");
+    REQUIRE(id != nullptr);
+    CHECK_FALSE(id->readOnly);
+    CHECK(id->signature.AsView() == u8"Widget.id");
 }
 
 TEST_CASE("angelscript: Object-derived type as a script-visible class")

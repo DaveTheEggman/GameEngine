@@ -4423,17 +4423,33 @@ TEST_CASE("script.scene: a script that assigns NetworkComponent.authority never 
         u8"    }\n"
         u8"}\n",
         {u8"onStart"});
+    // The id too: assigning it to itself is only refused because no setter exists.
+    RefPtr<ScriptClass> renamer = MakeClassLang(
+        u8"angelscript", u8"IdWriter",
+        u8"class IdWriter {\n"
+        u8"    private Entity@ self;\n"
+        u8"    IdWriter(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        self.setName(\"started\");\n"
+        u8"        NetworkComponent@ n = NetworkComponent::of(self);\n"
+        u8"        n.id = n.id;\n"
+        u8"    }\n"
+        u8"}\n",
+        {u8"onStart"});
 
     const scene::EntityHandle e = bed.AddScripted(tweaker, u8"e");
     net->Add(e).authority = foundation::net::NetworkAuthority::Server;
+    const scene::EntityHandle f = bed.AddScripted(renamer, u8"f");
+    net->Add(f);
 
     bed.Start();
     bed.Frame();
 
-    // The class fails to compile (authority has no setter), so onStart never runs.
+    // Both classes fail to compile (no setter), so neither onStart runs.
     REQUIRE(net->Get(e) != nullptr);
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"e"));
     CHECK(net->Get(e)->authority == foundation::net::NetworkAuthority::Server);
+    CHECK(bed.scene.GetEntityName(f) == StringView(u8"f"));
 }
 
 TEST_CASE("script.scene: NetworkComponent.of authority crosses as an int")

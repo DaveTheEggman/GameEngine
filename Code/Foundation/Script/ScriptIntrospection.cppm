@@ -38,6 +38,9 @@ export namespace foundation::script
         core::String name;
         core::String signature;
         bool isStatic = false;
+        /// A property a script reads and cannot assign (PropertyFlags::ReadOnly): the backend
+        /// bound no setter, so an agent reading the surface knows before it writes.
+        bool readOnly = false;
         ScriptApiMemberKind kind = ScriptApiMemberKind::Method;
     };
 

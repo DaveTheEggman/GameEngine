@@ -2709,7 +2709,13 @@ namespace foundation::script
                     ScriptApiMember member;
                     member.name = String(ViewOf(t->properties[p].name));
                     member.kind = ScriptApiMemberKind::Property;
+                    member.readOnly = (static_cast<u32>(t->properties[p].flags) &
+                                       static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
                     member.signature = member.name;
+                    if (member.readOnly)
+                    {
+                        member.signature += u8" (read only)";
+                    }
                     api.members.PushBack(Move(member));
                 }
             }

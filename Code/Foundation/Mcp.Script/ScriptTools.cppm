@@ -104,6 +104,7 @@ namespace foundation::mcp::script_detail
                     memberObj.Set(u8"name", JsonValue::MakeString(m.name));
                     memberObj.Set(u8"signature", JsonValue::MakeString(m.signature));
                     memberObj.Set(u8"isStatic", JsonValue::MakeBool(m.isStatic));
+                    memberObj.Set(u8"readOnly", JsonValue::MakeBool(m.readOnly));
                     memberObj.Set(u8"kind", JsonValue::MakeString(String(KindName(m.kind))));
                     members.Add(Move(memberObj));
                 }
