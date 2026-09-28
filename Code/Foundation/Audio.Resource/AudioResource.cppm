@@ -391,3 +391,17 @@ export namespace foundation::audio
     RTTI_DEFINE_OBJECT(AudioBusLayoutResource, "rtti::audio")
     RTTI_DEFINE_OBJECT(SoundCueSource, "rtti::audio")
 }
+
+export namespace foundation::audio
+{
+    /// The audio resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kAudioResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<AudioClip, AudioClipSource, AudioClipFactory>(),
+        foundation::resource::FactoryWithAllocator<AudioBusLayoutResource, AudioBusLayoutSource, AudioBusLayoutFactory>(),
+        foundation::resource::FactoryWithAllocator<SoundCue, SoundCueSource, SoundCueFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kAudioResourceModule{
+        u8"audio", &RegisterAudioResource, kAudioResourceFactories,
+        sizeof(kAudioResourceFactories) / sizeof(kAudioResourceFactories[0])};
+}

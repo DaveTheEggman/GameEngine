@@ -110,3 +110,15 @@ export namespace foundation::navigation
     RTTI_DEFINE_OBJECT_VERSIONED(NavigationZoneSource, "rtti::navigation", 2) // 2: the frame stamp left
     RTTI_DEFINE_OBJECT(NavigationZoneResource, "rtti::navigation")
 }
+
+export namespace foundation::navigation
+{
+    /// The navigation resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kNavigationResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<NavigationZoneResource, NavigationZoneSource, NavigationZoneFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kNavigationResourceModule{
+        u8"navigation", &RegisterNavigationResource, kNavigationResourceFactories,
+        sizeof(kNavigationResourceFactories) / sizeof(kNavigationResourceFactories[0])};
+}

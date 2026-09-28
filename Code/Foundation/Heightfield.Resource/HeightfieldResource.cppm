@@ -184,3 +184,15 @@ export namespace foundation::heightfield
     // heightfield carries both; a v1 product is refused and re-cooked, never migrated).
     RTTI_DEFINE_OBJECT_VERSIONED(HeightfieldSource, "rtti::heightfield", 2)
 }
+
+export namespace foundation::heightfield
+{
+    /// The heightfield resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kHeightfieldResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<Heightfield, HeightfieldSource, HeightfieldFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kHeightfieldResourceModule{
+        u8"heightfield", &RegisterHeightfieldResourceTypes, kHeightfieldResourceFactories,
+        sizeof(kHeightfieldResourceFactories) / sizeof(kHeightfieldResourceFactories[0])};
+}

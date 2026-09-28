@@ -370,3 +370,15 @@ export namespace foundation::particles
 
     RTTI_DEFINE_OBJECT(ParticleEffectResource, "rtti::particles")
 }
+
+export namespace foundation::particles
+{
+    /// The particles resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kParticlesResourceFactories[] = {
+        foundation::resource::FactoryByDefault<ParticleEffectResource, ParticleEffectResource, ParticleEffectFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kParticlesResourceModule{
+        u8"particles", &RegisterParticleEffectResource, kParticlesResourceFactories,
+        sizeof(kParticlesResourceFactories) / sizeof(kParticlesResourceFactories[0])};
+}

@@ -310,3 +310,23 @@ export namespace foundation::materials
     // in MaterialResourceImpl.cpp (GCC module hygiene: REFLECT_MEMBERS bodies out of interfaces).
 
 } // namespace foundation::materials
+
+export namespace foundation::materials
+{
+    /// Registers the cooked record + product (content-DB construction by type name). Idempotent.
+    inline void RegisterMaterialResourceTypes()
+    {
+        GlobalTypeRegistry().Register(MaterialSource::StaticType());
+        RegisterSerializable<MaterialSource>();
+        GlobalTypeRegistry().Register(Material::StaticType());
+    }
+
+    /// The materials resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kMaterialsResourceFactories[] = {
+        foundation::resource::FactoryByDefault<Material, MaterialSource, MaterialFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kMaterialsResourceModule{
+        u8"materials", &RegisterMaterialResourceTypes, kMaterialsResourceFactories,
+        sizeof(kMaterialsResourceFactories) / sizeof(kMaterialsResourceFactories[0])};
+}

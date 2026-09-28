@@ -83,7 +83,12 @@ export namespace foundation::shaders
     class ShaderFactory final : public IResourceFactory
     {
     public:
-        explicit ShaderFactory(ShaderSystem& system) noexcept : m_system(&system) {}
+        // The allocator backs every product this factory creates (required - the composition
+        // that creates the factory decides); the shader system is borrowed from the host.
+        ShaderFactory(IAllocator& allocator, ShaderSystem& system) noexcept
+            : m_allocator(&allocator), m_system(&system)
+        {
+        }
 
         [[nodiscard]] const TypeInfo* ProductType() const override
         {
@@ -111,12 +116,13 @@ export namespace foundation::shaders
                                      source->fragmentSource.AsView());
             m_system->InvalidateShader(source->name.AsView()); // drop stale variants + bump version
 
-            RefPtr<ShaderResource> res = MakeRef<ShaderResource>(DefaultAllocator());
+            RefPtr<ShaderResource> res = MakeRef<ShaderResource>(*m_allocator);
             res->Init(m_system, source->name.AsView());
             return res;
         }
 
     private:
+        IAllocator* m_allocator;
         ShaderSystem* m_system; // borrowed
     };
 
@@ -124,3 +130,23 @@ export namespace foundation::shaders
     RTTI_DEFINE_OBJECT(ShaderResource, "rtti::shaders")
 
 } // namespace foundation::shaders
+
+export namespace foundation::shaders
+{
+    /// Registers the cooked record + product (content-DB construction by type name). Idempotent.
+    inline void RegisterShaderResourceTypes()
+    {
+        GlobalTypeRegistry().Register(ShaderSource::StaticType());
+        RegisterSerializable<ShaderSource>();
+        GlobalTypeRegistry().Register(ShaderResource::StaticType());
+    }
+
+    /// The shaders resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kShadersResourceFactories[] = {
+        foundation::resource::FactoryWithService<ShaderResource, ShaderSource, ShaderFactory, ShaderSystem>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kShadersResourceModule{
+        u8"shaders", &RegisterShaderResourceTypes, kShadersResourceFactories,
+        sizeof(kShadersResourceFactories) / sizeof(kShadersResourceFactories[0])};
+}

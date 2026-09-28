@@ -81,7 +81,6 @@ Code/Foundation/Runtime.Web/WebRunner.cppm
 Code/Foundation/Scene.Resource/SceneResource.cppm
 Code/Foundation/Script.AngelScript/AngelScriptScriptImpl.cpp
 Code/Foundation/Shaders/Compiler.cppm
-Code/Foundation/Shaders.Resource/ShaderResource.cppm
 Code/Foundation/Shell.Null/NullShell.cppm
 Code/Foundation/Shell.Web/WebWindowManager.cppm
 Code/Foundation/UI.Application/UIApplication.cppm

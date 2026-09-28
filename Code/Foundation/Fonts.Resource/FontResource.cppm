@@ -620,3 +620,15 @@ export namespace foundation::fonts
     RTTI_DEFINE_OBJECT_VERSIONED(FontResource, "rtti::fonts", 2) // 2: glyph bounds keys use full names
     RTTI_DEFINE_OBJECT(Font, "rtti::fonts")
 }
+
+export namespace foundation::fonts
+{
+    /// The fonts resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kFontsResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<Font, FontResource, FontFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kFontsResourceModule{
+        u8"fonts", &RegisterFontResource, kFontsResourceFactories,
+        sizeof(kFontsResourceFactories) / sizeof(kFontsResourceFactories[0])};
+}

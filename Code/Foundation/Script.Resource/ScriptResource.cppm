@@ -362,3 +362,15 @@ export namespace foundation::script
     RTTI_DEFINE_OBJECT(ScriptClassSource, "rtti::script")
     RTTI_DEFINE_OBJECT(ScriptClass, "rtti::script")
 }
+
+export namespace foundation::script
+{
+    /// The script resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kScriptResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<ScriptClass, ScriptClassSource, ScriptClassFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kScriptResourceModule{
+        u8"script", &RegisterScriptResource, kScriptResourceFactories,
+        sizeof(kScriptResourceFactories) / sizeof(kScriptResourceFactories[0])};
+}

@@ -72,7 +72,7 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
                                           u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     ShaderSystem system(*compiler, device);
-    ShaderFactory factory(system);
+    ShaderFactory factory(DefaultAllocator(), system);
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&factory);
 

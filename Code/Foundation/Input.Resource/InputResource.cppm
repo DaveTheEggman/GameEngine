@@ -64,3 +64,15 @@ export namespace foundation::input
 
     RTTI_DEFINE_OBJECT(InputMapResource, "rtti::input")
 }
+
+export namespace foundation::input
+{
+    /// The input resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kInputResourceFactories[] = {
+        foundation::resource::FactoryByDefault<InputMapResource, InputMapResource, InputMapFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kInputResourceModule{
+        u8"input", &RegisterInputMapResource, kInputResourceFactories,
+        sizeof(kInputResourceFactories) / sizeof(kInputResourceFactories[0])};
+}

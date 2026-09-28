@@ -1162,4 +1162,210 @@ export namespace foundation::resource
         ResourceManager* m_manager;
         usize m_total = 0;
     };
+
+    // =======================================================================
+    // Resource composition (Documentation/Specs/engine-composition.md, D1-D3). A resource
+    // library DECLARES its module: its type registration and, per factory, a description -
+    // product, cooked form, the service it needs beyond an allocator, and how to create it.
+    // A composition creates the factories it can, OWNS them (ResourceFactorySet) and registers
+    // them into a manager. Nobody collects factories by hand; a factory belongs to the
+    // resource it produces, and a domain that names the resource module brings the factory.
+    // =======================================================================
+
+    /// What a factory may need beyond an allocator - a GPU device, a shader system - asked for
+    /// BY TYPE: TypeOf<T>().id, process-single and stable across shared libraries. The host
+    /// answers what it has; a factory whose service is absent is not created, and the set says so.
+    class IResourceServices
+    {
+    public:
+        virtual ~IResourceServices() = default;
+        /// The service instance for `type`, or null when this host has none.
+        [[nodiscard]] virtual void* Service(TypeId type) const noexcept = 0;
+        template <typename T>
+        [[nodiscard]] T* Get() const noexcept
+        {
+            return static_cast<T*>(Service(TypeOf<T>().id));
+        }
+    };
+
+    /// A host with nothing to offer (headless tools): every gated factory is skipped.
+    class NoResourceServices final : public IResourceServices
+    {
+    public:
+        [[nodiscard]] void* Service(TypeId) const noexcept override { return nullptr; }
+    };
+
+    /// What a factory IS before one exists: a constant, readable without constructing anything
+    /// (the scene format reference joins on `product` and `cooked`). `service` names the type
+    /// the factory needs beyond an allocator (null for most); `create` returns null when that
+    /// service is absent from the host.
+    struct ResourceFactoryDesc
+    {
+        const TypeInfo* (*product)();
+        const TypeInfo* (*cooked)();
+        const TypeInfo* (*service)();
+        UniquePtr<IResourceFactory> (*create)(IAllocator& allocator, const IResourceServices& services);
+    };
+
+    /// A description for a factory constructed from the allocator alone (`Factory(IAllocator&)`).
+    template <typename Product, typename Cooked, typename Factory>
+    [[nodiscard]] constexpr ResourceFactoryDesc FactoryWithAllocator() noexcept
+    {
+        return ResourceFactoryDesc{
+            []() -> const TypeInfo* { return &Product::StaticType(); },
+            []() -> const TypeInfo* { return &Cooked::StaticType(); },
+            nullptr,
+            [](IAllocator& allocator, const IResourceServices&) -> UniquePtr<IResourceFactory>
+            { return MakeUnique<Factory>(allocator, allocator); }};
+    }
+
+    /// A description for a default-constructed factory (it allocates from nothing the host owns).
+    template <typename Product, typename Cooked, typename Factory>
+    [[nodiscard]] constexpr ResourceFactoryDesc FactoryByDefault() noexcept
+    {
+        return ResourceFactoryDesc{
+            []() -> const TypeInfo* { return &Product::StaticType(); },
+            []() -> const TypeInfo* { return &Cooked::StaticType(); },
+            nullptr,
+            [](IAllocator& allocator, const IResourceServices&) -> UniquePtr<IResourceFactory>
+            { return MakeUnique<Factory>(allocator); }};
+    }
+
+    /// A description for a factory that needs a host `Service` (`Factory(IAllocator&, Service&)`):
+    /// created only when the host answers for `TypeOf<Service>()`.
+    template <typename Product, typename Cooked, typename Factory, typename Service>
+    [[nodiscard]] constexpr ResourceFactoryDesc FactoryWithService() noexcept
+    {
+        return ResourceFactoryDesc{
+            []() -> const TypeInfo* { return &Product::StaticType(); },
+            []() -> const TypeInfo* { return &Cooked::StaticType(); },
+            []() -> const TypeInfo* { return &TypeOf<Service>(); },
+            [](IAllocator& allocator, const IResourceServices& services) -> UniquePtr<IResourceFactory>
+            {
+                Service* service = services.Get<Service>();
+                if (service == nullptr)
+                {
+                    return UniquePtr<IResourceFactory>{};
+                }
+                return MakeUnique<Factory>(allocator, allocator, *service);
+            }};
+    }
+
+    /// One resource library's declaration: an id, its type registration (idempotent; null when
+    /// the library has none of its own) and its factory descriptions. Declared `inline constexpr`
+    /// in the library's interface: a constant table, duplicated per image without harm.
+    struct ResourceModule
+    {
+        StringView id;
+        void (*registerTypes)();
+        const ResourceFactoryDesc* factories;
+        usize factoryCount;
+
+        [[nodiscard]] Span<const ResourceFactoryDesc> Factories() const noexcept
+        {
+            return Span<const ResourceFactoryDesc>{factories, factoryCount};
+        }
+        void RegisterTypes() const
+        {
+            if (registerTypes != nullptr)
+            {
+                registerTypes();
+            }
+        }
+    };
+
+    /// The factories a composition created, owned here. `Create` is idempotent by product type:
+    /// a second call with richer services fills what the first skipped and creates nothing twice.
+    class ResourceFactorySet
+    {
+    public:
+        /// Creates every description of `modules` whose product is not yet in the set and whose
+        /// service (if any) `services` answers; the rest are recorded under Skipped().
+        void Create(Span<const ResourceModule* const> modules, IAllocator& allocator,
+                    const IResourceServices& services)
+        {
+            for (const ResourceModule* module : modules)
+            {
+                for (const ResourceFactoryDesc& desc : module->Factories())
+                {
+                    const TypeInfo* product = desc.product != nullptr ? desc.product() : nullptr;
+                    if (product == nullptr || Has(product->id))
+                    {
+                        Forget(desc);
+                        continue;
+                    }
+                    UniquePtr<IResourceFactory> factory =
+                        desc.create != nullptr ? desc.create(allocator, services)
+                                               : UniquePtr<IResourceFactory>{};
+                    if (factory.Get() == nullptr)
+                    {
+                        Remember(desc);
+                        continue;
+                    }
+                    Forget(desc);
+                    m_factories.PushBack(Move(factory));
+                }
+            }
+        }
+        /// Registers every created factory into `manager` (non-owning, as AddFactory is).
+        void Register(ResourceManager& manager) const
+        {
+            for (const UniquePtr<IResourceFactory>& factory : m_factories)
+            {
+                manager.AddFactory(factory.Get());
+            }
+        }
+        template <typename Fn>
+        void ForEach(Fn&& fn) const
+        {
+            for (const UniquePtr<IResourceFactory>& factory : m_factories)
+            {
+                fn(*factory);
+            }
+        }
+        [[nodiscard]] usize Count() const noexcept { return m_factories.Size(); }
+        [[nodiscard]] bool Has(TypeId productId) const noexcept
+        {
+            for (const UniquePtr<IResourceFactory>& factory : m_factories)
+            {
+                if (factory->ProductType()->id == productId)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+        /// The descriptions the last Create calls could not honour (their `service` says why).
+        [[nodiscard]] Span<const ResourceFactoryDesc* const> Skipped() const noexcept
+        {
+            return Span<const ResourceFactoryDesc* const>{m_skipped.Data(), m_skipped.Size()};
+        }
+
+    private:
+        void Remember(const ResourceFactoryDesc& desc)
+        {
+            for (const ResourceFactoryDesc* known : m_skipped)
+            {
+                if (known == &desc)
+                {
+                    return;
+                }
+            }
+            m_skipped.PushBack(&desc);
+        }
+        void Forget(const ResourceFactoryDesc& desc)
+        {
+            for (usize i = 0; i < m_skipped.Size(); ++i)
+            {
+                if (m_skipped[i] == &desc)
+                {
+                    m_skipped.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+
+        Array<UniquePtr<IResourceFactory>> m_factories;
+        Array<const ResourceFactoryDesc*> m_skipped;
+    };
 }

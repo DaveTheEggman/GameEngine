@@ -463,3 +463,15 @@ export namespace foundation::vegetation
     RTTI_DEFINE_OBJECT(VegetationMask, "rtti::vegetation")
     RTTI_DEFINE_OBJECT_VERSIONED(VegetationMaskSource, "rtti::vegetation", 1)
 }
+
+export namespace foundation::vegetation
+{
+    /// The vegetation resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kVegetationResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<VegetationMask, VegetationMaskSource, VegetationMaskFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kVegetationResourceModule{
+        u8"vegetation", &RegisterVegetationMaskResourceTypes, kVegetationResourceFactories,
+        sizeof(kVegetationResourceFactories) / sizeof(kVegetationResourceFactories[0])};
+}

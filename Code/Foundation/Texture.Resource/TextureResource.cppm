@@ -450,3 +450,15 @@ export namespace foundation::texture
     RTTI_DEFINE_OBJECT(Texture, "rtti::texture")
     RTTI_DEFINE_OBJECT(DecodedTexture, "rtti::texture")
 }
+
+export namespace foundation::texture
+{
+    /// The texture resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kTextureResourceFactories[] = {
+        foundation::resource::FactoryWithService<Texture, TextureResource, TextureFactory, foundation::rhi::Device>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kTextureResourceModule{
+        u8"texture", &RegisterTextureResource, kTextureResourceFactories,
+        sizeof(kTextureResourceFactories) / sizeof(kTextureResourceFactories[0])};
+}

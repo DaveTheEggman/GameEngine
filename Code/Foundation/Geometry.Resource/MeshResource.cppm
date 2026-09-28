@@ -342,3 +342,27 @@ export namespace foundation::geometry
     RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshSource, "rtti::geometry", 4)
 
 } // namespace foundation::geometry
+
+export namespace foundation::geometry
+{
+    /// Registers the cooked records + products (content-DB construction by type name). Idempotent.
+    inline void RegisterGeometryResourceTypes()
+    {
+        GlobalTypeRegistry().Register(StaticMeshSource::StaticType());
+        RegisterSerializable<StaticMeshSource>();
+        GlobalTypeRegistry().Register(StaticMesh::StaticType());
+        GlobalTypeRegistry().Register(SkinnedMeshSource::StaticType());
+        RegisterSerializable<SkinnedMeshSource>();
+        GlobalTypeRegistry().Register(SkinnedMesh::StaticType());
+    }
+
+    /// The geometry resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kGeometryResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<StaticMesh, StaticMeshSource, StaticMeshFactory>(),
+        foundation::resource::FactoryWithAllocator<SkinnedMesh, SkinnedMeshSource, SkinnedMeshFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kGeometryResourceModule{
+        u8"geometry", &RegisterGeometryResourceTypes, kGeometryResourceFactories,
+        sizeof(kGeometryResourceFactories) / sizeof(kGeometryResourceFactories[0])};
+}

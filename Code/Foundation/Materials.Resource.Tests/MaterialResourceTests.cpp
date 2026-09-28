@@ -96,7 +96,7 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
                                           u8".rasset");
     rhi::null::NullDevice device{DefaultAllocator()};
     shaders::ShaderSystem system(*compiler, device);
-    shaders::ShaderFactory shaderFactory(system);
+    shaders::ShaderFactory shaderFactory(DefaultAllocator(), system);
     MaterialFactory materialFactory;
     ResourceManager manager(DefaultAllocator(), db);
     manager.AddFactory(&shaderFactory);

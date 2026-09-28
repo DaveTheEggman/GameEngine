@@ -112,3 +112,15 @@ export namespace foundation::image
 
     RTTI_DEFINE_OBJECT(ImageResource, "rtti::image")
 }
+
+export namespace foundation::image
+{
+    /// The image resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kImageResourceFactories[] = {
+        foundation::resource::FactoryByDefault<ImageResource, ImageResource, ImageFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kImageResourceModule{
+        u8"image", &RegisterImageResource, kImageResourceFactories,
+        sizeof(kImageResourceFactories) / sizeof(kImageResourceFactories[0])};
+}

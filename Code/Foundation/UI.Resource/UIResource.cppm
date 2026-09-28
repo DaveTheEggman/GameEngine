@@ -150,3 +150,16 @@ export namespace foundation::ui
     RTTI_DEFINE_OBJECT(UIThemeSource, "rtti::ui")
     RTTI_DEFINE_OBJECT(UITheme, "rtti::ui")
 }
+
+export namespace foundation::ui
+{
+    /// The UI resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kUIResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<UIDocument, UIDocumentSource, UIDocumentFactory>(),
+        foundation::resource::FactoryWithAllocator<UITheme, UIThemeSource, UIThemeFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kUIResourceModule{
+        u8"ui", &RegisterUIResource, kUIResourceFactories,
+        sizeof(kUIResourceFactories) / sizeof(kUIResourceFactories[0])};
+}

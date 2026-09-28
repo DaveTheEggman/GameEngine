@@ -239,28 +239,24 @@ export namespace foundation::model
         RegisterSerializable<ModelManifestSource>();
         GlobalTypeRegistry().Register(ModelResource::StaticType());
 
-        GlobalTypeRegistry().Register(geometry::StaticMeshSource::StaticType());
-        RegisterSerializable<geometry::StaticMeshSource>();
-        GlobalTypeRegistry().Register(geometry::SkinnedMeshSource::StaticType());
-        RegisterSerializable<geometry::SkinnedMeshSource>();
-        GlobalTypeRegistry().Register(geometry::StaticMesh::StaticType());
-        GlobalTypeRegistry().Register(geometry::SkinnedMesh::StaticType());
-        RegisterSerializable<geometry::SkinnedMeshSource>();
-
-        GlobalTypeRegistry().Register(materials::MaterialSource::StaticType());
-        RegisterSerializable<materials::MaterialSource>();
-        GlobalTypeRegistry().Register(materials::Material::StaticType());
-
-        GlobalTypeRegistry().Register(texture::TextureResource::StaticType());
-        RegisterSerializable<texture::TextureResource>();
-        GlobalTypeRegistry().Register(texture::Texture::StaticType());
-
-        GlobalTypeRegistry().Register(animation::SkeletonSource::StaticType());
-        RegisterSerializable<animation::SkeletonSource>();
-        GlobalTypeRegistry().Register(animation::Skeleton::StaticType());
-        GlobalTypeRegistry().Register(animation::AnimationClipSource::StaticType());
-        RegisterSerializable<animation::AnimationClipSource>();
-        GlobalTypeRegistry().Register(animation::AnimationClip::StaticType());
+        // The sibling libraries register their own (engine-composition.md D1); a caller that
+        // reaches this family through the model keeps seeing all of it.
+        geometry::RegisterGeometryResourceTypes();
+        materials::RegisterMaterialResourceTypes();
+        texture::RegisterTextureResource();
+        animation::RegisterAnimationResourceTypes();
     }
 
 } // namespace foundation::model
+
+export namespace foundation::model
+{
+    /// The model resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kModelResourceFactories[] = {
+        foundation::resource::FactoryByDefault<ModelResource, ModelManifestSource, ModelFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kModelResourceModule{
+        u8"model", &RegisterModelResourceTypes, kModelResourceFactories,
+        sizeof(kModelResourceFactories) / sizeof(kModelResourceFactories[0])};
+}

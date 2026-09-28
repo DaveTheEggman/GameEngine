@@ -614,3 +614,31 @@ export namespace foundation::animation
     RTTI_DEFINE_OBJECT(AnimationGraphSource, "rtti::animation")
 
 } // namespace foundation::animation
+
+export namespace foundation::animation
+{
+    /// Registers the cooked records + products (content-DB construction by type name). Idempotent.
+    inline void RegisterAnimationResourceTypes()
+    {
+        GlobalTypeRegistry().Register(SkeletonSource::StaticType());
+        RegisterSerializable<SkeletonSource>();
+        GlobalTypeRegistry().Register(Skeleton::StaticType());
+        GlobalTypeRegistry().Register(AnimationClipSource::StaticType());
+        RegisterSerializable<AnimationClipSource>();
+        GlobalTypeRegistry().Register(AnimationClip::StaticType());
+        GlobalTypeRegistry().Register(AnimationGraphSource::StaticType());
+        RegisterSerializable<AnimationGraphSource>();
+        GlobalTypeRegistry().Register(AnimationGraph::StaticType());
+    }
+
+    /// The animation resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kAnimationResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<Skeleton, SkeletonSource, SkeletonFactory>(),
+        foundation::resource::FactoryWithAllocator<AnimationClip, AnimationClipSource, AnimationClipFactory>(),
+        foundation::resource::FactoryWithAllocator<AnimationGraph, AnimationGraphSource, AnimationGraphFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kAnimationResourceModule{
+        u8"animation", &RegisterAnimationResourceTypes, kAnimationResourceFactories,
+        sizeof(kAnimationResourceFactories) / sizeof(kAnimationResourceFactories[0])};
+}

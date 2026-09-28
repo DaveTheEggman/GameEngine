@@ -169,3 +169,16 @@ export namespace foundation::physics
     RTTI_DEFINE_OBJECT(PhysicalMaterialSource, "rtti::physics")
     RTTI_DEFINE_OBJECT(PhysicalMaterial, "rtti::physics")
 }
+
+export namespace foundation::physics
+{
+    /// The physics resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kPhysicsResourceFactories[] = {
+        foundation::resource::FactoryByDefault<CollisionShape, CollisionShapeSource, CollisionShapeFactory>(),
+        foundation::resource::FactoryByDefault<PhysicalMaterial, PhysicalMaterialSource, PhysicalMaterialFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kPhysicsResourceModule{
+        u8"physics", &RegisterPhysicsResource, kPhysicsResourceFactories,
+        sizeof(kPhysicsResourceFactories) / sizeof(kPhysicsResourceFactories[0])};
+}

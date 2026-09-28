@@ -258,3 +258,15 @@ export namespace foundation::propertyanimation
     RTTI_DEFINE_OBJECT(PropertyAnimationClipResource, "rtti::propertyanimation")
     RTTI_DEFINE_OBJECT(PropertyAnimationClipSource, "rtti::propertyanimation")
 }
+
+export namespace foundation::propertyanimation
+{
+    /// The property animation resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kPropertyAnimationResourceFactories[] = {
+        foundation::resource::FactoryByDefault<PropertyAnimationClipResource, PropertyAnimationClipSource, PropertyAnimationClipFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kPropertyAnimationResourceModule{
+        u8"propertyanimation", &RegisterPropertyAnimationResource, kPropertyAnimationResourceFactories,
+        sizeof(kPropertyAnimationResourceFactories) / sizeof(kPropertyAnimationResourceFactories[0])};
+}

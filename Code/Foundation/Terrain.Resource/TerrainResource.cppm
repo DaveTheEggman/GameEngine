@@ -369,3 +369,23 @@ export namespace foundation::terrain
     RTTI_DEFINE_OBJECT(TerrainPaletteData, "rtti::terrain")
     RTTI_DEFINE_OBJECT_VERSIONED(TerrainSource, "rtti::terrain", 5)
 }
+
+export namespace foundation::terrain
+{
+    /// Both halves of this library's type registration (the terrain bundle and the splatmap).
+    inline void RegisterTerrainResourceModuleTypes()
+    {
+        RegisterTerrainResourceTypes();
+        RegisterSplatmapResourceTypes();
+    }
+
+    /// The terrain resource module (engine-composition.md D1): the module the engine
+    /// composition composes this library's factories from.
+    inline constexpr foundation::resource::ResourceFactoryDesc kTerrainResourceFactories[] = {
+        foundation::resource::FactoryWithAllocator<TerrainResource, TerrainSource, TerrainFactory>(),
+        foundation::resource::FactoryWithAllocator<SplatWeights, SplatWeightsSource, SplatWeightsFactory>(),
+    };
+    inline constexpr foundation::resource::ResourceModule kTerrainResourceModule{
+        u8"terrain", &RegisterTerrainResourceModuleTypes, kTerrainResourceFactories,
+        sizeof(kTerrainResourceFactories) / sizeof(kTerrainResourceFactories[0])};
+}
