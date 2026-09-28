@@ -16,6 +16,7 @@
 import foundation.core;
 import foundation.ui;
 import editor.core;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 import editor.app;
 import editor.viewporttools;
 

@@ -20,6 +20,7 @@ import foundation.mcp.http;
 import pipeline.core;
 import editor.core;
 import editor.mcp;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 
 using namespace foundation::core;
 

@@ -46,6 +46,7 @@ import engine.ui; // game-UI RenderTexture canvases (live in editing viewports)
 import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import editor.camera;

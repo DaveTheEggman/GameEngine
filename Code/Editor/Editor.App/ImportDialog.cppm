@@ -20,6 +20,7 @@ export module editor.app:import_dialog;
 import foundation.core;
 import foundation.ui;
 import editor.core;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 
 using namespace foundation::core;
 

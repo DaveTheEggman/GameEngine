@@ -3,11 +3,12 @@
 
 // Editor::Project - :log_buffer partition.
 //
-// EditorLogBuffer: the editor's log capture. ONE thread-safe
+// EditorLogBuffer: the log capture every editor-domain host uses - the editor application
+// (its console panel), the MCP hosts (log_read), the cook and export tools. ONE thread-safe
 // bounded ILogSink on core's GlobalLogger replaces Sedulous's logger+listener+buffer trio -
-// the editor never swaps the logger, it just adds a sink, so every LOG_* call across
-// the engine is captured for free. Register it FIRST THING in main (before shell/device
-// creation) so early startup logs land in the console panel.
+// a host never swaps the logger, it just adds a sink, so every LOG_* call across the engine is
+// captured for free. Register it FIRST THING in main (before shell/device creation) so early
+// startup logs are captured too.
 //
 // Entries keep full-fidelity heap strings (core's RingLogSink truncates messages to 192 chars -
 // useless for build errors and file paths) and carry a monotonic sequence so main-thread
@@ -94,7 +95,8 @@ export namespace editor
             return m_nextSequence - 1;
         }
 
-        /// Entries evicted before collection could see them (ring overflow), for "N dropped" UI.
+        /// Entries evicted before collection could see them (ring overflow): what a consumer
+        /// reports as "N dropped".
         [[nodiscard]] u64 DroppedCount() const
         {
             ScopedLock lock(m_mutex);

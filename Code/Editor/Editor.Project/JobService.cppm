@@ -3,12 +3,13 @@
 
 // Editor::Project - :job_service partition.
 //
-// A GENERIC editor background-job runner with progress + step reporting (the pattern EditorCookService
-// hand-rolls, generalized): submit a unit of work, it runs on a worker thread so the UI stays live
-// (no OS "not responding"), reports progress/steps through a JobContext, and its completion fires on
-// the MAIN thread from Update(). Jobs run ONE AT A TIME (a submit while busy queues) - the editor
-// build-lock model, so a cook/export/import never race the DBs. The app pumps Update() each frame and
-// reads Progress() to drive a status-bar progress bar.
+// A GENERIC background-job runner with progress + step reporting for the editor domain's hosts
+// (the pattern EditorCookService hand-rolls, generalized): submit a unit of work, it runs on a
+// worker thread so the host's main loop stays live, reports progress/steps through a JobContext,
+// and its completion fires on the MAIN thread from Update(). Jobs run ONE AT A TIME (a submit
+// while busy queues) - the build-lock model, so a cook/export/import never race the DBs. The
+// host pumps Update() each frame and reads Progress() for whatever it shows (the editor
+// application's status bar; a tool's log line).
 
 module;
 #include "Core/Prelude.h"
@@ -21,7 +22,7 @@ using namespace foundation::core;
 
 export namespace editor
 {
-    // Handed to a job's worker function; thread-safe progress reporting back to the UI. One mutex
+    // Handed to a job's worker function; thread-safe progress reporting back to the host. One mutex
     // guards the whole snapshot (fraction/step/log); cancellation is a lock-free flag.
     class JobContext
     {
@@ -67,7 +68,7 @@ export namespace editor
     class EditorJobService
     {
     public:
-        // The allocator (required - the editor app decides) backs worker threads + jobs.
+        // The allocator (required - the host decides) backs worker threads + jobs.
         explicit EditorJobService(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
 
         ~EditorJobService() { Shutdown(); }
@@ -186,7 +187,7 @@ export namespace editor
             }
         }
 
-        // UI snapshot of the running job (active=false when idle). Main-thread only.
+        // Snapshot of the running job for whoever shows it (active=false when idle). Main-thread only.
         struct ProgressView
         {
             bool active = false;

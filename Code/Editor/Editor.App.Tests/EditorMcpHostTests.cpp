@@ -16,6 +16,7 @@ import foundation.mcp;
 import foundation.mcp.http;
 import pipeline.core;
 import editor.core;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 import editor.mcp;
 import editor.app;
 

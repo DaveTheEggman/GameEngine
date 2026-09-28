@@ -16,6 +16,7 @@ import foundation.scene.resource;
 import foundation.script.resource;
 import foundation.mcp;
 import pipeline.core;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 import pipeline.registration;
 import engine.composition;
 import editor.project;

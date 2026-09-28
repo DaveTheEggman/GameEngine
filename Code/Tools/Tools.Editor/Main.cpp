@@ -51,6 +51,7 @@ import foundation.materials.resource;
 import foundation.texture.resource;
 import pipeline.core;
 import pipeline.registration;
+import pipeline.importer; // the import framework (a consumer imports it itself)
 import engine.composition; // RegisterAllScriptFacades - the COMPLETE engine facade surface
 import editor.core;
 import editor.app;

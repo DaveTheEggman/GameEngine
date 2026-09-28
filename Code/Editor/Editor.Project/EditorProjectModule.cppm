@@ -12,7 +12,6 @@ export import :project;
 export import :project_registry;
 export import :project_manager;
 export import :cook_service;
-export import pipeline.importer; // the import framework lives in Pipeline
 export import :log_buffer;
 export import :job_service;
 export import :export_preset;
