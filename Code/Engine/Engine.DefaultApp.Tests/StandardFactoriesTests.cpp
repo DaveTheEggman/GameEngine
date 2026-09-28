@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// The RegisterStandardFactories COVERAGE TRIPWIRE (Pipeline.Registration pattern applied to the
-// runtime's factory composition root). Incident 2026-08-12: FontFactory existed and was tested,
-// but NO host ever registered it - Bind<Font> failed silently in every runtime, masked in the
-// editor by the dev-tree TTF fallback, and only visible in a dist export (no source tree). A
-// count + the specific regression pin make the next missing registration fail HERE, loudly.
+// The runtime's factory set is the engine composition's (engine-composition.md D6): attaching a
+// manager registers every factory the composition describes and this host's services allow.
+// Incident 2026-08-12: FontFactory existed and was tested, but NO host ever registered it -
+// Bind<Font> failed silently in every runtime, masked in the editor by the dev-tree TTF
+// fallback, and only visible in a dist export. The pins below keep that class of failure loud;
+// the count is the composition's, so a factory a domain declares can no longer be left behind.
 
 #include <doctest/doctest.h>
 
@@ -25,6 +26,7 @@ import foundation.texture.resource;
 import foundation.heightfield;          // Heightfield product type (terrain factory pins)
 import foundation.terrain.resource;     // TerrainResource + Splatmap product types
 import engine.defaultapp;
+import engine.composition; // FullComposition: the set the runtime composes from
 #if OPTION_HAS_PIPELINE // the pipeline is tooling: absent from the web build
 import pipeline.core;         // BuilderRegistry
 import pipeline.registration; // RegisterPipelineTypes + RegisterAllBuilders
@@ -61,7 +63,8 @@ namespace
     };
 }
 
-TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + the font pin)")
+TEST_CASE("defaultapp: attaching a manager registers the composition's headless factory set, with "
+          "the font and terrain pins")
 {
     foundation::vfs::NativeFileSystem mount(u8"scratch_defaultapp_factories", foundation::core::DefaultAllocator());
     foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
@@ -72,20 +75,15 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
     engine::runtime::DefaultApplication app;
     app.AttachResourceManager(&resources, host);
 
-    // COUNT TRIPWIRE: the standard headless set (no graphics device -> no texture factory).
-    // A new standard factory bumps this constant DELIBERATELY; a lost registration fails
-    // loudly here instead of as a silent null Bind in a production game.
-    // 19 = +PropertyAnimationClipFactory (the editor's clip picker bind warned
-    // "host is missing an AddFactory" - the factory existed but no host registered it).
-    // 20 = +NavigationZoneFactory (the bump was MISSED in that change and
-    // caught by this tripwire - run the FULL battery, not
-    // just the touched targets).
-    // 23 = +Heightfield/Terrain/Splatmap factories (creating a Terrain in the
-    // editor warned "host is missing an AddFactory for TerrainResource" - the factories existed +
-    // were pipeline-tested, but no host registered them; the SAME incident class as the font one).
-    // 24 = +VegetationMaskFactory (the painted vegetation mask planes, vegetation P1).
-    constexpr usize kStandardHeadlessFactoryCount = 24;
-    CHECK(resources.FactoryCount() == kStandardHeadlessFactoryCount);
+    // The runtime's set IS the composition's headless set: what a host with no device and no
+    // shader system can create. A factory a domain declares is in both by construction.
+    foundation::resource::ResourceFactorySet headless;
+    foundation::resource::NoResourceServices none;
+    engine::FullComposition().CreateFactories(headless, foundation::core::DefaultAllocator(), none);
+    CHECK(resources.FactoryCount() == headless.Count());
+    CHECK(resources.FactoryCount() == engine::FullComposition().FactoryDescriptionCount() - 2u);
+    headless.ForEach([&](const foundation::resource::IResourceFactory& factory)
+                     { CHECK(resources.HasFactory(factory.ProductType()->id)); });
 
     // The incident pin: the cooked default-UI font product MUST be constructible in every
     // runtime host - a dist player has no dev-tree TTF fallback.
@@ -101,29 +99,25 @@ TEST_CASE("defaultapp: the standard factory set is complete (count tripwire + th
 }
 
 #if OPTION_HAS_PIPELINE
-TEST_CASE("defaultapp: every standard factory declares the cooked form it reads, a registered serializable "
-          "that some builder produces - the runtime-to-asset link the scene format reference joins")
+TEST_CASE("defaultapp: every factory the composition describes reads a cooked form that is a "
+          "registered serializable some builder produces - the runtime-to-asset link the scene "
+          "format reference joins")
 {
-    foundation::vfs::NativeFileSystem mount(u8"scratch_defaultapp_factories", foundation::core::DefaultAllocator());
-    foundation::content::ContentDatabase db(foundation::core::DefaultAllocator(), mount, foundation::xml::XmlSerializerFactory(),
-                                            u8".xasset");
-    foundation::resource::ResourceManager resources(foundation::core::DefaultAllocator(), db, nullptr);
-    StubHost host;
-    engine::runtime::DefaultApplication app;
-    app.AttachResourceManager(&resources, host);
-
+    engine::RegisterAllResourceTypes();
     pipeline::RegisterPipelineTypes();
     pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
     pipeline::RegisterAllBuilders(builders);
     REQUIRE(builders.Count() == pipeline::kBuilderCount);
 
     usize checked = 0;
-    resources.ForEachFactory(
-        [&](const foundation::resource::IResourceFactory& factory)
+    engine::FullComposition().ForEachFactoryDescription(
+        [&](const foundation::resource::ResourceModule& module,
+            const foundation::resource::ResourceFactoryDesc& desc)
         {
-            const TypeInfo* product = factory.ProductType();
-            const TypeInfo* cooked = factory.CookedType();
+            const TypeInfo* product = desc.product();
+            const TypeInfo* cooked = desc.cooked();
             REQUIRE(product != nullptr);
+            INFO("module: ", doctest::String(reinterpret_cast<const char*>(module.id.Data()), static_cast<unsigned>(module.id.Size())));
             INFO("factory for: ", doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
             REQUIRE(cooked != nullptr);
             // The cooked form is what the cook stamped and ReadObject reconstructs: registered.
@@ -136,7 +130,6 @@ TEST_CASE("defaultapp: every standard factory declares the cooked form it reads,
             CHECK(produced);
             ++checked;
         });
-    CHECK(checked == resources.FactoryCount());
-    CHECK(checked >= 24u);
+    CHECK(checked == engine::FullComposition().FactoryDescriptionCount());
 }
 #endif // OPTION_HAS_PIPELINE

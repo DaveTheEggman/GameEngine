@@ -46,34 +46,16 @@ import foundation.script.angelscript; // the AngelScript backend (second backend
 #ifdef OPTION_HAS_LUAU
 import foundation.script.luau;         // the Luau backend (OPTION_ENABLE_LUAU)
 #endif
-import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
 import engine.integration; // ScriptPhysicsContactBridge (physics contacts -> script ingress)
 import foundation.resource;            // ResourceManager (owned or borrowed - see the preset seam)
 import foundation.content;             // IContentDatabase (preset by the entry point)
 import foundation.scene.resource;      // SceneDocument (product-type registration)
-import foundation.geometry.resource;   // mesh factories
-import foundation.materials.resource;  // material factory
-import foundation.animation.resource;  // skeleton/clip/graph factories
-import foundation.propertyanimation.resource; // property-animation clip factory
-import foundation.particles.resource;  // particle-effect factory
-import foundation.input.resource;      // input-map factory
-import foundation.physics.resource;    // collision-shape/physical-material factories
-import foundation.navigation.resource; // navmesh-zone factory
-import foundation.texture.resource;    // texture factory (device-backed)
-import foundation.heightfield.resource; // heightfield factory (CPU grid)
-import foundation.terrain.resource;
-import foundation.vegetation.resource; // VegetationMaskFactory (the painted mask planes)     // terrain + splatmap factories (CPU)
-import foundation.image.resource;      // image resource registration
-import foundation.model.resource;      // cooked-model family types + registration
-import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
-import foundation.fonts.resource; // FontFactory (cooked default-UI font)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
 import engine.ui.script;   // the `ui` script facade + its per-context service binding
 import foundation.ui.gamekit; // ScreenStack (the binding points at UISubsystem::Screens())
 import engine.composition; // FullSceneComposition (the single source of truth for scene assembly)
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
-import foundation.audio.resource;      // cooked audio clips + factory
 import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
 import foundation.net;                 // UdpSocket / DatagramEndpoint (the transport)
 import foundation.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
@@ -265,8 +247,9 @@ export namespace engine::runtime
         // stops the Game tab's session) - borrowed pointer, the host outlives the binding.
         void InstallInstanceLoadFacade(GameInstance& gi, IApplicationHost& host);
 
-        // The standard factory set, registered into whichever manager the app uses (preset at
-        // OnStartup or late-attached by the editor's project manager).
+        // The standard factory set - the composition's, created with this host's services -
+        // registered into whichever manager the app uses (preset at OnStartup or late-attached by
+        // the editor's project manager).
         void RegisterStandardFactories(foundation::resource::ResourceManager& resources,
                                        IApplicationHost& host);
 
@@ -275,38 +258,12 @@ export namespace engine::runtime
         // engine.integration so the two subsystems stay mutually independent.
         engine::integration::ScriptPhysicsContactBridge m_contactBridge;
 
-        core::UniquePtr<foundation::geometry::StaticMeshFactory> m_meshFactory;
-        core::UniquePtr<foundation::geometry::SkinnedMeshFactory> m_skinnedMeshFactory;
-        foundation::materials::MaterialFactory m_materialFactory;
-        core::UniquePtr<foundation::animation::SkeletonFactory> m_skeletonFactory;
-        core::UniquePtr<foundation::animation::AnimationClipFactory> m_animationClipFactory;
-        core::UniquePtr<foundation::animation::AnimationGraphFactory> m_animationGraphFactory;
-        foundation::propertyanimation::PropertyAnimationClipFactory m_propertyAnimationClipFactory;
-        foundation::particles::ParticleEffectFactory m_particleEffectFactory;
-        foundation::input::InputMapFactory m_inputMapFactory;
-        foundation::physics::CollisionShapeFactory m_collisionShapeFactory;
-        foundation::physics::PhysicalMaterialFactory m_physicalMaterialFactory;
-        // Allocator-threaded factory (needs the runtime Context's allocator, so it is
-        // created in RegisterStandardFactories rather than default-constructed here).
-        core::UniquePtr<foundation::navigation::NavigationZoneFactory> m_navigationZoneFactory;
-        core::UniquePtr<foundation::audio::AudioClipFactory> m_audioClipFactory;
-        core::UniquePtr<foundation::audio::AudioBusLayoutFactory> m_busLayoutFactory;
-        core::UniquePtr<foundation::audio::SoundCueFactory> m_soundCueFactory;
-        core::UniquePtr<foundation::script::ScriptClassFactory> m_scriptClassFactory;
+        // The standard factory set: composed from the engine composition's resource modules
+        // (engine-composition.md D6) - every domain the runtime links brings its factories; the
+        // set owns them. Device- and shader-gated factories are created when the host offers the
+        // service (the runtime's graphics device, the render subsystem's shader system).
+        foundation::resource::ResourceFactorySet m_factories;
         foundation::audio::AudioEngineSettings m_audioEngineSettings;
-        foundation::model::ModelFactory m_modelFactory;
-        core::UniquePtr<foundation::ui::UIDocumentFactory> m_uiDocumentFactory;
-        core::UniquePtr<foundation::ui::UIThemeFactory> m_uiThemeFactory;
-        // Allocator-threaded factory (created in RegisterStandardFactories, like the
-        // navigation zone factory).
-        core::UniquePtr<foundation::fonts::FontFactory> m_fontFactory; // cooked default-UI font
-        // Terrain resource factories (CPU - no device): the heightfield grid, the terrain bundle
-        // (resolves heightfield/splatmap/albedo sub-refs), and the RGBA8 splatmap raster.
-        core::UniquePtr<foundation::heightfield::HeightfieldFactory> m_heightfieldFactory;
-        core::UniquePtr<foundation::terrain::TerrainFactory> m_terrainFactory;
-        core::UniquePtr<foundation::terrain::SplatWeightsFactory> m_splatmapFactory;
-        core::UniquePtr<foundation::vegetation::VegetationMaskFactory> m_vegetationMaskFactory;
-        core::UniquePtr<foundation::texture::TextureFactory> m_textureFactory;
         foundation::resource::ResourceManager* m_borrowedResources = nullptr;
         foundation::content::IContentDatabase* m_contentDatabase = nullptr;
         core::UniquePtr<foundation::resource::ResourceManager> m_ownedResources;

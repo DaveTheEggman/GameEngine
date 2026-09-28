@@ -14,6 +14,7 @@ module engine.defaultapp;
 
 import foundation.core;
 import foundation.rhi;
+import foundation.shaders.system;      // ShaderSystem: the service the shader factory asks for
 import foundation.runtime.client;       // IApplication, IApplicationHost
 import engine.gameinstance; // GameInstance - this app's running game (scene + script bracket)
 import foundation.shell;                // IShell, IKeyboard, KeyCode (the profile-dump hotkey)
@@ -39,30 +40,16 @@ import foundation.script.angelscript; // the AngelScript backend (second backend
 #ifdef OPTION_HAS_LUAU
 import foundation.script.luau;         // the Luau backend (OPTION_ENABLE_LUAU)
 #endif
-import foundation.script.resource;     // cooked script classes + factory (entity behaviors)
 import engine.script;    // ScriptSubsystem (behaviors + the run's shared context)
 import foundation.resource;            // ResourceManager (owned or borrowed - see the preset seam)
 import foundation.content;             // IContentDatabase (preset by the entry point)
 import foundation.scene.resource;      // SceneDocument (product-type registration)
-import foundation.geometry.resource;   // mesh factories
-import foundation.materials.resource;  // material factory
-import foundation.animation.resource;  // skeleton/clip/graph factories
-import foundation.propertyanimation.resource; // property-animation clip factory
-import foundation.particles.resource;  // particle-effect factory
-import foundation.input.resource;      // input-map factory
-import foundation.fonts.resource;      // FontResource + FontFactory (default UI font)
-import foundation.physics.resource;    // collision-shape/physical-material factories
-import foundation.navigation.resource; // navmesh-zone factory
-import foundation.texture.resource;    // texture factory (device-backed)
 import foundation.image;               // Image (the screenshot the capture hands back)
-import foundation.image.resource;      // image resource registration
-import foundation.model.resource;      // cooked-model family types + registration
 import foundation.ui;                  // View (the `ui` binding's instantiate return type)
 import foundation.ui.resource;         // cooked UI documents/themes (game-ui)
 import engine.ui;        // the game screen tier (canvases + overlay + consumption)
 import engine.ui.script;   // UiScreenScriptBinding + InstallUiScreenScriptService
 import foundation.audio;               // AudioEngine (owned by the audio subsystem)
-import foundation.audio.resource;      // cooked audio clips + factory
 import engine.audio;     // AudioSubsystem (voices/buses/one-shots + scene sync)
 import foundation.net;                 // UdpSocket / DatagramEndpoint (the transport)
 import foundation.net.replication;     // NetworkId / StateReplication (the spawn-handler seam)
@@ -540,21 +527,9 @@ namespace engine::runtime
 
     void DefaultApplication::OnStartup(IApplicationHost& host)
     {
-        // Product/runtime types: factories construct cooked products BY TYPE NAME.
-        foundation::model::RegisterModelResourceTypes();
-        foundation::image::RegisterImageResource();
-        foundation::particles::RegisterParticleEffectResource();
-        foundation::input::RegisterInputMapResource();
-        foundation::physics::RegisterPhysicsResource();
-        foundation::navigation::RegisterNavigationResource();
-        foundation::audio::RegisterAudioResource();
-        foundation::script::RegisterScriptResource();
-        foundation::ui::RegisterUIResource();
-        foundation::fonts::RegisterFontResource();
-        core::GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
-        core::GlobalTypeRegistry().Register(foundation::scene::PrefabDocument::StaticType());
-        core::RegisterSerializable<foundation::scene::PrefabDocument>();
-        core::RegisterSerializable<foundation::scene::SceneDocument>();
+        // Product/runtime types: factories construct cooked products BY TYPE NAME - every domain's,
+        // from the composition (the scene and prefab documents included).
+        engine::RegisterAllResourceTypes();
         engine::ui::RegisterUIComponentReflection();
         if (GraphicsDevice* gfx = host.Graphics();
             gfx != nullptr && gfx->Raw() != nullptr && m_ui != nullptr)
@@ -582,81 +557,21 @@ namespace engine::runtime
     void DefaultApplication::RegisterStandardFactories(foundation::resource::ResourceManager& resources,
                                                        IApplicationHost& host)
     {
-        core::IAllocator& factoryAllocator = host.Ctx().Allocator();
-        m_meshFactory =
-            core::MakeUnique<foundation::geometry::StaticMeshFactory>(factoryAllocator,
-                                                                      factoryAllocator);
-        m_skinnedMeshFactory =
-            core::MakeUnique<foundation::geometry::SkinnedMeshFactory>(factoryAllocator,
-                                                                       factoryAllocator);
-        m_skeletonFactory = core::MakeUnique<foundation::animation::SkeletonFactory>(
-            factoryAllocator, factoryAllocator);
-        m_animationClipFactory = core::MakeUnique<foundation::animation::AnimationClipFactory>(
-            factoryAllocator, factoryAllocator);
-        m_animationGraphFactory = core::MakeUnique<foundation::animation::AnimationGraphFactory>(
-            factoryAllocator, factoryAllocator);
-        resources.AddFactory(m_meshFactory.Get());
-        resources.AddFactory(m_skinnedMeshFactory.Get());
-        resources.AddFactory(&m_materialFactory);
-        resources.AddFactory(m_skeletonFactory.Get());
-        resources.AddFactory(m_animationClipFactory.Get());
-        resources.AddFactory(m_animationGraphFactory.Get());
-        resources.AddFactory(&m_propertyAnimationClipFactory);
-        resources.AddFactory(&m_particleEffectFactory);
-        resources.AddFactory(&m_inputMapFactory);
-        resources.AddFactory(&m_collisionShapeFactory);
-        // Navigation zone products allocate from the runtime's allocator authority.
-        m_navigationZoneFactory = core::MakeUnique<foundation::navigation::NavigationZoneFactory>(
-            host.Ctx().Allocator(), host.Ctx().Allocator());
-        resources.AddFactory(m_navigationZoneFactory.Get());
-        resources.AddFactory(&m_physicalMaterialFactory);
-        m_audioClipFactory = core::MakeUnique<foundation::audio::AudioClipFactory>(
-            host.Ctx().Allocator(), host.Ctx().Allocator());
-        m_busLayoutFactory = core::MakeUnique<foundation::audio::AudioBusLayoutFactory>(
-            host.Ctx().Allocator(), host.Ctx().Allocator());
-        m_soundCueFactory = core::MakeUnique<foundation::audio::SoundCueFactory>(
-            host.Ctx().Allocator(), host.Ctx().Allocator());
-        resources.AddFactory(m_audioClipFactory.Get());
-        resources.AddFactory(m_busLayoutFactory.Get());
-        resources.AddFactory(m_soundCueFactory.Get());
-        m_scriptClassFactory = core::MakeUnique<foundation::script::ScriptClassFactory>(
-            factoryAllocator, factoryAllocator);
-        resources.AddFactory(m_scriptClassFactory.Get());
-        resources.AddFactory(&m_modelFactory);
-        m_uiDocumentFactory = core::MakeUnique<foundation::ui::UIDocumentFactory>(
-            factoryAllocator, factoryAllocator);
-        m_uiThemeFactory = core::MakeUnique<foundation::ui::UIThemeFactory>(factoryAllocator,
-                                                                            factoryAllocator);
-        resources.AddFactory(m_uiDocumentFactory.Get());
-        resources.AddFactory(m_uiThemeFactory.Get());
-        m_fontFactory = core::MakeUnique<foundation::fonts::FontFactory>(
-            host.Ctx().Allocator(), host.Ctx().Allocator());
-        resources.AddFactory(m_fontFactory.Get());
-        // Terrain: the CPU factories (grid / bundle / splat raster) so a cooked Terrain binds. The
-        // GPU sub-resources (layer albedos) still resolve through the device-gated texture factory
-        // below; the splatmap is CPU now (engine.terrain derives its GPU texture).
-        m_heightfieldFactory = core::MakeUnique<foundation::heightfield::HeightfieldFactory>(
-            factoryAllocator, factoryAllocator);
-        m_terrainFactory = core::MakeUnique<foundation::terrain::TerrainFactory>(factoryAllocator,
-                                                                                 factoryAllocator);
-        m_splatmapFactory = core::MakeUnique<foundation::terrain::SplatWeightsFactory>(
-            factoryAllocator, factoryAllocator);
-        resources.AddFactory(m_heightfieldFactory.Get());
-        resources.AddFactory(m_terrainFactory.Get());
-        resources.AddFactory(m_splatmapFactory.Get());
-        m_vegetationMaskFactory =
-            core::MakeUnique<foundation::vegetation::VegetationMaskFactory>(factoryAllocator,
-                                                                          factoryAllocator);
-        resources.AddFactory(m_vegetationMaskFactory.Get());
+        // What this host can offer a factory beyond an allocator: the graphics device (the
+        // texture factory) and the render subsystem's shader system (the shader factory). A
+        // headless host offers neither and the composition skips those two; a later attach with
+        // a device fills them (the set creates nothing twice).
+        foundation::resource::ResourceServiceTable services;
         if (GraphicsDevice* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
         {
-            if (!m_textureFactory)
-            {
-                m_textureFactory = core::MakeUnique<foundation::texture::TextureFactory>(
-                    factoryAllocator, factoryAllocator, *gfx->Raw());
-            }
-            resources.AddFactory(m_textureFactory.Get());
+            services.Add<rhi::Device>(gfx->Raw());
         }
+        if (m_render != nullptr)
+        {
+            services.Add<foundation::shaders::ShaderSystem>(m_render->Shaders());
+        }
+        engine::FullComposition().CreateFactories(m_factories, host.Ctx().Allocator(), services);
+        m_factories.Register(resources);
     }
 
     void DefaultApplication::AttachResourceManager(foundation::resource::ResourceManager* borrowed,
@@ -694,7 +609,7 @@ namespace engine::runtime
             m_screenshot.Release(*gfx->Raw());
         }
         m_ownedResources = nullptr; // release products while the device is alive
-        m_textureFactory = nullptr;
+        m_factories.Clear();        // and the factories (the texture factory holds the device)
     }
 
     void DefaultApplication::SetPrimaryScene(foundation::scene::Scene* scene) noexcept

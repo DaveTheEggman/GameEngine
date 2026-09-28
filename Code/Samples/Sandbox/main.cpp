@@ -19,6 +19,7 @@ import foundation.shell.desktop;
 import foundation.graphics;
 import foundation.graphics.gpu;
 import engine.defaultapp; // DefaultApplication (scene + render subsystems)
+import engine.composition; // FullComposition: the factory set every host composes from
 import foundation.scene;
 import engine.scene;
 import engine.render; // MeshComponent / CameraComponent + their managers
@@ -502,19 +503,16 @@ namespace
                 u8".rasset");
             m_resources =
                 core::MakeUnique<resource::ResourceManager>(AppRoot(), AppRoot(), *m_contentDb);
-            m_resources->AddFactory(&m_meshFactory);
-            m_resources->AddFactory(&m_skinnedMeshFactory);
-            m_resources->AddFactory(&m_modelFactory);
-            m_resources->AddFactory(&m_materialFactory);
-            m_resources->AddFactory(&m_skeletonFactory);
-            m_resources->AddFactory(&m_clipFactory);
+            // Every factory the engine composition describes, created with what this host offers
+            // (the device gates the texture factory), registered into the manager.
+            resource::ResourceServiceTable services;
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    AppRoot(), AppRoot(), *gfx->Raw());
-                m_resources->AddFactory(m_textureFactory.Get());
+                services.Add<rhi::Device>(gfx->Raw());
             }
-            model::RegisterModelResourceTypes(); // make the cooked types deserializable
+            engine::FullComposition().CreateFactories(m_factories, AppRoot(), services);
+            m_factories.Register(*m_resources);
+            engine::RegisterAllResourceTypes(); // make the cooked types deserializable
 
             // A few imported models side by side (runtime cook seam; an editor would cook offline + Bind).
             SpawnModel(u8"Duck", core::Format(u8"{}/Duck/glTF/Duck.gltf", modelDir).AsView(),
@@ -571,7 +569,8 @@ namespace
         // DB -> Bind the runtime Texture) and return its GPU view. The Proxy is stored to keep it alive.
         [[nodiscard]] rhi::TextureView* LoadLogoTexture()
         {
-            if (m_resources.Get() == nullptr || m_textureFactory.Get() == nullptr)
+            if (m_resources.Get() == nullptr ||
+                !m_resources->HasFactory(texture::Texture::StaticType().id)) // no device, no texture factory
             {
                 return nullptr;
             }
@@ -1712,15 +1711,9 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        geometry::StaticMeshFactory m_meshFactory{AppRoot()};
-        geometry::SkinnedMeshFactory m_skinnedMeshFactory{AppRoot()};
-        materials::MaterialFactory m_materialFactory;
-        animation::SkeletonFactory m_skeletonFactory{AppRoot()};
-        animation::AnimationClipFactory m_clipFactory{AppRoot()};
-        core::UniquePtr<texture::TextureFactory> m_textureFactory; // needs the device
+        resource::ResourceFactorySet m_factories; // the engine composition's set, this host's services
         resource::Proxy<texture::Texture>
             m_logoTex; // sprite-demo logo (kept alive for its GPU view)
-        model::ModelFactory m_modelFactory;
         core::Array<resource::Proxy<model::ModelResource>>
             m_models; // keep cooked models + their resources alive
 

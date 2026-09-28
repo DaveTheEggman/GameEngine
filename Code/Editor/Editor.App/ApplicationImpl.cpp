@@ -111,20 +111,6 @@ namespace editor::app
         return m_cookService;
     }
 
-    void
-    EditorApplication::AddResourceFactory(UniquePtr<foundation::resource::IResourceFactory> factory)
-    {
-        if (!factory)
-        {
-            return;
-        }
-        if (m_resources)
-        {
-            m_resources->AddFactory(factory.Get());
-        }
-        m_resourceFactories.PushBack(Move(factory));
-    }
-
     foundation::resource::ResourceManager* EditorApplication::Resources() const noexcept
     {
         return m_resources.Get();
@@ -2315,17 +2301,13 @@ namespace editor::app
             }
         };
 
-        // Per-project resources over the cooked DB, late-attached to the embedded runtime
-        // (which also registers its standard factories into the manager - the same set a
-        // preset manager receives at its startup).
+        // Per-project resources over the cooked DB, late-attached to the embedded runtime,
+        // which registers the engine composition's factory set into it - the same set a preset
+        // manager receives at its startup.
         // Share the global JobSystem for async resource decode (task #123); null = sync loads.
         m_resources = MakeUnique<foundation::resource::ResourceManager>(
             m_editorAllocator, m_editorAllocator, m_project->CookedDb(),
             HasGlobalJobSystem() ? &GlobalJobs() : nullptr);
-        for (const auto& factory : m_resourceFactories)
-        {
-            m_resources->AddFactory(factory.Get());
-        }
         m_context.SetResources(m_resources.Get());
         m_embeddedApp->AttachResourceManager(m_resources.Get(), *m_embeddedHost);
 

@@ -11,6 +11,7 @@ target_link_libraries(ParticleFX PRIVATE
     Foundation::Graphics
     Foundation::Graphics.Gpu
     Engine::DefaultApp
+    Engine::Composition
     Foundation::Scene
     Engine::Scene
     Engine::Render

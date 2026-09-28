@@ -20,6 +20,7 @@ import foundation.shell.desktop;
 import foundation.graphics;
 import foundation.graphics.gpu;
 import engine.defaultapp;
+import engine.composition; // FullComposition: the factory set every host composes from
 import foundation.scene;
 import engine.scene;
 import engine.render;
@@ -1148,7 +1149,10 @@ namespace
             // LOAD: bind the cooked resource back through the manager + factory (runtime path).
             m_resources =
                 core::MakeUnique<resource::ResourceManager>(AppRoot(), AppRoot(), *m_contentDb);
-            m_resources->AddFactory(&m_pfxFactory);
+            // The engine composition's factory set (headless: no device offered), registered.
+            resource::NoResourceServices none;
+            engine::FullComposition().CreateFactories(m_factories, AppRoot(), none);
+            m_factories.Register(*m_resources);
             m_cookedProxy = m_resources->Bind<particles::ParticleEffectResource>(inst->Id());
             if (!m_cookedProxy)
             {
@@ -1259,7 +1263,7 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        particles::ParticleEffectFactory m_pfxFactory;
+        resource::ResourceFactorySet m_factories; // the engine composition's set, this host's services
         resource::Proxy<particles::ParticleEffectResource> m_cookedProxy;
         scene::EntityHandle m_cookedEmitter;
         samples::FlyCamera m_fly;

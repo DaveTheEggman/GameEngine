@@ -21,6 +21,7 @@ import foundation.shell.desktop;
 import foundation.graphics;
 import foundation.graphics.gpu;
 import engine.defaultapp; // DefaultApplication (scene + render subsystems)
+import engine.composition; // FullComposition: the factory set every host composes from
 import foundation.scene;
 import engine.scene;
 import engine.render; // MeshComponent / CameraComponent + their managers
@@ -208,19 +209,16 @@ namespace
                 u8".rasset");
             m_resources =
                 core::MakeUnique<resource::ResourceManager>(AppRoot(), AppRoot(), *m_contentDb);
-            m_resources->AddFactory(&m_meshFactory);
-            m_resources->AddFactory(&m_skinnedMeshFactory);
-            m_resources->AddFactory(&m_modelFactory);
-            m_resources->AddFactory(&m_materialFactory);
-            m_resources->AddFactory(&m_skeletonFactory);
-            m_resources->AddFactory(&m_clipFactory);
+            // Every factory the engine composition describes, created with what this host offers
+            // (the device gates the texture factory), registered into the manager.
+            resource::ResourceServiceTable services;
             if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
             {
-                m_textureFactory = core::MakeUnique<texture::TextureFactory>(
-                    AppRoot(), AppRoot(), *gfx->Raw());
-                m_resources->AddFactory(m_textureFactory.Get());
+                services.Add<rhi::Device>(gfx->Raw());
             }
-            model::RegisterModelResourceTypes(); // make the cooked types deserializable
+            engine::FullComposition().CreateFactories(m_factories, AppRoot(), services);
+            m_factories.Register(*m_resources);
+            engine::RegisterAllResourceTypes(); // make the cooked types deserializable
 
             // Cook the Quaternius humanoid once, then replicate it across a grid (each instance gets its
             // own AnimationPlayer; all share the cooked mesh/skeleton/clips/materials).
@@ -671,13 +669,7 @@ namespace
         core::UniquePtr<vfs::NativeFileSystem> m_contentFs;
         core::UniquePtr<content::ContentDatabase> m_contentDb;
         core::UniquePtr<resource::ResourceManager> m_resources;
-        geometry::StaticMeshFactory m_meshFactory{AppRoot()};
-        geometry::SkinnedMeshFactory m_skinnedMeshFactory{AppRoot()};
-        materials::MaterialFactory m_materialFactory;
-        animation::SkeletonFactory m_skeletonFactory{AppRoot()};
-        animation::AnimationClipFactory m_clipFactory{AppRoot()};
-        core::UniquePtr<texture::TextureFactory> m_textureFactory; // needs the device
-        model::ModelFactory m_modelFactory;
+        resource::ResourceFactorySet m_factories; // the engine composition's set, this host's services
         resource::Proxy<model::ModelResource>
             m_model; // the one cooked model, shared by every instance
         core::Array<core::RefPtr<materials::Material>>

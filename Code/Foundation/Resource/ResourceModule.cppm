@@ -1195,6 +1195,40 @@ export namespace foundation::resource
         [[nodiscard]] void* Service(TypeId) const noexcept override { return nullptr; }
     };
 
+    /// A host's services, by type: `Add<T>(&instance)` for each service it has (a device, a shader
+    /// system), answered to any factory that asks for T. The one implementation every host needs.
+    class ResourceServiceTable final : public IResourceServices
+    {
+    public:
+        template <typename T>
+        void Add(T* instance)
+        {
+            if (instance != nullptr)
+            {
+                m_services.PushBack(Entry{TypeOf<T>().id, static_cast<void*>(instance)});
+            }
+        }
+        [[nodiscard]] void* Service(TypeId type) const noexcept override
+        {
+            for (const Entry& entry : m_services)
+            {
+                if (entry.type == type)
+                {
+                    return entry.instance;
+                }
+            }
+            return nullptr;
+        }
+
+    private:
+        struct Entry
+        {
+            TypeId type;
+            void* instance;
+        };
+        Array<Entry> m_services;
+    };
+
     /// What a factory IS before one exists: a constant, readable without constructing anything
     /// (the scene format reference joins on `product` and `cooked`). `service` names the type
     /// the factory needs beyond an allocator (null for most); `create` returns null when that
@@ -1324,6 +1358,12 @@ export namespace foundation::resource
             }
         }
         [[nodiscard]] usize Count() const noexcept { return m_factories.Size(); }
+        /// Destroys every factory (a host does this while the device its factories used is alive).
+        void Clear()
+        {
+            m_factories.Clear();
+            m_skipped.Clear();
+        }
         [[nodiscard]] bool Has(TypeId productId) const noexcept
         {
             for (const UniquePtr<IResourceFactory>& factory : m_factories)

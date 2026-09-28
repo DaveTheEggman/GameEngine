@@ -157,9 +157,8 @@ export namespace editor::app
         [[nodiscard]] pipeline::BuilderRegistry& Builders() noexcept { return m_builders; }
         [[nodiscard]] editor::EditorCookService& CookService() noexcept;
 
-        /// The exe registers runtime resource factories here (from registerEditors); the app
-        /// owns them + the ResourceManager over the project's cooked DB.
-        void AddResourceFactory(UniquePtr<foundation::resource::IResourceFactory> factory);
+        /// The ResourceManager over the project's cooked DB; its factories are the embedded
+        /// runtime's (the engine composition's set, registered on attach).
         [[nodiscard]] foundation::resource::ResourceManager* Resources() const noexcept;
         /// The embedded game application (valid after OnStartup; the Game page drives its
         /// play bracket through it).
@@ -457,7 +456,6 @@ export namespace editor::app
         u32 m_testOpenStage = 0;
         bool m_autoRebuilt = false;
         Array<foundation::shell::DroppedFile> m_droppedFiles; // per-frame drain buffer
-        Array<UniquePtr<foundation::resource::IResourceFactory>> m_resourceFactories; // exe-assembled
         UniquePtr<foundation::resource::ResourceManager> m_resources;
         // The project's native game module, loaded against the EMBEDDED runtime context
         // for the project's lifetime (game-native-code.md N2; null = none/failed/static).
