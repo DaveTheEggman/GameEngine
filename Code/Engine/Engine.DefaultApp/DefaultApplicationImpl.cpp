@@ -21,8 +21,7 @@ import foundation.graphics;             // GraphicsDevice, FrameContext
 import foundation.vfs;                  // ResolveDataRoot + NativeFileSystem (the data mount)
 import foundation.scene;                // Scene
 import engine.scene;      // SceneSubsystem (the standard scene driver)
-import engine.scenesurface; // FullSceneComposition (the single source of truth for scene assembly)
-import engine.scriptsurface; // RegisterAllScriptFacades (the single source of truth for the script surface)
+import engine.composition; // FullSceneComposition (the single source of truth for scene assembly)
 import engine.render;     // RenderSubsystem (the standard renderer)
 import engine.animation; // AnimationSubsystem (drives skeletal animation from the scene)
 import engine.particles; // ParticleSubsystem (scene-driven CPU sim)

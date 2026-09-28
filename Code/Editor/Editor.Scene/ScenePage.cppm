@@ -31,7 +31,7 @@ import foundation.shell;
 import foundation.runtime;
 import foundation.runtime.client;
 import engine.defaultapp;
-import engine.scenesurface; // AddAllSceneManagers (the full composition for headless scratch scenes)
+import engine.composition; // AddAllSceneManagers (the full composition for headless scratch scenes)
 import engine.gameinstance; // GameInstance (the Game tab's run; multi-instance factory)
 import foundation.scene;
 import engine.scene;

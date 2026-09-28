@@ -13,6 +13,8 @@ module;
 #include "Profiler/Profiler.h"
 
 module engine.audio;
+import engine.domain;
+import foundation.audio.resource;
 
 import foundation.core;
 import foundation.profiler;
@@ -275,5 +277,22 @@ namespace engine::audio
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::audio
+{
+    const engine::DomainModule& AudioDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::audio::kAudioResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"audio",
+            .installScene = &AddAudioSceneManagers,
+            .registerReflection = &RegisterAudioComponentReflection,
+            .registerScriptFacade = &RegisterAudioScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

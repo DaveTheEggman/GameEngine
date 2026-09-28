@@ -16,6 +16,7 @@ module;
 export module engine.input;
 
 import foundation.core;
+import engine.domain;
 import foundation.shell;
 import foundation.runtime;
 import foundation.script;
@@ -216,3 +217,11 @@ export namespace engine::input
 
 // Input::StaticType() reflection body + RegisterInputScriptFacade() live in
 // InputSubsystemImpl.cpp (kept out of this interface; see gcc-module-interface-hygiene).
+
+export namespace engine::input
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& InputDomain() noexcept;
+}

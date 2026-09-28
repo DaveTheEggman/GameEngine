@@ -9,6 +9,7 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.spline;
+import engine.domain;
 
 import foundation.core;
 import foundation.scene;
@@ -255,5 +256,18 @@ namespace engine::spline
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::spline
+{
+    const engine::DomainModule& SplineDomain() noexcept
+    {
+        static const engine::DomainModule kModule{
+            .id = u8"spline",
+            .installScene = &AddSplineSceneManagers,
+            .registerReflection = &RegisterSplineComponentReflection,
+            .registerScriptFacade = &RegisterSplineScriptFacade};
+        return kModule;
     }
 }

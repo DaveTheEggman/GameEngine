@@ -4,7 +4,7 @@
 
 util_add_engine_library(Engine.Spline ALIAS Engine::Spline)
 target_link_libraries(Engine.Spline PUBLIC
-    Foundation::Core Foundation::Scene Foundation::Spline Foundation::Script.Facades Foundation::Policy)
+    Foundation::Core Foundation::Scene Foundation::Spline Foundation::Script.Facades Engine::Domain Foundation::Policy)
 
 target_sources(Engine.Spline
     PRIVATE

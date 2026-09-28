@@ -10,6 +10,7 @@ module;
 #include "Core/Reflection/Reflect.h" // the run facade reflection body
 
 module engine.gameinstance;
+import engine.domain;
 
 import foundation.core;
 import foundation.scene;
@@ -406,4 +407,15 @@ namespace engine::runtime
         }
     }
 
+}
+
+namespace engine::runtime
+{
+    const engine::DomainModule& RunDomain() noexcept
+    {
+        static const engine::DomainModule kModule{
+            .id = u8"run",
+            .registerScriptFacade = &RegisterRunScriptFacade};
+        return kModule;
+    }
 }

@@ -9,8 +9,8 @@ target_link_libraries(Tools.Export PRIVATE
     Pipeline::Texture Pipeline::Fonts Pipeline::Image Foundation::Image.Resource Pipeline::Geometry
     Pipeline::Animation Pipeline::Materials Pipeline::Shaders
     Pipeline::Particles Foundation::Input Foundation::Input.Resource Pipeline::Input Pipeline::ModelImporter
-    Engine::SceneSurface # the FULL manager set + component reflection for the transcode scratch
-    Engine::ScriptSurface # RegisterAllScriptFacades: the COMPLETE engine facade surface the
+    Engine::Composition # the FULL manager set + component reflection for the transcode scratch
+    Engine::Composition # RegisterAllScriptFacades: the COMPLETE engine facade surface the
                           # script cooks compile against (run/ui/physics/audio/... facades)
     Foundation::Physics Foundation::Physics.Resource Pipeline::Physics
     Foundation::Audio Foundation::Audio.Resource Pipeline::Audio

@@ -15,6 +15,7 @@ module;
 export module engine.spline;
 
 import foundation.core;
+import engine.domain;
 import foundation.scene;
 import foundation.spline;
 import foundation.script.facades;
@@ -136,7 +137,7 @@ export namespace engine::spline
         foundation::scene::Scene* m_scene = nullptr;
     };
 
-    /// Scene-composition install (the domain module entry; see Engine.SceneSurface).
+    /// Scene-composition install (the domain module entry; see Engine.Composition).
     void AddSplineSceneManagers(foundation::scene::Scene& scene);
     /// Component reflection (component menu + inspector + data-version gate). Idempotent.
     void RegisterSplineComponentReflection();
@@ -182,4 +183,12 @@ export namespace engine::spline
 
     /// Script surface registration (called from RegisterAllScriptFacades). Idempotent.
     void RegisterSplineScriptFacade();
+}
+
+export namespace engine::spline
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& SplineDomain() noexcept;
 }

@@ -22,7 +22,7 @@ import materials.pipeline;
 import texture.pipeline;
 import audio.pipeline; // SoundCueAsset (empty-cue health warning)
 import engine.render;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import editor.mcp;
 

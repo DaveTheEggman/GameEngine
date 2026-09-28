@@ -22,6 +22,7 @@ export module engine.gameinstance;
 export import :networkcontroller; // the run's networking, composed off this god object
 
 import foundation.core;
+import engine.domain;
 import foundation.scene;
 import foundation.shell;
 import foundation.scene.resource; // LoadScene / ResolveSceneResources / ResolveScenePrefabs
@@ -576,4 +577,12 @@ export namespace engine::runtime
         SceneActivationPolicy m_activatePolicy; // app-set render/sim policy, run on completion
     };
 
+}
+
+export namespace engine::runtime
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& RunDomain() noexcept;
 }

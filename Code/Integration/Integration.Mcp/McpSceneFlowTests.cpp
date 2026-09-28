@@ -17,7 +17,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.net.replication;
 import foundation.mcp;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import editor.mcp;
 

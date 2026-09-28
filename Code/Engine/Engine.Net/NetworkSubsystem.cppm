@@ -20,6 +20,7 @@ module;
 export module engine.net;
 
 import foundation.core;
+import engine.domain;
 import foundation.runtime;         // Subsystem, Context
 import foundation.scene; // Scene + SceneSystem
 import engine.scene; // SceneSubsystem (to register as scene-aware)
@@ -115,3 +116,13 @@ export namespace engine::net
     };
 
 } // namespace engine::net
+
+export namespace engine::net
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& NetDomain() noexcept;
+    /// Both net facades (the endpoint's and the replicated component's) behind one registrar.
+    void RegisterNetworkScriptFacades();
+}

@@ -10,7 +10,7 @@
 // Edges come from the SAME sources the engine itself uses, computed LIVE (never a cached graph):
 //   - buildable assets: the builder's ScanDependencies (exactly what the cook driver hashes) -
 //     `reads` (content consumed at cook time) and `references` (the product's runtime refs);
-//   - scenes/prefabs: LoadScene over the FULL manager set (Engine.SceneSurface) + a factory-less
+//   - scenes/prefabs: LoadScene over the FULL manager set (Engine.Composition) + a factory-less
 //     ResourceManager whose unresolved set IS the component Ref list (the export
 //     reachability-scanner recipe), plus each parked prefab instance's id;
 //   - project settings: the manifest's Guid fields (default scene, startup script, input map,
@@ -31,7 +31,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import :session;
 

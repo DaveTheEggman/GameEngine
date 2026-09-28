@@ -391,6 +391,7 @@ add_subdirectory(Code/Foundation/Audio.Resource)    # cooked audio clips + facto
 add_subdirectory(Code/Foundation/Scene)     # scene / ECS foundation (entities, transforms, components, SceneSubsystem)
 add_subdirectory(Code/Engine/Engine.Scene)
 add_subdirectory(Code/Foundation/Scene.Resource)
+add_subdirectory(Code/Engine/Engine.Domain) # what one engine domain declares (DomainModule) + the composition built from a list of them
 add_subdirectory(Code/Foundation/Render.Api) # light scene-rendering interface (ISceneRenderer) - tools drive rendering w/o linking the renderer
 add_subdirectory(Code/Foundation/Render)    # renderer: scene->render extraction + (later) the GPU forward path
 add_subdirectory(Code/Engine/Engine.Render)
@@ -515,7 +516,6 @@ add_subdirectory(Code/Engine/Engine.UI.Script)  # UI script surface: reflected v
 # The script-surface composition root: links every subsystem facade above and exposes
 # RegisterAllScriptFacades() for surface-describing hosts (MCP). Must come after all the subsystem
 # libs + Net.Manager/Replication it aggregates.
-add_subdirectory(Code/Engine/Engine.ScriptSurface)
 add_subdirectory(Code/Engine/Engine.DefaultApp)
 # --- Runtime runner backend (browser rAF loop vs blocking desktop loop) ---
 if(EMSCRIPTEN)
@@ -529,7 +529,7 @@ add_subdirectory(Code/Engine/Engine.Integration) # cross-subsystem composition h
 # The scene-surface composition root: aggregates every domain's Add<Domain>SceneManagers (the same
 # functions the subsystems' OnSceneCreated delegate to) for headless scene consumers (export
 # transcode, MCP scene_validate). Must come after all the domain libs it aggregates (incl. Script).
-add_subdirectory(Code/Engine/Engine.SceneSurface)
+add_subdirectory(Code/Engine/Engine.Composition) # THE composition root: the one list of domains, facets on demand (scene, reflection, resource types, factories, facades)
 if(OPTION_EXTENSION_IMGUI)
     add_subdirectory(Code/Extensions/Imgui) # Dear ImGui debug UI (RHI renderer + subsystem) over Runtime
 endif()
@@ -669,8 +669,7 @@ if(OPTION_BUILD_TESTS)
     if(OPTION_ENABLE_ANGELSCRIPT AND OPTION_ENABLE_LUAU)
         util_test_suite(Code/Engine/Engine.GameInstance.Tests Engine::GameInstance)
     endif()
-    util_test_suite(Code/Engine/Engine.ScriptSurface.Tests Engine::ScriptSurface)
-    util_test_suite(Code/Engine/Engine.SceneSurface.Tests Engine::SceneSurface)
+    util_test_suite(Code/Engine/Engine.Composition.Tests Engine::Composition)
     util_test_suite(Code/Engine/Engine.Integration.Tests            Engine::Integration)
     util_test_suite(Code/Engine/Engine.Net.Tests                    Engine::Net)
     util_test_suite(Code/Engine/Engine.Physics.Tests                Engine::Physics)

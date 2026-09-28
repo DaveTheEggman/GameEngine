@@ -20,7 +20,7 @@ target_link_libraries(Tools.Editor PRIVATE
     Foundation::Runtime Foundation::Runtime.Client Foundation::Runtime.Desktop Foundation::Shell.Desktop
     Foundation::Shell Foundation::Graphics Foundation::Graphics.Gpu
     Engine::Scene Engine::Render Engine::Animation Engine::Particles
-    Engine::ScriptSurface # RegisterAllScriptFacades: the COMPLETE engine facade surface the cook
+    Engine::Composition # RegisterAllScriptFacades: the COMPLETE engine facade surface the cook
                           # AND live validation compile against (run/ui/physics/audio/... facades)
     Editor::Core Editor::App Editor::Scene
     Pipeline::Core Pipeline::Cook

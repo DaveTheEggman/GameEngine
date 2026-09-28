@@ -12,7 +12,7 @@
 ///
 /// All types are runtime-free (foundation.scene never reaches up to the runtime layer) and are built
 /// on `foundation.core` value types only. `SceneModule` and `SceneComposition` are the single source of
-/// truth that both the runtime path and headless scene consumers (Engine.SceneSurface transcode / MCP
+/// truth that both the runtime path and headless scene consumers (Engine.Composition transcode / MCP
 /// validate) instantiate scenes from, replacing the imperative, duplicated `AddAllSceneManagers` list
 /// and its `kSceneSystemCount` count tripwire.
 

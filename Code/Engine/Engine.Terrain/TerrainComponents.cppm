@@ -17,6 +17,7 @@ module;
 export module engine.terrain:components;
 
 import foundation.core;
+import engine.domain;
 import foundation.profiler;
 import foundation.rhi;              // Device, TextureView (the GPU height texture)
 import foundation.scene;
@@ -340,4 +341,12 @@ export namespace engine::terrain
     // Scene-composition hooks (the SceneModule pair, mirroring every other domain).
     void AddTerrainSceneManagers(foundation::scene::Scene& scene);
     void RegisterTerrainComponentReflection();
+}
+
+export namespace engine::terrain
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& TerrainDomain() noexcept;
 }

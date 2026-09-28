@@ -21,8 +21,7 @@ import foundation.mcp;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
-import engine.scriptsurface;
-import engine.scenesurface;
+import engine.composition;
 import editor.project; // EditorLogBuffer (the host's log capture)
 import editor.mcp;
 
@@ -75,7 +74,7 @@ int main(int argc, char** argv)
     // composition root registers both, each OPTION_HAS-guarded), so script_api spans them all.
     engine::RegisterAllScriptFacades();
     // Component reflection for every engine domain (data-version gates) - scene_validate parses
-    // component payloads through the full manager set (Engine.SceneSurface), which needs the
+    // component payloads through the full manager set (Engine.Composition), which needs the
     // reflected field metadata registered before any scene stream deserializes.
     engine::RegisterAllSceneComponentReflection();
 

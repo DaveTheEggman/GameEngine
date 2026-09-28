@@ -24,6 +24,7 @@ export module engine.audio;
 export import :components;
 
 import foundation.core;
+import engine.domain;
 import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
@@ -606,9 +607,9 @@ export namespace engine::audio
     // into every scene (via the composition), pushes the winning listener, and exposes the
     // engine-global one-shot API.
     // THE audio manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface). Runtime-only wiring (SetEngine) stays with the
+    // scene consumers (Engine.Composition). Runtime-only wiring (SetEngine) stays with the
     // subsystem; the AudioSceneSystem is engine-less (silent) until it. Add a manager => bump
-    // the SceneSurface tripwire (engine::kSceneSystemCount).
+    // the composition (Engine.Composition).
     inline void AddAudioSceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<AudioSourceComponentManager>();
@@ -1143,4 +1144,12 @@ export namespace engine::audio
 
     void RegisterAudioScriptFacade();
 
+}
+
+export namespace engine::audio
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& AudioDomain() noexcept;
 }

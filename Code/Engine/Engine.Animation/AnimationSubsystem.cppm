@@ -16,6 +16,7 @@ module;
 export module engine.animation:subsystem;
 
 import foundation.core;
+import engine.domain;
 import foundation.runtime;         // Subsystem, Context
 import foundation.scene; // Scene
 import engine.scene; // SceneSubsystem (to register as scene-aware)
@@ -25,9 +26,8 @@ import :propertyanimator;
 export namespace engine::animation
 {
     // THE animation manager set for a scene - the subsystem injects it at runtime AND headless
-    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch) call it directly, so
-    // a manager added here reaches both automatically. Add a manager => bump the SceneSurface
-    // tripwire (engine::kSceneSystemCount).
+    // scene consumers (Engine.Composition -> export/MCP transcode scratch) call it directly, so
+    // a manager added here reaches both automatically.
     inline void AddAnimationSceneManagers(foundation::scene::Scene& scene)
     {
         scene.AddSystem<AnimationGraphComponentManager>();
@@ -46,3 +46,11 @@ export namespace engine::animation
     };
 
 } // namespace foundation::animation
+
+export namespace engine::animation
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& AnimationDomain() noexcept;
+}

@@ -16,7 +16,7 @@ import foundation.script.angelscript; // CreateScriptManager + AngelScriptByteco
 import foundation.script.facades;      // RegisterScriptFacadeReflection (match the cook's surface)
 import script.pipeline;
 import script.angelscript.pipeline;
-import engine.scriptsurface;            // RegisterAllScriptFacades (the COMPLETE engine facade surface)
+import engine.composition;            // RegisterAllScriptFacades (the COMPLETE engine facade surface)
 
 using namespace foundation::core;
 using namespace pipeline;

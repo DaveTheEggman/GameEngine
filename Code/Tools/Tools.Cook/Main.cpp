@@ -22,7 +22,7 @@ import foundation.content;
 import foundation.vfs;
 import pipeline.core;
 import pipeline.registration;
-import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
+import engine.composition; // RegisterAllScriptFacades - the COMPLETE engine facade surface
 import editor.project;
 import pipeline.cook;
 

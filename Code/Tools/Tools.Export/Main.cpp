@@ -48,8 +48,7 @@ import foundation.input;
 import foundation.input.resource;
 import input.pipeline;
 import modelimporter;
-import engine.scenesurface; // AddAllSceneManagers + RegisterAllSceneComponentReflection
-import engine.scriptsurface; // RegisterAllScriptFacades - the COMPLETE engine facade surface
+import engine.composition; // AddAllSceneManagers + RegisterAllSceneComponentReflection
 import foundation.physics;
 import foundation.physics.resource;
 import physics.pipeline;

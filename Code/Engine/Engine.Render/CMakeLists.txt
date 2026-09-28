@@ -6,7 +6,7 @@ target_link_libraries(Engine.Render
     PUBLIC Foundation::Core Foundation::Scene Engine::Scene Foundation::Render Foundation::Runtime
            Foundation::Geometry Foundation::Materials Foundation::Shaders Foundation::Shaders.System
            Foundation::Texture.Resource Foundation::Resource Foundation::Script.Facades
-           Foundation::Materials.PipelineCache Foundation::Profiler Foundation::Policy)
+           Foundation::Materials.PipelineCache Foundation::Profiler Engine::Domain Foundation::Geometry.Resource Foundation::Model.Resource Foundation::Materials.Resource Foundation::Image.Resource Foundation::Shaders.Resource Foundation::Policy)
 
 target_sources(Engine.Render
     PRIVATE

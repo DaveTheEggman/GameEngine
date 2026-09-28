@@ -21,6 +21,7 @@ module;
 export module engine.render:subsystem;
 
 import foundation.core;
+import engine.domain;
 import foundation.rhi;
 import foundation.profiler;
 import foundation.runtime;         // Subsystem, Context
@@ -50,9 +51,9 @@ export namespace engine::render
     namespace scene = foundation::scene;
 
     // THE render manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch), so a manager added
+    // scene consumers (Engine.Composition -> export/MCP transcode scratch), so a manager added
     // there reaches both automatically. Defined in RenderSubsystemImpl.cpp next to OnSceneCreated.
-    // Add a manager => bump the SceneSurface tripwire (engine::kSceneSystemCount).
+    // A manager added here reaches the composition (Engine.Composition) automatically.
     void AddRenderSceneManagers(scene::Scene& scene);
 
     // The canonical, ordered scene-pass MSAA levels - the SINGLE source of truth for the UI list and
@@ -428,3 +429,11 @@ export namespace engine::render
     };
 
 } // namespace foundation::render
+
+export namespace engine::render
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& RenderDomain() noexcept;
+}

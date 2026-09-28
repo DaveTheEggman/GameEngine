@@ -5,7 +5,7 @@ target_link_libraries(Engine.Navigation
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene Foundation::Resource
            Foundation::Navigation Foundation::Navigation.Resource
            Foundation::Render Engine::Render
-           Foundation::Script.Facades Foundation::Profiler Foundation::Policy)
+           Foundation::Script.Facades Foundation::Profiler Engine::Domain Foundation::Policy)
 
 target_sources(Engine.Navigation
     PRIVATE

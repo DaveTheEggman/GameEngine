@@ -35,6 +35,7 @@ export import :components;
 export import foundation.script.facades; // Entity/Log/Time/Random + the run-service binding
 
 import foundation.core;
+import engine.domain;
 import foundation.runtime;
 import foundation.runtime;
 import foundation.scene;
@@ -1497,10 +1498,10 @@ export namespace engine::script
     };
 
     // THE script manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface). The manager<->system cross-link is in-scene wiring
+    // scene consumers (Engine.Composition). The manager<->system cross-link is in-scene wiring
     // and belongs here; run-host binding is runtime-only and stays with the subsystem (the
-    // systems are inert without a host). Add a manager => bump the SceneSurface tripwire
-    // (engine::kSceneSystemCount).
+    // systems are inert without a host). A manager added here reaches the composition (Engine.Composition)
+    // automatically.
     inline void AddScriptSceneManagers(scene::Scene& scene)
     {
         auto* components = scene.AddSystem<ScriptComponentManager>();
@@ -1792,4 +1793,12 @@ export namespace engine::script
         Function<resource::ResourceManager*()>
             m_resourcesGetter; // resource swaps (late-bound; app owns the manager)
     };
+}
+
+export namespace engine::script
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& ScriptDomain() noexcept;
 }

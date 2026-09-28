@@ -31,8 +31,8 @@ target_sources(Tools.Mcp PRIVATE ${MCP_BUILD_STAMP_CPP})
 set_source_files_properties(${MCP_BUILD_STAMP_CPP} PROPERTIES CXX_SCAN_FOR_MODULES OFF)
 target_link_libraries(Tools.Mcp PRIVATE Foundation::VFS
     Foundation::Mcp.Reflection Foundation::Mcp.Script Editor::Mcp
-    Engine::ScriptSurface # complete script surface (all facades); both script backends
+    Engine::Composition # complete script surface (all facades); both script backends
                           # (angelscript | luau) come transitively from Pipeline::Registration below
-    Engine::SceneSurface # full manager set + component reflection (scene_validate payload parsing)
+    Engine::Composition # full manager set + component reflection (scene_validate payload parsing)
     Pipeline::Registration Pipeline::Core Pipeline::Importer # the write tools' builder/importer set
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)

@@ -5,7 +5,7 @@ util_add_engine_library(Engine.GameInstance ALIAS Engine::GameInstance)
 target_link_libraries(Engine.GameInstance PUBLIC
     Foundation::Core Foundation::Scene Foundation::Scene.Resource Foundation::Content Foundation::Resource
     Foundation::Script Engine::Script Foundation::Script.Facades
-    Foundation::Net.Manager Engine::Net Foundation::Input Foundation::Policy)
+    Foundation::Net.Manager Engine::Net Foundation::Input Engine::Domain Foundation::Policy)
 
 target_sources(Engine.GameInstance
     PUBLIC

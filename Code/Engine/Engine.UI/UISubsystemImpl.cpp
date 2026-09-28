@@ -16,6 +16,7 @@ module;
 #include <cstdlib>
 
 module engine.ui;
+import engine.domain;
 
 import foundation.core;
 import foundation.profiler;
@@ -2078,5 +2079,23 @@ namespace engine::ui
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::ui
+{
+    const engine::DomainModule& UiDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::ui::kUIResourceModule,
+            &foundation::fonts::kFontsResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"ui",
+            .installScene = &AddUISceneManagers,
+            .registerReflection = &RegisterUIComponentReflection,
+            .registerScriptFacade = &RegisterUiComponentScriptFacades,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

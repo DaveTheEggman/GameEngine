@@ -12,6 +12,7 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.script;
+import engine.domain;
 
 import foundation.core;
 import foundation.scene;
@@ -80,5 +81,21 @@ namespace engine::script
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::script
+{
+    const engine::DomainModule& ScriptDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::script::kScriptResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"script",
+            .installScene = &AddScriptSceneManagers,
+            .registerReflection = &RegisterScriptComponentReflection,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

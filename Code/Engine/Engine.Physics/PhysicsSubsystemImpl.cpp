@@ -14,6 +14,7 @@ module;
 #include <cmath>
 
 module engine.physics;
+import engine.domain;
 
 import foundation.core;
 import foundation.profiler;
@@ -424,5 +425,22 @@ namespace engine::physics
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::physics
+{
+    const engine::DomainModule& PhysicsDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::physics::kPhysicsResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"physics",
+            .installScene = &AddPhysicsSceneManagers,
+            .registerReflection = &RegisterPhysicsComponentReflection,
+            .registerScriptFacade = &RegisterPhysicsScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

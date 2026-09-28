@@ -21,8 +21,7 @@ import foundation.scene.resource;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
-import engine.scenesurface;
-import engine.scriptsurface; // RegisterAllScriptFacades: the scripts cook against the full surface
+import engine.composition;
 import editor.project;
 import editor.mcp;
 

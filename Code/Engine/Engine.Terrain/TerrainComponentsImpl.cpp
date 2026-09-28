@@ -10,6 +10,8 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.terrain;
+import engine.domain;
+import foundation.heightfield.resource;
 
 import foundation.core;
 import foundation.scene;
@@ -43,5 +45,22 @@ namespace engine::terrain
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::terrain
+{
+    const engine::DomainModule& TerrainDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::terrain::kTerrainResourceModule,
+            &foundation::heightfield::kHeightfieldResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"terrain",
+            .installScene = &AddTerrainSceneManagers,
+            .registerReflection = &RegisterTerrainComponentReflection,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

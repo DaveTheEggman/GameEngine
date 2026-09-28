@@ -31,6 +31,7 @@ module;
 export module engine.vegetation:components;
 
 import foundation.core;
+import engine.domain;
 import foundation.scene;
 import foundation.resource;
 import foundation.geometry;         // StaticMesh (bounds)
@@ -392,4 +393,12 @@ export namespace engine::vegetation
     // Scene-composition hooks (the SceneModule pair, mirroring every other domain).
     void AddVegetationSceneManagers(foundation::scene::Scene& scene);
     void RegisterVegetationComponentReflection();
+}
+
+export namespace engine::vegetation
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& VegetationDomain() noexcept;
 }

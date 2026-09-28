@@ -12,6 +12,8 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.input;
+import engine.domain;
+import foundation.input.resource;
 
 import foundation.core;
 import foundation.script.facades; // RegisterExtraFacadeName (Input into the behavior prelude)
@@ -42,5 +44,20 @@ namespace engine::input
         // So the behavior/Level prelude imports `Input` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         foundation::script::RegisterExtraFacadeName(u8"Input");
+    }
+}
+
+namespace engine::input
+{
+    const engine::DomainModule& InputDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::input::kInputResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"input",
+            .registerScriptFacade = &RegisterInputScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

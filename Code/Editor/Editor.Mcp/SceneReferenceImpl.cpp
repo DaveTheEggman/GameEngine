@@ -18,7 +18,7 @@ import foundation.resource;
 import foundation.script.resource;
 import foundation.mcp;
 import pipeline.core;
-import engine.scenesurface; // the FULL composition: every manager + settings system
+import engine.composition; // the FULL composition: every manager + settings system
 import engine.script;      // the example's script behaviour with one override per kind
 
 using namespace foundation::core;

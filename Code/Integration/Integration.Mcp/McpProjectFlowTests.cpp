@@ -24,7 +24,7 @@ import foundation.mcp.reflection;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
-import engine.scriptsurface;
+import engine.composition;
 import foundation.mcp.script;
 #if defined(OPTION_HAS_ANGELSCRIPT)
 import foundation.script.angelscript;

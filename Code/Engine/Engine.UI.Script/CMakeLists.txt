@@ -6,7 +6,7 @@
 util_add_engine_library(Engine.UI.Script ALIAS Engine::UI.Script)
 target_link_libraries(Engine.UI.Script
     PUBLIC Foundation::Core Foundation::UI Foundation::UI.Gamekit
-           Foundation::Script Foundation::Script.Facades Foundation::Policy)
+           Foundation::Script Foundation::Script.Facades Engine::Domain Foundation::Policy)
 
 target_sources(Engine.UI.Script
     PRIVATE

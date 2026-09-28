@@ -1508,3 +1508,21 @@ export namespace foundation::scene
     };
 
 } // namespace foundation::scene
+
+export namespace foundation::scene
+{
+    /// Registers the scene and prefab document types (content-DB construction by type name).
+    /// Idempotent.
+    inline void RegisterSceneResourceTypes()
+    {
+        GlobalTypeRegistry().Register(SceneDocument::StaticType());
+        RegisterSerializable<SceneDocument>();
+        GlobalTypeRegistry().Register(PrefabDocument::StaticType());
+        RegisterSerializable<PrefabDocument>();
+    }
+
+    /// The scene resource module (engine-composition.md D1): the document types, no factories
+    /// (a scene is loaded, not bound). The prefabs domain brings it.
+    inline constexpr foundation::resource::ResourceModule kSceneResourceModule{
+        u8"scene", &RegisterSceneResourceTypes, nullptr, 0};
+}

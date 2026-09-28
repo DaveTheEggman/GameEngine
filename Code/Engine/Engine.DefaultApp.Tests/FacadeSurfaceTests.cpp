@@ -18,7 +18,7 @@ import foundation.runtime.client;
 import foundation.shell;
 import foundation.graphics;
 import foundation.script.facades;
-import engine.scriptsurface;
+import engine.composition;
 import engine.defaultapp;
 
 using namespace foundation::core;

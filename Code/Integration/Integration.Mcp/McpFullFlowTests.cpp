@@ -20,7 +20,7 @@ import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
 import script.pipeline;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import editor.mcp;
 

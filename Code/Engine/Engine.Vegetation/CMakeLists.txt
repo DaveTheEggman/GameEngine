@@ -12,7 +12,7 @@ target_link_libraries(Engine.Vegetation
         Foundation::Heightfield Foundation::Terrain Foundation::Terrain.Resource
         Foundation::Vegetation.Resource Foundation::Vegetation
         Foundation::Render Engine::Render Engine::Terrain Engine::Scene
-        Foundation::Runtime Foundation::Profiler Foundation::Policy)
+        Foundation::Runtime Foundation::Profiler Engine::Domain Foundation::Policy)
 
 target_sources(Engine.Vegetation
     PRIVATE

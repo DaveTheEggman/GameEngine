@@ -15,6 +15,7 @@ module;
 export module engine.particles:subsystem;
 
 import foundation.core;
+import engine.domain;
 import foundation.rhi;
 import foundation.shaders.system;
 import foundation.runtime;          // Subsystem, Context
@@ -36,9 +37,9 @@ export namespace engine::particles
     namespace scene = foundation::scene;
 
     // THE particle manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface). Renderer wiring (dispatch id, provider registration)
-    // stays with the subsystem. Add a manager => bump the SceneSurface tripwire
-    // (engine::kSceneSystemCount).
+    // scene consumers (Engine.Composition). Renderer wiring (dispatch id, provider registration)
+    // stays with the subsystem. A manager added here reaches the composition (Engine.Composition)
+    // automatically.
     inline void AddParticleSceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<ParticleEffectComponentManager>();
@@ -129,4 +130,12 @@ export namespace engine::particles
         UniquePtr<ParticleRenderer> m_renderer;
         u16 m_billboardRendererId = 0;
     };
+}
+
+export namespace engine::particles
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& ParticleDomain() noexcept;
 }

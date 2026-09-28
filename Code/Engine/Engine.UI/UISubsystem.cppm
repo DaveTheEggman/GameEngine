@@ -24,6 +24,7 @@ module;
 export module engine.ui;
 
 import foundation.core;
+import engine.domain;
 import foundation.runtime;
 import foundation.scene;
 import engine.scene;
@@ -328,14 +329,14 @@ export namespace engine::ui
     // Register the WORLD-space UI components' script `.of` facades (UICanvasComponent /
     // UIBillboardComponent / UIWorldPanelComponent) - reflection + registry + prelude names. Distinct
     // from the screen-tier `ui` facade (engine.ui.script): these are per-entity component surfaces.
-    // Idempotent; the ScriptSurface root + the app both call it. Distinct from the screen-tier
+    // Idempotent; the composition root + the app both call it. Distinct from the screen-tier
     // facade in engine.ui.script.
     void RegisterUiComponentScriptFacades();
 
     // THE game-UI manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface). The per-scene root-view plumbing is runtime-only and
-    // stays with the subsystem. Add a manager => bump the SceneSurface tripwire
-    // (engine::kSceneSystemCount).
+    // scene consumers (Engine.Composition). The per-scene root-view plumbing is runtime-only and
+    // stays with the subsystem. A manager added here reaches the composition (Engine.Composition)
+    // automatically.
     inline void AddUISceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<UICanvasComponentManager>();
@@ -651,4 +652,12 @@ export namespace engine::ui
         struct RenderState;
         UniquePtr<RenderState> m_render;
     };
+}
+
+export namespace engine::ui
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& UiDomain() noexcept;
 }

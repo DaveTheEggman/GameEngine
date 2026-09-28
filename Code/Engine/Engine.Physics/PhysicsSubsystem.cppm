@@ -25,6 +25,7 @@ export module engine.physics;
 export import :components;
 
 import foundation.core;
+import engine.domain;
 import foundation.profiler;
 import foundation.runtime;
 import foundation.scene;
@@ -965,8 +966,8 @@ export namespace engine::physics
     // The runtime subsystem: contributes the managers + system to the scene composition
     // and drives render-frame interpolation + debug draw with the engine's fixed alpha.
     // THE physics manager set for a scene - injected by the subsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface). Runtime wiring (contact listeners) stays with the
-    // subsystem. Add a manager => bump the SceneSurface tripwire (engine::kSceneSystemCount).
+    // scene consumers (Engine.Composition). Runtime wiring (contact listeners) stays with the
+    // subsystem. A manager added here reaches the composition (Engine.Composition) automatically.
     inline void AddPhysicsSceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<RigidBodyComponentManager>();
@@ -1349,4 +1350,12 @@ export namespace engine::physics
     /// Registers the physics script surface (ScenePhysics.of + the reflected components) into the
     /// global registry + the behavior prelude. (Kept the historical name; there is no static facade.)
     void RegisterPhysicsScriptFacade();
+}
+
+export namespace engine::physics
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& PhysicsDomain() noexcept;
 }

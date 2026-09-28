@@ -9,7 +9,7 @@ target_link_libraries(Engine.Particles
            Foundation::Particles.Resource Foundation::Resource Foundation::Content
            Foundation::Texture Foundation::Texture.Resource
            Foundation::Geometry Foundation::Materials Foundation::Script.Facades
-           Foundation::Policy Foundation::Profiler)
+           Engine::Domain Foundation::Policy Foundation::Profiler)
 
 target_sources(Engine.Particles
     PRIVATE

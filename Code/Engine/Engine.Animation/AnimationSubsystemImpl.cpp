@@ -13,6 +13,9 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.animation;
+import engine.domain;
+import foundation.animation.resource;
+import foundation.propertyanimation.resource;
 
 import foundation.core;
 import foundation.script;
@@ -171,5 +174,23 @@ namespace engine::animation
         GlobalTypeRegistry().Register(core::TypeOf<SceneAnimation>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneAnimation>());
         foundation::script::RegisterExtraFacadeName(u8"SceneAnimation");
+    }
+}
+
+namespace engine::animation
+{
+    const engine::DomainModule& AnimationDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::animation::kAnimationResourceModule,
+            &foundation::propertyanimation::kPropertyAnimationResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"animation",
+            .installScene = &AddAnimationSceneManagers,
+            .registerReflection = &RegisterAnimationComponentReflection,
+            .registerScriptFacade = &RegisterAnimationScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

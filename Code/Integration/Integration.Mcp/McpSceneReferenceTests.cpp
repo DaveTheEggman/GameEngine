@@ -19,7 +19,7 @@ import foundation.script.resource;
 import foundation.mcp;
 import pipeline.core;
 import pipeline.registration;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import editor.mcp;
 

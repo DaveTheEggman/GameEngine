@@ -164,8 +164,8 @@ export namespace foundation::net
     };
 
     // THE net manager set for a scene - injected by the NetworkSubsystem at runtime AND by headless
-    // scene consumers (Engine.SceneSurface -> export/MCP transcode scratch). Add a manager => bump
-    // the SceneSurface tripwire (engine::kSceneSystemCount).
+    // scene consumers (Engine.Composition -> export/MCP transcode scratch). Add a manager => bump
+    // the composition (Engine.Composition).
     inline void AddNetworkSceneManagers(scene::Scene& scene)
     {
         scene.AddSystem<NetworkComponentManager>();          // identity (NetworkId + authority + prefab)

@@ -11,6 +11,7 @@ module;
 #include "Profiler/Profiler.h" // PROFILE_SCOPE (compiles to nothing when disabled)
 
 module engine.vegetation;
+import engine.domain;
 
 import foundation.core;
 import foundation.profiler;
@@ -669,5 +670,21 @@ namespace engine::vegetation
             (void)m_caches.Remove(key);
         }
         m_pendingRegions.Clear();
+    }
+}
+
+namespace engine::vegetation
+{
+    const engine::DomainModule& VegetationDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::vegetation::kVegetationResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"vegetation",
+            .installScene = &AddVegetationSceneManagers,
+            .registerReflection = &RegisterVegetationComponentReflection,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

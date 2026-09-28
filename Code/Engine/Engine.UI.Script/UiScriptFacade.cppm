@@ -20,6 +20,7 @@ module;
 export module engine.ui.script:facade;
 
 import foundation.core;
+import engine.domain;
 import foundation.ui;
 import foundation.ui.gamekit;
 import foundation.script;
@@ -86,4 +87,12 @@ export namespace engine::uiscript
     // registry and the behavior-prelude name list. Idempotent; call before a script manager is created
     // (the run host / cook builder do). Mirrors the other RegisterXxxScriptFacade entry points.
     void RegisterUiScriptSurface();
+}
+
+export namespace engine::uiscript
+{
+    /// This domain's declaration (engine-composition.md D4): what it brings to a scene, to
+    /// reflection, to the script surface and which resource modules come with it. Defined in the
+    /// implementation unit (one instance per process); Engine.Composition lists it once.
+    [[nodiscard]] const engine::DomainModule& UiScriptDomain() noexcept;
 }

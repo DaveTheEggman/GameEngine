@@ -8,7 +8,7 @@
 // so an MCP export produces an identical dist. Presets come from the project's
 // export_presets.xml (else the synthesized host preset); the template registry resolves from
 // the shared templates root plus the host tool directory (the player next to the executable);
-// scene streams pre-transcode over the FULL manager set (Engine.SceneSurface) and the
+// scene streams pre-transcode over the FULL manager set (Engine.Composition) and the
 // reachability scanner reuses the same full-manager scan asset_uses runs.
 
 module;
@@ -24,7 +24,7 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
-import engine.scenesurface;
+import engine.composition;
 import editor.project;
 import :session;
 import :operations;

@@ -20,6 +20,13 @@ module;
 #include "Profiler/Profiler.h"
 
 module engine.render;
+import engine.domain;
+import foundation.geometry.resource;
+import foundation.model.resource;
+import foundation.materials.resource;
+import foundation.texture.resource;
+import foundation.image.resource;
+import foundation.shaders.resource;
 
 import foundation.core;
 import foundation.rhi;
@@ -988,5 +995,27 @@ namespace engine::render
         ExtractedScene* s = m_scenes[m_sceneCount++].Get();
         s->Reset();
         return s;
+    }
+}
+
+namespace engine::render
+{
+    const engine::DomainModule& RenderDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::geometry::kGeometryResourceModule,
+            &foundation::model::kModelResourceModule,
+            &foundation::materials::kMaterialsResourceModule,
+            &foundation::texture::kTextureResourceModule,
+            &foundation::image::kImageResourceModule,
+            &foundation::shaders::kShadersResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"render",
+            .installScene = &AddRenderSceneManagers,
+            .registerReflection = &RegisterRenderComponentReflection,
+            .registerScriptFacade = &RegisterRenderScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

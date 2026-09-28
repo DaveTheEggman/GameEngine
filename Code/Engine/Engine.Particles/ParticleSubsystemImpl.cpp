@@ -12,6 +12,8 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.particles;
+import engine.domain;
+import foundation.particles.resource;
 
 import foundation.core;
 import foundation.script.facades; // ComponentOf<T> + RegisterExtra* (the script `.of` surface, Track A)
@@ -75,5 +77,22 @@ namespace engine::particles
         GlobalTypeRegistry().Register(core::TypeOf<SceneParticles>());
         foundation::script::RegisterExtraScriptRootType(&core::TypeOf<SceneParticles>());
         foundation::script::RegisterExtraFacadeName(u8"SceneParticles");
+    }
+}
+
+namespace engine::particles
+{
+    const engine::DomainModule& ParticleDomain() noexcept
+    {
+        static const foundation::resource::ResourceModule* const kResources[] = {
+            &foundation::particles::kParticlesResourceModule};
+        static const engine::DomainModule kModule{
+            .id = u8"particles",
+            .installScene = &AddParticleSceneManagers,
+            .registerReflection = &RegisterParticleComponentReflection,
+            .registerScriptFacade = &RegisterParticleScriptFacade,
+            .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
+                kResources, sizeof(kResources) / sizeof(kResources[0])}};
+        return kModule;
     }
 }

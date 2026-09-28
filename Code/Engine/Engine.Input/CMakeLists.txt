@@ -1,7 +1,7 @@
 # Engine::Input - `engine.input`: runtime tick + device provider seam.
 util_add_engine_library(Engine.Input ALIAS Engine::Input)
 target_link_libraries(Engine.Input
-    PUBLIC Foundation::Core Foundation::Shell Foundation::Runtime Foundation::Script Foundation::Script.Facades Foundation::Input Foundation::Policy)
+    PUBLIC Foundation::Core Foundation::Shell Foundation::Runtime Foundation::Script Foundation::Script.Facades Foundation::Input Engine::Domain Foundation::Input.Resource Foundation::Policy)
 
 target_sources(Engine.Input
     PRIVATE

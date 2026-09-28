@@ -11,6 +11,7 @@ module;
 #include "Core/Reflection/Reflect.h"
 
 module engine.ui.script;
+import engine.domain;
 
 import foundation.core;
 import foundation.ui;
@@ -483,5 +484,16 @@ namespace engine::uiscript
             return true;
         }();
         (void)once;
+    }
+}
+
+namespace engine::uiscript
+{
+    const engine::DomainModule& UiScriptDomain() noexcept
+    {
+        static const engine::DomainModule kModule{
+            .id = u8"ui.script",
+            .registerScriptFacade = &RegisterUiScriptSurface};
+        return kModule;
     }
 }

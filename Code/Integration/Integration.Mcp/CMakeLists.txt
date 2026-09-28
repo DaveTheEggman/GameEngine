@@ -4,11 +4,11 @@
 add_executable(Integration.Mcp TestsMain.cpp McpProjectFlowTests.cpp McpSceneFlowTests.cpp McpAssetUsesTests.cpp McpLogToolsTests.cpp McpScriptValidateTests.cpp McpExportTests.cpp McpFullFlowTests.cpp McpSceneReferenceTests.cpp SampleProjectTests.cpp)
 target_link_libraries(Integration.Mcp PRIVATE Foundation::VFS
     Editor::Mcp Foundation::Mcp.Reflection Foundation::Mcp Foundation::Json Foundation::Content
-    Foundation::Scene Foundation::Scene.Resource Foundation::Net.Replication Engine::SceneSurface
+    Foundation::Scene Foundation::Scene.Resource Foundation::Net.Replication Engine::Composition
     Foundation::Resource Foundation::Geometry.Resource # StaticMeshFactory: the scene reference's join fixture
     Pipeline::Materials Pipeline::Texture Pipeline::Audio Engine::Render Pipeline::Script Foundation::Script.Resource
     Pipeline::Registration Pipeline::Core Pipeline::Importer
-    Engine::ScriptSurface Foundation::Mcp.Script ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
+    Engine::Composition Foundation::Mcp.Script ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
     Foundation::Core doctest::doctest)
 target_compile_definitions(Integration.Mcp PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Integration.Mcp PRIVATE

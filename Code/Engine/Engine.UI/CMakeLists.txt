@@ -7,7 +7,7 @@ target_link_libraries(Engine.UI
            Foundation::UI.Resource
            Foundation::Script Foundation::Script.Facades
            Foundation::VG Foundation::VG.Renderer Foundation::Shaders Foundation::Shaders.System
-           Foundation::Render Engine::Render Foundation::Profiler Foundation::VFS Foundation::Policy)
+           Foundation::Render Engine::Render Foundation::Profiler Foundation::VFS Engine::Domain Foundation::Policy)
 target_sources(Engine.UI
     PRIVATE
         UISubsystemImpl.cpp   # implementation unit: VG/shader contact + reflection bodies

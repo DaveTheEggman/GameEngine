@@ -41,7 +41,7 @@ export namespace editor::mcp
         foundation::json::JsonValue schema;
     };
 
-    /// Generates both documents from the FULL scene composition (Engine.SceneSurface) plus the
+    /// Generates both documents from the FULL scene composition (Engine.Composition) plus the
     /// reference join through `resources` (the host's factories; null or factory-less = resource
     /// names alone) and `builders` (product -> asset type). Byte-identical for the same code.
     [[nodiscard]] SceneReference

@@ -7,7 +7,7 @@ target_link_libraries(Engine.Script
     PUBLIC Foundation::Core Foundation::Runtime Foundation::Scene Engine::Scene
            Foundation::Script Foundation::Script.Resource Foundation::Script.Facades
            Foundation::Resource Foundation::Content
-           Foundation::Profiler Foundation::Policy)
+           Foundation::Profiler Engine::Domain Foundation::Policy)
 
 target_sources(Engine.Script
     PRIVATE

@@ -17,7 +17,7 @@
 /// delivered through the observer stages - there is no other injection path.
 ///
 /// Scratch / headless consumers that never tick on the Context lane (the editor's export transcode /
-/// reachability scan) build a Scene directly via `Engine.SceneSurface::FullSceneComposition()`, not this
+/// reachability scan) build a Scene directly via `Engine.Composition::FullSceneComposition()`, not this
 /// subsystem.
 
 module;

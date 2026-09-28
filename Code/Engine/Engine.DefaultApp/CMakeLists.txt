@@ -21,7 +21,7 @@ target_link_libraries(Engine.DefaultApp
            Foundation::Texture.Resource Foundation::Image.Resource Foundation::Model.Resource Foundation::UI.Resource Engine::UI Engine::UI.Script Foundation::UI.Gamekit
            Foundation::Heightfield.Resource Foundation::Terrain.Resource Foundation::Vegetation.Resource
             Foundation::Net Foundation::Net.Manager Engine::Net
-            Foundation::Profiler Foundation::Policy Engine::SceneSurface Engine::ScriptSurface
+            Foundation::Profiler Foundation::Policy Engine::Composition 
             Foundation::Image Foundation::Image.IO)
 
 # Script VM backends - AngelScript and Luau. Each is independently toggleable via

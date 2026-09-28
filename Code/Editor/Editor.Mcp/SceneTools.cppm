@@ -9,7 +9,7 @@
 // authoring through the same "scene" data stream the editor saves.
 //
 // Validation is FULL: the scratch Scene carries the COMPLETE engine manager set (the
-// Engine.SceneSurface composition root - the same per-domain functions the subsystems inject
+// Engine.Composition composition root - the same per-domain functions the subsystems inject
 // through), so component payloads field-validate through their real managers, exactly as the
 // editor and the cooked-scene reader would parse them. A record whose type resolves to no
 // manager is now a GENUINELY unknown type; the reader skips it with a warning we capture and
@@ -30,7 +30,7 @@ import foundation.scene.resource;
 import foundation.xml.serialization;
 import foundation.mcp;
 import editor.project;
-import engine.scenesurface; // AddAllSceneManagers - the full manager set for the validate scratch
+import engine.composition; // AddAllSceneManagers - the full manager set for the validate scratch
 import :session;
 
 using namespace foundation::core;
@@ -66,7 +66,7 @@ namespace editor::mcp::detail
     };
 
     // Parse `xml` as a scene stream into a scratch Scene carrying the FULL engine manager set
-    // (Engine.SceneSurface), so component payloads validate through their real managers. Only a
+    // (Engine.Composition), so component payloads validate through their real managers. Only a
     // genuinely unknown component type is skipped (warning, captured above).
     inline SceneParseReport ParseSceneXml(StringView xml)
     {
@@ -125,7 +125,7 @@ namespace editor::mcp::detail
             out.Set(u8"rootCount", JsonValue::MakeNumber(static_cast<f64>(report.rootCount)));
         }
         // Honesty marker: component payloads validate through the FULL engine manager set
-        // (Engine.SceneSurface); warnings list any genuinely unknown component types.
+        // (Engine.Composition); warnings list any genuinely unknown component types.
         out.Set(u8"componentValidation", JsonValue::MakeString(u8"full"));
         return out;
     }
