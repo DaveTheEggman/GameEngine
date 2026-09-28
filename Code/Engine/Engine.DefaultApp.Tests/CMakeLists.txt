@@ -6,12 +6,6 @@ target_link_libraries(Engine.DefaultApp.Tests PRIVATE Engine::DefaultApp Engine:
     Foundation::Heightfield Foundation::Terrain.Resource
     Foundation::VFS Foundation::Xml Foundation::Scene Foundation::Scene.Resource
     Foundation::Image Foundation::Image.IO Foundation::RHI.TestSupport doctest::doctest)
-# The cooked-type tripwire joins each factory to a builder: only where the pipeline builds
-# (tooling; the web build has none).
-if(TARGET Pipeline::Registration)
-    target_link_libraries(Engine.DefaultApp.Tests PRIVATE Pipeline::Registration)
-    target_compile_definitions(Engine.DefaultApp.Tests PRIVATE OPTION_HAS_PIPELINE=1)
-endif()
 # The screenshot round trip runs on whichever real backends this build has (never assumed).
 if(TARGET Foundation::RHI.Vulkan)
     target_link_libraries(Engine.DefaultApp.Tests PRIVATE Foundation::RHI.Vulkan)

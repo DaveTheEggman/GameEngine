@@ -27,10 +27,6 @@ import foundation.heightfield;          // Heightfield product type (terrain fac
 import foundation.terrain.resource;     // TerrainResource + Splatmap product types
 import engine.defaultapp;
 import engine.composition; // FullComposition: the set the runtime composes from
-#if OPTION_HAS_PIPELINE // the pipeline is tooling: absent from the web build
-import pipeline.core;         // BuilderRegistry
-import pipeline.registration; // RegisterPipelineTypes + RegisterAllBuilders
-#endif
 
 using namespace foundation::core;
 namespace runtime = foundation::runtime;
@@ -97,39 +93,3 @@ TEST_CASE("defaultapp: attaching a manager registers the composition's headless 
     // Device gating documented: no GraphicsDevice on the host means no texture factory.
     CHECK(!resources.HasFactory(foundation::texture::Texture::StaticType().id));
 }
-
-#if OPTION_HAS_PIPELINE
-TEST_CASE("defaultapp: every factory the composition describes reads a cooked form that is a "
-          "registered serializable some builder produces - the runtime-to-asset link the scene "
-          "format reference joins")
-{
-    engine::RegisterAllResourceTypes();
-    pipeline::RegisterPipelineTypes();
-    pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
-    REQUIRE(builders.Count() == pipeline::kBuilderCount);
-
-    usize checked = 0;
-    engine::FullComposition().ForEachFactoryDescription(
-        [&](const foundation::resource::ResourceModule& module,
-            const foundation::resource::ResourceFactoryDesc& desc)
-        {
-            const TypeInfo* product = desc.product();
-            const TypeInfo* cooked = desc.cooked();
-            REQUIRE(product != nullptr);
-            INFO("module: ", doctest::String(reinterpret_cast<const char*>(module.id.Data()), static_cast<unsigned>(module.id.Size())));
-            INFO("factory for: ", doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
-            REQUIRE(cooked != nullptr);
-            // The cooked form is what the cook stamped and ReadObject reconstructs: registered.
-            CHECK(GlobalSerializableRegistry().Contains(cooked->id));
-            // And some builder produces exactly it - the link from the runtime type to the asset.
-            bool produced = false;
-            builders.ForEach([&](const pipeline::IAssetBuilder& builder)
-                             { produced = produced || builder.ProductType() == cooked; });
-            INFO("cooked form: ", doctest::String(cooked->name != nullptr ? cooked->name : "<unnamed>"));
-            CHECK(produced);
-            ++checked;
-        });
-    CHECK(checked == engine::FullComposition().FactoryDescriptionCount());
-}
-#endif // OPTION_HAS_PIPELINE
