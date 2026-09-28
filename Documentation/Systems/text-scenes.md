@@ -72,9 +72,10 @@ warning (matching component-record skip semantics).
   hand-listed manager set would silently drop component types); headless consumers (CLI export,
   MCP scene_validate) get the SAME full set - since scene-composition (2026-08-19) the runtime and
   every headless consumer instantiate from the one declarative composition in
-  `Engine.SceneSurface` (9 per-domain `SceneModule`s; the guard is `ModuleCount()` in
-  SceneSurfaceTests - it replaced the old `kSceneSystemCount` tripwire, whose two-lists-to-drift
-  failure mode no longer exists). `AddAllSceneManagers` survives as a thin wrapper for the many
+  `Engine.Composition` (since engine-composition.md, 2026-09-27: each domain declares its module
+  in its own library and the root lists them; the guard is the module count in
+  Engine.Composition.Tests - it replaced the old `kSceneSystemCount` tripwire, whose
+  two-lists-to-drift failure mode no longer exists). `AddAllSceneManagers` survives as a thin wrapper for the many
   call sites naming it. Scene streams are structure-only (KBs), so transcode is milliseconds;
   binary input passes through untouched.
 

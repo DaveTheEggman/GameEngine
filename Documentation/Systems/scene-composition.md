@@ -17,7 +17,7 @@ Related: [[game-instance]], [[runtime-host]], [[scripting]] (the one-context rul
 The design is shipped end-to-end and green across every affected test suite (`Scene.Tests`,
 `Engine.Scene.Tests`, `Engine.Navigation.Tests`, `Engine.Physics.Tests`, `Engine.Audio.Tests`,
 `Engine.Script.Tests`, `Engine.UI.Tests`, `Engine.GameInstance.Tests`, `Engine.Render.Tests`,
-`Engine.SceneSurface.Tests`, `Engine.Net.Tests`, `Engine.DefaultApp.Tests`, `Integration.Mcp` — zero
+`Engine.SceneSurface.Tests` (today `Engine.Composition.Tests`), `Engine.Net.Tests`, `Engine.DefaultApp.Tests`, `Integration.Mcp` — zero
 failures):
 
 - **`foundation.scene:composition`** (`Code/Foundation/Scene/SceneComposition.cppm`) defines
@@ -140,8 +140,9 @@ The one-time-built blueprint produced from a module list. It topologically sorts
 This is the **single source of truth**:
 
 - the runtime path instantiates scenes from it;
-- `SceneSurface`'s headless scratch instantiate scenes from the *same* composition — no parallel list, no
-  `kSceneSystemCount` tripwire;
+- the headless scratch scenes (today through `Engine.Composition`, which lists the domains once and
+  builds this composition from their declarations - engine-composition.md) instantiate from the *same*
+  composition — no parallel list, no `kSceneSystemCount` tripwire;
 - because composition is *data*, it yields per-composition variations for free (a "minimal headless server"
   composition, an "editor-only" composition) that the current all-or-nothing wiring cannot express.
 

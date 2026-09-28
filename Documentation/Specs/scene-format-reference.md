@@ -320,11 +320,11 @@ three corrections found during this research:
   `elementType`, when reflection knows it. A struct field written through the generic path
   (a `ScriptPropertyValue`) also writes its fields inline under the parent, without a key:
   the override record on the wire is `nameHash, kind, <payload>`, and the schema shows that.
-- **The stdio host has no factories**, so its reference joins a `Ref<T>` to the resource
-  name only and lists the field under `unreflected`; the editor host resolves the asset type
-  through its ResourceManager. A headless factory composition (the runtime side's twin of
-  Engine.SceneSurface, which DefaultApplication would also use) is the follow-up that closes
-  this; it needs a ruling on where it lives.
+- **The join reads declarations, not live factories** (since engine-composition.md, the same
+  day): a `Ref<T>`'s runtime type is joined to the factory DESCRIPTION the engine composition
+  carries for it (its cooked form), then to the builder. Every host, the stdio one included,
+  resolves every asset type; the first cut's "resource name alone" case no longer arises and
+  `ProjectSession::resources` is gone.
 - The schema is recorded over the DEFAULTS (D1) before the example scene gets its script
   behaviour, so the script component's `behaviors` shows as an empty array in the schema and
   the example carries the filled behaviour; the `scriptOverrides` section documents the

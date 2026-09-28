@@ -23,7 +23,6 @@ export module editor.mcp:scene_reference;
 
 import foundation.core;
 import foundation.json;
-import foundation.resource;
 import foundation.mcp;
 import pipeline.core;
 
@@ -41,12 +40,11 @@ export namespace editor::mcp
         foundation::json::JsonValue schema;
     };
 
-    /// Generates both documents from the FULL scene composition (Engine.Composition) plus the
-    /// reference join through `resources` (the host's factories; null or factory-less = resource
-    /// names alone) and `builders` (product -> asset type). Byte-identical for the same code.
+    /// Generates both documents from the engine composition (every manager and settings system,
+    /// every factory description) and `builders` (cooked form -> asset type). Reads declarations
+    /// only, so every host produces the same bytes for the same code.
     [[nodiscard]] SceneReference
-    GenerateSceneReference(IAllocator& allocator, const pipeline::BuilderRegistry& builders,
-                           const foundation::resource::ResourceManager* resources);
+    GenerateSceneReference(IAllocator& allocator, const pipeline::BuilderRegistry& builders);
 
     /// The schema entry for `name`: a component by wire name (a record's `type`) or reflected type
     /// name, or a settings block by system id or type name; ASCII case folded. Null when none.

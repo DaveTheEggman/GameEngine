@@ -108,8 +108,9 @@ The reflection registry exposes every reflected type. On top, a curated gameplay
 own `PrefabSpawnSystem`, see [[text-scenes]]; no host callback) /
 `Scene.find`, `Input`, `Audio`, `Physics.rayCast`, `UI`, `Net`, `Log`, `Time`, `Random`. Rule:
 a facade lands only WITH a sample that uses it (no API-first surface). Write facades with
-natural C++ types (i32/i64), not f64 ([[script-facade-numerics]]). `Engine.ScriptSurface`
-(`RegisterAllScriptFacades`) is the composition root for the complete bound surface.
+natural C++ types (i32/i64), not f64 ([[script-facade-numerics]]). `Engine.Composition`
+(`RegisterAllScriptFacades`, each domain's facade registrar declared on its DomainModule) is
+the composition root for the complete bound surface (engine-composition.md).
 
 ## Cook + runtime resources
 

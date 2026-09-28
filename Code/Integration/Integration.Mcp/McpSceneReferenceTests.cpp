@@ -13,8 +13,6 @@ import foundation.content;
 import foundation.vfs;
 import foundation.scene;
 import foundation.scene.resource;
-import foundation.resource;
-import foundation.geometry.resource;
 import foundation.script.resource;
 import foundation.mcp;
 import pipeline.core;
@@ -40,28 +38,24 @@ namespace
         std::filesystem::remove_all(kDbDir, ec);
     }
 
-    // A content database + a ResourceManager carrying ONE factory (StaticMesh), so the reference
-    // join has a resolvable target and every other Ref<T> an unresolvable one.
+    // The builders (cooked form -> asset type) and a content database for the round trip; the
+    // factory descriptions come from the engine composition, so nothing else is composed here.
     struct Fixture
     {
         foundation::vfs::NativeFileSystem mount{u8"mcp_scene_reference_db", DefaultAllocator()};
         content::ContentDatabase db{DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset"};
-        foundation::resource::ResourceManager resources{DefaultAllocator(), db};
-        foundation::geometry::StaticMeshFactory meshFactory{DefaultAllocator()};
         pipeline::BuilderRegistry builders{DefaultAllocator()};
 
         Fixture()
         {
             RemoveDb();
             pipeline::RegisterAllBuilders(builders);
-            resources.AddFactory(&meshFactory);
         }
         ~Fixture() { RemoveDb(); }
 
-        [[nodiscard]] editor::mcp::SceneReference Generate(bool withFactories = true) const
+        [[nodiscard]] editor::mcp::SceneReference Generate() const
         {
-            return editor::mcp::GenerateSceneReference(DefaultAllocator(), builders,
-                                                       withFactories ? &resources : nullptr);
+            return editor::mcp::GenerateSceneReference(DefaultAllocator(), builders);
         }
     };
 
@@ -153,14 +147,14 @@ TEST_CASE("integration.mcp: scene reference - the physics settings block lists g
     CHECK(editor::mcp::FindSchemaEntry(reference.schema, u8"no-such-block").IsNull());
 }
 
-TEST_CASE("integration.mcp: scene reference - an EntityRef field is `ref: entity`; a Ref<StaticMesh> "
-          "field is joined to its asset type through the factory and the builder, or left as the "
-          "resource name alone when the host has no factory for it")
+TEST_CASE("integration.mcp: scene reference - an EntityRef field is `ref: entity`; every Ref<T> field "
+          "is joined to its asset type through the composition's factory description and the builder")
 {
     Fixture f;
     const editor::mcp::SceneReference reference = f.Generate();
 
-    // mesh.mesh: Ref<StaticMesh> -> StaticMeshFactory -> StaticMeshSource -> the builder -> its asset.
+    // mesh.mesh: Ref<StaticMesh> -> the geometry module's description -> StaticMeshSource -> the
+    // builder -> its asset.
     const JsonValue mesh = editor::mcp::FindSchemaEntry(reference.schema, u8"mesh");
     REQUIRE(mesh.IsObject());
     const JsonValue meshField = Field(mesh.Get(u8"fields"), u8"mesh");
@@ -201,12 +195,19 @@ TEST_CASE("integration.mcp: scene reference - an EntityRef field is `ref: entity
     CHECK(Field(light.Get(u8"fields"), u8"color").Get(u8"fields").Count() == 4);
     CHECK_FALSE(Lists(light.Get(u8"unreflected"), u8"r"));
 
-    // No factories (the stdio host today): the resource name stands alone, counted as unreflected.
-    const editor::mcp::SceneReference bare = f.Generate(/*withFactories=*/false);
-    const JsonValue bareMesh = Field(editor::mcp::FindSchemaEntry(bare.schema, u8"mesh").Get(u8"fields"), u8"mesh");
-    CHECK(bareMesh.Get(u8"ref").Get(u8"resource").AsString() == StringView(u8"StaticMesh"));
-    CHECK_FALSE(bareMesh.Get(u8"ref").Has(u8"asset"));
-    CHECK(Lists(editor::mcp::FindSchemaEntry(bare.schema, u8"mesh").Get(u8"unreflected"), u8"mesh"));
+    // Every resource reference in every component resolves: the composition describes a factory
+    // for each runtime type a component references, and a builder produces each cooked form (the
+    // tripwires of engine-composition.md D8 hold that), so no host serves a resource name alone.
+    for (const JsonValue& component : reference.schema.Get(u8"components").Items())
+    {
+        for (const JsonValue& field : component.Get(u8"fields").Items())
+        {
+            if (field.Get(u8"ref").IsObject())
+            {
+                CHECK(field.Get(u8"ref").Has(u8"asset"));
+            }
+        }
+    }
 }
 
 TEST_CASE("integration.mcp: scene reference - the script override section's worked hash is "
@@ -326,7 +327,7 @@ TEST_CASE("integration.mcp: scene reference - RegisterEngineTools serves both ge
     pipeline::RegisterAllBuilders(builders);
     pipeline::ImporterRegistry importers{DefaultAllocator()};
     editor::EditorLogBuffer logBuffer{DefaultAllocator()};
-    editor::mcp::ProjectSession session; // no resources: the stdio host's shape
+    editor::mcp::ProjectSession session; // the stdio host's shape: no project open
 
     McpServer server;
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
@@ -356,9 +357,15 @@ TEST_CASE("integration.mcp: scene reference - RegisterEngineTools serves both ge
     // The served bytes are the generator's for this composition (deterministic, so a fresh
     // generation over the same registrations reproduces them).
     const editor::mcp::SceneReference expected =
-        editor::mcp::GenerateSceneReference(DefaultAllocator(), builders, nullptr);
+        editor::mcp::GenerateSceneReference(DefaultAllocator(), builders);
     CHECK(ReadResource(server, editor::mcp::kSceneExampleUri) == expected.exampleXml);
     CHECK(ReadResource(server, editor::mcp::kSceneSchemaUri) == expected.schemaJson);
+    // And that host resolves asset types like any other: the join reads the composition.
+    const JsonValue served = json::Parse(ReadResource(server, editor::mcp::kSceneSchemaUri).AsView()).value;
+    CHECK(Field(editor::mcp::FindSchemaEntry(served, u8"mesh").Get(u8"fields"), u8"mesh")
+              .Get(u8"ref")
+              .Get(u8"asset")
+              .AsString() == StringView(u8"StaticMeshAsset"));
 
     // component_schema("light") is the light's entry; an unknown name errs and lists what exists.
     JsonValue args = JsonValue::MakeObject();

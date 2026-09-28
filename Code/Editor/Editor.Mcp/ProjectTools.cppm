@@ -569,12 +569,13 @@ export namespace editor::mcp
         RegisterProjectHealthTool(server, session, builders);
         RegisterLogTools(server, logBuffer, paths.knownIssues);
         RegisterSceneTools(server, session);
-        // The scene format reference, generated NOW from this host's own registrations (the full
-        // scene composition, its builders, its factories when it has them) and served live:
-        // docs://generated/* beside the shipping docs, component_schema for one entry.
+        // The scene format reference, generated NOW from this host's own registrations (the
+        // engine composition's managers, settings systems and factory descriptions, plus its
+        // builders) and served live: docs://generated/* beside the shipping docs,
+        // component_schema for one entry. Every host answers the same for the same build.
         {
-            const SceneReference reference = GenerateSceneReference(
-                editor::EditorRootAllocator(), builders, session.resources);
+            const SceneReference reference =
+                GenerateSceneReference(editor::EditorRootAllocator(), builders);
             RegisterComponentSchemaTool(server, reference);
             if (!paths.shippingDocsDir.IsEmpty())
             {

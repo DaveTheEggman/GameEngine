@@ -2786,7 +2786,6 @@ namespace editor::app
         const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
         editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
         m_mcpSession.project = m_project.Get();
-        m_mcpSession.resources = m_resources.Get(); // the factories the scene reference joins through
         // The operations run on THIS application's services, so an agent's cook, import or
         // export takes the same background paths the menus do and the editor stays live.
         EditorProjectOperationsSeams seams;
@@ -2864,7 +2863,6 @@ namespace editor::app
         m_mcpHost = nullptr; // Stop + release; a waiting agent sees its connection close
         m_mcpOperations = nullptr;
         m_mcpSession.project = nullptr;
-        m_mcpSession.resources = nullptr;
     }
 
     void EditorApplication::CloseProject()

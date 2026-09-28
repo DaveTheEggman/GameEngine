@@ -1,6 +1,7 @@
 # Engine composition - one declaration per domain, every root a facet of it
 
-> STATUS: APPROVED 2026-09-27 (user: "write the spec then execute it"), building. Sized L.
+> STATUS: BUILT 2026-09-27, all four phases (P1 032abd16, P2 cd508901, P3 84ac006f, P4 below).
+> Approved the same day (user: "write the spec then execute it"). Sized L.
 > Origin: the scene format reference (scene-format-reference.md P1) needed each factory's
 > product and cooked types to name an asset, and found the stdio MCP host composes no
 > factories at all. The discussion that followed (2026-09-27): "factories are registered, or
@@ -215,6 +216,27 @@ Each phase is one commit with its tests; the five lanes run at the end of the gr
 - `RegisterUIComponentReflection` is called by hand in `DefaultApplication::OnStartup`
   (`:558`) although the composition's `RegisterReflection` already covers it.
 - `Pipeline.Registration` duplicates the resource type list (D6, follow-up).
+
+## As built (2026-09-27)
+
+- Built as specified. Two shapes were added in the building: `ResourceServiceTable`
+  (`Add<T>(&instance)`, the one `IResourceServices` every host needs) and the three constexpr
+  description helpers (`FactoryWithAllocator`, `FactoryByDefault`, `FactoryWithService`) that
+  cover the factories' three constructor shapes.
+- A resource module is an `inline constexpr` table in its library's interface: a constant,
+  duplicated per image without harm, and outside the shared-library tripwire (no Meyers
+  accessor, no state). Domain modules are defined in implementation units as the spec said.
+- `DomainModule` keeps `dependsOn` and hands it to the scene composition only; every other facet
+  is order-free and stays in declaration order. No domain declares a dependency today.
+- `RegisterAllScriptFacades` now registers the domain facades in domain order (render first)
+  instead of the old hand list's order; the facade count is unchanged and the registries key by
+  name. Geometry, animation, materials and shaders gained the type registrars they never had;
+  the model registrar calls theirs. `ShaderFactory` takes an allocator like every other factory.
+- The runtime creates the shader factory when the render subsystem's `ShaderSystem` exists at
+  attach time and skips it otherwise; the set reports the skip. Nothing binds a `Ref<Shader>`
+  through the manager yet.
+- Sandbox asked its own texture-factory member whether textures could load; it now asks the
+  manager (`HasFactory`), which is what it meant.
 
 ## For the Beef port (Sedulous)
 

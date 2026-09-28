@@ -89,8 +89,10 @@ The roles, in dependency order (lower layers never know about higher ones):
 
 Layering rules worth internalizing early: Foundation never imports Engine;
 Pipeline (and its tests) never import UI; editor-only state never lives in
-runtime/resource wire structs; subsystem script facades live in their own
-modules, registered through the `Engine.ScriptSurface` composition root.
+runtime/resource wire structs; a domain declares what it contributes (scene
+managers, reflection, its script facade, its resource modules) once, on its
+`DomainModule`, and `Engine.Composition` is the one root every host composes
+from (engine-composition.md).
 
 ## Architecture in one pass
 

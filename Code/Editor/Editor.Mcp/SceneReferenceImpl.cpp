@@ -147,11 +147,14 @@ namespace
     struct Joiner
     {
         const pipeline::BuilderRegistry* builders = nullptr;
-        const foundation::resource::ResourceManager* resources = nullptr;
+        const engine::EngineComposition* composition = nullptr;
 
         // `ref` for a reference-shaped value type: "entity" for an EntityRef, {resource, asset}
-        // for a Ref<T> (asset omitted when this composition has no factory or builder for T -
-        // `resolved` false then), null for everything else.
+        // for a Ref<T> - the runtime type T, the factory DESCRIPTION the composition carries for
+        // it (its cooked form; engine-composition.md D1), the builder that produces that cooked
+        // form, its asset type. Nothing is constructed: the join reads declarations, so every
+        // host answers the same. `asset` is omitted (and `resolved` false) only when no builder in
+        // this composition produces the cooked form; null for everything else.
         [[nodiscard]] JsonValue RefJson(const TypeInfo& type, bool& resolved) const
         {
             resolved = true;
@@ -171,15 +174,16 @@ namespace
             JsonValue out = JsonValue::MakeObject();
             out.Set(u8"resource", JsonValue::MakeString(String(Utf8(target->name))));
             const TypeInfo* cooked = nullptr;
-            if (resources != nullptr)
+            if (composition != nullptr)
             {
-                resources->ForEachFactory(
-                    [&](const foundation::resource::IResourceFactory& factory)
+                composition->ForEachFactoryDescription(
+                    [&](const foundation::resource::ResourceModule&,
+                        const foundation::resource::ResourceFactoryDesc& desc)
                     {
-                        const TypeInfo* product = factory.ProductType();
+                        const TypeInfo* product = desc.product();
                         if (cooked == nullptr && product != nullptr && product->id == target->id)
                         {
-                            cooked = factory.CookedType();
+                            cooked = desc.cooked();
                         }
                     });
             }
@@ -886,8 +890,7 @@ namespace
 namespace editor::mcp
 {
     SceneReference GenerateSceneReference(IAllocator& allocator,
-                                          const pipeline::BuilderRegistry& builders,
-                                          const foundation::resource::ResourceManager* resources)
+                                          const pipeline::BuilderRegistry& builders)
     {
         engine::RegisterAllSceneComponentReflection(); // idempotent; the joins need the metadata
         SceneReference reference;
@@ -898,7 +901,7 @@ namespace editor::mcp
         const Example example = ComposeExample(world, rng);
 
         // The schema's bodies first, over the DEFAULTS (D1), before the example gets its content.
-        Joiner joiner{&builders, resources};
+        Joiner joiner{&builders, &engine::FullComposition()};
         JsonValue schema = JsonValue::MakeObject();
         JsonValue components = ComponentsSection(allocator, world, example, joiner);
         JsonValue settings = SettingsSection(allocator, world, joiner);
