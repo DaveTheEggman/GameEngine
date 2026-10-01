@@ -232,6 +232,7 @@ namespace foundation::script
         ~LuauScriptObject() override;
 
         [[nodiscard]] Result<Variant> Invoke(StringView method, Span<Variant> args) override;
+        [[nodiscard]] Result<Variant> GetProperty(StringView name) override;
 
         // Identity of the instance table (coroutine ownership matching).
         [[nodiscard]] const void* TablePointer() const;
@@ -2570,6 +2571,24 @@ namespace foundation::script
         Variant result = m_context->ToVariant(state, -1);
         lua_pop(state, 1);
         return result;
+    }
+
+    Result<Variant> LuauScriptObject::GetProperty(StringView name)
+    {
+        // The instance's own field, raw: the class metatable holds the methods, which are not
+        // properties, and a field the constructor never set is no property either.
+        lua_State* state = m_context->State();
+        String storage;
+        lua_getref(state, m_tableRef);
+        lua_rawgetfield(state, -1, CStr(name, storage));
+        if (lua_isnil(state, -1) || lua_isfunction(state, -1))
+        {
+            lua_pop(state, 2);
+            return Err(ErrorCode::NotFound);
+        }
+        Variant value = m_context->ToVariant(state, -1);
+        lua_pop(state, 2);
+        return value;
     }
 
     LuauScriptDelegate::~LuauScriptDelegate()

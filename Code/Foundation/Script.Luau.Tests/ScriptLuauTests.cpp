@@ -1170,3 +1170,23 @@ TEST_CASE("script.luau: .d.luau declaration emitter - typed surface for luau-ana
     CHECK(has(u8"    facing: number"));
     CHECK(has(u8"West: number"));
 }
+
+TEST_CASE("script.luau: an instance's own fields read as properties, its methods do not")
+{
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(u8"Counter = {}\n"
+                          u8"Counter.__index = Counter\n"
+                          u8"function Counter.new() return setmetatable({ n = 2 }, Counter) end\n"
+                          u8"function Counter:add(x) self.n = self.n + x end\n",
+                          u8"luau.counter")
+                .IsOk());
+    RefPtr<ScriptObject> counter = context->CreateInstance(u8"Counter", Span<Variant>{});
+    REQUIRE(counter.Get() != nullptr);
+    Variant args[] = {Variant::From<f64>(3.0)};
+    REQUIRE(counter->Invoke(u8"add", Span<Variant>{args, 1}).HasValue());
+    CHECK(counter->GetProperty(u8"n").Value().Get<f64>() == doctest::Approx(5.0));
+    CHECK_FALSE(counter->GetProperty(u8"add").HasValue());
+    CHECK_FALSE(counter->GetProperty(u8"missing").HasValue());
+}

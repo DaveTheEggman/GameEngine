@@ -1070,6 +1070,10 @@ TEST_CASE("angelscript: instantiate a script class and invoke its methods")
     CHECK(counter->Invoke(u8"add", Span<Variant>{addArgs, 1}).HasValue());
 
     CHECK(counter->Invoke(u8"value", Span<Variant>{}).Value().Get<f64>() == 15.0);
+    // A member field reads as a property; a method or a missing name does not.
+    CHECK(counter->GetProperty(u8"n").Value().Get<f64>() == 15.0);
+    CHECK_FALSE(counter->GetProperty(u8"value").HasValue());
+    CHECK_FALSE(counter->GetProperty(u8"missing").HasValue());
 
     CHECK(counter->Invoke(u8"reset", Span<Variant>{}).HasValue());
     CHECK(counter->Invoke(u8"value", Span<Variant>{}).Value().Get<f64>() == 0.0);

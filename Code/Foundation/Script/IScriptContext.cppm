@@ -58,6 +58,10 @@ export namespace foundation::script
         // or the script faults.
         [[nodiscard]] virtual core::Result<core::Variant>
         Invoke(core::StringView method, core::Span<core::Variant> args) = 0;
+        // Reads the instance's property (a member field) named `name`: a game script's score or
+        // lives count, for a playtest that probes it. NotFound when the object has no such
+        // property; methods are not properties.
+        [[nodiscard]] virtual core::Result<core::Variant> GetProperty(core::StringView name) = 0;
     };
 
     // One class in a structured behavior-module load. `name` is the class's SOURCE FILE

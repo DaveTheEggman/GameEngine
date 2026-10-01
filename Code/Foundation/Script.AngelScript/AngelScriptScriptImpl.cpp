@@ -3265,6 +3265,22 @@ namespace foundation::script::angelscript
             return m_owner->ExecuteCall(target, m_instance, args);
         }
 
+        [[nodiscard]] core::Result<core::Variant> GetProperty(core::StringView name) override
+        {
+            const core::String fieldName(name);
+            const asUINT count = m_instance->GetPropertyCount();
+            for (asUINT i = 0; i < count; ++i)
+            {
+                const char* memberName = m_instance->GetPropertyName(i);
+                if (memberName != nullptr && NameEq(memberName, CStr(fieldName)))
+                {
+                    return m_owner->Manager().VariantFromTypedAddress(
+                        m_instance->GetPropertyTypeId(i), m_instance->GetAddressOfProperty(i));
+                }
+            }
+            return core::Err(core::ErrorCode::NotFound);
+        }
+
     private:
         // Writes the instance member field named `fieldName` from `value` (the harvested
         // editor-property apply path). Marshals through the manager's typed-address writer,
