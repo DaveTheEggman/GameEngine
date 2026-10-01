@@ -200,7 +200,8 @@ export namespace editor
         Array<rhi::TextureView*> m_previewTextureViews; // views captured into the material
 
         RefPtr<foundation::ui::toolkit::PropertyGrid> m_grid;
-        RefPtr<foundation::ui::toolkit::SplitView> m_content;
+        RefPtr<foundation::ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         Array<Function<void()>> m_refreshers;
     };
 

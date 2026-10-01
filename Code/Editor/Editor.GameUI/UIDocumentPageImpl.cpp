@@ -102,6 +102,10 @@ namespace editor
 
     void UIDocumentEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync the page's actions to it each frame
+        }
         EnsureViewportBound();
         if (m_previewDelay > 0.0f)
         {

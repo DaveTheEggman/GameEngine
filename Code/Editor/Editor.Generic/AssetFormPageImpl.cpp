@@ -11,6 +11,7 @@ module editor.generic;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime.client;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
@@ -437,7 +438,16 @@ namespace editor
             lp.Width = ui::SizeSpec::Match();
             column->AddView(m_grid.Get(), lp);
         }
-        m_content = column;
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *column);
+    }
+
+    void GenericAssetEditorPage::OnUpdate(foundation::runtime::IApplicationHost&, f32)
+    {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync Save/Discard/Undo/Redo to this page each frame
+        }
     }
 
     void GenericAssetEditorPage::BuildGrid()

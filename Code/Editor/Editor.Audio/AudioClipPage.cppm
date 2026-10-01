@@ -53,7 +53,7 @@ export namespace editor
         f32 m_playhead = -1.0f;
     };
 
-    class AudioClipEditorPage final : public app::UIEditorPage
+    class AudioClipEditorPage final : public app::UIEditorPage, public IPlaybackPage
     {
     public:
         AudioClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
@@ -62,6 +62,7 @@ export namespace editor
               m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
+            Provide<IPlaybackPage>(*this);
             m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             LoadClip(instance);
 
@@ -85,24 +86,14 @@ export namespace editor
                 column->AddView(m_waveform.Get(), lp);
             }
 
-            auto controls = MakeRef<ui::FlexLayout>(Allocator());
-            controls->Direction = ui::Orientation::Horizontal;
-            controls->Spacing = 8.0f;
+            // The page toolbar: the playback transport, the audition volume and the status.
             AudioClipEditorPage* self = this;
-            m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Play"));
-            m_playButton->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
-            controls->AddView(m_playButton.Get());
-            m_pauseButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
-            m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
-            controls->AddView(m_pauseButton.Get());
-            m_stopButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Stop"));
-            m_stopButton->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
-            controls->AddView(m_stopButton.Get());
-
+            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions(),
+                                                  app::PageToolbar::Standard::None);
+            m_toolbar->AddPlayback();
+            m_toolbar->AddSeparator();
+            (void)m_toolbar->AddLabel(u8"Vol");
             // Audition-local gain (not persisted - it only scales THIS page's preview voice).
-            auto volLabel = MakeRef<ui::Label>(Allocator(), StringView(u8"Vol"));
-            volLabel->FontSize.SetValue(12.0f);
-            controls->AddView(volLabel.Get());
             m_volumeSlider = MakeRef<ui::Slider>(Allocator());
             m_volumeSlider->Min.SetValue(0.0f);
             m_volumeSlider->Max.SetValue(1.0f);
@@ -114,16 +105,13 @@ export namespace editor
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
                 lp.AlignSelf = ui::Align::Center;
-                controls->AddView(m_volumeSlider.Get(), lp);
+                m_toolbar->AddItem(m_volumeSlider.Get(), lp);
             }
-
-            m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
-            m_status->FontSize.SetValue(12.0f);
-            controls->AddView(m_status.Get());
+            m_status = RefPtr<ui::Label>(m_toolbar->AddLabel(u8""));
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Match();
-                column->AddView(controls.Get(), lp);
+                column->InsertView(m_toolbar.Get(), 0, lp);
             }
 
             m_content = column;
@@ -138,6 +126,14 @@ export namespace editor
 
         void OnClose() override { StopAudition(); }
 
+        // ---- IPlaybackPage ----
+        [[nodiscard]] bool CanPlay() const override { return m_clip.Get() != nullptr; }
+        [[nodiscard]] bool IsPlaying() const override { return m_voice.IsValid() && !m_paused; }
+        void Play() override;
+        void Pause() override;
+        void Stop() override { StopAudition(); }
+        void Restart() override { Audition(); }
+
     private:
         void LoadClip(foundation::content::Instance& instance);
 
@@ -147,7 +143,7 @@ export namespace editor
 
         void StopAudition();
 
-        // Pause/resume the audition voice in place (button toggles its label); audition-local gain.
+        // Pause/resume the audition voice in place; audition-local gain.
         void TogglePause();
         void SetAuditionVolume(f32 volume);
 
@@ -162,9 +158,7 @@ export namespace editor
         RefPtr<ui::View> m_content;
         RefPtr<ui::Label> m_info;
         RefPtr<ui::Label> m_status;
-        RefPtr<ui::Button> m_playButton;
-        RefPtr<ui::Button> m_pauseButton;
-        RefPtr<ui::Button> m_stopButton;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::Slider> m_volumeSlider;
         RefPtr<WaveformView> m_waveform;
     };

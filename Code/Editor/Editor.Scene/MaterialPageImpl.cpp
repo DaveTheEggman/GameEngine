@@ -121,9 +121,11 @@ namespace editor
             gridColumn->AddView(m_grid.Get(), grow);
         }
 
-        m_content = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
-        m_content->SetSplitRatio(0.62f);
-        m_content->SetPanes(m_preview->View(), gridColumn.Get());
+        auto split = MakeRef<foundation::ui::toolkit::SplitView>(Allocator());
+        split->SetSplitRatio(0.62f);
+        split->SetPanes(m_preview->View(), gridColumn.Get());
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *split);
 
         RebuildPreviewMaterial();
     }
@@ -132,6 +134,10 @@ namespace editor
 
     void MaterialEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync the page's actions to it each frame
+        }
         if (m_preview)
         {
             m_preview->Update(dt);

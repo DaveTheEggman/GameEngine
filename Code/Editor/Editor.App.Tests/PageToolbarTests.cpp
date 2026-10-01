@@ -3,7 +3,8 @@
 // Editor::App tests - the page toolbar built from the action registry over ITS page: the
 // standard set labelled from the declarations, a click executing over the toolbar's page even
 // when another page is active, Refresh answering about this page, a domain action added by
-// id as a button or a toggle, and an unknown id refused.
+// id as a button or a toggle, an unknown id refused, the standard set a page asks for, and the
+// playback transport over a page that publishes IPlaybackPage.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
@@ -40,6 +41,31 @@ namespace
         [[nodiscard]] bool Running() const override { return running; }
         u32 saves = 0;
         bool running = false;
+    };
+
+    class PlayPage final : public EditorPage, public IPlaybackPage
+    {
+    public:
+        PlayPage() : EditorPage(DefaultAllocator()) { Provide<IPlaybackPage>(*this); }
+        [[nodiscard]] StringView Title() const override { return u8"play"; }
+        [[nodiscard]] Status Save() override { return Status{}; }
+        [[nodiscard]] bool CanPlay() const override { return loaded; }
+        [[nodiscard]] bool IsPlaying() const override { return playing; }
+        void Play() override { playing = true; }
+        void Pause() override { playing = false; }
+        void Stop() override
+        {
+            playing = false;
+            position = 0;
+        }
+        void Restart() override
+        {
+            position = 0;
+            playing = true;
+        }
+        bool loaded = true;
+        bool playing = false;
+        i32 position = 0;
     };
 
     // The standard set as the application declares it, over the subject page.
@@ -141,4 +167,72 @@ TEST_CASE("page-toolbar: built from the registry over its own page - labels from
 
     context.ClosePage(other);
     context.ClosePage(mine);
+}
+
+TEST_CASE("page-toolbar: a page asks for its standard set")
+{
+    EditorContext context{DefaultAllocator()};
+    DeclareStandardSet(context.Actions());
+    auto* page = static_cast<RunPage*>(context.AdoptPage(
+        UniquePtr<EditorPage>(DefaultAllocator().New<RunPage>(), DefaultAllocator())));
+    auto text = MakeRef<app::PageToolbar>(DefaultAllocator(), *page, context.Actions(),
+                                          app::PageToolbar::Standard::Save);
+    CHECK(text->BoundCount() == 1u);
+    CHECK(text->ButtonFor(u8"file.save") != nullptr);
+    CHECK(text->ButtonFor(u8"page.discardChanges") == nullptr); // a text page's text is no stack
+    auto none = MakeRef<app::PageToolbar>(DefaultAllocator(), *page, context.Actions(),
+                                          app::PageToolbar::Standard::None);
+    CHECK(none->BoundCount() == 0u);
+    CHECK(none->ChildCount() == 0u);
+}
+
+TEST_CASE("page-toolbar: the playback transport drives its page")
+{
+    EditorContext context{DefaultAllocator()};
+    app::RegisterPlaybackActions(context.Actions());
+    auto* page = static_cast<PlayPage*>(context.AdoptPage(
+        UniquePtr<EditorPage>(DefaultAllocator().New<PlayPage>(), DefaultAllocator())));
+    auto toolbar = MakeRef<app::PageToolbar>(DefaultAllocator(), *page, context.Actions(),
+                                             app::PageToolbar::Standard::None);
+    toolbar->AddPlayback();
+    CHECK(toolbar->BoundCount() == 3u);
+    CHECK(toolbar->ChildCount() == 3u); // no leading separator on an empty bar
+    auto* play = Cast<ui::toolkit::ToolbarToggle>(toolbar->ButtonFor(u8"playback.play"));
+    REQUIRE(play != nullptr); // Play is a toggle
+
+    // Play, then pause, through the one toggle; the check follows the page.
+    toolbar->Refresh();
+    CHECK(play->IsEnabled);
+    CHECK_FALSE(play->IsChecked());
+    play->OnClick.Invoke(play);
+    CHECK(page->playing);
+    toolbar->Refresh();
+    CHECK(play->IsChecked());
+    play->OnClick.Invoke(play);
+    CHECK_FALSE(page->playing);
+
+    // Stop rewinds; Restart plays from the start.
+    page->playing = true;
+    page->position = 7;
+    ui::toolkit::ToolbarButton* stop = toolbar->ButtonFor(u8"playback.stop");
+    stop->OnClick.Invoke(stop);
+    CHECK_FALSE(page->playing);
+    CHECK(page->position == 0);
+    page->position = 3;
+    ui::toolkit::ToolbarButton* restart = toolbar->ButtonFor(u8"playback.restart");
+    restart->OnClick.Invoke(restart);
+    CHECK(page->playing);
+    CHECK(page->position == 0);
+
+    // Nothing loaded: nothing enabled.
+    page->loaded = false;
+    toolbar->Refresh();
+    CHECK_FALSE(play->IsEnabled);
+    CHECK_FALSE(stop->IsEnabled);
+
+    // A page that plays nothing has every playback action disabled.
+    auto* plain = context.AdoptPage(
+        UniquePtr<EditorPage>(DefaultAllocator().New<RunPage>(), DefaultAllocator()));
+    CHECK_FALSE(context.Actions().IsEnabled(u8"playback.play", plain));
+    CHECK_FALSE(context.Actions().IsEnabled(u8"playback.restart", plain));
 }

@@ -259,6 +259,21 @@ export namespace foundation::ui::toolkit
             AddView(item, lp);
         }
 
+        /// Add any view with its own layout: a slider's width, a label centred on the bar.
+        void AddItem(View* item, const LayoutStyle& style) { AddView(item, style); }
+
+        /// Add a label centred on the bar (a status line, a caption). Returns it borrowed.
+        Label* AddLabel(StringView text)
+        {
+            RefPtr<Label> label = MakeRef<Label>(MemoryAllocator(), text);
+            label->FontSize.SetValue(12.0f);
+            LayoutStyle style;
+            style.AlignSelf = Align::Center;
+            Label* raw = label.Get();
+            AddView(label.Get(), style);
+            return raw;
+        }
+
         /// Add a text button. Returns the borrowed button for further configuration.
         ToolbarButton* AddButton(StringView text)
         {

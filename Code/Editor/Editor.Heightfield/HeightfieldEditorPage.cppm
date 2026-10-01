@@ -20,6 +20,7 @@ export import :thumbnail_generator;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime.client; // IApplicationHost (OnUpdate)
 import foundation.image;
 import foundation.image.io;
 import heightfield.pipeline;
@@ -43,6 +44,7 @@ export namespace editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override;
+        void OnUpdate(foundation::runtime::IApplicationHost& host, f32 dt) override;
 
     private:
         // Decode the source heightmap (16-bit) into a grayscale RGBA8 buffer kept alive for the view.
@@ -99,6 +101,8 @@ export namespace editor
         u16 m_maxSample = 0;
 
         RefPtr<ui::View> m_content;
+
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::ImageView> m_image;
         RefPtr<ui::Label> m_info;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;

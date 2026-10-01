@@ -296,6 +296,7 @@ namespace editor
         }
 
         SetInstanceId(instance.Id());
+        Provide<IPlaybackPage>(*this);
 
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::AnimationGraphAsset>(
@@ -526,39 +527,6 @@ namespace editor
                 transport->AddView(m_skeletonSlot.Get(), slot);
                 transport->AddView(m_meshSlot.Get(), slot);
             }
-            m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
-            m_playButton->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    self->m_previewPlaying = !self->m_previewPlaying;
-                    self->m_playButton->SetText(self->m_previewPlaying ? StringView(u8"Pause")
-                                                                       : StringView(u8"Play"));
-                });
-            transport->AddView(m_playButton.Get());
-            auto restart = MakeRef<ui::Button>(Allocator(), StringView(u8"Restart"));
-            restart->OnClick.Add([self](ui::ButtonBase*) { self->RebuildPreviewGraph(); });
-            transport->AddView(restart.Get());
-
-            // Visibility toggles: bone wireframe on/off, skinned mesh on/off (labels show state).
-            m_skeletonToggle = MakeRef<ui::Button>(Allocator(), StringView(u8"Bones: on"));
-            m_skeletonToggle->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    self->m_showSkeleton = !self->m_showSkeleton;
-                    self->m_skeletonToggle->SetText(self->m_showSkeleton ? StringView(u8"Bones: on")
-                                                                         : StringView(u8"Bones: off"));
-                });
-            transport->AddView(m_skeletonToggle.Get());
-            m_meshToggle = MakeRef<ui::Button>(Allocator(), StringView(u8"Mesh: on"));
-            m_meshToggle->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    self->m_showMesh = !self->m_showMesh;
-                    self->m_meshToggle->SetText(self->m_showMesh ? StringView(u8"Mesh: on")
-                                                                 : StringView(u8"Mesh: off"));
-                });
-            transport->AddView(m_meshToggle.Get());
-
             m_previewStatus = MakeRef<ui::Label>(Allocator());
             m_previewStatus->FontSize.SetValue(Optional<f32>{12.0f});
             m_previewStatus->VAlign.SetValue(fonts::VerticalAlignment::Middle);
@@ -588,7 +556,22 @@ namespace editor
         auto rightSplit = MakeRef<ui::toolkit::SplitView>(Allocator());
         rightSplit->SetSplitRatio(0.74f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
-        m_content = rightSplit;
+        // The page toolbar: the standard set, playback, then the preview's bones and mesh toggles.
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_toolbar->AddPlayback();
+        m_toolbar->AddSeparator();
+        {
+            AnimationGraphEditorPage* self = this;
+            ui::toolkit::ToolbarToggle* bones = m_toolbar->AddToggle(u8"Bones");
+            bones->SetIsChecked(m_showSkeleton);
+            bones->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool on)
+                                        { self->m_showSkeleton = on; });
+            ui::toolkit::ToolbarToggle* mesh = m_toolbar->AddToggle(u8"Mesh");
+            mesh->SetIsChecked(m_showMesh);
+            mesh->OnCheckedChanged.Add([self](ui::toolkit::ToolbarToggle*, bool on)
+                                       { self->m_showMesh = on; });
+        }
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *rightSplit);
 
         RebuildLeftPanel();
         RebuildCanvas();
@@ -2155,8 +2138,24 @@ namespace editor
 
     // ============================ Frame / save / close ======================================
 
+    void AnimationGraphEditorPage::Stop()
+    {
+        m_previewPlaying = false;
+        RebuildPreviewGraph(); // a rebuild is the rewind
+    }
+
+    void AnimationGraphEditorPage::Restart()
+    {
+        RebuildPreviewGraph();
+        m_previewPlaying = true;
+    }
+
     void AnimationGraphEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // the page's actions and the transport follow it each frame
+        }
         UpdatePreview(dt);
         if (m_preview)
         {

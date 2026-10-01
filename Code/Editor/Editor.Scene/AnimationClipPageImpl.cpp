@@ -99,6 +99,7 @@ namespace editor
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
 
         SetInstanceId(instance.Id());
+        Provide<IPlaybackPage>(*this);
 
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::AnimationClipAsset>(
@@ -151,15 +152,6 @@ namespace editor
                 transport->AddView(m_skeletonSlot.Get(), slot);
                 transport->AddView(m_meshSlot.Get(), slot);
             }
-            m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
-            m_playButton->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    self->m_playing = !self->m_playing;
-                    self->m_playButton->SetText(self->m_playing ? StringView(u8"Pause")
-                                                                : StringView(u8"Play"));
-                });
-            transport->AddView(m_playButton.Get());
 
             m_timeSlider = MakeRef<ui::Slider>(Allocator());
             m_timeSlider->Min.SetValue(0.0f);
@@ -176,7 +168,6 @@ namespace editor
                     {
                         self->m_time = v * clip->duration;
                         self->m_playing = false;
-                        self->m_playButton->SetText(u8"Play");
                     }
                 });
             ui::LayoutStyle slp;
@@ -209,7 +200,10 @@ namespace editor
         auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.66f);
         split->SetPanes(previewColumn.Get(), m_grid.Get());
-        m_content = split;
+        // The page toolbar (Save, Undo, Redo, Discard, then the playback transport) over the page.
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_toolbar->AddPlayback();
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *split);
 
         // Restore the persisted preview rig (skeleton + skinned mesh) for this clip.
         LoadPreviewPref();
@@ -367,13 +361,10 @@ namespace editor
                 if (!clip->isLooping)
                 {
                     m_playing = false;
-                    m_playButton->SetText(u8"Play");
                 }
             }
             // Echo playback into the slider without re-entering the scrub handler.
-            m_scrubbing = true;
-            m_timeSlider->Value.SetValue(m_time / clip->duration);
-            m_scrubbing = false;
+            SyncTimeSlider();
         }
         if (m_timeLabel.Get() != nullptr)
         {
@@ -669,8 +660,53 @@ namespace editor
         return (m_grid.Get() != nullptr) ? m_grid->Context : nullptr;
     }
 
+    bool AnimationClipEditorPage::CanPlay() const
+    {
+        return m_clip.Get() != nullptr;
+    }
+
+    void AnimationClipEditorPage::Play()
+    {
+        // Resumes; a clip that ran to its end starts over.
+        animation::AnimationClip* clip = m_clip.Get();
+        if (clip != nullptr && m_time >= clip->duration)
+        {
+            m_time = 0.0f;
+        }
+        m_playing = true;
+    }
+
+    void AnimationClipEditorPage::Stop()
+    {
+        m_playing = false;
+        m_time = 0.0f;
+        SyncTimeSlider();
+    }
+
+    void AnimationClipEditorPage::Restart()
+    {
+        m_time = 0.0f;
+        m_playing = true;
+    }
+
+    void AnimationClipEditorPage::SyncTimeSlider()
+    {
+        animation::AnimationClip* clip = m_clip.Get();
+        if (m_timeSlider.Get() == nullptr || clip == nullptr || clip->duration <= 0.0f)
+        {
+            return;
+        }
+        m_scrubbing = true;
+        m_timeSlider->Value.SetValue(m_time / clip->duration);
+        m_scrubbing = false;
+    }
+
     void AnimationClipEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // the page's actions and the transport follow it each frame
+        }
         UpdatePreview(dt);
         if (m_preview)
         {

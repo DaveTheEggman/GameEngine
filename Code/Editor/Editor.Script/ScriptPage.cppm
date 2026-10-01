@@ -293,7 +293,9 @@ export namespace editor
                 row->AddView(m_apiBrowser.Root(), lp);
             }
 
-            m_content = row;
+            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions(), app::PageToolbar::Standard::Save);
+
+            m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *row);
             RefreshCompileStatus(); // initial pass so the page opens with live state
         }
 
@@ -321,6 +323,7 @@ export namespace editor
         ScriptApiCompletionProvider m_apiProvider; // outlives the editor that borrows it
         ScriptApiBrowserView m_apiBrowser;
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::EditText> m_errorView;

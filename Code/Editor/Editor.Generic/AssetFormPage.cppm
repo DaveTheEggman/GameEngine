@@ -26,6 +26,7 @@ export module editor.generic;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime.client; // IApplicationHost (OnUpdate)
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
@@ -95,6 +96,7 @@ export namespace editor
         [[nodiscard]] StringView Title() const override { return m_title.AsView(); }
         [[nodiscard]] ui::View* ContentView() override { return m_content.Get(); }
         [[nodiscard]] Status Save() override;
+        void OnUpdate(foundation::runtime::IApplicationHost& host, f32 dt) override;
 
     private:
         class EditGenericCommand final : public IEditorCommand
@@ -146,6 +148,7 @@ export namespace editor
         Array<AssetFormField> m_fields;
 
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::Label> m_info;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;
         Array<byte> m_undoBaseline;

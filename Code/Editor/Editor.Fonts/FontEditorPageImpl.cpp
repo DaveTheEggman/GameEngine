@@ -11,6 +11,7 @@ module editor.fonts;
 
 import foundation.core;
 import foundation.content;
+import foundation.runtime.client; // IApplicationHost (OnUpdate)
 import foundation.vfs;
 import foundation.image;
 import foundation.fonts;
@@ -160,7 +161,8 @@ namespace editor
         auto split = MakeRef<ui::toolkit::SplitView>(Allocator());
         split->SetSplitRatio(0.6f);
         split->SetPanes(previewColumn.Get(), gridColumn.Get());
-        m_content = split;
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *split);
 
         RebakePreview();
     }
@@ -715,5 +717,13 @@ namespace editor
     {
         auto* page = editor::EditorRootAllocator().New<FontEditorPage>(context, instance);
         return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
+    }
+
+    void FontEditorPage::OnUpdate(foundation::runtime::IApplicationHost&, f32)
+    {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync the page's actions to it each frame
+        }
     }
 }

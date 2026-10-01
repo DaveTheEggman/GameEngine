@@ -42,6 +42,10 @@ namespace editor
 
     void AudioClipEditorPage::OnUpdate(runtime::IApplicationHost&, f32)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // the transport follows the audition each frame
+        }
         // Playhead: the voice's TRUE cursor (VoiceStatus::cursorSeconds) - honors
         // pitch and loop wraps, unlike the old elapsed-time approximation. The
         // voice handle going invalid (finished/stolen) parks the head.
@@ -49,15 +53,15 @@ namespace editor
         {
             return;
         }
-        if (!m_audio->Engine()->IsPlaying(m_voice))
+        audio::VoiceStatus status;
+        if (!m_audio->Engine()->GetVoiceStatus(m_voice, status) || !status.active)
         {
-            StopAudition();
+            StopAudition(); // finished or stolen
             return;
         }
-        audio::VoiceStatus status;
-        if (!m_audio->Engine()->GetVoiceStatus(m_voice, status))
+        if (status.paused)
         {
-            return;
+            return; // a paused audition holds its playhead
         }
         const f32 duration = m_clip.Get() != nullptr ? m_clip->durationSeconds : 0.0f;
         if (duration <= 0.0f)
@@ -114,8 +118,6 @@ namespace editor
         if (m_clip.Get() == nullptr)
         {
             m_info->SetText(u8"Source file missing or undecodable.");
-            m_playButton->IsEnabled = false;
-            m_stopButton->IsEnabled = false;
             return;
         }
         String text = Format(u8"{} ch  |  {} Hz  |  {} s{}", m_clip->channels, m_clip->sampleRate,
@@ -147,7 +149,6 @@ namespace editor
             m_audio->Engine()->SetVoiceVolume(m_voice, m_auditionVolume); // honor the audition slider
         }
         m_paused = false;
-        m_pauseButton->SetText(StringView(u8"Pause"));
         m_status->SetText(m_voice.IsValid() ? StringView(u8"Playing...")
                                             : StringView(u8"No voice (engine headless?)"));
     }
@@ -160,8 +161,27 @@ namespace editor
         }
         m_paused = !m_paused;
         m_audio->Engine()->SetPaused(m_voice, m_paused);
-        m_pauseButton->SetText(m_paused ? StringView(u8"Resume") : StringView(u8"Pause"));
         m_status->SetText(m_paused ? StringView(u8"Paused") : StringView(u8"Playing..."));
+    }
+
+    void AudioClipEditorPage::Play()
+    {
+        if (!m_voice.IsValid())
+        {
+            Audition();
+        }
+        else if (m_paused)
+        {
+            TogglePause();
+        }
+    }
+
+    void AudioClipEditorPage::Pause()
+    {
+        if (m_voice.IsValid() && !m_paused)
+        {
+            TogglePause();
+        }
     }
 
     void AudioClipEditorPage::SetAuditionVolume(f32 volume)
@@ -181,7 +201,6 @@ namespace editor
         }
         m_voice = audio::VoiceHandle{};
         m_paused = false;
-        m_pauseButton->SetText(StringView(u8"Pause"));
         m_waveform->SetPlayheadFraction(-1.0f);
         m_status->SetText(u8"");
     }

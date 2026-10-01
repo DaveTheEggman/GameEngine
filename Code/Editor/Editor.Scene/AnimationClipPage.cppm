@@ -52,7 +52,7 @@ export namespace editor
     namespace render = foundation::render;
     namespace animation = foundation::animation;
 
-    class AnimationClipEditorPage final : public app::UIEditorPage
+    class AnimationClipEditorPage final : public app::UIEditorPage, public IPlaybackPage
     {
     public:
         /// Event `index`'s section in the grid: "Event N".
@@ -68,6 +68,14 @@ export namespace editor
         void OnUpdate(runtime::IApplicationHost&, f32 dt) override;
         void OnRenderWindow(runtime::IApplicationHost&,
                             foundation::graphics::FrameContext& frame) override;
+
+        // ---- IPlaybackPage: the preview's clock ----
+        [[nodiscard]] bool CanPlay() const override;
+        [[nodiscard]] bool IsPlaying() const override { return m_playing; }
+        void Play() override;
+        void Pause() override { m_playing = false; }
+        void Stop() override;
+        void Restart() override;
         void OnClose() override;
 
         // Record a coalesced undo step for an in-place edit that already happened (merge by key).
@@ -112,6 +120,7 @@ export namespace editor
         void SetPreviewSkeleton(const Guid& id);
         void SetPreviewMesh(const Guid& id);
         void RebuildGrid(); // stats + loop flag + events editor
+        void SyncTimeSlider(); // the scrub slider shows m_time, without reading as a scrub
         void UpdatePreview(f32 dt);
 
         // Persist / restore the preview rig (skeleton + skinned mesh) per clip (project settings).
@@ -136,7 +145,7 @@ export namespace editor
         UniquePtr<PreviewViewport> m_preview;
 
         RefPtr<app::CompactAssetSlot> m_skeletonSlot;
-        RefPtr<ui::Button> m_playButton;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::Slider> m_timeSlider; // normalized [0..1] scrub
         RefPtr<ui::Label> m_timeLabel;
         RefPtr<ui::toolkit::PropertyGrid> m_grid;

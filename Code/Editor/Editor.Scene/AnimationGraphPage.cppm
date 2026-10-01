@@ -85,9 +85,17 @@ export namespace editor
         }
     };
 
-    class AnimationGraphEditorPage final : public app::UIEditorPage
+    class AnimationGraphEditorPage final : public app::UIEditorPage, public IPlaybackPage
     {
     public:
+        // ---- IPlaybackPage: the preview player; a rebuild is the rewind ----
+        [[nodiscard]] bool CanPlay() const override { return m_player.Get() != nullptr; }
+        [[nodiscard]] bool IsPlaying() const override { return m_previewPlaying; }
+        void Play() override { m_previewPlaying = true; }
+        void Pause() override { m_previewPlaying = false; }
+        void Stop() override;
+        void Restart() override;
+
         AnimationGraphEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                  ui::runtime::UIHost& uiHost,
                                  foundation::content::Instance& instance);
@@ -223,9 +231,7 @@ export namespace editor
         void SetPreviewMesh(const Guid& id); // the SkinnedMeshAsset skinned with the graph pose
         RefPtr<app::CompactAssetSlot> m_skeletonSlot; // the preview skeleton
         RefPtr<app::CompactAssetSlot> m_meshSlot;     // the preview mesh
-        RefPtr<ui::Button> m_skeletonToggle; // wireframe on/off
-        RefPtr<ui::Button> m_meshToggle;     // skinned mesh on/off
-        RefPtr<ui::Button> m_playButton;
+        RefPtr<app::PageToolbar> m_toolbar; // the standard set, playback, bones and mesh
         RefPtr<ui::Label> m_previewStatus; // current state + transition readout
 
         Guid m_skeletonGuid{};

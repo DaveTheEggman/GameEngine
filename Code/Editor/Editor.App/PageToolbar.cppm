@@ -3,8 +3,9 @@
 // Editor::App - :page_toolbar partition.
 //
 // PageToolbar: a page's action bar, built from the action registry OVER THAT PAGE. The
-// standard set (file.save / edit.undo / edit.redo / page.discardChanges) comes first; a page
-// adds its own domain actions by id (AddAction). Every button shows the declaration's label,
+// standard set the page asks for comes first (Edit: file.save / edit.undo / edit.redo /
+// page.discardChanges; Save: file.save alone; None), then the playback transport for a page that
+// plays something back (AddPlayback); a page adds its own domain actions by id (AddAction). Every button shows the declaration's label,
 // executes through the registry with this page as the subject - not the active page, since a
 // split layout shows two pages and only one is active - and Refresh() syncs enabled and
 // checked from the registry's answer over this page. A page prepends this to the top of its
@@ -27,15 +28,65 @@ export namespace editor::app
     class PageToolbar : public ui::toolkit::Toolbar
     {
     public:
-        PageToolbar(editor::EditorPage& page, editor::EditorActionRegistry& actions)
+        /// Which of the standard actions lead the bar.
+        enum class Standard
+        {
+            /// Save, undo, redo and discard: a page whose edits are commands.
+            Edit,
+            /// Save alone: a text page, whose editor keeps its own undo and whose unsaved text
+            /// is not a command stack to discard.
+            Save,
+            /// None: a page with nothing to save, only its own actions (an audition).
+            None,
+        };
+
+        PageToolbar(editor::EditorPage& page, editor::EditorActionRegistry& actions,
+                    Standard standard = Standard::Edit)
             : m_page(&page), m_actions(&actions)
         {
-            AddAction(u8"file.save");
-            AddSeparator();
-            AddAction(u8"edit.undo");
-            AddAction(u8"edit.redo");
-            AddSeparator();
-            AddAction(u8"page.discardChanges");
+            if (standard != Standard::None)
+            {
+                AddAction(u8"file.save");
+            }
+            if (standard == Standard::Edit)
+            {
+                AddSeparator();
+                AddAction(u8"edit.undo");
+                AddAction(u8"edit.redo");
+                AddSeparator();
+                AddAction(u8"page.discardChanges");
+            }
+            Refresh();
+        }
+
+        /// The page's content under its toolbar: the column a page hands out as its
+        /// ContentView.
+        [[nodiscard]] static RefPtr<ui::View> Frame(IAllocator& allocator, PageToolbar& toolbar,
+                                                    ui::View& content)
+        {
+            auto column = MakeRef<ui::FlexLayout>(allocator);
+            column->Direction = ui::Orientation::Vertical;
+            ui::LayoutStyle bar;
+            bar.Width = ui::SizeSpec::Match();
+            column->AddView(&toolbar, bar);
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
+            column->AddView(&content, grow);
+            return RefPtr<ui::View>(column.Get());
+        }
+
+        /// The playback transport, for a page that publishes IPlaybackPage: Play (checked while
+        /// playing), Stop and Restart, after a separator when the bar has buttons already.
+        void AddPlayback()
+        {
+            if (ChildCount() > 0)
+            {
+                AddSeparator();
+            }
+            AddAction(u8"playback.play");
+            AddAction(u8"playback.stop");
+            AddAction(u8"playback.restart");
             Refresh();
         }
 

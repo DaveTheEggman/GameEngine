@@ -149,6 +149,7 @@ export namespace editor
         RefPtr<foundation::ui::FlexLayout> m_fields; // the right pane (rebuilt on structural edits)
         Array<RefPtr<ui::toolkit::PropertyEditor>> m_referenceRows; // the pane's own slot rows
         RefPtr<foundation::ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         Array<byte> m_undoBaseline;
     };
 

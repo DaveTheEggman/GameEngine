@@ -44,14 +44,17 @@ namespace editor
             return;
         }
         audio::VoiceStatus status;
-        if (m_audio->Engine()->GetVoiceStatus(m_voice, status) && status.playing)
+        const bool known = m_audio->Engine()->GetVoiceStatus(m_voice, status);
+        if (known && status.playing)
         {
             String text = Format(u8"{}  |  {} s", m_pickText, FormatFixed(status.cursorSeconds, 1));
             m_status->SetText(text.AsView());
         }
-        else
+        else if (!(known && status.active && status.paused))
         {
+            // Finished (a paused voice is still the audition, held in place).
             m_voice = audio::VoiceHandle{};
+            m_paused = false;
             m_status->SetText(m_pickText.AsView());
         }
     }
@@ -187,6 +190,38 @@ namespace editor
         m_jitterFields.PushBack(field);
     }
 
+    bool SoundCueEditorPage::CanPlay() const
+    {
+        for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
+        {
+            if (!m_asset.clipIds[i].IsNil())
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void SoundCueEditorPage::Play()
+    {
+        if (!m_voice.IsValid())
+        {
+            Audition();
+        }
+        else if (m_paused)
+        {
+            TogglePause();
+        }
+    }
+
+    void SoundCueEditorPage::Pause()
+    {
+        if (m_voice.IsValid() && !m_paused)
+        {
+            TogglePause();
+        }
+    }
+
     void SoundCueEditorPage::RefreshSlot(usize slot)
     {
         m_slotRows[slot]->Refresh();
@@ -266,10 +301,6 @@ namespace editor
         }
         m_voice = audio::VoiceHandle{};
         m_paused = false;
-        if (m_pauseButton.Get() != nullptr)
-        {
-            m_pauseButton->SetText(StringView(u8"Pause"));
-        }
     }
 
     void SoundCueEditorPage::TogglePause()
@@ -280,10 +311,6 @@ namespace editor
         }
         m_paused = !m_paused;
         m_audio->Engine()->SetPaused(m_voice, m_paused);
-        if (m_pauseButton.Get() != nullptr)
-        {
-            m_pauseButton->SetText(m_paused ? StringView(u8"Resume") : StringView(u8"Pause"));
-        }
     }
 
     RefPtr<audio::AudioClip> SoundCueEditorPage::LoadSlotClip(usize slot)

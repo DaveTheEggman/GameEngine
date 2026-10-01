@@ -141,7 +141,8 @@ export namespace editor
                 lp.Height = ui::SizeSpec::Match();
                 row->AddView(right.Get(), lp);
             }
-            m_content = row;
+            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions(), app::PageToolbar::Standard::Save);
+            m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *row);
             RebuildPreview();
         }
 
@@ -174,6 +175,7 @@ export namespace editor
         f32 m_previewDelay = 0.0f;
         ui::toolkit::MarkupCompletionProvider m_markupProvider; // borrowed by the editor
         RefPtr<ui::View> m_content;
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::toolkit::CodeEditView> m_editor;
         RefPtr<ui::Label> m_status;
         RefPtr<ui::viewport::ViewportView> m_viewport;

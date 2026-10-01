@@ -39,6 +39,30 @@ export namespace editor
         ~IPageService() = default;
     };
 
+    /// A page that plays something back: a clip, a cue, an effect, a graph preview. The playback
+    /// actions (playback.play, playback.stop, playback.restart) drive any page that publishes
+    /// this, so every page's transport is the same three toolbar buttons with the same meaning:
+    /// - Play is a toggle, checked while playing: it starts, pauses and resumes;
+    /// - Stop stops and rewinds to the start;
+    /// - Restart plays from the start.
+    class IPlaybackPage : public IPageService
+    {
+    public:
+        /// Whether there is anything to play: a clip loaded, an effect built.
+        [[nodiscard]] virtual bool CanPlay() const = 0;
+        [[nodiscard]] virtual bool IsPlaying() const = 0;
+        /// Starts from the start when stopped, or resumes where it paused.
+        virtual void Play() = 0;
+        virtual void Pause() = 0;
+        /// Stops and rewinds to the start.
+        virtual void Stop() = 0;
+        /// Plays from the start.
+        virtual void Restart() = 0;
+
+    protected:
+        ~IPlaybackPage() = default;
+    };
+
     // One open document. Owns its command stack; the context routes Edit>Undo/Redo to the
     // active page's stack. `Commands().OnChanged` is wired by the base to mark the page dirty.
     class EditorPage

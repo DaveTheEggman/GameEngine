@@ -193,7 +193,8 @@ export namespace editor
                 lp.FlexGrow = 1.0f;
                 column->AddView(m_scroll.Get(), lp);
             }
-            m_content = column;
+            m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+            m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *column);
             Rebuild();
         }
 
@@ -322,6 +323,8 @@ export namespace editor
         input::InputMap m_map;
 
         RefPtr<ui::View> m_content;
+
+        RefPtr<app::PageToolbar> m_toolbar;
         RefPtr<ui::ScrollView> m_scroll;
         RefPtr<ui::FlexLayout> m_rows;
         RefPtr<ui::Label> m_status;

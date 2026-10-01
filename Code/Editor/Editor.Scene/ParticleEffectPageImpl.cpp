@@ -667,6 +667,7 @@ namespace editor
         m_preview->Camera().LookAt(Float3{0.0f, 1.0f, 0.0f});
 
         SetInstanceId(instance.Id());
+        Provide<IPlaybackPage>(*this);
 
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::ParticleEffectAsset>(
@@ -686,19 +687,6 @@ namespace editor
         transport->Padding = ui::Thickness{6, 4};
         {
             ParticleEffectEditorPage* self = this;
-            auto play = MakeRef<ui::Button>(Allocator(), StringView(u8"Play"));
-            play->OnClick.Add([self](ui::ButtonBase*) { self->Play(); });
-            auto stop = MakeRef<ui::Button>(Allocator(), StringView(u8"Stop"));
-            stop->OnClick.Add([self](ui::ButtonBase*) { self->Stop(); });
-            auto restart = MakeRef<ui::Button>(Allocator(), StringView(u8"Restart"));
-            restart->OnClick.Add([self](ui::ButtonBase*) { self->Restart(); });
-            auto pause = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
-            pause->OnClick.Add([self](ui::ButtonBase*) { self->SetPaused(!self->m_paused); });
-            transport->AddView(play.Get());
-            transport->AddView(stop.Get());
-            transport->AddView(restart.Get());
-            transport->AddView(pause.Get());
-
             // Simulation-speed slider (scales the preview scene's time) - beyond Sedulous.
             auto speedLabel = MakeRef<ui::Label>(Allocator());
             speedLabel->FontSize.SetValue(Optional<f32>{12.0f});
@@ -807,7 +795,10 @@ namespace editor
         auto rightSplit = MakeRef<ui::toolkit::SplitView>(Allocator());
         rightSplit->SetSplitRatio(0.72f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
-        m_content = rightSplit;
+        // The page toolbar: the standard set, then the playback transport over the preview.
+        m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+        m_toolbar->AddPlayback();
+        m_content = app::PageToolbar::Frame(Allocator(), *m_toolbar, *rightSplit);
 
         RebuildTree();
         SelectNode(ParticleNodeRef{ParticleNodeKind::Effect, -1, -1});
@@ -881,9 +872,16 @@ namespace editor
 
     // ============================ Page: transport ============================================
 
+    bool ParticleEffectEditorPage::CanPlay() const
+    {
+        engine::particles::ParticleEffectComponent* c = PreviewComponent();
+        return c != nullptr && c->instance;
+    }
+
     void ParticleEffectEditorPage::Play()
     {
         m_paused = false;
+        m_stopped = false;
         if (m_asset.Get() != nullptr)
         {
             for (i32 i = 0; i < m_asset->Effect().SystemCount(); ++i)
@@ -901,10 +899,14 @@ namespace editor
     }
     void ParticleEffectEditorPage::Stop()
     {
+        // Clears the particles and stops emitting: the rewind.
+        SetPaused(false);
+        m_stopped = true;
         if (engine::particles::ParticleEffectComponent* c = PreviewComponent())
         {
             if (c->instance)
             {
+                c->instance->Reset();
                 c->instance->Stop();
             }
         }
@@ -2060,6 +2062,10 @@ namespace editor
 
     void ParticleEffectEditorPage::OnUpdate(runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // the page's actions and the transport follow it each frame
+        }
         // Live stats overlay: alive count per system + totals.
         if (m_statsLabel.Get() != nullptr && m_asset.Get() != nullptr)
         {

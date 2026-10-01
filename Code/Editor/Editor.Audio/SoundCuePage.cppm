@@ -32,7 +32,7 @@ export namespace editor
     namespace ui = foundation::ui;
     namespace audio = foundation::audio;
 
-    class SoundCueEditorPage final : public app::UIEditorPage
+    class SoundCueEditorPage final : public app::UIEditorPage, public IPlaybackPage
     {
         class EditSoundCueCommand final : public IEditorCommand
         {
@@ -76,6 +76,7 @@ export namespace editor
               m_context(&context), m_title(instance.Name())
         {
             SetInstanceId(instance.Id());
+            Provide<IPlaybackPage>(*this);
             m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             if (RefPtr<ISerializable> object = instance.ReadObject())
             {
@@ -102,6 +103,9 @@ export namespace editor
 
             // Page action bar (Save / Undo / Redo / Discard) at the top - the reusable page toolbar.
             m_toolbar = MakeRef<app::PageToolbar>(Allocator(), *this, m_context->Actions());
+            // The audition is the playback transport: it resolves a variant as the runtime does.
+            m_toolbar->AddPlayback();
+            m_status = RefPtr<ui::Label>(m_toolbar->AddLabel(u8""));
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Match();
@@ -193,35 +197,6 @@ export namespace editor
                 }
             }
 
-            // Audition: resolve + play, exactly what the game does per trigger.
-            {
-                auto row = MakeRef<ui::FlexLayout>(Allocator());
-                row->Direction = ui::Orientation::Horizontal;
-                row->Spacing = 6.0f;
-                SoundCueEditorPage* self = this;
-                auto play = MakeRef<ui::Button>(Allocator(), StringView(u8"Audition"));
-                play->OnClick.Add([self](ui::ButtonBase*) { self->Audition(); });
-                row->AddView(play.Get());
-                m_pauseButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
-                m_pauseButton->OnClick.Add([self](ui::ButtonBase*) { self->TogglePause(); });
-                row->AddView(m_pauseButton.Get());
-                auto stop = MakeRef<ui::Button>(Allocator(), StringView(u8"Stop"));
-                stop->OnClick.Add([self](ui::ButtonBase*) { self->StopAudition(); });
-                row->AddView(stop.Get());
-                m_status = MakeRef<ui::Label>(Allocator(), StringView(u8""));
-                m_status->FontSize.SetValue(12.0f);
-                {
-                    ui::LayoutStyle lp;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_status.Get(), lp);
-                }
-                {
-                    ui::LayoutStyle lp;
-                    lp.Width = ui::SizeSpec::Match();
-                    column->AddView(row.Get(), lp);
-                }
-            }
-
             // Draft-state hint: an unauthored cue is a valid (silent) product, not an error - say so
             // clearly here instead. Shown while every slot is empty, cleared once a clip is assigned.
             m_emptyHint = MakeRef<ui::Label>(Allocator(), StringView(u8""));
@@ -271,7 +246,18 @@ export namespace editor
         // stops any prior voice first, so repeated clicks restart rather than stack.
         void Audition();
         void StopAudition();  // stop the audition voice + reset the transport
-        void TogglePause();   // pause/resume the audition voice in place (button toggles label)
+        void TogglePause();   // pause/resume the audition voice in place
+
+    public:
+        // ---- IPlaybackPage: an audition resolves a variant as the runtime would ----
+        [[nodiscard]] bool CanPlay() const override;
+        [[nodiscard]] bool IsPlaying() const override { return m_voice.IsValid() && !m_paused; }
+        void Play() override;
+        void Pause() override;
+        void Stop() override { StopAudition(); }
+        void Restart() override { Audition(); }
+
+    private:
 
         [[nodiscard]] RefPtr<audio::AudioClip> LoadSlotClip(usize slot);
 
@@ -291,7 +277,6 @@ export namespace editor
         i32 m_lastVariant = -1;
         u32 m_sequentialCursor = 0;
         audio::VoiceHandle m_voice;
-        RefPtr<ui::Button> m_pauseButton; // Pause/Resume label toggles with m_paused
         bool m_paused = false;
         String m_pickText;
         HashMap<Guid, RefPtr<audio::AudioClip>> m_clipCache;

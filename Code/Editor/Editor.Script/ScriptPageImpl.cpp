@@ -68,6 +68,10 @@ namespace editor
 
     void ScriptEditorPage::OnUpdate(foundation::runtime::IApplicationHost&, f32 dt)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync the page's actions to it each frame
+        }
         m_apiBrowser.Update(); // deferred tree rebuild (filter edits only mark dirty)
 
         if (m_validateDelay > 0.0f)

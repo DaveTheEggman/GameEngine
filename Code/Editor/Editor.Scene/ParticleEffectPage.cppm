@@ -9,7 +9,7 @@
 //   +-----------------+-------------------------------+---------------------+
 //   |  authoring tree |  live preview  [transport]    |   node inspector    |
 //   |  Effect         |   (the effect plays here)     |  (selected node's   |
-//   |   +-System 0    |   Play Stop Restart  speed--- |   full properties)  |
+//   |   +-System 0    |   speed---                    |   full properties)  |
 //   |   |  +-Emitter  |   [stats overlay: alive/sys]  |                     |
 //   |   |  +-Init...   |   [emission-shape gizmo]      |                     |
 //   |   |  +-Behav...  |                               |                     |
@@ -104,9 +104,17 @@ export namespace editor
 
     class ParticleTreeAdapter; // defined below (page holds it by UniquePtr)
 
-    class ParticleEffectEditorPage final : public app::UIEditorPage
+    class ParticleEffectEditorPage final : public app::UIEditorPage, public IPlaybackPage
     {
     public:
+        // ---- IPlaybackPage: play, pause and stop drive the preview's instance ----
+        [[nodiscard]] bool CanPlay() const override;
+        [[nodiscard]] bool IsPlaying() const override { return !m_paused && !m_stopped; }
+        void Play() override;
+        void Pause() override { SetPaused(true); }
+        void Stop() override;
+        void Restart() override;
+
         ParticleEffectEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                  ui::runtime::UIHost& uiHost,
                                  foundation::content::Instance& instance);
@@ -173,10 +181,6 @@ export namespace editor
         // changes (structural). Held as RefPtr<Object> to keep the interface free of the resource import.
         void RebuildPreviewResources();
 
-        // --- transport ---
-        void Play();
-        void Stop();
-        void Restart();
         void SetPaused(bool paused);
 
         // --- tree ---
@@ -243,6 +247,8 @@ export namespace editor
         // transport / undo state
         f32 m_simSpeed = 1.0f;
         bool m_paused = false;
+        bool m_stopped = false; // stopped by the toolbar: nothing emits until Play or Restart
+        RefPtr<app::PageToolbar> m_toolbar;
         Array<byte> m_undoBaseline; // last committed effect blob (undo anchor)
     };
 

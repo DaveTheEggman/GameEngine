@@ -3345,6 +3345,7 @@ namespace editor::app
             d.execute = [](editor::EditorPage* page) { page->DiscardChanges(); };
             (void)actions.Register(Move(d));
         }
+        RegisterPlaybackActions(actions);
         {
             EditorActionDeclaration d =
                 Declare(u8"edit.preferences", u8"Preferences...",

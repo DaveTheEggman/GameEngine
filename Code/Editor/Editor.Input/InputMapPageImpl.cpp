@@ -68,6 +68,10 @@ namespace editor
 
     void InputMapEditorPage::OnUpdate(runtime::IApplicationHost& host, f32)
     {
+        if (m_toolbar.Get() != nullptr)
+        {
+            m_toolbar->Refresh(); // sync the page's actions to it each frame
+        }
         if (!m_listening)
         {
             return;
