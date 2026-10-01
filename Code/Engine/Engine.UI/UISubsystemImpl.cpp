@@ -1312,15 +1312,35 @@ namespace engine::ui
                     (void)focus->MoveFocus(directions[i]);
                 }
             }
+            // Confirm and back act on the RELEASE. On the press, a button that resumes play would
+            // unfreeze the game while the pad still held the button, and gameplay would read that
+            // same press as its own (the confirm button is a jump). And the release counts only on
+            // the view the press went down on: a jump held into a pause menu must not let go on
+            // its default button and click it.
             if (pad->IsButtonPressed(foundation::shell::GamepadButton::South))
             {
-                inputManager.ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false,
-                                            m_context.TotalTime());
-                inputManager.ProcessKeyUp(KeyCode::Return, KeyModifiers::None,
-                                          m_context.TotalTime());
+                m_confirmPressedOn = (focus != nullptr && focus->FocusedView() != nullptr) ? focus->FocusedId()
+                                                                                           : ViewId::Invalid;
+            }
+            if (pad->IsButtonReleased(foundation::shell::GamepadButton::South))
+            {
+                const ViewId pressedOn = m_confirmPressedOn;
+                m_confirmPressedOn = ViewId::Invalid;
+                if (pressedOn.IsValid() && focus != nullptr && focus->FocusedId() == pressedOn)
+                {
+                    inputManager.ProcessKeyDown(KeyCode::Return, KeyModifiers::None, false,
+                                                m_context.TotalTime());
+                    inputManager.ProcessKeyUp(KeyCode::Return, KeyModifiers::None,
+                                              m_context.TotalTime());
+                }
             }
             if (pad->IsButtonPressed(foundation::shell::GamepadButton::East))
             {
+                m_backPressed = true;
+            }
+            if (pad->IsButtonReleased(foundation::shell::GamepadButton::East) && m_backPressed)
+            {
+                m_backPressed = false;
                 inputManager.ProcessKeyDown(KeyCode::Escape, KeyModifiers::None, false,
                                             m_context.TotalTime());
                 inputManager.ProcessKeyUp(KeyCode::Escape, KeyModifiers::None,
@@ -1370,6 +1390,50 @@ namespace engine::ui
         m_pointerConsumed = pointer;
         m_input->Runtime().SetConsumptionMask(
             foundation::input::ActionRuntime::ConsumptionMask{pointer, keyboard});
+        TraceUi(mouse);
+    }
+
+    void UISubsystem::TraceUi(foundation::shell::IMouse* mouse)
+    {
+        // ENV_INPUT_TRACE set: twice a second, what the UI holds - the focused view and how focus
+        // got there, the hovered one, and where the pointer is in layout space - beside the input
+        // path's own trace.
+        static const bool tracing = []
+        {
+            const Optional<String> value = GetEnvironmentVariable(u8"ENV_INPUT_TRACE");
+            return value.HasValue() && !value->IsEmpty();
+        }();
+        if (!tracing || (++m_traceFrame % 30u) != 0u)
+        {
+            return;
+        }
+        static constexpr StringView kSources[] = {u8"Programmatic", u8"Pointer", u8"Keyboard"};
+        String line(u8"UiTrace:");
+        FocusManager* focus = m_context.GetFocusManager();
+        const View* focused = focus != nullptr ? focus->FocusedView() : nullptr;
+        if (focused != nullptr)
+        {
+            line += Format(u8" focused '{}' {} by {}", focused->Name.AsView(),
+                           StringView(reinterpret_cast<const utf8char*>(focused->GetType()->name)),
+                           kSources[static_cast<u32>(focus->Source())])
+                        .AsView();
+        }
+        else
+        {
+            line += u8" focused none";
+        }
+        const View* hovered = m_context.GetViewById(m_context.GetInputManager()->HoveredId());
+        line += hovered != nullptr
+                    ? Format(u8" | hovered '{}' {}", hovered->Name.AsView(),
+                             StringView(reinterpret_cast<const utf8char*>(hovered->GetType()->name)))
+                          .AsView()
+                    : StringView(u8" | hovered none");
+        if (mouse != nullptr)
+        {
+            const Float2 layout = ScreenLayoutPoint(Float2{mouse->X(), mouse->Y()});
+            line += Format(u8" | pointer ({},{}) layout ({},{})", mouse->X(), mouse->Y(), layout.x, layout.y).AsView();
+        }
+        LOG_INFO(u8"UI", u8"{}", line.AsView());
     }
 
     // The scene-tier per-view sync: canvas visibility from the authored flag, then

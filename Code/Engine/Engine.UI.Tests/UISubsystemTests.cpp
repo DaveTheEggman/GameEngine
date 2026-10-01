@@ -438,6 +438,7 @@ namespace
     {
         bool down[static_cast<u32>(foundation::shell::GamepadButton::Count)] = {};
         bool pressed[static_cast<u32>(foundation::shell::GamepadButton::Count)] = {};
+        bool released[static_cast<u32>(foundation::shell::GamepadButton::Count)] = {};
         f32 axes[static_cast<u32>(foundation::shell::GamepadAxis::Count)] = {};
         [[nodiscard]] i32 Index() const override { return 0; }
         [[nodiscard]] StringView Name() const override { return u8"fake"; }
@@ -450,9 +451,9 @@ namespace
         {
             return pressed[static_cast<u32>(b)];
         }
-        [[nodiscard]] bool IsButtonReleased(foundation::shell::GamepadButton) const override
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::GamepadButton b) const override
         {
-            return false;
+            return released[static_cast<u32>(b)];
         }
         [[nodiscard]] f32 Axis(foundation::shell::GamepadAxis a) const override
         {
@@ -602,15 +603,43 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadDown)] = false;
     ctx.BeginFrame(1.0f / 60.0f);
 
-    // South = Submit: the focused button activates through the Return path.
+    // South = Submit: the focused button activates through the Return path, on the RELEASE, so a
+    // button that resumes play does not leave its press for gameplay (Sedulous 7af2c51f).
+    const u32 south = static_cast<u32>(foundation::shell::GamepadButton::South);
     bool clicked = false;
     Cast<ViewGroup>(canvas.root.Get())
         ->FindByName<Button>(u8"bottom")
         ->OnClick.Add([&clicked](ButtonBase*) { clicked = true; });
-    devices.pad.pressed[static_cast<u32>(foundation::shell::GamepadButton::South)] = true;
+    devices.pad.pressed[south] = true;
+    devices.pad.down[south] = true;
     ctx.BeginFrame(1.0f / 60.0f);
-    CHECK(clicked);
-    devices.pad.pressed[static_cast<u32>(foundation::shell::GamepadButton::South)] = false;
+    CHECK_FALSE(clicked); // the press alone does not activate
+    devices.pad.pressed[south] = false;
+    devices.pad.down[south] = false;
+    devices.pad.released[south] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicked); // the release does
+    devices.pad.released[south] = false;
+
+    // A press that went down on another view does not click where it lets go: a jump held into
+    // a menu must not activate the button focus lands on.
+    bool topClicked = false;
+    Cast<ViewGroup>(canvas.root.Get())
+        ->FindByName<Button>(u8"top")
+        ->OnClick.Add([&topClicked](ButtonBase*) { topClicked = true; });
+    clicked = false;
+    devices.pad.pressed[south] = true;
+    ctx.BeginFrame(1.0f / 60.0f); // down on "bottom"
+    devices.pad.pressed[south] = false;
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadUp)] = true;
+    ctx.BeginFrame(1.0f / 60.0f); // focus moves to "top" while held
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadUp)] = false;
+    CHECK(focus->FocusedView()->Name.AsView() == u8"top");
+    devices.pad.released[south] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.pad.released[south] = false;
+    CHECK_FALSE(topClicked); // let go on another view, nothing activates
+    CHECK_FALSE(clicked);
 
     // An OCCUPIED screen tier is modal: input routing flips to the screen root.
     RefPtr<UIDocument> modal = MakeRef<UIDocument>(DefaultAllocator());

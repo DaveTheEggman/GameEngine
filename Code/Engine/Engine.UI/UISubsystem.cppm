@@ -679,6 +679,13 @@ export namespace engine::ui
         // gamepad focus navigation (hold-repeat per direction)
         f32 m_navRepeat[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // Up/Down/Left/Right
         bool m_navHeld[4] = {false, false, false, false};
+        // The view a pad's confirm (south) went down on, so its release activates that view and
+        // nothing else; invalid with none. The back button (east) only needs to have gone down
+        // while the UI was pumping.
+        ViewId m_confirmPressedOn = ViewId::Invalid;
+        bool m_backPressed = false;
+        u32 m_traceFrame = 0; // ENV_INPUT_TRACE's sample counter
+        void TraceUi(foundation::shell::IMouse* mouse); // ENV_INPUT_TRACE: what the UI holds
         f32 m_navDeltaTime = 0.0f;
 
         // impl-side render state (VG contexts/renderers/shaders), opaque here
