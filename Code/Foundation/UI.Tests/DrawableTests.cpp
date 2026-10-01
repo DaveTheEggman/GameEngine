@@ -8,6 +8,7 @@
 #include "Core/Prelude.h"
 import foundation.core;
 import foundation.image;
+import foundation.vg;
 import foundation.ui;
 
 using namespace foundation::ui;
@@ -143,4 +144,39 @@ TEST_CASE("drawable: statelist Disabled dominates interaction flags")
     CHECK(list->Get(ControlState::Hover) == hover.Get()); // unchanged
     CHECK(list->Get(ControlState::Hover | ControlState::Focused) ==
           hover.Get()); // generic fallback intact
+}
+
+namespace
+{
+    // Records the rectangle it was last drawn into.
+    class ProbeDrawable final : public Drawable
+    {
+    public:
+        core::Rectangle lastBounds{};
+        void Draw(UIDrawContext&, const core::Rectangle& bounds) override { lastBounds = bounds; }
+    };
+}
+
+// KeepAspect draws at the desired shape, as large as fits and centred: a 14 by 14 icon in a 40 by
+// 10 box is 10 by 10 in the middle, not 40 by 10. Without it the drawable fills (Sedulous eeaa5376).
+TEST_CASE("drawable: DrawableView KeepAspect fits and centres rather than stretching")
+{
+    foundation::vg::VGContext vgContext;
+    UIDrawContext draw(vgContext, 1.0f, nullptr);
+    auto icon = core::MakeRef<ProbeDrawable>(core::DefaultAllocator());
+    auto view = core::MakeRef<DrawableView>(core::DefaultAllocator(),
+                                            DrawablePtr(icon.Get()), 14.0f, 14.0f);
+    view->Measure(BoxConstraints::Tight(40, 10));
+    view->Layout(0, 0, 40, 10);
+
+    view->OnDraw(draw);
+    CHECK(icon->lastBounds.width == doctest::Approx(40.0f)); // fills by default
+    CHECK(icon->lastBounds.height == doctest::Approx(10.0f));
+
+    view->KeepAspect = true;
+    view->OnDraw(draw);
+    CHECK(icon->lastBounds.width == doctest::Approx(10.0f));
+    CHECK(icon->lastBounds.height == doctest::Approx(10.0f));
+    CHECK(icon->lastBounds.x == doctest::Approx(15.0f)); // centred
+    CHECK(icon->lastBounds.y == doctest::Approx(0.0f));
 }

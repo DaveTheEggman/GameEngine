@@ -51,12 +51,35 @@ export namespace foundation::ui
             DesiredHeight.SetSilent(Optional<f32>{height});
         }
 
+        /// Draws at the desired (else intrinsic) aspect, as large as fits and centred, rather than
+        /// stretched to the view's box: an icon in a squeezed row shrinks, it does not squash.
+        bool KeepAspect = false;
+
         void OnDraw(UIDrawContext& ctx) override
         {
-            if (Drawable)
+            if (!Drawable)
             {
-                Drawable->Draw(ctx, Rectangle{0, 0, Width(), Height()}, GetControlState());
+                return;
             }
+            Rectangle rect{0, 0, Width(), Height()};
+            if (KeepAspect)
+            {
+                const Optional<Float2> intrinsic = Drawable->IntrinsicSize();
+                const f32 aw = DesiredWidth.Value().HasValue()
+                                   ? DesiredWidth.Value().Value()
+                                   : (intrinsic.HasValue() ? intrinsic.Value().x : 0.0f);
+                const f32 ah = DesiredHeight.Value().HasValue()
+                                   ? DesiredHeight.Value().Value()
+                                   : (intrinsic.HasValue() ? intrinsic.Value().y : 0.0f);
+                if (aw > 0.0f && ah > 0.0f && Width() > 0.0f && Height() > 0.0f)
+                {
+                    const f32 scale = Min(Width() / aw, Height() / ah);
+                    const f32 w = aw * scale;
+                    const f32 h = ah * scale;
+                    rect = Rectangle{(Width() - w) * 0.5f, (Height() - h) * 0.5f, w, h};
+                }
+            }
+            Drawable->Draw(ctx, rect, GetControlState());
         }
 
     protected:

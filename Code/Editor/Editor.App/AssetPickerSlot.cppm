@@ -122,7 +122,9 @@ export namespace editor::app
         void SetValue(StringView name, bool hasValue)
         {
             m_hasValue = hasValue;
-            m_body->SetText(hasValue && name.Size() > 0 ? name : StringView(u8"(none)"));
+            // The name as given, a bound row's empty text included ("Default", a preview's
+            // primitive): "(none)" only stands in for no text at all.
+            m_body->SetText(name.Size() > 0 ? name : StringView(u8"(none)"));
             SyncAffordances(hasValue);
         }
 
@@ -236,6 +238,7 @@ export namespace editor::app
         {
             auto content =
                 MakeRef<ui::DrawableView>(MemoryAllocator(), Move(icon), 14.0f, 14.0f);
+            content->KeepAspect = true; // a short row shrinks the glyph, never squashes it
             if (outDrawable != nullptr)
             {
                 *outDrawable = content.Get();

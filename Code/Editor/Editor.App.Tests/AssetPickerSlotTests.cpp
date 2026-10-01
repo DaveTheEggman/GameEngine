@@ -50,6 +50,11 @@ TEST_CASE("asset-slot: Edit/Clear/preview inert while empty, body always live")
     slot->OnReveal = []() {};
 
     slot->SetValue({}, false);
+    CHECK(slot->BodyButton()->Text.Value() == StringView(u8"(none)")); // no text at all
+    slot->SetValue(u8"Default", false); // a row's own empty text shows (Sedulous eeaa5376)
+    CHECK(slot->BodyButton()->Text.Value() == StringView(u8"Default"));
+    CHECK(!slot->ClearButton()->IsEnabled); // still empty: nothing to clear
+    slot->SetValue({}, false);
     CHECK(slot->BodyButton()->IsEnabled); // picking an EMPTY slot is the point
     CHECK(!slot->EditButton()->IsEnabled);
     CHECK(!slot->ClearButton()->IsEnabled);
