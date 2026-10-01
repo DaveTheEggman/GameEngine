@@ -45,7 +45,7 @@ export namespace editor::mcp::detail
     }
 
     /// The settings that are settings: the reflected properties with a label, of the kinds a
-    /// setting takes (a string, an asset's guid, a count).
+    /// setting takes (a string, an asset's guid or a list of them, a count).
     inline Array<const PropertyInfo*> ProjectSettingProperties()
     {
         Array<const PropertyInfo*> out;
@@ -53,9 +53,8 @@ export namespace editor::mcp::detail
         {
             const bool kind = property.type == &TypeOf<String>() ||
                               property.type == &TypeOf<u32>() ||
-                              (property.type == &TypeOf<Guid>() &&
-                               engine::project::SettingAttribute(
-                                   property, engine::project::kSettingAssetTypeAttribute) != nullptr);
+                              engine::project::IsAssetSetting(property) ||
+                              engine::project::IsAssetListSetting(property);
             if (kind && engine::project::SettingAttribute(
                             property, engine::project::kSettingLabelAttribute) != nullptr)
             {
@@ -70,8 +69,18 @@ export namespace editor::mcp::detail
         return StringView(reinterpret_cast<const utf8char*>(property.name));
     }
 
+    /// An asset a setting names as {guid, path}; the path is null when the guid names nothing.
+    inline JsonValue SettingAssetJson(editor::EditorProject& project, const Guid& id)
+    {
+        content::Instance* asset = project.SourceDb().GetInstance(id);
+        JsonValue entry = JsonValue::MakeObject();
+        entry.Set(u8"guid", GuidToJson(id));
+        entry.Set(u8"path", asset != nullptr ? JsonValue::MakeString(asset->Path()) : JsonValue::MakeNull());
+        return entry;
+    }
+
     /// The settings as project_info reports them: an asset setting {guid, path} (null when unset),
-    /// a string as text, a number as a number.
+    /// a list of them as an array, a string as text, a number as a number.
     inline JsonValue ProjectSettingsJson(editor::EditorProject& project)
     {
         engine::project::ProjectSettings& settings = project.Settings();
@@ -81,21 +90,19 @@ export namespace editor::mcp::detail
         {
             const String key(PropertyName(*property));
             void* address = property->address(instance);
-            if (engine::project::SettingAttribute(*property,
-                                                  engine::project::kSettingAssetTypeAttribute))
+            if (engine::project::IsAssetListSetting(*property))
+            {
+                JsonValue list = JsonValue::MakeArray();
+                for (const Guid& id : *static_cast<const Array<Guid>*>(address))
+                {
+                    list.Add(SettingAssetJson(project, id));
+                }
+                out.Set(key, Move(list));
+            }
+            else if (engine::project::IsAssetSetting(*property))
             {
                 const Guid& id = *static_cast<const Guid*>(address);
-                if (id.IsNil())
-                {
-                    out.Set(key, JsonValue::MakeNull());
-                    continue;
-                }
-                content::Instance* asset = project.SourceDb().GetInstance(id);
-                JsonValue entry = JsonValue::MakeObject();
-                entry.Set(u8"guid", GuidToJson(id));
-                entry.Set(u8"path", asset != nullptr ? JsonValue::MakeString(asset->Path())
-                                                     : JsonValue::MakeNull());
-                out.Set(key, Move(entry));
+                out.Set(key, id.IsNil() ? JsonValue::MakeNull() : SettingAssetJson(project, id));
             }
             else if (property->type == &TypeOf<String>())
             {
@@ -118,8 +125,16 @@ export namespace editor::mcp::detail
             const String* label =
                 engine::project::SettingAttribute(*property, engine::project::kSettingLabelAttribute);
             const String key(PropertyName(*property));
-            if (const String* assetType = engine::project::SettingAttribute(
-                    *property, engine::project::kSettingAssetTypeAttribute))
+            const String* assetType =
+                engine::project::SettingAttribute(*property, engine::project::kSettingAssetTypeAttribute);
+            if (engine::project::IsAssetListSetting(*property))
+            {
+                schema.Arr(key, u8"string",
+                           Format(u8"{}: the guids of assets of type {}, in order; the whole list, [] "
+                                  u8"for none",
+                                  label->AsView(), assetType->AsView()));
+            }
+            else if (assetType != nullptr)
             {
                 const String* emptyText = engine::project::SettingAttribute(
                     *property, engine::project::kSettingEmptyTextAttribute);
@@ -153,7 +168,9 @@ export namespace editor::mcp
             u8"project_settings_set",
             u8"Change the open project's settings, what the editor's Project Settings dialog "
             u8"edits: only what is given changes. Every asset setting must name an asset of its "
-            u8"type (the refusal says which), \"\" clears it; MSAA takes the render levels. Checked "
+            u8"type (the refusal says which), \"\" clears it; a list setting (uiFontIds, the fonts "
+            u8"the game UI loads beside the default, each a family a label picks with font-family) "
+            u8"takes the whole list, [] for none; MSAA takes the render levels. Checked "
             u8"in full before anything changes, then saved to the manifest; the editor re-applies "
             u8"what depends on them (the game UI's font and theme). Returns the settings as "
             u8"project_info does.",
@@ -196,6 +213,7 @@ export namespace editor::mcp
                 {
                     const PropertyInfo* property = nullptr;
                     Guid id;
+                    Array<Guid> ids; // a list setting's whole list
                     String text;
                     u32 number = 0;
                 };
@@ -210,30 +228,66 @@ export namespace editor::mcp
                     const JsonValue value = args.Get(key);
                     Change change;
                     change.property = property;
-                    if (const String* assetType = engine::project::SettingAttribute(
-                            *property, engine::project::kSettingAssetTypeAttribute))
+                    const String* assetType = engine::project::SettingAttribute(
+                        *property, engine::project::kSettingAssetTypeAttribute);
+                    // One guid naming an asset of the setting's type: the refusal, empty when it
+                    // does; `where` names the setting in it.
+                    const auto checkAsset = [&project, assetType](StringView where, StringView text,
+                                                                  Guid& id) -> String
+                    {
+                        if (!Guid::TryParse(text, id))
+                        {
+                            return Format(u8"`{}`: '{}' is not a valid guid", where, text);
+                        }
+                        content::Instance* asset = project.SourceDb().GetInstance(id);
+                        if (asset == nullptr)
+                        {
+                            return Format(u8"`{}`: no asset with guid {} in the project", where, text);
+                        }
+                        if (asset->TypeName() != assetType->AsView())
+                        {
+                            return Format(u8"`{}` takes an asset of type {}; '{}' is of type {}", where,
+                                          assetType->AsView(), asset->Name(), asset->TypeName());
+                        }
+                        return String();
+                    };
+                    if (engine::project::IsAssetListSetting(*property))
+                    {
+                        if (!value.IsArray())
+                        {
+                            return Err(Format(u8"`{}` takes an array of {} guids", key.AsView(),
+                                              assetType->AsView()));
+                        }
+                        for (i64 i = 0; i < value.Count(); ++i)
+                        {
+                            Guid id;
+                            const String text = value.At(i).AsString();
+                            String refused =
+                                checkAsset(Format(u8"{}[{}]", key.AsView(), i).AsView(), text.AsView(), id);
+                            if (!refused.IsEmpty())
+                            {
+                                return Err(Move(refused));
+                            }
+                            bool listed = false;
+                            for (const Guid& other : change.ids)
+                            {
+                                listed = listed || other == id;
+                            }
+                            if (!listed)
+                            {
+                                change.ids.PushBack(id); // once each: a family loads once
+                            }
+                        }
+                    }
+                    else if (assetType != nullptr)
                     {
                         const String text = value.AsString();
                         if (!text.IsEmpty())
                         {
-                            if (!Guid::TryParse(text.AsView(), change.id))
+                            String refused = checkAsset(key.AsView(), text.AsView(), change.id);
+                            if (!refused.IsEmpty())
                             {
-                                return Err(Format(u8"`{}`: '{}' is not a valid guid", key.AsView(),
-                                                  text.AsView()));
-                            }
-                            content::Instance* asset = project.SourceDb().GetInstance(change.id);
-                            if (asset == nullptr)
-                            {
-                                return Err(Format(u8"`{}`: no asset with guid {} in the project",
-                                                  key.AsView(), text.AsView()));
-                            }
-                            if (asset->TypeName() != assetType->AsView())
-                            {
-                                return Err(Format(u8"`{}` takes an asset of type {}; '{}' is of "
-                                                  u8"type {}",
-                                                  key.AsView(),
-                                                  assetType->AsView(), asset->Name(),
-                                                  asset->TypeName()));
+                                return Err(Move(refused));
                             }
                         }
                     }
@@ -271,8 +325,11 @@ export namespace editor::mcp
                 for (const Change& change : changes)
                 {
                     void* address = change.property->address(instance);
-                    if (engine::project::SettingAttribute(*change.property,
-                                                          engine::project::kSettingAssetTypeAttribute))
+                    if (engine::project::IsAssetListSetting(*change.property))
+                    {
+                        *static_cast<Array<Guid>*>(address) = change.ids;
+                    }
+                    else if (engine::project::IsAssetSetting(*change.property))
                     {
                         *static_cast<Guid*>(address) = change.id;
                     }

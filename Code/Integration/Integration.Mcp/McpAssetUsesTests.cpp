@@ -188,7 +188,7 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
     CHECK(sceneUses.Get(u8"useCount").AsNumber() == doctest::Approx(0.0));
     REQUIRE(sceneUses.Get(u8"projectSettingsUses").Count() == 1);
     CHECK(sceneUses.Get(u8"projectSettingsUses").At(0).AsString() ==
-          StringView(u8"defaultScene"));
+          StringView(u8"defaultSceneId"));
 
     // An unused asset answers empty (the "safe to touch" signal).
     JsonValue matUses =
@@ -313,7 +313,7 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     CHECK(sawSceneResource);
     REQUIRE(broken.Get(u8"projectSettingsDangling").Count() == 1);
     CHECK(broken.Get(u8"projectSettingsDangling").At(0).AsString() ==
-          StringView(u8"defaultScene"));
+          StringView(u8"defaultSceneId"));
 
     // Healing every break flips the verdict back.
     session.project->Settings().defaultSceneId = Guid();

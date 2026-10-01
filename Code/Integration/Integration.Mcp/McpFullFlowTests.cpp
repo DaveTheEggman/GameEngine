@@ -7,6 +7,7 @@
 // health -> host state. Every step is a tools/call; nothing touches the project behind the
 // server's back except the initial on-disk script file (the OS artifact an import consumes).
 #include <doctest/doctest.h>
+#include <initializer_list>
 #include <filesystem>
 #include <fstream>
 #include "Core/Prelude.h"
@@ -705,6 +706,7 @@ TEST_CASE("integration.mcp: an agent sets the project's settings")
     editor::mcp::ProjectSession session;
     editor::mcp::ProjectOwner owner;
     McpServer server;
+    pipeline::RegisterAllImporters(importers); // a font for the list setting
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
     editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
                                      editor::mcp::EngineToolPaths{}, operations);
@@ -785,6 +787,62 @@ TEST_CASE("integration.mcp: an agent sets the project's settings")
                             .Get(u8"settings");
     CHECK(cleared.Get(u8"defaultInputMapId").IsNull());
     CHECK(cleared.Get(u8"defaultSceneId").Get(u8"guid").AsString() == sceneId.AsView());
+
+    // A list setting (Sedulous 39147576): uiFontIds takes the whole list, each a FontAsset, once.
+    CHECK(FfCall(server, u8"project_info", JsonValue::MakeObject()).Get(u8"settings").Get(u8"uiFontIds").Count() == 0);
+    (void)FfCall(server, u8"asset_import",
+                 FfStr(JsonValue::MakeObject(), u8"source",
+                       PathJoin(foundation::vfs::FindDataRoot().AsView(), u8"Assets/fonts/roboto/Roboto-Bold.ttf")
+                           .AsView()));
+    String fontId;
+    {
+        const JsonValue assets = FfCall(server, u8"asset_list", JsonValue::MakeObject()).Get(u8"assets");
+        for (i64 i = 0; i < assets.Count(); ++i)
+        {
+            if (assets.At(i).Get(u8"type").AsString() == StringView(u8"FontAsset"))
+            {
+                fontId = assets.At(i).Get(u8"guid").AsString();
+            }
+        }
+    }
+    REQUIRE_FALSE(fontId.IsEmpty());
+    const auto fonts = [](std::initializer_list<StringView> ids)
+    {
+        JsonValue list = JsonValue::MakeArray();
+        for (StringView id : ids)
+        {
+            list.Add(JsonValue::MakeString(String(id)));
+        }
+        JsonValue arguments = JsonValue::MakeObject();
+        arguments.Set(u8"uiFontIds", Move(list));
+        return arguments;
+    };
+    CHECK(refused(fonts({fontId.AsView(), sceneId.AsView()}))
+              .AsView()
+              .StartsWith(u8"`uiFontIds[1]` takes an asset of type FontAsset; 'Level1' is of type"));
+    {
+        // One guid where the list goes: the schema refuses it before the tool runs.
+        JsonValue params = JsonValue::MakeObject();
+        params.Set(u8"name", JsonValue::MakeString(String(u8"project_settings_set")));
+        params.Set(u8"arguments", FfStr(JsonValue::MakeObject(), u8"uiFontIds", fontId.AsView()));
+        JsonValue req = JsonValue::MakeObject();
+        req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+        req.Set(u8"id", JsonValue::MakeNumber(5));
+        req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
+        req.Set(u8"params", Move(params));
+        LineOutcome line = server.HandleLine(req.ToString().AsView());
+        CHECK(json::Parse(line.response.AsView()).value.Get(u8"error").Get(u8"code").AsInt() == -32602);
+    }
+    JsonValue listed = FfCall(server, u8"project_settings_set", fonts({fontId.AsView(), fontId.AsView()}))
+                           .Get(u8"settings")
+                           .Get(u8"uiFontIds");
+    REQUIRE(listed.Count() == 1); // once each
+    CHECK(listed.At(0).Get(u8"guid").AsString() == fontId.AsView());
+    CHECK(listed.At(0).Get(u8"path").IsString());
+    JsonValue uses = FfCall(server, u8"asset_uses", FfStr(JsonValue::MakeObject(), u8"guid", fontId.AsView()));
+    REQUIRE(uses.Get(u8"projectSettingsUses").Count() == 1);
+    CHECK(uses.Get(u8"projectSettingsUses").At(0).AsString() == StringView(u8"uiFontIds"));
+    CHECK(FfCall(server, u8"project_settings_set", fonts({})).Get(u8"settings").Get(u8"uiFontIds").Count() == 0);
 
     owner.project.Reset();
     session.project = nullptr;

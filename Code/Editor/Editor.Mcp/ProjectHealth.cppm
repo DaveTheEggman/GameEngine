@@ -30,6 +30,7 @@ import pipeline.core;
 import pipeline.cook;
 import audio.pipeline; // SoundCueAsset (empty-cue audit)
 import editor.project;
+import engine.project; // ForEachSettingAsset (the settings' asset references, by reflection)
 import :session;
 import :asset_uses; // shares the edge machinery (CollectSceneReferences, ContainsGuid)
 
@@ -189,29 +190,21 @@ export namespace editor::mcp
                 detail::HealthSweep sweep;
                 detail::SweepHealth(db.RootGroup(), db, *bld, sourcesMount, sweep);
 
-                // Settings edges: manifest fields pointing at instances that no longer exist.
-                const auto& settings = s->project->Settings();
+                // Settings edges: manifest fields pointing at instances that no longer exist, each by
+                // the setting's name, as project_info and project_settings_set know it.
                 JsonValue settingsDangling = JsonValue::MakeArray();
-                const struct
-                {
-                    const Guid* field;
-                    StringView name;
-                } settingsRefs[] = {
-                    {&settings.defaultSceneId, u8"defaultScene"},
-                    {&settings.startupScriptId, u8"startupScript"},
-                    {&settings.defaultInputMapId, u8"defaultInputMap"},
-                    {&settings.defaultBusLayoutId, u8"defaultBusLayout"},
-                    {&settings.defaultUiThemeId, u8"defaultUiTheme"},
-                    {&settings.defaultUiFontId, u8"defaultUiFont"},
-                    {&settings.loadingDocumentId, u8"loadingDocument"},
-                };
-                for (const auto& ref : settingsRefs)
-                {
-                    if (!ref.field->IsNil() && db.GetInstance(*ref.field) == nullptr)
+                const PropertyInfo* last = nullptr;
+                engine::project::ForEachSettingAsset(
+                    s->project->Settings(),
+                    [&](const PropertyInfo& property, const Guid& named)
                     {
-                        settingsDangling.Add(JsonValue::MakeString(String(ref.name)));
-                    }
-                }
+                        if (db.GetInstance(named) == nullptr && &property != last) // a list once
+                        {
+                            settingsDangling.Add(JsonValue::MakeString(
+                                String(StringView(reinterpret_cast<const utf8char*>(property.name)))));
+                            last = &property;
+                        }
+                    });
 
                 // Cook state: plan only (no build) + the persisted records' failure flags.
                 const String sourcesRoot = s->project->SourcesRoot();

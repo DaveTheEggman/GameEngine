@@ -33,6 +33,7 @@ import foundation.mcp;
 import pipeline.core;
 import engine.composition;
 import editor.project;
+import engine.project; // ForEachSettingAsset (the settings' asset references, by reflection)
 import :session;
 
 using namespace foundation::core;
@@ -226,29 +227,21 @@ export namespace editor::mcp
                     usedBy.Add(Move(e));
                 }
 
-                // The manifest's own references (a scene can be "in use" by the project itself).
-                const auto& settings = s->project->Settings();
+                // The manifest's own references (a scene can be "in use" by the project itself),
+                // each by the setting's name, as project_info and project_settings_set know it.
                 JsonValue settingsUses = JsonValue::MakeArray();
-                const struct
-                {
-                    const Guid* field;
-                    StringView name;
-                } settingsRefs[] = {
-                    {&settings.defaultSceneId, u8"defaultScene"},
-                    {&settings.startupScriptId, u8"startupScript"},
-                    {&settings.defaultInputMapId, u8"defaultInputMap"},
-                    {&settings.defaultBusLayoutId, u8"defaultBusLayout"},
-                    {&settings.defaultUiThemeId, u8"defaultUiTheme"},
-                    {&settings.defaultUiFontId, u8"defaultUiFont"},
-                    {&settings.loadingDocumentId, u8"loadingDocument"},
-                };
-                for (const auto& ref : settingsRefs)
-                {
-                    if (*ref.field == id)
+                const PropertyInfo* last = nullptr;
+                engine::project::ForEachSettingAsset(
+                    s->project->Settings(),
+                    [&](const PropertyInfo& property, const Guid& named)
                     {
-                        settingsUses.Add(JsonValue::MakeString(String(ref.name)));
-                    }
-                }
+                        if (named == id && &property != last) // a list names its setting once
+                        {
+                            settingsUses.Add(JsonValue::MakeString(
+                                String(StringView(reinterpret_cast<const utf8char*>(property.name)))));
+                            last = &property;
+                        }
+                    });
 
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"guid", detail::GuidToJson(target->Id()));
