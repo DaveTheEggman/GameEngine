@@ -1271,9 +1271,12 @@ TEST_CASE("game-instance: the run clock ignores time scale, and a game script's 
     CHECK_FALSE(gi.GetScriptProperty(u8"score").HasValue()); // no script running
     const StringView game = u8"Game = {}\n"
                             u8"Game.__index = Game\n"
-                            u8"function Game.new() return setmetatable({ score = 0 }, Game) end\n"
+                            u8"function Game.new() return setmetatable({ score = 0, real = 0 }, Game) end\n"
                             u8"function Game:launch() end\n"
-                            u8"function Game:update(dt) self.score = self.score + 1 end\n"
+                            u8"function Game:update(dt)\n"
+                            u8"  self.score = self.score + 1\n"
+                            u8"  self.real = self.real + run.realDeltaTime()\n"
+                            u8"end\n"
                             u8"function Game:exit() end\n";
     REQUIRE(gi.StartScript(game, u8"game.luau"));
     gi.SetInstanceTimeScale(0.0f); // the scene paused: the run clock still moves
@@ -1287,6 +1290,9 @@ TEST_CASE("game-instance: the run clock ignores time scale, and a game script's 
     REQUIRE(score.HasValue());
     CHECK(score.Value().Get<f64>() == doctest::Approx(3.0));
     CHECK_FALSE(gi.GetScriptProperty(u8"lives").HasValue());
+    // Sedulous 2ad3026c: a script reads the real clock too, for a pause menu to time by.
+    CHECK(gi.GetScriptProperty(u8"real").Value().Get<f64>() == doctest::Approx(3.0 / 60.0).epsilon(1e-4));
+    CHECK(gi.RunBinding().realSeconds == doctest::Approx(3.0 / 60.0).epsilon(1e-5));
     CHECK_FALSE(gi.GetScriptProperty(u8"update").HasValue()); // a method is not a property
     gi.StopScript();
     CHECK_FALSE(gi.GetScriptProperty(u8"score").HasValue());

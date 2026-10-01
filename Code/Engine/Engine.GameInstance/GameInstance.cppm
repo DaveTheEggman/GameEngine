@@ -84,6 +84,11 @@ export namespace engine::runtime
                                                                // real time); the Game orchestrator keeps
                                                                // running so it can resume.
         core::Function<f32()> timeScale;                       // the run's current scene-group time scale
+        // This frame's seconds before any time scale, and the seconds of frames since the run
+        // started (RunTime): what a pause menu, a banner or a fade times itself by, since
+        // update(dt) and coroutine waits stand still at time scale 0. The GameInstance writes them.
+        f32 realDeltaSeconds = 0.0f;
+        f64 realSeconds = 0.0;
         // This run's event bus: ONE service carries load + run-bus.
         // run.events() publishes here. The GameInstance fills it with &RunEvents().
         messaging::EventBus* runEvents = nullptr;
@@ -212,6 +217,19 @@ export namespace engine::runtime
         {
             RunScriptBinding* b = Resolve();
             return (b != nullptr && b->timeScale) ? b->timeScale() : 1.0f;
+        }
+        /// This frame's seconds before any time scale: the clock that runs while the game is
+        /// paused, for a pause menu or a fade (0 if unwired).
+        [[nodiscard]] static f32 realDeltaTime()
+        {
+            RunScriptBinding* b = Resolve();
+            return b != nullptr ? b->realDeltaSeconds : 0.0f;
+        }
+        /// Seconds of frames since the run started, unscaled (0 if unwired).
+        [[nodiscard]] static f64 realTime()
+        {
+            RunScriptBinding* b = Resolve();
+            return b != nullptr ? b->realSeconds : 0.0;
         }
     };
 
@@ -494,7 +512,12 @@ export namespace engine::runtime
         /// scene at time scale 0 (a menu over a paused scene still takes clicks); a scripted
         /// playtest times its input by it. Stands still while the debugger holds the run.
         [[nodiscard]] f64 RunTime() const noexcept { return m_runTime; }
-        void ResetRunClock() noexcept { m_runTime = 0.0; }
+        void ResetRunClock() noexcept
+        {
+            m_runTime = 0.0;
+            m_runBinding.realDeltaSeconds = 0.0f;
+            m_runBinding.realSeconds = 0.0;
+        }
         [[nodiscard]] script::IScriptContext* ScriptContext() const noexcept
         {
             return m_scriptContext.Get();

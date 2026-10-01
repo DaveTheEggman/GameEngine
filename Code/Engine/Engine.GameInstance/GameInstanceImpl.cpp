@@ -77,6 +77,8 @@ namespace engine::runtime
         builder.Method<static_cast<void (*)(i32)>(&Run::requestExit)>("requestExit", {"code"});
         builder.Method<&Run::setTimeScale>("setTimeScale", {"scale"}); // 0 = pause gameplay, 0.5 slow-mo
         builder.Method<&Run::timeScale>("timeScale");
+        builder.Method<&Run::realDeltaTime>("realDeltaTime"); // unscaled: runs while paused
+        builder.Method<&Run::realTime>("realTime");
         builder.Constructor();
     }
 
@@ -393,6 +395,8 @@ namespace engine::runtime
         const scene::FrameTime frame(hostDeltaTime, contextTimeScale, m_instanceTimeScale,
                                      sceneScale);
         m_runTime += static_cast<f64>(hostDeltaTime);
+        m_runBinding.realDeltaSeconds = hostDeltaTime;
+        m_runBinding.realSeconds = m_runTime;
         core::Variant dt = core::Variant::From(frame.SceneDt());
         if (auto result = m_game->Invoke(u8"update", core::Span<core::Variant>{&dt, 1});
             !result.HasValue())
