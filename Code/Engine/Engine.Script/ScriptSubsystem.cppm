@@ -201,9 +201,13 @@ export namespace engine::script
     {
     public:
         IScriptErrorHandler* external = nullptr;
+        /// The last error's line, "<module> (line N): <message>", kept until taken: what a
+        /// faulting call's caller reports as the reason.
+        String last;
 
         void OnError(const ScriptError& error) override
         {
+            last = Format(u8"{} (line {}): {}", error.module, error.line, error.message);
             if (error.kind == ScriptErrorKind::Compile)
             {
                 LOG_ERROR(u8"Script", u8"{}:{}: {}", error.module, error.line,
@@ -301,6 +305,9 @@ export namespace engine::script
         /// checks this to hold the world still; InvokeHandler checks it to tell a
         /// debug-suspended handler apart from a fault.
         [[nodiscard]] bool IsDebugPaused() const noexcept { return m_debugTracker.Paused(); }
+        /// The last script error this run reported, then forgotten: the reason a faulting call
+        /// gives. Empty when none was reported since the last take.
+        [[nodiscard]] String TakeLastError() { return Move(m_errorSink.last); }
 
         [[nodiscard]] IScriptContext* Context() const noexcept { return m_context.Get(); }
         [[nodiscard]] IScriptManager* Manager() const noexcept { return m_manager.Get(); }

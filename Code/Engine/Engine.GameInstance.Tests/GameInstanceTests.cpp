@@ -1212,3 +1212,49 @@ TEST_CASE("game-instance: created scenes share the run bus - cross-scene deliver
     gi.DrainRunEvents(); // the instance drains the shared bus ONCE
     CHECK(hits == 1);    // delivered exactly once, cross-scene, no relay
 }
+
+// agent-playtesting-and-asset-creation.md P3 (Sedulous 8d873538): a faulting game script is
+// remembered with where it faulted and why, and the run's clock is the gameplay time the script
+// moved by. A new start clears the fault; a clean stop is not one.
+TEST_CASE("game-instance: a faulted game script says where and why, and the run clock counts "
+          "gameplay time")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    const StringView faulting = u8"Game = {}\n"
+                                u8"Game.__index = Game\n"
+                                u8"function Game.new() return setmetatable({ n = 0 }, Game) end\n"
+                                u8"function Game:launch() end\n"
+                                u8"function Game:update(dt)\n"
+                                u8"  self.n = self.n + 1\n"
+                                u8"  if self.n == 4 then error(\"boom\") end\n"
+                                u8"end\n"
+                                u8"function Game:exit() end\n";
+    REQUIRE(gi.StartScript(faulting, u8"game.luau"));
+    CHECK(gi.ScriptFault().IsEmpty());
+    for (int i = 0; i < 4; ++i)
+    {
+        gi.TickScript(1.0f / 60.0f, 1.0f);
+    }
+    CHECK_FALSE(gi.ScriptRunning());
+    CHECK(gi.ScriptFault().StartsWith(u8"faulted in update"));
+    CHECK(gi.ScriptFault().ContainsIgnoreCase(u8"boom"));
+    CHECK(gi.RunTime() == doctest::Approx(4.0 / 60.0).epsilon(1e-5));
+    gi.ResetRunClock();
+    CHECK(gi.RunTime() == 0.0);
+
+    // A new start clears it; a clean stop is not a fault.
+    REQUIRE(gi.StartScript(faulting, u8"game.luau"));
+    CHECK(gi.ScriptFault().IsEmpty());
+    gi.StopScript();
+    CHECK(gi.ScriptFault().IsEmpty());
+
+    // A script with no Game class says it did not instantiate (a fresh instance: a run's host
+    // keeps the one script context it made).
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    engine::runtime::GameInstance other;
+    CHECK_FALSE(other.StartScript(u8"class Other { Other() {} }\n", u8"game.as"));
+    CHECK(other.ScriptFault().ContainsIgnoreCase(u8"did not instantiate"));
+}

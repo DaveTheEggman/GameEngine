@@ -467,7 +467,22 @@ export namespace engine::runtime
         /// and step its GC. The subsystem drives its OWN (editor) host; each instance drives its own.
         void DriveRunHost(f32 deltaTime);
 
+    private:
+        // A fault in `handler`: the script stops, and the reason is kept (ScriptFault).
+        void FaultScript(core::StringView handler);
+
+    public:
+
         [[nodiscard]] bool ScriptRunning() const noexcept { return m_game.Get() != nullptr; }
+
+        /// Why the game script stopped on its own: the handler it faulted in and the error the
+        /// run reported, or that it did not compile or instantiate. Empty while it runs or after
+        /// a clean stop; a start clears it.
+        [[nodiscard]] core::StringView ScriptFault() const noexcept { return m_scriptFault.AsView(); }
+        /// Gameplay seconds since ResetRunClock: the scaled time the game script moved by,
+        /// standing still while the debugger holds the run.
+        [[nodiscard]] f64 RunTime() const noexcept { return m_runTime; }
+        void ResetRunClock() noexcept { m_runTime = 0.0; }
         [[nodiscard]] script::IScriptContext* ScriptContext() const noexcept
         {
             return m_scriptContext.Get();
@@ -559,6 +574,8 @@ export namespace engine::runtime
         core::RefPtr<script::IScriptContext>
             m_scriptContext; // the game script's ref to the run host's context
         core::RefPtr<script::ScriptObject> m_game;
+        core::String m_scriptFault; // why the game script stopped on its own (ScriptFault)
+        f64 m_runTime = 0.0;        // gameplay seconds the game script moved by (RunTime)
         engine::script::ScriptEventSubscriptions m_gameEventSubs; // Game tier's run-bus on<Event> inbox
 
         NetworkController m_network; // this run's networking (endpoint + INetworkController), composed

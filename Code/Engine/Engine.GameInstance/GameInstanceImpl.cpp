@@ -97,6 +97,7 @@ namespace engine::runtime
                                    core::Span<const core::String> gameHandlers)
     {
         StopScript();
+        m_scriptFault = core::String{};
         // THIS instance's run host is the game's context. The host was
         // configured by the app (ConfigureRunHost) with the facades + Scene.spawn + entity.send routing.
         m_runHost.SetExternalErrorSink(m_errorHandler); // before the context is created
@@ -104,6 +105,7 @@ namespace engine::runtime
         if (context == nullptr)
         {
             LOG_ERROR(u8"App", u8"no script backend for '{}'", name);
+            m_scriptFault = Format(u8"no script backend runs '{}'", name);
             return false;
         }
         m_scriptContext = core::RefPtr<script::IScriptContext>(context);
@@ -124,6 +126,10 @@ namespace engine::runtime
         {
             LOG_ERROR(u8"App", u8"game script '{}' failed to compile", name);
             StopScript();
+            const core::String why = m_runHost.TakeLastError();
+            m_scriptFault = why.IsEmpty() ? Format(u8"the game script '{}' did not compile", name)
+                                          : Format(u8"the game script '{}' did not compile: {}",
+                                                   name, why.AsView());
             return false;
         }
         m_game = m_scriptContext->CreateInstance(u8"Game", core::Span<core::Variant>{});
@@ -132,6 +138,9 @@ namespace engine::runtime
             LOG_ERROR(u8"App", u8"game script '{}' has no `Game` class (construct new())",
                                name);
             StopScript();
+            m_scriptFault = Format(u8"the game script '{}' did not instantiate (log_read, "
+                                   u8"category Script, has why)",
+                                   name);
             return false;
         }
         // Wire the Game tier's on<Event> inbox to THIS run's bus: the shared
@@ -383,6 +392,7 @@ namespace engine::runtime
         const f32 sceneScale = m_scene != nullptr ? m_scene->TimeScale() : 1.0f;
         const scene::FrameTime frame(hostDeltaTime, contextTimeScale, m_instanceTimeScale,
                                      sceneScale);
+        m_runTime += static_cast<f64>(frame.SceneDt());
         core::Variant dt = core::Variant::From(frame.SceneDt());
         if (auto result = m_game->Invoke(u8"update", core::Span<core::Variant>{&dt, 1});
             !result.HasValue())
@@ -395,8 +405,16 @@ namespace engine::runtime
                 return;
             }
             LOG_ERROR(u8"App", u8"game script update() faulted - stopping script");
-            m_game = nullptr;
+            FaultScript(u8"update");
         }
+    }
+
+    void GameInstance::FaultScript(core::StringView handler)
+    {
+        m_game = nullptr;
+        const core::String why = m_runHost.TakeLastError();
+        m_scriptFault = why.IsEmpty() ? Format(u8"faulted in {}", handler)
+                                      : Format(u8"faulted in {}: {}", handler, why.AsView());
     }
 
     void GameInstance::DispatchGameEvent(core::StringView eventName, const core::Variant& payload)
@@ -418,7 +436,7 @@ namespace engine::runtime
                 return; // suspended at a breakpoint, not a fault (same as update())
             }
             LOG_ERROR(u8"App", u8"game script event handler {} faulted - stopping script", handler);
-            m_game = nullptr;
+            FaultScript(handler.AsView());
         }
     }
 
