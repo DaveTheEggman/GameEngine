@@ -7,10 +7,12 @@ target_link_libraries(Input
 target_sources(Input
     PRIVATE
         InputReflectionImpl.cpp   # input leaf-type + enum reflection (GCC hygiene: out of interfaces)
+        ScriptedInputImpl.cpp     # ScriptedInputSource (a playtest's timeline)
     PUBLIC
         FILE_SET input_modules TYPE CXX_MODULES FILES
             InputModule.cppm
             InputMap.cppm
             ActionRuntime.cppm
-            BindingNames.cppm)
+            BindingNames.cppm
+            ScriptedInput.cppm)
 
