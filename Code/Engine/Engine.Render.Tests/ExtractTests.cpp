@@ -72,6 +72,13 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
     REQUIRE(ExtractPrimaryCamera(scene, vc));
     CHECK(Near(vc.view.m[3][2], -5.0f));            // view = inverse(camera world)
     CHECK_FALSE(Near(vc.projection.m[2][3], 0.0f)); // a real perspective projection
+    // The projection takes the shape the view draws into when given one, the authored aspect
+    // otherwise: x scale = y scale / aspect (Sedulous ebbf7a3b).
+    const f32 authored = vc.projection.m[1][1] / vc.projection.m[0][0];
+    ViewCamera wide;
+    REQUIRE(ExtractPrimaryCamera(scene, wide, nullptr, 3.0f));
+    CHECK(Near(wide.projection.m[1][1] / wide.projection.m[0][0], 3.0f)); // the view's aspect
+    CHECK_FALSE(Near(authored, 3.0f));                                    // not the authored one
 
     ExtractedScene snapshot{DefaultAllocator()};
     ExtractSceneInto(scene, snapshot);

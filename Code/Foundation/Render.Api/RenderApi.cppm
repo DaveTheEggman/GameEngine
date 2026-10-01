@@ -278,6 +278,10 @@ export namespace foundation::render
         // shared per-scene DebugScene(scene) - so an editor viewport can draw grid/gizmos that appear
         // ONLY in it, not in a second view of the same scene (the camera-preview inset). Null keeps the
         // per-scene buffer (drawn in every view), which is what gameplay/player views want.
+        // A `sceneWidth` x `sceneHeight` other than the viewport's draws the scene at THAT size and
+        // scales the finished image into the viewport, clearing the target around it black: a game
+        // with a fixed render resolution fitted into a window of another shape. The projection
+        // takes that size's aspect. Nought draws at the viewport's own size.
         virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target,
                                  rhi::TextureFormat targetFormat, u32 width, u32 height,
                                  ViewportRect viewport = {},
@@ -285,7 +289,8 @@ export namespace foundation::render
                                  const TargetState& targetState = {},
                                  const ViewPostOverride* postOverride = nullptr,
                                  const void* viewportKey = nullptr,
-                                 const ViewDebugView* debugView = nullptr) = 0;
+                                 const ViewDebugView* debugView = nullptr, u32 sceneWidth = 0,
+                                 u32 sceneHeight = 0) = 0;
 
         // Compose every collected view into the frame's encoder.
         virtual void EndRendering() = 0;

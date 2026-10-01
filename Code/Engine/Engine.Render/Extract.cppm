@@ -86,8 +86,10 @@ export namespace engine::render
     // Reads the scene's primary camera into `out` (view = inverse world; projection from its
     // fields). When `outClear` is given, also writes the camera's clear color. Returns false if
     // no primary CameraComponent exists.
+    // The projection takes `aspect`, when given, for the shape the view draws into; the camera's
+    // authored aspect only stands in when it is not.
     [[nodiscard]] bool ExtractPrimaryCamera(scene::Scene& scene, ViewCamera& out,
-                                            Color* outClear = nullptr);
+                                            Color* outClear = nullptr, f32 aspect = 0.0f);
 
     // Packs every enabled LightComponent into `out` as a GpuLight shading input (world position +
     // forward direction from the entity's transform). Assumes transforms are current. The FIRST enabled

@@ -346,7 +346,7 @@ namespace engine::render
                                       ViewportRect viewport, const CameraOverride* cameraOverride,
                                       const TargetState& targetState,
                                       const ViewPostOverride* postOverride, const void* viewportKey,
-                                      const ViewDebugView* debugView)
+                                      const ViewDebugView* debugView, u32 sceneWidth, u32 sceneHeight)
     {
         if (m_frame.Get() == nullptr || target == nullptr)
         {
@@ -379,8 +379,23 @@ namespace engine::render
         }
         else
         {
-            (void)ExtractPrimaryCamera(scene, camera, &clearColor);
-        } // clear comes from the camera
+            // The clear comes from the camera; the projection takes the shape of what the scene
+            // draws at: its own size, else the viewport, else the whole target.
+            f32 aspectWidth = static_cast<f32>(width);
+            f32 aspectHeight = static_cast<f32>(height);
+            if (sceneWidth > 0 && sceneHeight > 0)
+            {
+                aspectWidth = static_cast<f32>(sceneWidth);
+                aspectHeight = static_cast<f32>(sceneHeight);
+            }
+            else if (viewport.width > 0 && viewport.height > 0)
+            {
+                aspectWidth = static_cast<f32>(viewport.width);
+                aspectHeight = static_cast<f32>(viewport.height);
+            }
+            (void)ExtractPrimaryCamera(scene, camera, &clearColor,
+                                       aspectHeight > 0.0f ? aspectWidth / aspectHeight : 0.0f);
+        }
 
         if (firstSight)
         {
@@ -430,6 +445,8 @@ namespace engine::render
         settings.viewportY = viewport.y;
         settings.viewportWidth = viewport.width;
         settings.viewportHeight = viewport.height;
+        settings.sceneWidth = sceneWidth;
+        settings.sceneHeight = sceneHeight;
         settings.targetTexture = targetState.texture;
         settings.targetCurrentState = targetState.currentState;
         settings.targetFinalState = targetState.finalState;
