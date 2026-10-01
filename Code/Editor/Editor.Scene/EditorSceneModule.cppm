@@ -16,6 +16,7 @@ export import :camera_preview;
 export import :edit;
 export import :scene_page_interface;
 export import :actions;
+export import :entity_json;
 export import :mcp_tools;
 export import :viewport_capture;
 export import :pie_page_interface;

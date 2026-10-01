@@ -353,6 +353,51 @@ TEST_CASE("scene-mcp-tools: entity_inspect reads an entity and its components th
     context.ClosePage(page);
 }
 
+// The reads entity_inspect over a running game and pie_run share (Sedulous aaf5ff78): an entity
+// by guid, slash path or name, and a field path into its transform or a component's property,
+// then into the value.
+TEST_CASE("scene-mcp-tools: an entity found by guid, path or name, and its fields read by path")
+{
+    engine::render::RegisterRenderComponentReflection();
+    scene::Scene scene(DefaultAllocator(), u8"fields");
+    auto* lights = scene.AddSystem<engine::render::LightComponentManager>();
+    const scene::EntityHandle lamp = scene.CreateEntity(u8"Lamp");
+    const scene::EntityHandle bulb = scene.CreateEntity(u8"Bulb");
+    scene.SetParent(bulb, lamp, false);
+    Transform placed;
+    placed.position = Float3{1.0f, 2.0f, 3.0f};
+    scene.SetLocalTransform(lamp, placed);
+    engine::render::LightComponent& light = lights->Add(bulb);
+    light.type = engine::render::LightType::Spot;
+    light.color = Color{1.0f, 0.5f, 0.25f, 1.0f};
+    scene.UpdateTransforms(); // the world position is the last update's, as in a running game
+
+    utf8char text[37];
+    scene.GetEntityId(bulb).ToChars(text);
+    CHECK(FindEntity(scene, StringView(text, 36)) == bulb);
+    CHECK(FindEntity(scene, u8"Lamp/Bulb") == bulb);
+    CHECK(FindEntity(scene, u8"Bulb") == bulb);
+    CHECK_FALSE(FindEntity(scene, u8"Ghost").IsAssigned());
+
+    auto read = [&](scene::EntityHandle e, StringView path) { return EntityFieldJson(scene, e, u8"it", path); };
+    CHECK(read(lamp, u8"position.y").Value().AsNumber() == doctest::Approx(2.0));
+    CHECK(read(bulb, u8"worldPosition.z").Value().AsNumber() == doctest::Approx(3.0));
+    CHECK(read(lamp, u8"scale").Value().Count() == 3);
+    CHECK(read(lamp, u8"rotation.w").Value().AsNumber() == doctest::Approx(1.0));
+    CHECK(read(bulb, u8"active").Value().AsBool());
+    // A component by its serialization id or its type name, then into the value.
+    CHECK(read(bulb, u8"light.type").Value().AsString() == StringView(u8"Spot"));
+    CHECK(read(bulb, u8"LightComponent.color.1").Value().AsNumber() == doctest::Approx(0.5));
+    CHECK(read(bulb, u8"light.color.y").Value().AsNumber() == doctest::Approx(0.5));
+
+    auto refused = read(lamp, u8"light.intensity");
+    REQUIRE_FALSE(refused.HasValue());
+    CHECK(refused.Error().AsView().StartsWith(u8"entity 'it' has no field 'light.intensity'"));
+    refused = read(lamp, u8"position.q");
+    REQUIRE_FALSE(refused.HasValue());
+    CHECK(refused.Error().AsView() == StringView(u8"'position.q' of entity 'it': nothing at 'q'"));
+}
+
 TEST_CASE("scene-mcp-tools: component_set writes one property through the undo path - leaves, an "
           "enum by name, a reference by guid - one locked step per call that Undo takes back, "
           "and the refusals leave nothing behind")

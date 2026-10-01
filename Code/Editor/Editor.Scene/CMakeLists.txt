@@ -34,6 +34,7 @@ target_sources(Editor.Scene
         HierarchyViewImpl.cpp
         InspectorViewImpl.cpp
         ScenePageImpl.cpp
+        EntityJsonImpl.cpp
         SceneMcpToolsImpl.cpp
         PieMcpToolsImpl.cpp
         GamePageImpl.cpp
@@ -53,6 +54,7 @@ target_sources(Editor.Scene
             PieInstancePage.cppm
             PieMcpTools.cppm
             SceneActions.cppm
+            EntityJson.cppm
             SceneMcpTools.cppm
             Gizmo.cppm
             Tools.cppm
