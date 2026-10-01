@@ -46,7 +46,9 @@ export namespace editor::app
         /// After an import: the editor's effects, the ones an import from the Assets browser has
         /// (the import listeners, a model's prefab among them; the cook of what it made; the
         /// browser).
-        Function<void(foundation::content::Instance& primary)> onImported;
+        Function<void(foundation::content::Instance& primary,
+                      const pipeline::ImportOptions* options)>
+            onImported;
     };
 
     class EditorProjectOperations final : public editor::mcp::IProjectOperations

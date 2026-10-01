@@ -53,6 +53,9 @@ export namespace editor::mcp
         String source;
         String groupPath;
         pipeline::IFileImporter* importer = nullptr;
+        /// The importer's options, its defaults with the call's toggles applied; null when the
+        /// importer has none.
+        RefPtr<pipeline::ImportOptions> options;
     };
 
     /// What asset_import reports: the created asset's identity and where the time went (the

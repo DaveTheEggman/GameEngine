@@ -136,7 +136,7 @@ namespace editor::app
             return Err(Move(message));
         };
         // Every write has landed: the import is whole, so what follows an import runs now.
-        const auto finish = [this, &job]() -> OperationStep<ImportOutcome>
+        const auto finish = [this, &job, &request]() -> OperationStep<ImportOutcome>
         {
             ImportOutcome outcome = Move(job.outcome);
             job = ImportJob{};
@@ -145,7 +145,7 @@ namespace editor::app
                 if (content::Instance* primary =
                         m_seams.project->SourceDb().GetInstance(outcome.guid))
                 {
-                    m_seams.onImported(*primary);
+                    m_seams.onImported(*primary, request.options.Get());
                 }
             }
             return Optional<ImportOutcome>(Move(outcome));
@@ -228,7 +228,7 @@ namespace editor::app
             pipeline::ImportContext ctx{*m_seams.allocator, project.SourcesRoot().AsView()};
             const Stopwatch clock = Stopwatch::StartNew();
             Result<content::Instance*> imported =
-                request.importer->Import(request.source.AsView(), ctx, *group, nullptr,
+                request.importer->Import(request.source.AsView(), ctx, *group, request.options.Get(),
                                          job.shared->prepared.Get(), job.shared->writes.Get());
             job.mainMs = static_cast<i64>(clock.Elapsed().AsMilliseconds());
             if (!imported.HasValue() || imported.Value() == nullptr)

@@ -2841,11 +2841,12 @@ namespace editor::app
         seams.onCreated = [this](const pipeline::AssetCreator& creator,
                                  foundation::content::Instance& instance)
         { AfterCreate(creator, instance); };
-        seams.onImported = [this](foundation::content::Instance& primary)
+        seams.onImported = [this](foundation::content::Instance& primary,
+                                  const pipeline::ImportOptions* options)
         {
             if (m_assetsView.Get() != nullptr)
             {
-                m_assetsView->AfterImport(primary, nullptr);
+                m_assetsView->AfterImport(primary, options);
             }
         };
         m_mcpOperations = MakeUnique<EditorProjectOperations>(m_editorAllocator, Move(seams));

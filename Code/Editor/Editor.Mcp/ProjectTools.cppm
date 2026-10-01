@@ -252,6 +252,43 @@ export namespace editor::mcp
             });
     }
 
+    namespace detail
+    {
+        /// asset_import's `options`: the importer's toggles by their labels.
+        inline JsonValue ImportOptionsSchema()
+        {
+            JsonValue property = JsonValue::MakeObject();
+            property.Set(u8"type", JsonValue::MakeString(u8"object"));
+            property.Set(u8"description",
+                         JsonValue::MakeString(
+                             u8"the importer's options, as the import dialog's checkboxes: "
+                             u8"{\"<toggle>\": true|false}, the toggle named by its label, case and "
+                             u8"spaces ignored (a model's \"Generate collision\", say); an unknown "
+                             u8"one is refused with the importer's list, unnamed toggles keep their "
+                             u8"defaults, and the result lists every toggle's value"));
+            return property;
+        }
+
+        /// A toggle's label against a caller's key: case and spaces ignored, so "Generate
+        /// collision", "generate collision" and "generateCollision" all name it.
+        inline bool SameToggleName(StringView label, StringView key)
+        {
+            const auto squeeze = [](StringView text)
+            {
+                String out;
+                for (const utf8char c : text)
+                {
+                    if (c != u8' ')
+                    {
+                        out += static_cast<utf8char>((c >= u8'A' && c <= u8'Z') ? c + 32 : c);
+                    }
+                }
+                return out;
+            };
+            return squeeze(label) == squeeze(key);
+        }
+    }
+
     // Registers asset_import / asset_cook - the WRITE side. Routing (which importer, by
     // extension), refusals and the result shapes are here, shared by every host; the work runs
     // through the host's IProjectOperations - inline on the stdio host, the editor's cook and
@@ -278,6 +315,7 @@ export namespace editor::mcp
                 .Str(u8"group", u8"source-DB group path to place it in (slash-joined; default root)")
                 .Str(u8"importer", u8"which importer to use when several claim the extension, by "
                                    u8"label (the result of an unhinted import lists them)")
+                .Property(u8"options", detail::ImportOptionsSchema())
                 .Build(),
                 foundation::mcp::ToolAnnotations::Creates(),
             [s, imp, ops](const JsonValue& args) -> ToolOutcome
@@ -326,6 +364,59 @@ export namespace editor::mcp
                         alsoClaimableBy.Add(JsonValue::MakeString(String(candidate->Label())));
                     }
                 }
+                // The options: the importer's defaults, then the call's toggles by label.
+                request.options = request.importer->CreateOptions(editor::EditorRootAllocator());
+                Array<pipeline::ImportOptions::Toggle> toggles;
+                if (request.options.Get() != nullptr)
+                {
+                    toggles = request.options->Toggles();
+                }
+                if (args.Has(u8"options"))
+                {
+                    const JsonValue asked = args.Get(u8"options");
+                    if (!asked.IsObject())
+                    {
+                        return Err(String(u8"`options` takes an object of toggles: "
+                                          u8"{\"Generate collision\": true}"));
+                    }
+                    for (i64 i = 0; i < asked.Count(); ++i)
+                    {
+                        const String key = asked.KeyAt(i);
+                        pipeline::ImportOptions::Toggle* found = nullptr;
+                        for (pipeline::ImportOptions::Toggle& toggle : toggles)
+                        {
+                            if (detail::SameToggleName(toggle.label, key.AsView()))
+                            {
+                                found = &toggle;
+                            }
+                        }
+                        if (found == nullptr)
+                        {
+                            String refusal = Format(u8"the {} importer has no option '{}'; its "
+                                                    u8"options are: ",
+                                                    request.importer->Label(), key.AsView());
+                            if (toggles.IsEmpty())
+                            {
+                                refusal += u8"none";
+                            }
+                            for (usize t = 0; t < toggles.Size(); ++t)
+                            {
+                                if (t > 0)
+                                {
+                                    refusal += u8", ";
+                                }
+                                refusal += toggles[t].label;
+                            }
+                            return Err(Move(refusal));
+                        }
+                        const JsonValue value = asked.Get(key);
+                        if (!value.IsBool())
+                        {
+                            return Err(Format(u8"option '{}' takes true or false", key.AsView()));
+                        }
+                        *found->value = value.AsBool();
+                    }
+                }
                 OperationStep<ImportOutcome> step = ops->Import(request);
                 if (!step.HasValue())
                 {
@@ -348,6 +439,15 @@ export namespace editor::mcp
                 out.Set(u8"typeNamespace", JsonValue::MakeString(done.typeNamespace));
                 out.Set(u8"importer", JsonValue::MakeString(done.importer));
                 out.Set(u8"alsoClaimableBy", Move(alsoClaimableBy));
+                if (!toggles.IsEmpty())
+                {
+                    JsonValue applied = JsonValue::MakeObject();
+                    for (const pipeline::ImportOptions::Toggle& toggle : toggles)
+                    {
+                        applied.Set(String(toggle.label), JsonValue::MakeBool(*toggle.value));
+                    }
+                    out.Set(u8"options", Move(applied));
+                }
                 return out;
             });
 
@@ -443,8 +543,9 @@ export namespace editor::mcp
             outcome.prepareMs = static_cast<i64>(prepareClock.Elapsed().AsMilliseconds());
             Array<pipeline::DeferredImportWrite> deferred;
             const Stopwatch mainClock = Stopwatch::StartNew();
-            Result<content::Instance*> imported = importer.Import(
-                request.source.AsView(), ctx, *group, nullptr, prepared.Get(), &deferred);
+            Result<content::Instance*> imported =
+                importer.Import(request.source.AsView(), ctx, *group, request.options.Get(),
+                                prepared.Get(), &deferred);
             outcome.mainMs = static_cast<i64>(mainClock.Elapsed().AsMilliseconds());
             if (!imported.HasValue())
             {

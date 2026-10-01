@@ -275,6 +275,10 @@ namespace
         u32 importEntries = 0;
         u32 exportEntries = 0;
         bool refuseCook = false;
+        /// What the last import's options said: its toggles by label.
+        Array<String> sawToggles;
+        bool sawCollision = false;
+        bool sawPrefab = false;
 
         editor::mcp::OperationStep<editor::mcp::CookOutcome> Cook(bool force) override
         {
@@ -301,6 +305,16 @@ namespace
         Import(const editor::mcp::ImportRequest& request) override
         {
             ++importEntries;
+            sawToggles.Clear();
+            if (request.options.Get() != nullptr)
+            {
+                for (const pipeline::ImportOptions::Toggle& toggle : request.options->Toggles())
+                {
+                    sawToggles.PushBack(String(toggle.label));
+                    sawCollision = toggle.label == u8"Generate collision" ? *toggle.value : sawCollision;
+                    sawPrefab = toggle.label == u8"Generate prefab" ? *toggle.value : sawPrefab;
+                }
+            }
             if (importEntries < answerOnEntry)
             {
                 return Optional<editor::mcp::ImportOutcome>{};
@@ -389,6 +403,61 @@ TEST_CASE("integration.mcp: the write tools ride a host's operations - not finis
     CHECK(JsonValue::Parse(importResult.Get(u8"content").At(0).Get(u8"text").AsString().AsView())
               .Get(u8"name")
               .AsString() == StringView(u8"Mover"));
+
+    // The importer's options, the import dialog's toggles by label (Sedulous a9c83eef): the
+    // host's importer gets them, unnamed ones at their defaults, and the result lists them all.
+    {
+        slow.importEntries = 0;
+        const String model = ToolCallLine(u8"asset_import",
+                                          u8"{\"source\":\"Hero.gltf\",\"options\":{\"generate "
+                                          u8"Collision\":true}}")
+                                 .ToString();
+        LineOutcome answer;
+        for (u32 pumps = 0; pumps < 5; ++pumps)
+        {
+            answer = server.HandleLine(model.AsView());
+            if (answer.state == LineState::Answered)
+            {
+                break;
+            }
+        }
+        REQUIRE(answer.state == LineState::Answered);
+        JsonValue result = json::Parse(answer.response.AsView()).value.Get(u8"result");
+        REQUIRE_FALSE(result.Get(u8"isError").AsBool());
+        const JsonValue payload =
+            JsonValue::Parse(result.Get(u8"content").At(0).Get(u8"text").AsString().AsView());
+        CHECK(payload.Get(u8"options").Get(u8"Generate collision").AsBool());
+        CHECK(payload.Get(u8"options").Get(u8"Generate prefab").AsBool()); // a default kept
+        CHECK(slow.sawCollision);
+        CHECK(slow.sawPrefab);
+
+        const String wings = ToolCallLine(u8"asset_import",
+                                          u8"{\"source\":\"Hero.gltf\",\"options\":{\"wings\":true}}")
+                                 .ToString();
+        answer = server.HandleLine(wings.AsView());
+        REQUIRE(answer.state == LineState::Answered);
+        const String text = json::Parse(answer.response.AsView())
+                                .value.Get(u8"result")
+                                .Get(u8"content")
+                                .At(0)
+                                .Get(u8"text")
+                                .AsString();
+        CHECK(text.AsView().StartsWith(u8"the Model importer has no option 'wings'; its options are: "));
+        CHECK(text.AsView().ContainsIgnoreCase(u8"Generate collision"));
+        const String none = ToolCallLine(u8"asset_import",
+                                         u8"{\"source\":\"Mover.luau\",\"options\":{\"x\":true}}")
+                                .ToString();
+        answer = server.HandleLine(none.AsView());
+        REQUIRE(answer.state == LineState::Answered);
+        CHECK(json::Parse(answer.response.AsView())
+                  .value.Get(u8"result")
+                  .Get(u8"content")
+                  .At(0)
+                  .Get(u8"text")
+                  .AsString()
+                  .AsView()
+                  .EndsWith(u8"its options are: none"));
+    }
 
     // project_export: the preset is resolved by the tool (the synthesized host preset here),
     // the work by the operations.

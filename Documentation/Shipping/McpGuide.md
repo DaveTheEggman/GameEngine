@@ -100,7 +100,11 @@ one-call soundness sweep (dangling refs, broken sources, cook state); a dirty co
 is normal - clear it with `asset_cook`.
 
 **Assets**: `asset_import` (OS file -> Sources/ + typed asset) -> `asset_cook`
-(incremental; `force` for full). `asset_list`/`asset_info` to inspect either database.
+(incremental; `force` for full). `options` sets the importer's toggles, the import dialog's
+checkboxes by label (`{"Generate collision": true}` gives an imported model's prefab colliders);
+an unknown one is refused with the importer's list, and the result lists every toggle's value.
+In the editor an imported model gets its prefab, the `Prefab` asset beside its manifest.
+`asset_list`/`asset_info` to inspect either database.
 
 **Scenes**: read `docs://generated/SceneSchema.json` once (or `component_schema` for one
 component), copy from `docs://generated/SceneExample.scene.xml`, read the target with

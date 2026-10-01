@@ -187,7 +187,7 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
     // finished import, over its primary, and never for a failed one (Sedulous f9f5b8e2).
     u32 afterImports = 0;
     Guid lastImported;
-    seams.onImported = [&](content::Instance& primary)
+    seams.onImported = [&](content::Instance& primary, const pipeline::ImportOptions*)
     {
         ++afterImports;
         lastImported = primary.Id();
