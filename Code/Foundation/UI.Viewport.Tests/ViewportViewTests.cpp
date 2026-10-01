@@ -318,3 +318,55 @@ TEST_CASE("ui.viewport: HostKeyboardFocusElsewhere - only a focused NON-viewport
     ctx.GetFocusManager()->ClearFocus();
     CHECK_FALSE(view->HostKeyboardFocusElsewhere()); // focus cleared: the game may keep keys
 }
+
+TEST_CASE("ui.viewport: a capturing viewport keeps its keys from the host's focus")
+{
+    // A viewport whose content reads the keyboard keeps the keys its surface has: the arrows
+    // and Tab do not move the host's focus on. Without the surface's keyboard focus, or
+    // without asking, the same keys traverse as they always did, so a host's single key
+    // bindings still work for content that relies on them (Sedulous 0beb02dc).
+    rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::shell::NullInputManager input;
+    ui::UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{400.0f, 400.0f};
+    ctx.AddRootView(root.Get());
+
+    auto view = MakeRef<ViewportView>(DefaultAllocator());
+    view->Initialize(&device, nullptr, &input, /*windowId*/ 0);
+    REQUIRE(view->Surface() != nullptr);
+    auto other = MakeRef<ui::View>(DefaultAllocator());
+    other->IsFocusable = true;
+    view->IsTabStop = true;
+    other->IsTabStop = true;
+    root->AddView(view.Get());
+    root->AddView(other.Get());
+    ctx.BeginFrame(0.016f);
+    ctx.UpdateRootView(root.Get());
+    ui::FocusManager* focus = ctx.GetFocusManager();
+    ui::InputManager* keys = ctx.GetInputManager();
+
+    // The content asked, and its surface has the keyboard: the keys are the content's,
+    // consumed here rather than traversing or reaching a single key binding.
+    view->SetCapturesKeys(true);
+    view->Surface()->ApplyGate(false, true, false, Float2{}, Float2{});
+    focus->SetFocus(view.Get());
+    CHECK(keys->ProcessKeyDown(ui::KeyCode::Down, ui::KeyModifiers::None, false));
+    CHECK(keys->ProcessKeyDown(ui::KeyCode::Tab, ui::KeyModifiers::None, false));
+    CHECK(focus->FocusedView() == view.Get()); // the game's keys stay the game's
+
+    // A chord still reaches the host.
+    CHECK_FALSE(keys->ProcessKeyDown(ui::KeyCode::S, ui::KeyModifiers::LeftCtrl, false));
+
+    // The surface without the keyboard: the content is not reading keys, the host is.
+    view->Surface()->ApplyGate(false, false, false, Float2{}, Float2{});
+    keys->ProcessKeyDown(ui::KeyCode::Tab, ui::KeyModifiers::None, false);
+    CHECK(focus->FocusedView() == other.Get()); // an unread key traverses
+
+    // Not asking: traverses too, whatever the surface has.
+    focus->SetFocus(view.Get());
+    view->SetCapturesKeys(false);
+    view->Surface()->ApplyGate(false, true, false, Float2{}, Float2{});
+    keys->ProcessKeyDown(ui::KeyCode::Tab, ui::KeyModifiers::None, false);
+    CHECK(focus->FocusedView() == other.Get());
+}

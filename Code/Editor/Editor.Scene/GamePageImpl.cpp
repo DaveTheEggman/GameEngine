@@ -612,6 +612,9 @@ namespace editor
         AdvanceScriptedInput();
         EnsureViewportBound();
         m_viewport->SyncInputRegion();
+        // A running game owns the keys its focused viewport receives: the editor's arrow key
+        // focus moves and single key bindings stay out of it.
+        m_viewport->SetCapturesKeys(m_running);
         if (m_router.Get() != nullptr)
         {
             // One app keyboard (issues repro: Tab in an editor dialog field traversed the PIE

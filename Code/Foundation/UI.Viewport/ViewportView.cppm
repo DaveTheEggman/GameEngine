@@ -246,6 +246,35 @@ export namespace foundation::ui::viewport
             return focused != nullptr && focused != this;
         }
 
+        /// The content reads the keyboard itself (a game running in the viewport) rather than
+        /// through the host's bindings. The input surface already keeps the content from keys the
+        /// host has; this is the other direction: while the surface has the keyboard, a key with
+        /// no Ctrl, Alt or Gui held, Tab and the arrows included, is the content's and goes no
+        /// further in the host, so the host's focus traversal and single key bindings never act
+        /// on a key the game is also handling. A chord still reaches the host's shortcuts. Off
+        /// for content that relies on the host's single key bindings (a scene editor's W/E/R).
+        void SetCapturesKeys(bool captures) noexcept
+        {
+            m_capturesKeys = captures;
+            WantsTabKey = captures;
+        }
+        [[nodiscard]] bool CapturesKeys() const noexcept { return m_capturesKeys; }
+
+        void OnKeyDown(KeyEventArgs& e) override
+        {
+            if (ContentHasKeys() && !IsChord(e.Modifiers))
+            {
+                e.Handled = true;
+            }
+        }
+        void OnKeyUp(KeyEventArgs& e) override
+        {
+            if (ContentHasKeys() && !IsChord(e.Modifiers))
+            {
+                e.Handled = true;
+            }
+        }
+
         [[nodiscard]] shell::InputSurface* Surface() const noexcept { return m_surface.Get(); }
         [[nodiscard]] shell::IMouse* Mouse() const noexcept
         {
@@ -549,7 +578,20 @@ export namespace foundation::ui::viewport
         rhi::TextureFormat m_colorFormat = rhi::TextureFormat::RGBA16Float;
         rhi::TextureFormat m_depthFormat = rhi::TextureFormat::Depth32Float;
 
+        // The content is reading the keyboard right now: it asked to, and the router gave its
+        // surface the keyboard focus.
+        [[nodiscard]] bool ContentHasKeys() const noexcept
+        {
+            return m_capturesKeys && m_surface && m_surface->Focused();
+        }
+        [[nodiscard]] static bool IsChord(KeyModifiers modifiers) noexcept
+        {
+            return HasFlag(modifiers, KeyModifiers::Ctrl) || HasFlag(modifiers, KeyModifiers::Alt) ||
+                   HasFlag(modifiers, KeyModifiers::Gui);
+        }
+
         UniquePtr<shell::InputSurface> m_surface;
+        bool m_capturesKeys = false;
     };
 
     RTTI_DEFINE_OBJECT(ViewportView, "rtti::ui::viewport")
