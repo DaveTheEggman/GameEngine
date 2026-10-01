@@ -492,12 +492,33 @@ namespace editor
             }
             if (field.kind == AssetFormFieldKind::Guid)
             {
-                // Canonical string row (TryParse-validated) + an untyped Pick button.
+                // The asset slot (untyped: the form does not know what the guid names, so any
+                // asset picks and drops), plus the canonical string row for a guid that names no
+                // asset, TryParse-validated.
+                const StringView anyAsset[] = {app::AssetPickerSlot::kAnyAsset};
+                auto slot = MakeRef<app::ResourceRefEditor>(Allocator(), field.label.AsView(),
+                                                            StringView(u8"(none)"), cat,
+                                                            Span<const StringView>{anyAsset, 1});
+                slot->BindAsset(
+                    *m_context,
+                    [self, index]()
+                    {
+                        return index < self->m_fields.Size() ? self->m_fields[index].guidValue
+                                                             : Guid{};
+                    },
+                    [self, index](const Guid& picked)
+                    {
+                        AssetFormField patch = self->m_fields[index];
+                        patch.guidValue = picked;
+                        self->ApplyFieldEdit(index, patch);
+                    });
+                m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(slot.Get()));
                 utf8char buffer[37];
                 field.guidValue.ToChars(buffer);
                 m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                     MakeRef<ui::toolkit::StringEditor>(
-                        Allocator(), field.label.AsView(), StringView{buffer, 36},
+                        Allocator(), Format(u8"{} id", field.label).AsView(),
+                        StringView{buffer, 36},
                         Function<void(StringView)>{[self, index](StringView v)
                                                    {
                                                        Guid parsed{};
@@ -509,32 +530,6 @@ namespace editor
                                                        patch.guidValue = parsed;
                                                        self->ApplyFieldEdit(index, patch);
                                                    }},
-                        cat)
-                        .Get()));
-                String pickLabel(u8"Pick ");
-                pickLabel.Append(field.label.AsView());
-                m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<ui::toolkit::ButtonEditor>(
-                        Allocator(), pickLabel.AsView(),
-                        Function<void()>{[self, index]()
-                                         {
-                                             ui::UIContext* ctx = self->Ctx();
-                                             if (ctx == nullptr ||
-                                                 self->m_context->Project() == nullptr)
-                                             {
-                                                 return;
-                                             }
-                                             auto dialog = MakeRef<app::AssetPickerDialog>(
-                                                 self->Allocator(), *self->m_context,
-                                                 Array<String>{}); // empty filter = every type
-                                             dialog->OnPicked = [self, index](const Guid& picked)
-                                             {
-                                                 AssetFormField patch = self->m_fields[index];
-                                                 patch.guidValue = picked;
-                                                 self->ApplyFieldEdit(index, patch);
-                                             };
-                                             dialog->Show(ctx);
-                                         }},
                         cat)
                         .Get()));
                 continue;

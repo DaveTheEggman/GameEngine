@@ -64,7 +64,6 @@ export namespace editor
         [[nodiscard]] static StringView CookLabel(pipeline::CollisionCookKind kind);
 
     private:
-        void PickMesh();
         void RefreshStatus();
         void DrawOutline(); // immediate-mode wireframe of the outline triangles (per frame)
         [[nodiscard]] String MeshName(const Guid& id) const;
@@ -76,7 +75,7 @@ export namespace editor
         RefPtr<pipeline::CollisionShapeAsset> m_asset;
         RefPtr<ui::View> m_content;
         RefPtr<app::PageToolbar> m_toolbar;
-        RefPtr<ui::Label> m_meshLabel;
+        RefPtr<app::ResourceRefEditor> m_meshRow; // the source mesh row
         RefPtr<ui::Button> m_cookButton;
         RefPtr<ui::Label> m_status;
 

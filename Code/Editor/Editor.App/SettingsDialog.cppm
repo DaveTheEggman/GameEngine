@@ -10,8 +10,8 @@
 // running engine; the launcher/project-manager owns migration).
 //
 // [Save] writes the fields back into EditorProject::Settings() and persists the manifest;
-// [Cancel]/Escape discards. The default-scene pick stores the instance GUID (rename/move-proof)
-// with the path kept alongside as the human-readable mirror; the picker's [Clear] sets "none".
+// [Cancel]/Escape discards. Every asset setting is a ResourceRefEditor row: pick, drop and clear
+// set the instance GUID (rename/move-proof); Save keeps the path alongside as a mirror.
 
 module;
 #include "Core/Prelude.h"
@@ -25,7 +25,7 @@ import foundation.content;
 import foundation.ui;
 import engine.render; // the canonical MSAA level table (kMsaaLevels + index<->samples helpers)
 import editor.core;
-import :asset_picker_dialog;
+import :resource_ref_editor;
 
 using namespace foundation::core;
 
@@ -64,281 +64,34 @@ export namespace editor::app
                            project != nullptr ? project->Settings().nativeModule.AsView()
                                               : StringView(u8""));
 
-            // Default scene: read-only path + [Pick...] (the picker owns clearing too).
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Default scene");
-                m_sceneLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_sceneLabel.Get(), lp);
-                }
-                m_pickButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    m_pickButton->OnClick.Add([self](ui::ButtonBase*) { self->PickScene(); });
-                    row->AddView(m_pickButton.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_sceneId = project->Settings().defaultSceneId;
-                    // Prefer the live instance's path over the stored mirror (never lies).
-                    if (content::Instance* scene = !m_sceneId.IsNil()
-                                                       ? project->SourceDb().GetInstance(m_sceneId)
-                                                       : nullptr)
-                    {
-                        m_sceneLabel->SetText(scene->Path().AsView());
-                    }
-                    else if (!project->Settings().defaultScene.IsEmpty())
-                    {
-                        m_sceneLabel->SetText(project->Settings().defaultScene.AsView());
-                    }
-                }
-            }
-
-            // Startup script: the cooked ScriptClass asset the player (and the Game tab) binds at
-            // startup - picked by GUID like the default scene, not a typed path.
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Startup script");
-                m_scriptLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_scriptLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickStartupScript(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_scriptId = Guid{};
-                            self->m_scriptLabel->SetText(u8"(none)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_scriptId = project->Settings().startupScriptId;
-                    if (content::Instance* script =
-                            !m_scriptId.IsNil() ? project->SourceDb().GetInstance(m_scriptId)
-                                                : nullptr)
-                    {
-                        m_scriptLabel->SetText(script->Path().AsView());
-                    }
-                }
-            }
-
-            // Default input map: the cooked map the player (and the Game tab) binds at
-            // startup - the input twin of the default scene.
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Default input map");
-                m_inputMapLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(none)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_inputMapLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickInputMap(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_inputMapId = Guid{};
-                            self->m_inputMapLabel->SetText(u8"(none)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_inputMapId = project->Settings().defaultInputMapId;
-                    if (content::Instance* map = !m_inputMapId.IsNil()
-                                                     ? project->SourceDb().GetInstance(m_inputMapId)
-                                                     : nullptr)
-                    {
-                        m_inputMapLabel->SetText(map->Path().AsView());
-                    }
-                }
-            }
-
-            // Default audio bus layout: the cooked mixer applied at startup (player +
-            // play-in-editor) - nil = the built-in neutral four-bus layout.
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Default bus layout");
-                m_busLayoutLabel =
-                    MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_busLayoutLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickBusLayout(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_busLayoutId = Guid{};
-                            self->m_busLayoutLabel->SetText(u8"(built-in)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_busLayoutId = project->Settings().defaultBusLayoutId;
-                    if (content::Instance* layout =
-                            !m_busLayoutId.IsNil() ? project->SourceDb().GetInstance(m_busLayoutId)
-                                                   : nullptr)
-                    {
-                        m_busLayoutLabel->SetText(layout->Path().AsView());
-                    }
-                }
-            }
-
-            // Default UI theme: the cooked UITheme the game UI defaults to (player and
-            // embedded runtime alike); nil = the built-in GameTheme.
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Default UI theme");
-                m_uiThemeLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_uiThemeLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiTheme(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_uiThemeId = Guid{};
-                            self->m_uiThemeLabel->SetText(u8"(built-in)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_uiThemeId = project->Settings().defaultUiThemeId;
-                    if (content::Instance* theme =
-                            !m_uiThemeId.IsNil() ? project->SourceDb().GetInstance(m_uiThemeId)
-                                                 : nullptr)
-                    {
-                        m_uiThemeLabel->SetText(theme->Path().AsView());
-                    }
-                }
-            }
-
-            // Loading screen: the cooked UIDocument shown as the boot splash while the default
-            // scene streams (task #123); nil = the built-in default (status + progress ids).
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Loading screen");
-                m_loadingDocLabel =
-                    MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_loadingDocLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickLoadingDocument(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_loadingDocId = Guid{};
-                            self->m_loadingDocLabel->SetText(u8"(built-in)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_loadingDocId = project->Settings().loadingDocumentId;
-                    if (content::Instance* doc =
-                            !m_loadingDocId.IsNil() ? project->SourceDb().GetInstance(m_loadingDocId)
-                                                    : nullptr)
-                    {
-                        m_loadingDocLabel->SetText(doc->Path().AsView());
-                    }
-                }
-            }
-
-            // Default UI font: the cooked FontResource the game UI falls back to when a document
-            // does not name its own (nil = the editor's dev-tree probe, which resolves nothing in a
-            // real project - so game UI renders no text until this is set).
-            {
-                ui::FlexLayout* row = AddRow(*column, u8"Default UI font");
-                m_uiFontLabel = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"(built-in)"));
-                {
-                    ui::LayoutStyle lp;
-                    lp.FlexGrow = 1.0f;
-                    lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_uiFontLabel.Get(), lp);
-                }
-                auto pick = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Pick..."));
-                {
-                    ProjectSettingsDialog* self = this;
-                    pick->OnClick.Add([self](ui::ButtonBase*) { self->PickUiFont(); });
-                    row->AddView(pick.Get());
-                }
-                auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
-                {
-                    ProjectSettingsDialog* self = this;
-                    clear->OnClick.Add(
-                        [self](ui::ButtonBase*)
-                        {
-                            self->m_uiFontId = Guid{};
-                            self->m_uiFontLabel->SetText(u8"(built-in)");
-                        });
-                    row->AddView(clear.Get());
-                }
-                if (project != nullptr)
-                {
-                    m_uiFontId = project->Settings().defaultUiFontId;
-                    if (content::Instance* font =
-                            !m_uiFontId.IsNil() ? project->SourceDb().GetInstance(m_uiFontId)
-                                                : nullptr)
-                    {
-                        m_uiFontLabel->SetText(font->Path().AsView());
-                    }
-                }
-            }
+            // The asset settings: each a slot that picks, takes a dropped asset of its type and
+            // clears, seeded from the manifest (editor-lists-and-asset-slots.md P1).
+            const auto* settings =
+                project != nullptr ? &project->Settings() : nullptr;
+            // The default scene the player and play-in-editor open.
+            AddAssetRow(*column, u8"Default scene", m_sceneId, u8"SceneDocument", u8"(none)",
+                        settings != nullptr ? settings->defaultSceneId : Guid{});
+            // The cooked ScriptClass the player (and the Game tab) binds at startup.
+            AddAssetRow(*column, u8"Startup script", m_scriptId, u8"ScriptClassAsset", u8"(none)",
+                        settings != nullptr ? settings->startupScriptId : Guid{});
+            // The cooked map the player (and the Game tab) binds at startup.
+            AddAssetRow(*column, u8"Default input map", m_inputMapId, u8"InputMapAsset",
+                        u8"(none)", settings != nullptr ? settings->defaultInputMapId : Guid{});
+            // The cooked mixer applied at startup; nil = the built-in neutral four-bus layout.
+            AddAssetRow(*column, u8"Default bus layout", m_busLayoutId, u8"AudioBusLayoutAsset",
+                        u8"(built-in)",
+                        settings != nullptr ? settings->defaultBusLayoutId : Guid{});
+            // The cooked UITheme the game UI defaults to; nil = the built-in GameTheme.
+            AddAssetRow(*column, u8"Default UI theme", m_uiThemeId, u8"UIThemeAsset",
+                        u8"(built-in)", settings != nullptr ? settings->defaultUiThemeId : Guid{});
+            // The cooked UIDocument shown as the boot splash while the default scene streams;
+            // nil = the built-in default (status + progress ids).
+            AddAssetRow(*column, u8"Loading screen", m_loadingDocId, u8"UIDocumentAsset",
+                        u8"(built-in)", settings != nullptr ? settings->loadingDocumentId : Guid{});
+            // The cooked font the game UI falls back to when a document names none (nil renders
+            // no game UI text in a real project until this is set).
+            AddAssetRow(*column, u8"Default UI font", m_uiFontId, u8"FontAsset", u8"(built-in)",
+                        settings != nullptr ? settings->defaultUiFontId : Guid{});
 
             // Scene-pass MSAA: Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
             // player and play-in-editor apply it; the render subsystem capability-clamps at runtime
@@ -394,39 +147,23 @@ export namespace editor::app
 
         ui::EditText* AddTextRow(ui::FlexLayout& column, StringView label, StringView value);
 
-        void PickBusLayout();
-
-        void PickStartupScript();
-
-        void PickInputMap();
-
-        void PickUiTheme();
-
-        void PickLoadingDocument();
-
-        void PickUiFont();
-
-        void PickScene();
+        /// An asset setting's row: a slot bound to `id` (the value Save applies). Edit and
+        /// reveal are left off: this is a modal dialog.
+        void AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id, StringView typeName,
+                         StringView emptyText, const Guid& current);
 
         void Apply();
 
         editor::EditorContext* m_context;
         Guid m_inputMapId{};
         Guid m_busLayoutId{};
-        RefPtr<ui::Label> m_inputMapLabel;
-        RefPtr<ui::Label> m_busLayoutLabel;
         Guid m_uiThemeId{};
-        RefPtr<ui::Label> m_uiThemeLabel;
         Guid m_loadingDocId{};
-        RefPtr<ui::Label> m_loadingDocLabel;
         Guid m_uiFontId{};
-        RefPtr<ui::Label> m_uiFontLabel;
+        Array<RefPtr<ResourceRefEditor>> m_assetRows; // the rows' editors; their views sit in rows
         ui::EditText* m_nameEdit = nullptr;
         ui::EditText* m_nativeModuleEdit = nullptr; // project-relative path; empty = none
-        RefPtr<ui::Label> m_scriptLabel;
         Guid m_scriptId{};
-        RefPtr<ui::Label> m_sceneLabel;
-        RefPtr<ui::Button> m_pickButton;
         Guid m_sceneId;
         RefPtr<ui::ComboBox> m_msaaCombo; // scene-pass MSAA: Off/2x/4x -> renderMsaaSamples 1/2/4
     };

@@ -187,40 +187,9 @@ namespace editor
         m_jitterFields.PushBack(field);
     }
 
-    void SoundCueEditorPage::PickClip(usize slot)
-    {
-        ui::UIContext* uiContext = m_content.Get() != nullptr ? m_content->Context : nullptr;
-        if (uiContext == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"AudioClipAsset"));
-        auto picker =
-            MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(typeNames));
-        SoundCueEditorPage* self = this;
-        picker->OnPicked = [self, slot](const Guid& id)
-        {
-            self->m_asset.clipIds[slot] = id;
-            self->RefreshSlot(slot);
-            self->CommitEdit(u8"");
-        };
-        picker->Show(uiContext);
-    }
-
     void SoundCueEditorPage::RefreshSlot(usize slot)
     {
-        const Guid& id = m_asset.clipIds[slot];
-        if (id.IsNil() || m_context->Project() == nullptr)
-        {
-            m_slotLabels[slot]->SetText(u8"(empty)");
-        }
-        else
-        {
-            foundation::content::Instance* clip = m_context->Project()->SourceDb().GetInstance(id);
-            m_slotLabels[slot]->SetText(clip != nullptr ? StringView(clip->Path())
-                                                        : StringView(u8"(missing)"));
-        }
+        m_slotRows[slot]->Refresh();
         RefreshEmptyHint();
     }
 

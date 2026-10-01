@@ -108,35 +108,35 @@ export namespace editor
                 column->AddView(m_toolbar.Get(), lp);
             }
 
-            // Slot rows: "<clip name>" [Pick...] [Clear] weight [field]
+            // Slot rows: the clip's asset slot (pick, drop and clear are one assignment), then
+            // its weight.
             for (usize i = 0; i < pipeline::kSoundCueSlotCount; ++i)
             {
                 auto row = MakeRef<ui::FlexLayout>(Allocator());
                 row->Direction = ui::Orientation::Horizontal;
                 row->Spacing = 6.0f;
 
-                m_slotLabels[i] = MakeRef<ui::Label>(Allocator(), StringView(u8"(empty)"));
-                m_slotLabels[i]->FontSize.SetValue(13.0f);
+                SoundCueEditorPage* self = this;
+                const usize slot = i;
+                const StringView clipTypes[] = {u8"AudioClipAsset"};
+                m_slotRows[i] = MakeRef<app::ResourceRefEditor>(
+                    Allocator(), StringView(u8"Clip"), StringView(u8"(empty)"), StringView{},
+                    Span<const StringView>{clipTypes, 1});
+                m_slotRows[i]->SetEmptyText(u8"(empty)");
+                m_slotRows[i]->BindAsset(*m_context,
+                                         [self, slot]() { return self->m_asset.clipIds[slot]; },
+                                         [self, slot](const Guid& id)
+                                         {
+                                             self->m_asset.clipIds[slot] = id;
+                                             self->RefreshEmptyHint();
+                                             self->CommitEdit(u8"");
+                                         });
                 {
                     ui::LayoutStyle lp;
                     lp.FlexGrow = 1.0f;
                     lp.AlignSelf = ui::Align::Center;
-                    row->AddView(m_slotLabels[i].Get(), lp);
+                    row->AddView(m_slotRows[i]->EditorView(), lp);
                 }
-                SoundCueEditorPage* self = this;
-                const usize slot = i;
-                auto pick = MakeRef<ui::Button>(Allocator(), StringView(u8"Pick..."));
-                pick->OnClick.Add([self, slot](ui::ButtonBase*) { self->PickClip(slot); });
-                row->AddView(pick.Get());
-                auto clear = MakeRef<ui::Button>(Allocator(), StringView(u8"Clear"));
-                clear->OnClick.Add(
-                    [self, slot](ui::ButtonBase*)
-                    {
-                        self->m_asset.clipIds[slot] = Guid{};
-                        self->RefreshSlot(slot);
-                        self->CommitEdit(u8"");
-                    });
-                row->AddView(clear.Get());
 
                 auto weightLabel = MakeRef<ui::Label>(Allocator(), StringView(u8"weight"));
                 weightLabel->FontSize.SetValue(12.0f);
@@ -259,8 +259,6 @@ export namespace editor
     private:
         void AddJitterField(ui::FlexLayout& row, StringView label, f32& target);
 
-        void PickClip(usize slot);
-
         void RefreshSlot(usize slot);
 
         // Show/hide the "empty cue - assign a clip" draft hint based on whether any slot is filled.
@@ -301,7 +299,7 @@ export namespace editor
         RefPtr<app::PageToolbar> m_toolbar;
         Array<byte> m_savedBlob; // last-saved asset state; Discard Changes reverts to this
         Array<byte> m_undoBaseline; // the "before" of the NEXT edit command
-        RefPtr<ui::Label> m_slotLabels[pipeline::kSoundCueSlotCount];
+        RefPtr<app::ResourceRefEditor> m_slotRows[pipeline::kSoundCueSlotCount]; // clip slots
         RefPtr<ui::NumericField> m_weightFields[pipeline::kSoundCueSlotCount];
         Array<RefPtr<ui::NumericField>> m_jitterFields;
         RefPtr<ui::Button> m_modeButton;

@@ -93,17 +93,31 @@ namespace editor
 
         CollisionShapeEditorPage* self = this;
 
-        // Source mesh: a typed picker (no guid string).
+        // Source mesh: the shared asset row (pick, drop and clear are one assignment).
         {
             ui::FlexLayout* row = AddLabeledRow(*column, u8"Source mesh");
-            m_meshLabel = MakeRef<ui::Label>(Allocator(), StringView(u8""));
+            const StringView meshTypes[] = {u8"StaticMeshAsset", u8"SkinnedMeshAsset"};
+            m_meshRow = MakeRef<app::ResourceRefEditor>(Allocator(), StringView(u8"Source mesh"),
+                                                        StringView(u8"(none)"), StringView{},
+                                                        Span<const StringView>{meshTypes, 2});
+            m_meshRow->BindAsset(
+                *m_context,
+                [self]()
+                { return self->m_asset.Get() != nullptr ? self->m_asset->sourceMesh : Guid{}; },
+                [self](const Guid& picked)
+                {
+                    if (self->m_asset.Get() == nullptr)
+                    {
+                        return;
+                    }
+                    self->m_asset->sourceMesh = picked;
+                    self->MarkDirty();
+                    self->RefreshStatus();
+                });
             ui::LayoutStyle lp;
             lp.FlexGrow = 1.0f;
             lp.AlignSelf = ui::Align::Center;
-            row->AddView(m_meshLabel.Get(), lp);
-            auto pick = MakeRef<ui::Button>(Allocator(), StringView(u8"Pick..."));
-            pick->OnClick.Add([self](ui::ButtonBase*) { self->PickMesh(); });
-            row->AddView(pick.Get());
+            row->AddView(m_meshRow->EditorView(), lp);
         }
 
         // Cook kind: a toggle (convex hull / triangle mesh).
@@ -181,28 +195,6 @@ namespace editor
         RefreshStatus();
     }
 
-    void CollisionShapeEditorPage::PickMesh()
-    {
-        if (m_asset.Get() == nullptr || m_content->Context == nullptr ||
-            m_context->Project() == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"StaticMeshAsset"));
-        typeNames.PushBack(String(u8"SkinnedMeshAsset"));
-        auto dialog =
-            MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(typeNames));
-        CollisionShapeEditorPage* self = this;
-        dialog->OnPicked = [self](const Guid& picked)
-        {
-            self->m_asset->sourceMesh = picked;
-            self->MarkDirty();
-            self->RefreshStatus();
-        };
-        dialog->Show(m_content->Context);
-    }
-
     void CollisionShapeEditorPage::DiscardChanges()
     {
         // The page mutates the asset directly (no commands yet), so the base "undo the stack"
@@ -233,7 +225,7 @@ namespace editor
         {
             return;
         }
-        m_meshLabel->SetText(MeshName(m_asset->sourceMesh).AsView());
+        m_meshRow->Refresh();
         String status;
         if (m_asset->sourceMesh.IsNil())
         {

@@ -73,14 +73,17 @@ export namespace editor
         void RebuildFields();           // (re)build the right pane from the current asset
         void RebuildFieldsDeferred();   // safe from inside a UI event (defers via the mutation queue)
 
-        // Open the asset picker for a reference; `apply` writes the picked guid onto the right field
-        // (a callback, so layer-index safety survives array edits), then commit + rebind + rebuild.
-        void PickReference(StringView assetTypeName, StringView mergeKey,
-                           Function<void(const Guid&)> apply);
+        // A labelled asset slot for a reference: pick, drop and clear land through `apply` (a
+        // callback, so layer-index safety survives array edits), then commit + rebind + rebuild.
+        void AddReference(StringView label, StringView assetTypeName, StringView mergeKey,
+                          Function<Guid()> current, Function<void(const Guid&)> apply);
         void AddLayer();
         void RemoveLayer(u32 index);
         enum class PaletteMap { Normal, Orm, Height, Mask };         // which optional per-layer map
         void SetPaletteMap(PaletteMap map, u32 index, const Guid& g); // set per-layer normal/ORM/height/mask
+        [[nodiscard]] Guid PaletteMapId(PaletteMap map, u32 index) const;
+        [[nodiscard]] Array<Guid>& PaletteMapIds(PaletteMap map) const; // the map's id array
+        void AddMapReference(u32 index, StringView mapLabel, PaletteMap map, StringView mergeKey);
         void RemapWeightsOnRemove(u32 removedIndex); // frees removed-layer slots; decrements above
         void CreateSplatmap(i32 size); // author + assign a new blank splatmap asset (composition)
 
@@ -134,6 +137,7 @@ export namespace editor
         const void* m_lastProduct = nullptr;                      // product identity - detects cook
 
         RefPtr<foundation::ui::FlexLayout> m_fields; // the right pane (rebuilt on structural edits)
+        Array<RefPtr<app::ResourceRefEditor>> m_referenceRows; // the fields pane's slot rows
         RefPtr<foundation::ui::View> m_content;
         Array<byte> m_undoBaseline;
     };

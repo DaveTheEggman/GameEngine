@@ -183,24 +183,6 @@ namespace editor
                     Function<void(i32)>{[setIndex = Move(setIndex)](i32 v) { setIndex(v - 1); }},
                     cat);
         }
-
-        // The display name of a cooked/source asset for a picker button ("(none)" for nil).
-        [[nodiscard]] String AssetLabel(EditorContext& context, const Guid& id)
-        {
-            if (id.IsNil())
-            {
-                return String(u8"(none)");
-            }
-            if (context.Project() != nullptr)
-            {
-                if (foundation::content::Instance* inst =
-                        context.Project()->SourceDb().GetInstance(id))
-                {
-                    return String(inst->Name());
-                }
-            }
-            return String(u8"(missing)");
-        }
     } // namespace
 
     // ============================ Construction ==============================================
@@ -476,13 +458,35 @@ namespace editor
         transport->Padding = ui::Thickness{6, 4};
         {
             AnimationGraphEditorPage* self = this;
-            m_skeletonButton =
-                MakeRef<ui::Button>(Allocator(), StringView(u8"Skeleton: (none)"));
-            m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
-            transport->AddView(m_skeletonButton.Get());
-            m_meshButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Mesh: (none)"));
-            m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
-            transport->AddView(m_meshButton.Get());
+            // The preview rig: compact asset slots (pick, drop and clear are one assignment).
+            const StringView skeletonTypes[] = {u8"SkeletonAsset"};
+            m_skeletonSlot = MakeRef<app::CompactAssetSlot>(
+                Allocator(), StringView(u8"Skeleton"), Span<const StringView>{skeletonTypes, 1});
+            m_skeletonSlot->Editor().BindAsset(*m_context,
+                                               [self]() { return self->m_skeletonGuid; },
+                                               [self](const Guid& picked)
+                                               {
+                                                   self->SetPreviewSkeleton(picked);
+                                                   self->RebuildPreviewGraph();
+                                                   self->SavePreviewPref();
+                                               });
+            m_skeletonSlot->Build();
+            const StringView meshTypes[] = {u8"SkinnedMeshAsset"};
+            m_meshSlot = MakeRef<app::CompactAssetSlot>(Allocator(), StringView(u8"Mesh"),
+                                                        Span<const StringView>{meshTypes, 1});
+            m_meshSlot->Editor().BindAsset(*m_context, [self]() { return self->m_previewMeshId; },
+                                           [self](const Guid& picked)
+                                           {
+                                               self->SetPreviewMesh(picked);
+                                               self->SavePreviewPref();
+                                           });
+            m_meshSlot->Build();
+            {
+                ui::LayoutStyle slot;
+                slot.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(200.0f));
+                transport->AddView(m_skeletonSlot.Get(), slot);
+                transport->AddView(m_meshSlot.Get(), slot);
+            }
             m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -572,43 +576,8 @@ namespace editor
             {
                 continue;
             }
-            m_skeletonGuid = p.skeleton;
-            if (!p.skeleton.IsNil() && m_context->Resources() != nullptr)
-            {
-                m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(p.skeleton);
-            }
-            if (m_skeletonButton.Get() != nullptr)
-            {
-                String label(u8"Skeleton: ");
-                label.Append(AssetLabel(*m_context, p.skeleton).AsView());
-                m_skeletonButton->SetText(label.AsView());
-            }
-
-            m_previewMeshId = p.mesh;
-            if (!p.mesh.IsNil() && m_context->Resources() != nullptr)
-            {
-                m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(p.mesh);
-            }
-            scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
-            if (scenePtr != nullptr)
-            {
-                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
-                {
-                    if (auto* mc = meshes->Get(m_meshEntity))
-                    {
-                        if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
-                        {
-                            mc->mesh = pm;
-                        }
-                    }
-                }
-            }
-            if (m_meshButton.Get() != nullptr)
-            {
-                String label(u8"Mesh: ");
-                label.Append(AssetLabel(*m_context, p.mesh).AsView());
-                m_meshButton->SetText(label.AsView());
-            }
+            SetPreviewSkeleton(p.skeleton);
+            SetPreviewMesh(p.mesh);
             return;
         }
     }
@@ -1413,38 +1382,29 @@ namespace editor
         const String kindCat = Format(u8"{}", NodeKindLabel(node.kind));
         if (node.kind == 0)
         {
-            // Clip picker.
-            String label(u8"Clip: ");
-            label.Append(AssetLabel(*m_context, node.clipRef).AsView());
+            // The state's clip: the shared asset row (pick, drop and clear are one assignment).
             const i32 li = layerIndex, si = stateIndex;
-            RowButton(
-                g, label.AsView(), kindCat.AsView(),
+            const StringView clipTypes[] = {u8"AnimationClipAsset"};
+            auto clip = MakeRef<app::ResourceRefEditor>(Allocator(), StringView(u8"Clip"),
+                                                        StringView(u8"(none)"), kindCat.AsView(),
+                                                        Span<const StringView>{clipTypes, 1});
+            clip->BindAsset(
+                *m_context,
                 [self, li, si]()
                 {
-                    ui::UIContext* ctx = self->Ctx();
-                    if (ctx == nullptr || self->m_context->Project() == nullptr)
+                    animation::GraphNodeData* n = self->StateNode(li, si);
+                    return n != nullptr ? n->clipRef : Guid{};
+                },
+                [self, li, si](const Guid& picked)
+                {
+                    if (animation::GraphNodeData* n = self->StateNode(li, si))
                     {
-                        return;
+                        n->clipRef = picked;
+                        self->CommitEdit(u8"state-clip");
+                        self->Select(GraphSel{GraphSelKind::State, li, si});
                     }
-                    Array<String> types;
-                    types.PushBack(String(u8"AnimationClipAsset"));
-                    auto dialog = MakeRef<app::AssetPickerDialog>(self->Allocator(),
-                                                                  *self->m_context, Move(types));
-                    dialog->OnPicked = [self, li, si](const Guid& picked)
-                    {
-                        animation::AnimationGraphSource& s = self->m_asset->source;
-                        if (static_cast<usize>(li) < s.layers.Size() &&
-                            static_cast<usize>(si) < s.layers[static_cast<usize>(li)].states.Size())
-                        {
-                            s.layers[static_cast<usize>(li)]
-                                .states[static_cast<usize>(si)]
-                                .node.clipRef = picked;
-                            self->CommitEdit(u8"state-clip");
-                            self->Select(GraphSel{GraphSelKind::State, li, si});
-                        }
-                    };
-                    dialog->Show(ctx);
                 });
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(clip.Get()));
         }
         else
         {
@@ -1507,43 +1467,32 @@ namespace editor
                                    entryCat.AsView())
                                    .Get()));
                 }
-                String clipLabel(u8"Clip: ");
-                clipLabel.Append(AssetLabel(*m_context, node.entryClips[e]).AsView());
                 const i32 li = layerIndex, si = stateIndex;
                 const usize entryIdx = e;
-                RowButton(g, clipLabel.AsView(), entryCat.AsView(),
-                          [self, li, si, entryIdx]()
-                          {
-                              ui::UIContext* ctx = self->Ctx();
-                              if (ctx == nullptr || self->m_context->Project() == nullptr)
-                              {
-                                  return;
-                              }
-                              Array<String> types;
-                              types.PushBack(String(u8"AnimationClipAsset"));
-                              auto dialog = MakeRef<app::AssetPickerDialog>(
-                                  self->Allocator(), *self->m_context, Move(types));
-                              dialog->OnPicked = [self, li, si, entryIdx](const Guid& picked)
-                              {
-                                  animation::AnimationGraphSource& s = self->m_asset->source;
-                                  if (static_cast<usize>(li) < s.layers.Size() &&
-                                      static_cast<usize>(si) <
-                                          s.layers[static_cast<usize>(li)].states.Size())
-                                  {
-                                      animation::GraphNodeData& n =
-                                          s.layers[static_cast<usize>(li)]
-                                              .states[static_cast<usize>(si)]
-                                              .node;
-                                      if (entryIdx < n.entryClips.Size())
-                                      {
-                                          n.entryClips[entryIdx] = picked;
-                                          self->CommitEdit(u8"entry-clip");
-                                          self->Select(GraphSel{GraphSelKind::State, li, si});
-                                      }
-                                  }
-                              };
-                              dialog->Show(ctx);
-                          });
+                const StringView entryTypes[] = {u8"AnimationClipAsset"};
+                auto entryClip = MakeRef<app::ResourceRefEditor>(
+                    Allocator(), StringView(u8"Clip"), StringView(u8"(none)"), entryCat.AsView(),
+                    Span<const StringView>{entryTypes, 1});
+                entryClip->BindAsset(
+                    *m_context,
+                    [self, li, si, entryIdx]()
+                    {
+                        animation::GraphNodeData* n = self->StateNode(li, si);
+                        return n != nullptr && entryIdx < n->entryClips.Size()
+                                   ? n->entryClips[entryIdx]
+                                   : Guid{};
+                    },
+                    [self, li, si, entryIdx](const Guid& picked)
+                    {
+                        animation::GraphNodeData* n = self->StateNode(li, si);
+                        if (n != nullptr && entryIdx < n->entryClips.Size())
+                        {
+                            n->entryClips[entryIdx] = picked;
+                            self->CommitEdit(u8"entry-clip");
+                            self->Select(GraphSel{GraphSelKind::State, li, si});
+                        }
+                    });
+                Add(g, RefPtr<ui::toolkit::PropertyEditor>(entryClip.Get()));
                 RowButton(g, u8"Remove Entry", entryCat.AsView(),
                           [self, li, si, entryIdx]()
                           {
@@ -1945,86 +1894,68 @@ namespace editor
 
     // ============================ Live preview ==============================================
 
-    void AnimationGraphEditorPage::PickPreviewSkeleton()
+    animation::GraphNodeData* AnimationGraphEditorPage::StateNode(i32 layer, i32 state) const
     {
-        ui::UIContext* ctx = Ctx();
-        if (ctx == nullptr || m_context->Project() == nullptr)
+        animation::AnimationGraphSource& source = m_asset->source;
+        if (layer < 0 || state < 0 || static_cast<usize>(layer) >= source.layers.Size() ||
+            static_cast<usize>(state) >= source.layers[static_cast<usize>(layer)].states.Size())
         {
-            return;
+            return nullptr;
         }
-        AnimationGraphEditorPage* self = this;
-        Array<String> types;
-        types.PushBack(String(u8"SkeletonAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self](const Guid& picked)
-        {
-            self->m_skeletonGuid = picked;
-            if (self->m_context->Resources() != nullptr && !picked.IsNil())
-            {
-                self->m_skeleton = self->m_context->Resources()->Bind<animation::Skeleton>(picked);
-            }
-            else
-            {
-                self->m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
-            }
-            String label(u8"Skeleton: ");
-            label.Append(AssetLabel(*self->m_context, picked).AsView());
-            self->m_skeletonButton->SetText(label.AsView());
-            self->RebuildPreviewGraph();
-            self->SavePreviewPref();
-        };
-        dialog->Show(ctx);
+        return &source.layers[static_cast<usize>(layer)].states[static_cast<usize>(state)].node;
     }
 
-    void AnimationGraphEditorPage::PickPreviewMesh()
+    void AnimationGraphEditorPage::SetPreviewSkeleton(const Guid& id)
     {
-        ui::UIContext* ctx = Ctx();
-        if (ctx == nullptr || m_context->Project() == nullptr)
+        m_skeletonGuid = id;
+        if (m_context->Resources() != nullptr && !id.IsNil())
         {
-            return;
+            m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(id);
         }
-        AnimationGraphEditorPage* self = this;
-        Array<String> types;
-        types.PushBack(String(u8"SkinnedMeshAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self](const Guid& picked)
+        else
         {
-            self->m_previewMeshId = picked;
-            if (self->m_context->Resources() != nullptr && !picked.IsNil())
+            m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
+        }
+        if (m_skeletonSlot.Get() != nullptr)
+        {
+            m_skeletonSlot->Editor().Refresh();
+        }
+    }
+
+    void AnimationGraphEditorPage::SetPreviewMesh(const Guid& id)
+    {
+        m_previewMeshId = id;
+        if (m_context->Resources() != nullptr && !id.IsNil())
+        {
+            m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(id);
+        }
+        else
+        {
+            m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
+        }
+        // Point the preview MeshComponent at the mesh (skinning matrices feed per frame).
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr != nullptr)
+        {
+            if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
             {
-                self->m_previewMesh =
-                    self->m_context->Resources()->Bind<foundation::geometry::StaticMesh>(picked);
-            }
-            else
-            {
-                self->m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
-            }
-            String label(u8"Mesh: ");
-            label.Append(AssetLabel(*self->m_context, picked).AsView());
-            self->m_meshButton->SetText(label.AsView());
-            // Point the preview MeshComponent at the picked mesh (skinning matrices feed per frame).
-            scene::Scene* scenePtr = self->m_preview ? self->m_preview->Scene() : nullptr;
-            if (scenePtr != nullptr)
-            {
-                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                if (auto* mc = meshes->Get(m_meshEntity))
                 {
-                    if (auto* mc = meshes->Get(self->m_meshEntity))
+                    if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
                     {
-                        foundation::geometry::StaticMesh* pm = self->m_previewMesh.Get();
-                        if (pm != nullptr)
-                        {
-                            mc->mesh = pm;
-                        }
-                        else
-                        {
-                            mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
-                        }
+                        mc->mesh = pm;
+                    }
+                    else
+                    {
+                        mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
                     }
                 }
             }
-            self->SavePreviewPref();
-        };
-        dialog->Show(ctx);
+        }
+        if (m_meshSlot.Get() != nullptr)
+        {
+            m_meshSlot->Editor().Refresh();
+        }
     }
 
     void AnimationGraphEditorPage::RebuildPreviewGraph()

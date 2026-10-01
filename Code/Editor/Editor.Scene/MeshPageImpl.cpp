@@ -227,46 +227,38 @@ namespace editor
             row->Direction = ui::Orientation::Horizontal;
             row->Spacing = 4.0f;
 
-            String matLabel(u8"Material: ");
-            if (!m_previewMaterialId.IsNil() && m_context->Project() != nullptr)
-            {
-                if (auto* inst = m_context->Project()->SourceDb().GetInstance(m_previewMaterialId))
-                {
-                    matLabel.Append(inst->Name());
-                }
-                else
-                {
-                    matLabel.Append(u8"(missing)");
-                }
-            }
-            else
-            {
-                matLabel.Append(u8"Default");
-            }
-            m_materialButton = MakeRef<ui::Button>(Allocator(), matLabel.AsView());
-            m_materialButton->FontSize.SetValue(Optional<f32>{12.0f});
-            MeshEditorPage* self = this;
-            m_materialButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMaterial(); });
-            {
-                ui::LayoutStyle lp;
-                lp.FlexGrow = 1.0f;
-                row->AddView(m_materialButton.Get(), lp);
-            }
-            auto reset = MakeRef<ui::Button>(Allocator(), StringView(u8"Default"));
-            reset->FontSize.SetValue(Optional<f32>{12.0f});
-            reset->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    self->m_previewMaterialId = Guid{};
-                    self->m_previewMaterial = resource::Proxy<materials::Material>{};
-                    self->ApplyPreviewMaterial();
-                    self->RefreshStats();
-                    self->SavePreviewPref();
-                });
+            auto label = MakeRef<ui::Label>(Allocator(), StringView(u8"Material"));
+            label->FontSize.SetValue(Optional<f32>{12.0f});
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(64.0f));
-                row->AddView(reset.Get(), lp);
+                lp.AlignSelf = ui::Align::Center;
+                row->AddView(label.Get(), lp);
+            }
+            // Rebuilt with the stats column: the previous row is released here, never inside its
+            // own write (the write defers the rebuild).
+            MeshEditorPage* self = this;
+            const StringView materialTypes[] = {u8"MaterialAsset"};
+            m_previewMaterialRow = MakeRef<app::ResourceRefEditor>(
+                Allocator(), StringView(u8"Material"), StringView(u8"Default"), StringView{},
+                Span<const StringView>{materialTypes, 1});
+            m_previewMaterialRow->SetEmptyText(u8"Default");
+            m_previewMaterialRow->BindAsset(
+                *m_context, [self]() { return self->m_previewMaterialId; },
+                [self](const Guid& picked)
+                {
+                    self->SetPreviewMaterial(picked);
+                    if (ui::UIContext* ctx =
+                            self->m_content.Get() != nullptr ? self->m_content->Context : nullptr)
+                    {
+                        ctx->MutationQueueRef().QueueAction(
+                            Function<void()>{[self]() { self->RefreshStats(); }});
+                    }
+                });
+            {
+                ui::LayoutStyle lp;
+                lp.FlexGrow = 1.0f;
+                row->AddView(m_previewMaterialRow->EditorView(), lp);
             }
             ui::LayoutStyle lp;
             lp.Width = ui::SizeSpec::Match();
@@ -461,34 +453,19 @@ namespace editor
         mc->SetMaterial(picked != nullptr ? RefPtr<materials::Material>(picked) : m_defaultMaterial);
     }
 
-    void MeshEditorPage::PickPreviewMaterial()
+    void MeshEditorPage::SetPreviewMaterial(const Guid& picked)
     {
-        ui::UIContext* ctx = m_content.Get() != nullptr ? m_content->Context : nullptr;
-        if (ctx == nullptr || m_context->Project() == nullptr)
+        m_previewMaterialId = picked;
+        if (m_context->Resources() != nullptr && !picked.IsNil())
         {
-            return;
+            m_previewMaterial = m_context->Resources()->Bind<materials::Material>(picked);
         }
-        MeshEditorPage* self = this;
-        Array<String> types;
-        types.PushBack(String(u8"MaterialAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self](const Guid& picked)
+        else
         {
-            self->m_previewMaterialId = picked;
-            if (self->m_context->Resources() != nullptr && !picked.IsNil())
-            {
-                self->m_previewMaterial =
-                    self->m_context->Resources()->Bind<materials::Material>(picked);
-            }
-            else
-            {
-                self->m_previewMaterial = resource::Proxy<materials::Material>{};
-            }
-            self->ApplyPreviewMaterial();
-            self->RefreshStats();
-            self->SavePreviewPref();
-        };
-        dialog->Show(ctx);
+            m_previewMaterial = resource::Proxy<materials::Material>{};
+        }
+        ApplyPreviewMaterial();
+        SavePreviewPref();
     }
 
     void MeshEditorPage::OnRenderWindow(runtime::IApplicationHost&,

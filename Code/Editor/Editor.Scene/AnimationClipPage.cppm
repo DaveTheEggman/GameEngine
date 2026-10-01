@@ -105,8 +105,9 @@ export namespace editor
         };
 
         void BuildPreviewScene();
-        void PickPreviewSkeleton();
-        void PickPreviewMesh();
+        // The preview rig's skeleton and skinned mesh (nil clears); the slots show them.
+        void SetPreviewSkeleton(const Guid& id);
+        void SetPreviewMesh(const Guid& id);
         void RebuildGrid(); // stats + loop flag + events editor
         void UpdatePreview(f32 dt);
 
@@ -131,7 +132,7 @@ export namespace editor
         // preview world (shared substrate: viewport + preview scene + camera + render loop)
         UniquePtr<PreviewViewport> m_preview;
 
-        RefPtr<ui::Button> m_skeletonButton;
+        RefPtr<app::CompactAssetSlot> m_skeletonSlot;
         RefPtr<ui::Button> m_playButton;
         RefPtr<ui::Slider> m_timeSlider; // normalized [0..1] scrub
         RefPtr<ui::Label> m_timeLabel;
@@ -144,7 +145,7 @@ export namespace editor
 
         // Skinned preview mesh (optional): deformed by an AnimationPlayer driven from m_time and
         // fed to a MeshComponent. Null = skeleton wireframe only.
-        RefPtr<ui::Button> m_meshButton;
+        RefPtr<app::CompactAssetSlot> m_meshSlot;
         Guid m_previewMeshId{};
         foundation::resource::Proxy<foundation::geometry::StaticMesh> m_previewMesh;
         scene::EntityHandle m_meshEntity;

@@ -10,8 +10,8 @@
 // running engine; the launcher/project-manager owns migration).
 //
 // [Save] writes the fields back into EditorProject::Settings() and persists the manifest;
-// [Cancel]/Escape discards. The default-scene pick stores the instance GUID (rename/move-proof)
-// with the path kept alongside as the human-readable mirror; the picker's [Clear] sets "none".
+// [Cancel]/Escape discards. Every asset setting is a ResourceRefEditor row: pick, drop and clear
+// set the instance GUID (rename/move-proof); Save keeps the path alongside as a mirror.
 
 module;
 #include "Core/Prelude.h"
@@ -25,7 +25,7 @@ import foundation.content;
 import foundation.ui;
 import engine.render; // MsaaSamplesForIndex (the canonical MSAA level mapping)
 import editor.core;
-import :asset_picker_dialog;
+import :resource_ref_editor;
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -67,200 +67,25 @@ namespace editor::app
         return raw;
     }
 
-    void ProjectSettingsDialog::PickBusLayout()
+    void ProjectSettingsDialog::AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id,
+                                            StringView typeName, StringView emptyText,
+                                            const Guid& current)
     {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"AudioBusLayoutAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_busLayoutId = id;
-            if (content::Instance* layout =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_busLayoutLabel->SetText(layout->Path().AsView());
-            }
-            else
-            {
-                self->m_busLayoutLabel->SetText(u8"(built-in)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickStartupScript()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"ScriptClassAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_scriptId = id;
-            if (content::Instance* script =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_scriptLabel->SetText(script->Path().AsView());
-            }
-            else
-            {
-                self->m_scriptLabel->SetText(u8"(none)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickInputMap()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"InputMapAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_inputMapId = id;
-            if (content::Instance* map =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_inputMapLabel->SetText(map->Path().AsView());
-            }
-            else
-            {
-                self->m_inputMapLabel->SetText(u8"(none)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickUiTheme()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"UIThemeAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_uiThemeId = id;
-            if (content::Instance* theme =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_uiThemeLabel->SetText(theme->Path().AsView());
-            }
-            else
-            {
-                self->m_uiThemeLabel->SetText(u8"(built-in)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickLoadingDocument()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"UIDocumentAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_loadingDocId = id;
-            if (content::Instance* doc =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_loadingDocLabel->SetText(doc->Path().AsView());
-            }
-            else
-            {
-                self->m_loadingDocLabel->SetText(u8"(built-in)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickUiFont()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"FontAsset"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_uiFontId = id;
-            if (content::Instance* font =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_uiFontLabel->SetText(font->Path().AsView());
-            }
-            else
-            {
-                self->m_uiFontLabel->SetText(u8"(built-in)");
-            }
-        };
-        picker->Show(Context);
-    }
-
-    void ProjectSettingsDialog::PickScene()
-    {
-        if (Context == nullptr)
-        {
-            return;
-        }
-        Array<String> typeNames;
-        typeNames.PushBack(String(u8"SceneDocument"));
-        auto picker = MakeRef<AssetPickerDialog>(MemoryAllocator(), *m_context, Move(typeNames));
-        ProjectSettingsDialog* self = this;
-        picker->OnPicked = [self](const Guid& id)
-        {
-            self->m_sceneId = id;
-            if (content::Instance* scene =
-                    !id.IsNil() && self->m_context->Project() != nullptr
-                        ? self->m_context->Project()->SourceDb().GetInstance(id)
-                        : nullptr)
-            {
-                self->m_sceneLabel->SetText(scene->Path().AsView());
-            }
-            else
-            {
-                self->m_sceneLabel->SetText(u8"(none)");
-            }
-        };
-        picker->Show(Context); // stacks above this dialog on the popup layer
+        ui::FlexLayout* row = AddRow(column, label);
+        id = current;
+        const StringView types[] = {typeName};
+        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), label, emptyText, StringView{},
+                                                 Span<const StringView>{types, 1});
+        editor->SetEmptyText(emptyText);
+        Guid* target = &id;
+        editor->BindAsset(*m_context, [target]() { return *target; },
+                          [target](const Guid& picked) { *target = picked; },
+                          ResourceRefEditor::BindOptions{.edit = false, .reveal = false});
+        ui::LayoutStyle grow;
+        grow.FlexGrow = 1.0f;
+        grow.AlignSelf = ui::Align::Center;
+        row->AddView(editor->EditorView(), grow);
+        m_assetRows.PushBack(Move(editor));
     }
 
     void ProjectSettingsDialog::Apply()

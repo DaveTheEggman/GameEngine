@@ -161,6 +161,25 @@ export namespace editor::app
             return Span<const String>{m_acceptedTypes.Data(), m_acceptedTypes.Size()};
         }
 
+        /// The warning for a refused drop, naming every accepted type from the row's own list:
+        /// "<asset> is a <type> - this <noun> takes <A>, <B> or <C>".
+        [[nodiscard]] static String RejectionText(StringView assetName, StringView typeName,
+                                                  Span<const String> accepted, StringView noun)
+        {
+            String wanted;
+            for (usize i = 0; i < accepted.Size(); ++i)
+            {
+                if (i > 0)
+                {
+                    wanted.Append(i + 1 == accepted.Size() ? StringView(u8" or ")
+                                                           : StringView(u8", "));
+                }
+                wanted.Append(accepted[i].AsView());
+            }
+            return Format(u8"{} is a {} - this {} takes {}", assetName, typeName, noun,
+                          wanted.IsEmpty() ? StringView(u8"no asset") : wanted.AsView());
+        }
+
         /// Whether `typeName` is one of `accepted` (kAnyAsset takes everything). Shared by the
         /// slot and the list widget's append drop.
         [[nodiscard]] static bool Accepts(Span<const String> accepted, StringView typeName)

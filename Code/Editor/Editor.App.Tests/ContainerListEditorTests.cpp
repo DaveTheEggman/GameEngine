@@ -231,3 +231,56 @@ TEST_CASE("resource-row: pick, drop and clear are one assignment; a dangling id 
                                                      Span<const StringView>{});
     CHECK(Cast<app::AssetPickerSlot>(entityRow->EditorView())->AsDropTarget() == nullptr);
 }
+
+TEST_CASE("resource-row: a bound row shows its empty text for nil and drops edit and reveal on "
+          "request; a refusal names every accepted type")
+{
+    EditorContext context{DefaultAllocator()};
+    Guid current;
+    const StringView types[] = {u8"StaticMeshAsset", u8"SkinnedMeshAsset"};
+    auto row = MakeRef<app::ResourceRefEditor>(DefaultAllocator(), StringView(u8"Mesh"),
+                                               StringView(u8"(primitive)"), StringView(u8"Preview"),
+                                               Span<const StringView>{types, 2});
+    row->SetEmptyText(u8"(primitive)");
+    row->BindAsset(context, [&]() { return current; }, [&](const Guid& id) { current = id; },
+                   app::ResourceRefEditor::BindOptions{.edit = false, .reveal = false});
+    CHECK(row->ValueText() == StringView(u8"(primitive)"));
+    CHECK_FALSE(row->OnEdit);
+    CHECK_FALSE(row->OnReveal);
+    auto* slot = Cast<app::AssetPickerSlot>(row->EditorView());
+    REQUIRE(slot != nullptr);
+    CHECK_FALSE(slot->ClearButton()->IsEnabled); // nil: nothing to clear, whatever the text says
+
+    auto texture = Drag(kTexture, u8"TextureAsset");
+    CHECK(slot->OnDrop(texture.Get(), 0, 0) == ui::DragDropEffects::None);
+    CHECK(app::AssetPickerSlot::RejectionText(u8"brick", u8"TextureAsset", row->AcceptedTypes(),
+                                              u8"field") ==
+          StringView(u8"brick is a TextureAsset - this field takes StaticMeshAsset or "
+                     u8"SkinnedMeshAsset"));
+}
+
+// Sedulous 4cfff157: an asset row placed outside a grid (a dialog row, a preview bar) shares its
+// slot with the layout; building and releasing both must neither leak nor double release (ASAN).
+TEST_CASE("resource-row: the settings dialog and a compact slot build and release cleanly")
+{
+    EditorContext context{DefaultAllocator()};
+    {
+        auto dialog = MakeRef<app::ProjectSettingsDialog>(DefaultAllocator(), context);
+        CHECK(dialog.Get() != nullptr);
+    }
+    {
+        Guid current;
+        const StringView types[] = {u8"SkeletonAsset"};
+        auto compact = MakeRef<app::CompactAssetSlot>(DefaultAllocator(), StringView(u8"Skeleton"),
+                                                      Span<const StringView>{types, 1});
+        compact->Editor().BindAsset(context, [&]() { return current; },
+                                    [&](const Guid& id) { current = id; });
+        compact->Build();
+        REQUIRE(compact->ChildCount() == 2u); // the caption, then the row's slot
+        auto* slot = Cast<app::AssetPickerSlot>(compact->GetChildAt(1));
+        REQUIRE(slot != nullptr);
+        auto skeleton = Drag(kMaterial, u8"SkeletonAsset");
+        CHECK(slot->OnDrop(skeleton.Get(), 0, 0) == ui::DragDropEffects::Link);
+        CHECK(current == kMaterial);
+    }
+}

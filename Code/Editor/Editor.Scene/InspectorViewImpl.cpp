@@ -1919,23 +1919,27 @@ namespace editor
         engine::script::ScriptBehavior& behavior = component->behaviors[index];
         SceneInspectorView* self = this;
 
-        // Script picker (AssetPickerDialog filtered to ScriptClass).
-        const StringView assetName =
-            behavior.script.id.IsNil() ? StringView(u8"(none)") : AssetNameFor(behavior.script.id);
-        auto picker = MakeRef<ResourceRefEditor>(MemoryAllocator(), StringView(u8"Script"),
-                                                 assetName, category, Span<const StringView>{});
+        // The behaviour's script class: the shared asset row (pick, drop and clear are one
+        // assignment, one undo step).
+        const StringView scriptTypes[] = {u8"ScriptClassAsset"};
+        auto picker = MakeRef<ResourceRefEditor>(
+            MemoryAllocator(), StringView(u8"Script"), AssetNameFor(behavior.script.id), category,
+            Span<const StringView>{scriptTypes, 1});
         ResourceRefEditor* pickerRaw = picker.Get();
-        pickerRaw->OnPick = [self, id, index]()
-        {
-            if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+        pickerRaw->BindAsset(
+            *m_editor,
+            [self, id, index]()
             {
-                return;
-            }
-            Array<String> typeNames;
-            typeNames.PushBack(String(u8"ScriptClassAsset"));
-            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-            dialog->OnPicked = [self, id, index](const Guid& picked)
+                const scene::EntityHandle live = self->m_edit->Resolve(id);
+                auto* mgr =
+                    self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+                engine::script::ScriptComponent* c =
+                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
+                return (c != nullptr && index < c->behaviors.Size())
+                           ? c->behaviors[index].script.id
+                           : Guid{};
+            },
+            [self, id, index](const Guid& picked)
             {
                 self->MutateScriptComponent(
                     id,
@@ -1950,26 +1954,8 @@ namespace editor
                         c.behaviors[index].script.SetId(picked);
                         c.behaviors[index].overrides.Clear(); // metadata changed
                     });
-            };
-            dialog->Show(self->Context);
-        };
-        AddEditor(
-            pickerRaw,
-            [self, id, index, pickerRaw]()
-            {
-                const scene::EntityHandle live = self->m_edit->Resolve(id);
-                auto* mgr =
-                    self->m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
-                engine::script::ScriptComponent* c =
-                    (mgr != nullptr && live.IsAssigned()) ? mgr->Get(live) : nullptr;
-                if (c == nullptr || index >= c->behaviors.Size())
-                {
-                    return;
-                }
-                const Guid target = c->behaviors[index].script.id;
-                pickerRaw->SetValueText(target.IsNil() ? StringView(u8"(none)")
-                                                       : self->AssetNameFor(target));
             });
+        AddEditor(pickerRaw, [pickerRaw]() { pickerRaw->Refresh(); });
 
         // Enabled toggle.
         auto enabled = MakeRef<ui::toolkit::BoolEditor>(
@@ -2378,43 +2364,32 @@ namespace editor
     {
         using foundation::script::ScriptPropertyType;
         using foundation::script::ScriptPropertyValue;
-        SceneInspectorView* self = this;
-        const String assetType = property.assetType.IsEmpty() ? String(u8"") : property.assetType;
+        // The harvested "AudioClip" maps to the "AudioClipAsset" source type; a property that
+        // names no type takes any asset.
+        String assetTypeName(property.assetType.AsView());
+        assetTypeName.Append(u8"Asset");
+        const StringView acceptedType = property.assetType.IsEmpty()
+                                            ? editor::app::AssetPickerSlot::kAnyAsset
+                                            : assetTypeName.AsView();
 
-        auto currentTarget = [access]() -> Guid { return access->effective().guid; };
-
-        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
-                                                 AssetNameFor(currentTarget()), category,
-                                                 Span<const StringView>{});
+        auto editor = MakeRef<ResourceRefEditor>(
+            MemoryAllocator(), property.name.AsView(), AssetNameFor(access->effective().guid),
+            category, Span<const StringView>{&acceptedType, 1});
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
         {
             raw->SetTooltip(property.description.AsView());
         }
-        raw->OnPick = [self, access, assetType]()
-        {
-            if (self->Context == nullptr || self->m_editor->Project() == nullptr)
-            {
-                return;
-            }
-            Array<String> typeNames;
-            // The harvested "AudioClip" maps to the "AudioClipAsset" source type.
-            String assetTypeName(assetType.AsView());
-            assetTypeName.Append(u8"Asset");
-            typeNames.PushBack(Move(assetTypeName));
-            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-            dialog->OnPicked = [access](const Guid& picked)
-            {
-                ScriptPropertyValue value;
-                value.kind = ScriptPropertyType::Asset;
-                value.guid = picked;
-                access->setOverride(value);
-            };
-            dialog->Show(self->Context);
-        };
-        AddEditor(raw, [self, currentTarget, raw]()
-                  { raw->SetValueText(self->AssetNameFor(currentTarget())); });
+        // Pick, drop and clear are one override write.
+        raw->BindAsset(*m_editor, [access]() { return access->effective().guid; },
+                       [access](const Guid& picked)
+                       {
+                           ScriptPropertyValue value;
+                           value.kind = ScriptPropertyType::Asset;
+                           value.guid = picked;
+                           access->setOverride(value);
+                       });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
     }
 
     void SceneInspectorView::BuildSceneScriptPropertyRows(const TypeInfo* settingsType,
@@ -2782,7 +2757,30 @@ namespace editor
                       });
             return;
         }
-        rawList->OnPickSlot = [self, id, type, propPtr](usize i)
+        // One write for a material slot, whether the material came from the picker or a drop.
+        auto assignSlot = [self, id, type, propPtr](usize i, const Guid& target)
+        {
+            self->MutateComponent(
+                id, type,
+                [propPtr, i, target](const Instance& comp)
+                {
+                    const Instance container(propPtr->address(comp), propPtr->type);
+                    const ContainerInfo& ci = *propPtr->type->container;
+                    if (i >= ContainerSize(ci, container))
+                    {
+                        return;
+                    }
+                    const Instance el = ContainerAddressAt(ci, container, i);
+                    if (el.Pointer() != nullptr && el.Type() == &TypeOf<MatRef>())
+                    {
+                        MatRef* r = static_cast<MatRef*>(el.Pointer());
+                        *r = MatRef{};
+                        r->SetId(target);
+                    }
+                });
+            self->m_forceRebuild = true;
+        };
+        rawList->OnPickSlot = [self, assignSlot](usize i)
         {
             if (self->Context == nullptr || self->m_editor->Project() == nullptr)
             {
@@ -2792,30 +2790,43 @@ namespace editor
             typeNames.PushBack(String(u8"MaterialAsset"));
             auto dialog = MakeRef<editor::app::AssetPickerDialog>(
                 self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-            dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
+            dialog->OnPicked = [assignSlot, i](const Guid& target) { assignSlot(i, target); };
+            dialog->Show(self->Context);
+        };
+        // A material list takes dropped materials: on a slot the same write as a pick, on the list
+        // an append. One mutation each, so one undo step each.
+        if (prop.type->container->elementType == &TypeOf<MatRef>())
+        {
+            Array<String> accepted;
+            accepted.PushBack(String(u8"MaterialAsset"));
+            rawList->SetAcceptedTypes(Move(accepted));
+            rawList->OnAssignSlot = assignSlot;
+            rawList->OnAppendDropped = [self, id, type, propPtr](const Guid& target)
             {
                 self->MutateComponent(
                     id, type,
-                    [propPtr, i, target](const Instance& comp)
+                    [propPtr, target](const Instance& comp)
                     {
                         const Instance container(propPtr->address(comp), propPtr->type);
                         const ContainerInfo& ci = *propPtr->type->container;
-                        if (i >= ContainerSize(ci, container))
-                        {
-                            return;
-                        }
-                        const Instance el = ContainerAddressAt(ci, container, i);
+                        const Instance el =
+                            ContainerEmplaceDefault(ci, container, ContainerSize(ci, container));
                         if (el.Pointer() != nullptr && el.Type() == &TypeOf<MatRef>())
                         {
-                            MatRef* r = static_cast<MatRef*>(el.Pointer());
-                            *r = MatRef{};
-                            r->SetId(target);
+                            static_cast<MatRef*>(el.Pointer())->SetId(target);
                         }
                     });
                 self->m_forceRebuild = true;
             };
-            dialog->Show(self->Context);
-        };
+            rawList->OnRejectedDrop = [self, rawList](StringView assetName, StringView typeName)
+            {
+                self->m_editor->Notify(
+                    editor::NoticeKind::Warning,
+                    editor::app::AssetPickerSlot::RejectionText(assetName, typeName,
+                                                                rawList->AcceptedTypes(), u8"list")
+                        .AsView());
+            };
+        }
 
         // One grid row for the whole property; the refresher recomputes the slot text and forces a
         // rebuild when the list changes (count/content) - e.g. from undo/redo, which Signature() misses.

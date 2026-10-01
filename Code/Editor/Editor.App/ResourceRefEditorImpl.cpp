@@ -36,6 +36,12 @@ namespace editor::app
     void ResourceRefEditor::BindAsset(editor::EditorContext& context, Function<Guid()> current,
                                       Function<void(const Guid&)> assign)
     {
+        BindAsset(context, Move(current), Move(assign), BindOptions{});
+    }
+
+    void ResourceRefEditor::BindAsset(editor::EditorContext& context, Function<Guid()> current,
+                                      Function<void(const Guid&)> assign, BindOptions options)
+    {
         m_context = &context;
         m_current = Move(current);
         m_assign = Move(assign);
@@ -64,31 +70,37 @@ namespace editor::app
         };
         OnAssignDropped = [self](const Guid& id) { self->Assign(id); };
         OnClear = [self]() { self->Assign(Guid{}); };
-        OnEdit = [self]()
+        OnEdit = Function<void()>{};
+        OnReveal = Function<void()>{};
+        if (options.edit)
         {
-            const Guid id = self->m_current();
-            if (!id.IsNil() && self->m_context->OpenAsset)
+            OnEdit = [self]()
             {
-                self->m_context->OpenAsset(id);
-            }
-        };
-        OnReveal = [self]()
+                const Guid id = self->m_current();
+                if (!id.IsNil() && self->m_context->OpenAsset)
+                {
+                    self->m_context->OpenAsset(id);
+                }
+            };
+        }
+        if (options.reveal)
         {
-            const Guid id = self->m_current();
-            if (!id.IsNil() && self->m_context->RevealAsset)
+            OnReveal = [self]()
             {
-                self->m_context->RevealAsset(id);
-            }
-        };
+                const Guid id = self->m_current();
+                if (!id.IsNil() && self->m_context->RevealAsset)
+                {
+                    self->m_context->RevealAsset(id);
+                }
+            };
+        }
         OnRejectedDrop = [self](StringView assetName, StringView typeName)
         {
-            const StringView wanted = self->m_acceptedTypes.IsEmpty()
-                                          ? StringView(u8"?")
-                                          : self->m_acceptedTypes[0].AsView();
-            self->m_context->Notify(editor::NoticeKind::Warning,
-                                    Format(u8"{} is a {} - this field takes {}", assetName,
-                                           typeName, wanted)
-                                        .AsView());
+            self->m_context->Notify(
+                editor::NoticeKind::Warning,
+                AssetPickerSlot::RejectionText(assetName, typeName, self->AcceptedTypes(),
+                                               u8"field")
+                    .AsView());
         };
         Refresh();
     }
@@ -100,7 +112,12 @@ namespace editor::app
             return;
         }
         const Guid id = m_current();
-        SetValueText(m_context->AssetNameFor(id));
+        m_boundHasValue = !id.IsNil();
+        SetValueText(id.IsNil() ? m_emptyText.AsView() : m_context->AssetNameFor(id));
+        if (m_slot.Get() != nullptr)
+        {
+            m_slot->SetValue(m_valueText.AsView(), HasValue());
+        }
         SetPreviewThumbnail((!id.IsNil() && m_context->Thumbnails() != nullptr)
                                 ? m_context->Thumbnails()->Get(id)
                                 : RefPtr<ui::Drawable>{});
@@ -125,6 +142,9 @@ namespace editor::app
         {
             return;
         }
+        // The write may rebuild the grid that holds this row (a headless rebuild is
+        // synchronous): the row outlives its own assignment.
+        RefPtr<ResourceRefEditor> keepAlive(this);
         m_assign(id);
         Refresh();
     }

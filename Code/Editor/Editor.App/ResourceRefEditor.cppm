@@ -32,6 +32,12 @@ export namespace editor::app
     {
         RTTI_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
     public:
+        struct BindOptions
+        {
+            bool edit = true;   // the edit verb opens the bound asset
+            bool reveal = true; // the reveal verb shows it in the asset browser
+        };
+
         Function<void()> OnPick;   // opens the picker
         Function<void()> OnEdit;   // open-for-editing (EditorContext::OpenAsset routing)
         Function<void()> OnClear;  // clears the reference
@@ -49,14 +55,23 @@ export namespace editor::app
         /// - a drop of an accepted type is assigned, the same write; a refused one is reported;
         /// - clear assigns the nil id;
         /// - edit and reveal open and show the asset `current` names.
-        /// The row shows `current` from then on (Refresh).
+        /// The row shows `current` from then on (Refresh), and refreshes after every assignment;
+        /// it holds itself across `assign`, so a write that rebuilds the row's grid is safe.
+        /// `options` drops the edit and reveal verbs for a field whose asset is not opened from
+        /// here.
         void BindAsset(editor::EditorContext& context, Function<Guid()> current,
                        Function<void(const Guid&)> assign);
+        void BindAsset(editor::EditorContext& context, Function<Guid()> current,
+                       Function<void(const Guid&)> assign, BindOptions options);
 
         /// Re-reads the bound asset: its name, and its thumbnail when the context has one.
         void Refresh();
 
         void SetValueText(StringView text);
+        /// What a bound row shows for the nil id: "(none)", or what nil means for the field (a
+        /// preview's default shape). Set before binding.
+        void SetEmptyText(StringView text) { m_emptyText = String(text); }
+        [[nodiscard]] StringView EmptyText() const noexcept { return m_emptyText.AsView(); }
         [[nodiscard]] StringView ValueText() const noexcept { return m_valueText.AsView(); }
         [[nodiscard]] Span<const String> AcceptedTypes() const noexcept
         {
@@ -84,13 +99,16 @@ export namespace editor::app
     private:
         void Assign(const Guid& id);
 
-        /// A "(missing)" reference still has a value: it can be cleared.
+        /// A bound row has a value when its id is set (a "(missing)" one can still be cleared);
+        /// an unbound row reads its text.
         [[nodiscard]] bool HasValue() const
         {
-            return m_valueText.AsView() != StringView(u8"(none)");
+            return m_current ? m_boundHasValue : m_valueText.AsView() != StringView(u8"(none)");
         }
 
         String m_valueText;
+        String m_emptyText{u8"(none)"};
+        bool m_boundHasValue = false;
         ui::SVGDrawable* m_previewIcon = nullptr; // borrowed (EditorIcons)
         Array<String> m_acceptedTypes;
         RefPtr<AssetPickerSlot> m_slot;

@@ -498,47 +498,20 @@ namespace editor
                 StringView(u8"Preview"));
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(shape.Get()));
 
-            auto meshName = [self]() -> StringView
-            {
-                if (self->m_previewMeshGuid.IsNil())
-                {
-                    return u8"(primitive)";
-                }
-                if (self->m_context->Project() != nullptr)
-                {
-                    if (foundation::content::Instance* inst =
-                            self->m_context->Project()->SourceDb().GetInstance(
-                                self->m_previewMeshGuid))
-                    {
-                        return inst->Name();
-                    }
-                }
-                return u8"(missing)";
-            };
+            // The preview mesh: nil is the primitive shape above.
+            const StringView meshTypes[] = {u8"StaticMeshAsset", u8"SkinnedMeshAsset"};
             auto meshRow = MakeRef<ResourceRefEditor>(Allocator(), StringView(u8"Mesh"),
-                                                      meshName(), StringView(u8"Preview"),
-                                                      Span<const StringView>{});
-            ResourceRefEditor* meshRaw = meshRow.Get();
-            meshRow->OnPick = [self, meshRaw, meshName]()
-            {
-                if (self->m_content->Context == nullptr || self->m_context->Project() == nullptr)
-                {
-                    return;
-                }
-                Array<String> typeNames;
-                typeNames.PushBack(String(u8"StaticMeshAsset"));
-                typeNames.PushBack(String(u8"SkinnedMeshAsset"));
-                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    self->Allocator(), *self->m_context, Move(typeNames));
-                dialog->OnPicked = [self, meshRaw, meshName](const Guid& picked)
-                {
-                    self->m_previewMeshGuid = picked; // nil (Clear) = back to the primitive
-                    self->ApplyPreviewMesh();
-                    self->SavePreviewPref();
-                    meshRaw->SetValueText(meshName());
-                };
-                dialog->Show(self->m_content->Context);
-            };
+                                                      StringView(u8"(primitive)"),
+                                                      StringView(u8"Preview"),
+                                                      Span<const StringView>{meshTypes, 2});
+            meshRow->SetEmptyText(u8"(primitive)");
+            meshRow->BindAsset(*m_context, [self]() { return self->m_previewMeshGuid; },
+                               [self](const Guid& picked)
+                               {
+                                   self->m_previewMeshGuid = picked;
+                                   self->ApplyPreviewMesh();
+                                   self->SavePreviewPref();
+                               });
             m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(meshRow.Get()));
         }
 
@@ -689,22 +662,16 @@ namespace editor
             }
             return Guid{};
         };
+        const StringView textureTypes[] = {u8"TextureAsset"};
         auto editor = MakeRef<ResourceRefEditor>(Allocator(), slot.AsView(),
                                                  AssetNameFor(target()), StringView(u8"Textures"),
-                                                 Span<const StringView>{});
+                                                 Span<const StringView>{textureTypes, 1});
         editor->SetDisplayName(PrettifyPropertyName(slot.AsView()).AsView());
         ResourceRefEditor* raw = editor.Get();
-        raw->OnPick = [self, slot]()
-        {
-            if (self->Context() == nullptr || self->m_context->Project() == nullptr)
-            {
-                return;
-            }
-            Array<String> typeNames;
-            typeNames.PushBack(String(u8"TextureAsset"));
-            auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                self->Allocator(), *self->m_context, Move(typeNames));
-            dialog->OnPicked = [self, slot](const Guid& picked)
+        // Pick, drop and clear are one write: nil removes the slot's binding.
+        raw->BindAsset(
+            *m_context, target,
+            [self, slot](const Guid& picked)
             {
                 self->ApplyEdit(slot.AsView(),
                                 Function<void(materials::MaterialSource&)>{
@@ -733,10 +700,8 @@ namespace editor
                                             s.textureIds.PushBack(picked);
                                         }
                                     }});
-            };
-            dialog->Show(self->Context());
-        };
-        AddEditor(raw, [self, target, raw]() { raw->SetValueText(self->AssetNameFor(target())); });
+            });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
     }
 
     StringView MaterialEditorPage::AssetNameFor(const Guid& target)

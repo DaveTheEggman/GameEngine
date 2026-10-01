@@ -195,6 +195,8 @@ export namespace editor
         // the property-grid views, so it must not run while the grid is dispatching). Used by the enum
         // rows whose selection changes which sections/fields are visible (render mode, emission mode).
         void QueueInspectorRebuild();
+        // One write for a system's material slot, whether the material came from a pick or a drop.
+        void AssignMaterial(i32 sysIndex, usize slot, const Guid& picked);
         void BuildEffectInspector();
         void BuildSystemInspector(particles::ParticleSystem& sys);
         void BuildEmitterInspector(particles::ParticleSystem& sys);

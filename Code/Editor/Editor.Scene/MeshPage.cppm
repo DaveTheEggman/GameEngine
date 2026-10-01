@@ -84,7 +84,8 @@ export namespace editor
 
         // Preview material: pick a MaterialAsset to render the preview with (else the neutral
         // default). ApplyPreviewMaterial pushes the current choice onto the MeshComponent.
-        void PickPreviewMaterial();
+        // The preview's material, nil for the default; persisted as a preview preference.
+        void SetPreviewMaterial(const Guid& picked);
         void ApplyPreviewMaterial();
         // Push the LOD row's choice onto the preview MeshComponent's forceLod knob.
         void ApplyPreviewLod();
@@ -111,7 +112,7 @@ export namespace editor
         resource::Proxy<materials::Material> m_previewMaterial; // chosen override (null = default)
         Guid m_previewMaterialId;                               // its source guid (for the label)
         i32 m_previewForceLod = -1; // the LOD row's choice (-1 = auto), pushed to forceLod
-        RefPtr<foundation::ui::Button> m_materialButton;        // the "Material: <name>" picker
+        RefPtr<app::ResourceRefEditor> m_previewMaterialRow;   // the stats column's material slot
 
         resource::Proxy<geometry::StaticMesh> m_meshProxy; // the cooked product (follows reloads)
         u64 m_lastUid = 0;                                 // product identity - detects hot-reload

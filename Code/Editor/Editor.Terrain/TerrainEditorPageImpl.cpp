@@ -231,6 +231,7 @@ namespace editor
         {
             m_fields->RemoveView(m_fields->GetChildAt(0), true);
         }
+        m_referenceRows.Clear();
         TerrainEditorPage* self = this;
 
         const auto addLabel = [&](StringView text, f32 fontSize)
@@ -247,154 +248,62 @@ namespace editor
             m_fields->AddView(btn.Get());
         };
 
-        // References
+        // References: each a labelled asset slot (pick, drop and clear are one assignment).
         addLabel(u8"References", 13.0f);
+        AddReference(u8"Heightfield", u8"HeightfieldAsset", u8"heightfield",
+                     [self]() { return self->m_asset->heightfieldId; },
+                     [self](const Guid& g) { self->m_asset->heightfieldId = g; });
+        AddReference(u8"Weights", u8"SplatmapAsset", u8"weights",
+                     [self]() { return self->m_asset->weightsId; },
+                     [self](const Guid& g) { self->m_asset->weightsId = g; });
+        // No weights yet: offer to author them (the Splat Paint tool needs an existing raster).
+        // Resolution is an authoring choice independent of the heightfield (Fable Q3) - presets.
+        if (m_asset->weightsId.IsNil())
         {
-            const String t = Format(u8"Heightfield: {}", AssetName(m_context, m_asset->heightfieldId));
-            addButton(t.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"HeightfieldAsset", u8"heightfield",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->heightfieldId = g; }});
-                      });
-        }
-        {
-            const String t = Format(u8"Weights: {}", AssetName(m_context, m_asset->weightsId));
-            addButton(t.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"SplatmapAsset", u8"weights",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->weightsId = g; }});
-                      });
-            // No weights yet: offer to author them (the Splat Paint tool needs an existing raster).
-            // Resolution is an authoring choice independent of the heightfield (Fable Q3) - presets.
-            if (m_asset->weightsId.IsNil())
-            {
-                addLabel(u8"Create weights:", 11.0f);
-                addButton(u8"512", [self]() { self->CreateSplatmap(512); });
-                addButton(u8"1024", [self]() { self->CreateSplatmap(1024); });
-                addButton(u8"2048", [self]() { self->CreateSplatmap(2048); });
-            }
+            addLabel(u8"Create weights:", 11.0f);
+            addButton(u8"512", [self]() { self->CreateSplatmap(512); });
+            addButton(u8"1024", [self]() { self->CreateSplatmap(1024); });
+            addButton(u8"2048", [self]() { self->CreateSplatmap(2048); });
         }
 
         // BASE layer: what shows wherever paint doesn't cover; never painted (top-K model).
         addLabel(u8"Base layer", 13.0f);
-        {
-            const String t =
-                Format(u8"Base albedo: {}", AssetName(m_context, m_asset->baseAlbedoId));
-            addButton(t.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"baseAlbedo",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->baseAlbedoId = g; }});
-                      });
-            const String tn =
-                Format(u8"Base normal: {}", AssetName(m_context, m_asset->baseNormalId));
-            addButton(tn.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"baseNormal",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->baseNormalId = g; }});
-                      });
-            const String to =
-                Format(u8"Base ORM: {}", AssetName(m_context, m_asset->baseOrmId));
-            addButton(to.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"baseOrm",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->baseOrmId = g; }});
-                      });
-            const String th =
-                Format(u8"Base height: {}", AssetName(m_context, m_asset->baseHeightId));
-            addButton(th.AsView(),
-                      [self]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"baseHeight",
-                                              core::Function<void(const Guid&)>{
-                                                  [self](const Guid& g)
-                                                  { self->m_asset->baseHeightId = g; }});
-                      });
-        }
+        AddReference(u8"Base albedo", u8"TextureAsset", u8"baseAlbedo",
+                     [self]() { return self->m_asset->baseAlbedoId; },
+                     [self](const Guid& g) { self->m_asset->baseAlbedoId = g; });
+        AddReference(u8"Base normal", u8"TextureAsset", u8"baseNormal",
+                     [self]() { return self->m_asset->baseNormalId; },
+                     [self](const Guid& g) { self->m_asset->baseNormalId = g; });
+        AddReference(u8"Base ORM", u8"TextureAsset", u8"baseOrm",
+                     [self]() { return self->m_asset->baseOrmId; },
+                     [self](const Guid& g) { self->m_asset->baseOrmId = g; });
+        AddReference(u8"Base height", u8"TextureAsset", u8"baseHeight",
+                     [self]() { return self->m_asset->baseHeightId; },
+                     [self](const Guid& g) { self->m_asset->baseHeightId = g; });
 
         // PAINT palette: the unbounded layer list (add/remove; removal remaps the weight raster).
         addLabel(Format(u8"Paint layers ({})", m_asset->paletteAlbedoIds.Size()).AsView(), 13.0f);
         for (u32 i = 0; i < m_asset->paletteAlbedoIds.Size(); ++i)
         {
-            const String t = Format(u8"Layer {} albedo: {}", i,
-                                    AssetName(m_context, m_asset->paletteAlbedoIds[i]));
             const u32 idx = i;
-            addButton(t.AsView(),
-                      [self, idx]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"palette",
-                                              core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g)
-                                                  {
-                                                      if (idx <
-                                                          self->m_asset->paletteAlbedoIds.Size())
-                                                      {
-                                                          self->m_asset->paletteAlbedoIds[idx] = g;
-                                                      }
-                                                  }});
-                      });
-            const Guid nId = idx < m_asset->paletteNormalIds.Size() ? m_asset->paletteNormalIds[idx]
-                                                                    : Guid{};
-            const String tn = Format(u8"Layer {} normal: {}", i, AssetName(m_context, nId));
-            addButton(tn.AsView(),
-                      [self, idx]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"paletteNormal",
-                                              core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g) {
-                                                      self->SetPaletteMap(PaletteMap::Normal, idx, g);
-                                                  }});
-                      });
-            const Guid oId =
-                idx < m_asset->paletteOrmIds.Size() ? m_asset->paletteOrmIds[idx] : Guid{};
-            const String to = Format(u8"Layer {} ORM: {}", i, AssetName(m_context, oId));
-            addButton(to.AsView(),
-                      [self, idx]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"paletteOrm",
-                                              core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g) {
-                                                      self->SetPaletteMap(PaletteMap::Orm, idx, g);
-                                                  }});
-                      });
-            const Guid hId =
-                idx < m_asset->paletteHeightIds.Size() ? m_asset->paletteHeightIds[idx] : Guid{};
-            const String th = Format(u8"Layer {} height: {}", i, AssetName(m_context, hId));
-            addButton(th.AsView(),
-                      [self, idx]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"paletteHeight",
-                                              core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g) {
-                                                      self->SetPaletteMap(PaletteMap::Height, idx, g);
-                                                  }});
-                      });
-            const Guid mId =
-                idx < m_asset->paletteMaskIds.Size() ? m_asset->paletteMaskIds[idx] : Guid{};
-            const String tm = Format(u8"Layer {} mask: {}", i, AssetName(m_context, mId));
-            addButton(tm.AsView(),
-                      [self, idx]()
-                      {
-                          self->PickReference(u8"TextureAsset", u8"paletteMask",
-                                              core::Function<void(const Guid&)>{
-                                                  [self, idx](const Guid& g) {
-                                                      self->SetPaletteMap(PaletteMap::Mask, idx, g);
-                                                  }});
-                      });
+            AddReference(Format(u8"Layer {} albedo", i).AsView(), u8"TextureAsset", u8"palette",
+                         [self, idx]()
+                         {
+                             return idx < self->m_asset->paletteAlbedoIds.Size()
+                                        ? self->m_asset->paletteAlbedoIds[idx]
+                                        : Guid{};
+                         },
+                         [self, idx](const Guid& g)
+                         {
+                             if (idx < self->m_asset->paletteAlbedoIds.Size())
+                             {
+                                 self->m_asset->paletteAlbedoIds[idx] = g;
+                             }
+                         });
+            AddMapReference(idx, u8"normal", PaletteMap::Normal, u8"paletteNormal");
+            AddMapReference(idx, u8"ORM", PaletteMap::Orm, u8"paletteOrm");
+            AddMapReference(idx, u8"height", PaletteMap::Height, u8"paletteHeight");
+            AddMapReference(idx, u8"mask", PaletteMap::Mask, u8"paletteMask");
             addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
         }
         addButton(u8"+ Add paint layer", [self]() { self->AddLayer(); });
@@ -477,28 +386,50 @@ namespace editor
         }
     }
 
-    void TerrainEditorPage::PickReference(StringView assetTypeName, StringView mergeKey,
-                                          core::Function<void(const Guid&)> apply)
+    void TerrainEditorPage::AddReference(StringView label, StringView assetTypeName,
+                                         StringView mergeKey, core::Function<Guid()> current,
+                                         core::Function<void(const Guid&)> apply)
     {
-        ui::UIContext* ctx = m_content.Get() != nullptr ? m_content->Context : nullptr;
-        if (ctx == nullptr)
-        {
-            return;
-        }
         TerrainEditorPage* self = this;
-        String key(mergeKey);
-        Array<String> types;
-        types.PushBack(String(assetTypeName));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self, applyFn = Move(apply), key](const Guid& picked)
-        {
-            applyFn(picked);
-            self->CommitEdit(key.AsView());
-            self->PointComponentAtTerrain(self->m_terrainProxy ? self->m_terrainProxy.Get()
-                                                               : nullptr);
-            self->RebuildFieldsDeferred();
-        };
-        dialog->Show(ctx);
+        const StringView types[] = {assetTypeName};
+        auto row = MakeRef<app::ResourceRefEditor>(Allocator(), label, StringView(u8"(none)"),
+                                                   StringView{}, Span<const StringView>{types, 1});
+        // The write rebuilds this pane, deferred, so the row outlives its own assignment.
+        row->BindAsset(*m_context, Move(current),
+                       [self, applyFn = Move(apply), key = String(mergeKey)](const Guid& picked)
+                       {
+                           applyFn(picked);
+                           self->CommitEdit(key.AsView());
+                           self->PointComponentAtTerrain(
+                               self->m_terrainProxy ? self->m_terrainProxy.Get() : nullptr);
+                           self->RebuildFieldsDeferred();
+                       });
+
+        auto line = MakeRef<ui::FlexLayout>(Allocator());
+        line->Direction = ui::Orientation::Horizontal;
+        line->Spacing = 6.0f;
+        auto text = MakeRef<ui::Label>(Allocator(), label);
+        text->FontSize.SetValue(Optional<f32>{12.0f});
+        ui::LayoutStyle fixedWidth;
+        fixedWidth.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(110.0f));
+        fixedWidth.AlignSelf = ui::Align::Center;
+        line->AddView(text.Get(), fixedWidth);
+        ui::LayoutStyle grow;
+        grow.FlexGrow = 1.0f;
+        line->AddView(row->EditorView(), grow);
+        ui::LayoutStyle style;
+        style.Width = ui::SizeSpec::Match();
+        m_fields->AddView(line.Get(), style);
+        m_referenceRows.PushBack(Move(row));
+    }
+
+    void TerrainEditorPage::AddMapReference(u32 index, StringView mapLabel, PaletteMap map,
+                                            StringView mergeKey)
+    {
+        TerrainEditorPage* self = this;
+        AddReference(Format(u8"Layer {} {}", index, mapLabel).AsView(), u8"TextureAsset", mergeKey,
+                     [self, index, map]() { return self->PaletteMapId(map, index); },
+                     [self, index, map](const Guid& g) { self->SetPaletteMap(map, index, g); });
     }
 
     void TerrainEditorPage::AddLayer()
@@ -520,16 +451,31 @@ namespace editor
 
     // Set a per-layer normal / ORM / height / mask map id, growing the (optional) target array to match
     // the albedo list first so an older terrain with no maps still edits cleanly.
+    Array<Guid>& TerrainEditorPage::PaletteMapIds(PaletteMap map) const
+    {
+        return (map == PaletteMap::Normal)   ? m_asset->paletteNormalIds
+               : (map == PaletteMap::Orm)    ? m_asset->paletteOrmIds
+               : (map == PaletteMap::Height) ? m_asset->paletteHeightIds
+                                             : m_asset->paletteMaskIds;
+    }
+
+    Guid TerrainEditorPage::PaletteMapId(PaletteMap map, u32 index) const
+    {
+        if (m_asset.Get() == nullptr)
+        {
+            return Guid{};
+        }
+        const Array<Guid>& ids = PaletteMapIds(map);
+        return index < ids.Size() ? ids[index] : Guid{};
+    }
+
     void TerrainEditorPage::SetPaletteMap(PaletteMap map, u32 index, const Guid& g)
     {
         if (m_asset.Get() == nullptr || index >= m_asset->paletteAlbedoIds.Size())
         {
             return;
         }
-        Array<Guid>& ids = (map == PaletteMap::Normal)   ? m_asset->paletteNormalIds
-                           : (map == PaletteMap::Orm)    ? m_asset->paletteOrmIds
-                           : (map == PaletteMap::Height) ? m_asset->paletteHeightIds
-                                                         : m_asset->paletteMaskIds;
+        Array<Guid>& ids = PaletteMapIds(map);
         while (ids.Size() < m_asset->paletteAlbedoIds.Size())
         {
             ids.PushBack(Guid{});

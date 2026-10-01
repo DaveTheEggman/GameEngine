@@ -48,22 +48,6 @@ namespace fonts = foundation::fonts;
 
 namespace editor
 {
-    // "Prefix: <asset name>" (or (none)/(missing)) - the transport button labels.
-    static String ClipPickLabel(EditorContext& ctx, StringView prefix, const Guid& id)
-    {
-        String label(prefix);
-        if (ctx.Project() != nullptr && !id.IsNil())
-        {
-            foundation::content::Instance* inst = ctx.Project()->SourceDb().GetInstance(id);
-            label.Append(inst != nullptr ? inst->Name() : StringView(u8"(missing)"));
-        }
-        else
-        {
-            label.Append(u8"(none)");
-        }
-        return label;
-    }
-
     // Per-asset clip-preview prefs: {clipGuid -> (skeleton guid, skinned-mesh guid)} - a section in
     // the per-project editor-settings store, so a reopened clip viewer restores its preview rig.
     struct ClipPreviewPref
@@ -139,13 +123,34 @@ namespace editor
         transport->Padding = ui::Thickness{6, 4};
         {
             AnimationClipEditorPage* self = this;
-            m_skeletonButton =
-                MakeRef<ui::Button>(Allocator(), StringView(u8"Skeleton: (none)"));
-            m_skeletonButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewSkeleton(); });
-            transport->AddView(m_skeletonButton.Get());
-            m_meshButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Mesh: (none)"));
-            m_meshButton->OnClick.Add([self](ui::ButtonBase*) { self->PickPreviewMesh(); });
-            transport->AddView(m_meshButton.Get());
+            // The preview rig: compact asset slots (pick, drop and clear are one assignment).
+            const StringView skeletonTypes[] = {u8"SkeletonAsset"};
+            m_skeletonSlot = MakeRef<app::CompactAssetSlot>(
+                Allocator(), StringView(u8"Skeleton"), Span<const StringView>{skeletonTypes, 1});
+            m_skeletonSlot->Editor().BindAsset(*m_context,
+                                               [self]() { return self->m_skeletonGuid; },
+                                               [self](const Guid& picked)
+                                               {
+                                                   self->SetPreviewSkeleton(picked);
+                                                   self->SavePreviewPref();
+                                               });
+            m_skeletonSlot->Build();
+            const StringView meshTypes[] = {u8"SkinnedMeshAsset"};
+            m_meshSlot = MakeRef<app::CompactAssetSlot>(Allocator(), StringView(u8"Mesh"),
+                                                        Span<const StringView>{meshTypes, 1});
+            m_meshSlot->Editor().BindAsset(*m_context, [self]() { return self->m_previewMeshId; },
+                                           [self](const Guid& picked)
+                                           {
+                                               self->SetPreviewMesh(picked);
+                                               self->SavePreviewPref();
+                                           });
+            m_meshSlot->Build();
+            {
+                ui::LayoutStyle slot;
+                slot.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(200.0f));
+                transport->AddView(m_skeletonSlot.Get(), slot);
+                transport->AddView(m_meshSlot.Get(), slot);
+            }
             m_playButton = MakeRef<ui::Button>(Allocator(), StringView(u8"Pause"));
             m_playButton->OnClick.Add(
                 [self](ui::ButtonBase*)
@@ -228,41 +233,8 @@ namespace editor
             {
                 continue;
             }
-            m_skeletonGuid = p.skeleton;
-            if (!p.skeleton.IsNil() && m_context->Resources() != nullptr)
-            {
-                m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(p.skeleton);
-            }
-            if (m_skeletonButton.Get() != nullptr)
-            {
-                m_skeletonButton->SetText(
-                    ClipPickLabel(*m_context, u8"Skeleton: ", p.skeleton).AsView());
-            }
-
-            m_previewMeshId = p.mesh;
-            if (!p.mesh.IsNil() && m_context->Resources() != nullptr)
-            {
-                m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(p.mesh);
-            }
-            // Point the preview MeshComponent at the restored mesh (bone matrices feed per frame).
-            scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
-            if (scenePtr != nullptr)
-            {
-                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
-                {
-                    if (auto* mc = meshes->Get(m_meshEntity))
-                    {
-                        if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
-                        {
-                            mc->mesh = pm;
-                        }
-                    }
-                }
-            }
-            if (m_meshButton.Get() != nullptr)
-            {
-                m_meshButton->SetText(ClipPickLabel(*m_context, u8"Mesh: ", p.mesh).AsView());
-            }
+            SetPreviewSkeleton(p.skeleton);
+            SetPreviewMesh(p.mesh);
             return;
         }
     }
@@ -318,117 +290,59 @@ namespace editor
         }
     }
 
-    void AnimationClipEditorPage::PickPreviewSkeleton()
+    void AnimationClipEditorPage::SetPreviewSkeleton(const Guid& id)
     {
-        ui::UIContext* ctx = Ctx();
-        if (ctx == nullptr || m_context->Project() == nullptr)
+        m_skeletonGuid = id;
+        if (m_context->Resources() != nullptr && !id.IsNil())
         {
-            return;
+            m_skeleton = m_context->Resources()->Bind<animation::Skeleton>(id);
         }
-        AnimationClipEditorPage* self = this;
-        Array<String> types;
-        types.PushBack(String(u8"SkeletonAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self](const Guid& picked)
+        else
         {
-            self->m_skeletonGuid = picked;
-            if (self->m_context->Resources() != nullptr && !picked.IsNil())
-            {
-                self->m_skeleton = self->m_context->Resources()->Bind<animation::Skeleton>(picked);
-            }
-            else
-            {
-                self->m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
-            }
-            String label(u8"Skeleton: ");
-            if (self->m_context->Project() != nullptr && !picked.IsNil())
-            {
-                if (foundation::content::Instance* inst =
-                        self->m_context->Project()->SourceDb().GetInstance(picked))
-                {
-                    label.Append(inst->Name());
-                }
-                else
-                {
-                    label.Append(u8"(missing)");
-                }
-            }
-            else
-            {
-                label.Append(u8"(none)");
-            }
-            self->m_skeletonButton->SetText(label.AsView());
-            self->SavePreviewPref();
-        };
-        dialog->Show(ctx);
+            m_skeleton = foundation::resource::Proxy<animation::Skeleton>{};
+        }
+        if (m_skeletonSlot.Get() != nullptr)
+        {
+            m_skeletonSlot->Editor().Refresh();
+        }
     }
 
-    void AnimationClipEditorPage::PickPreviewMesh()
+    void AnimationClipEditorPage::SetPreviewMesh(const Guid& id)
     {
-        ui::UIContext* ctx = Ctx();
-        if (ctx == nullptr || m_context->Project() == nullptr)
+        m_previewMeshId = id;
+        if (m_context->Resources() != nullptr && !id.IsNil())
         {
-            return;
+            m_previewMesh = m_context->Resources()->Bind<foundation::geometry::StaticMesh>(id);
         }
-        AnimationClipEditorPage* self = this;
-        Array<String> types;
-        types.PushBack(String(u8"SkinnedMeshAsset"));
-        auto dialog = MakeRef<app::AssetPickerDialog>(Allocator(), *m_context, Move(types));
-        dialog->OnPicked = [self](const Guid& picked)
+        else
         {
-            self->m_previewMeshId = picked;
-            if (self->m_context->Resources() != nullptr && !picked.IsNil())
+            m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
+        }
+        // Point the preview MeshComponent at the mesh (bone matrices feed per frame).
+        scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
+        if (scenePtr != nullptr)
+        {
+            if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
             {
-                self->m_previewMesh =
-                    self->m_context->Resources()->Bind<foundation::geometry::StaticMesh>(picked);
-            }
-            else
-            {
-                self->m_previewMesh = foundation::resource::Proxy<foundation::geometry::StaticMesh>{};
-            }
-            // Point the preview MeshComponent at the picked mesh (bone matrices feed per frame).
-            scene::Scene* scenePtr = self->m_preview ? self->m_preview->Scene() : nullptr;
-            if (scenePtr != nullptr)
-            {
-                if (auto* meshes = scenePtr->GetSystem<engine::render::MeshComponentManager>())
+                if (auto* mc = meshes->Get(m_meshEntity))
                 {
-                    if (auto* mc = meshes->Get(self->m_meshEntity))
+                    if (foundation::geometry::StaticMesh* pm = m_previewMesh.Get())
                     {
-                        foundation::geometry::StaticMesh* pm = self->m_previewMesh.Get();
-                        if (pm != nullptr)
-                        {
-                            mc->mesh = pm;
-                        }
-                        else
-                        {
-                            mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
-                            mc->boneMatrices = nullptr;
-                            mc->boneCount = 0;
-                        }
+                        mc->mesh = pm;
+                    }
+                    else
+                    {
+                        mc->mesh.SetDirect(RefPtr<foundation::geometry::StaticMesh>{});
+                        mc->boneMatrices = nullptr;
+                        mc->boneCount = 0;
                     }
                 }
             }
-            String label(u8"Mesh: ");
-            if (self->m_context->Project() != nullptr && !picked.IsNil())
-            {
-                if (foundation::content::Instance* inst =
-                        self->m_context->Project()->SourceDb().GetInstance(picked))
-                {
-                    label.Append(inst->Name());
-                }
-                else
-                {
-                    label.Append(u8"(missing)");
-                }
-            }
-            else
-            {
-                label.Append(u8"(none)");
-            }
-            self->m_meshButton->SetText(label.AsView());
-            self->SavePreviewPref();
-        };
-        dialog->Show(ctx);
+        }
+        if (m_meshSlot.Get() != nullptr)
+        {
+            m_meshSlot->Editor().Refresh();
+        }
     }
 
     void AnimationClipEditorPage::UpdatePreview(f32 dt)

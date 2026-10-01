@@ -176,7 +176,10 @@ export namespace editor
         // --- live preview ---
         // The preview scene exists only as a debug-draw + camera surface (no entities): the
         // graph plays through an AnimationGraphPlayer and the skeleton draws as a wireframe.
-        void PickPreviewSkeleton();
+        // The preview rig's skeleton and skinned mesh (nil clears); the slots show them.
+        void SetPreviewSkeleton(const Guid& id);
+        // A state's node, or null when the indices name none.
+        [[nodiscard]] animation::GraphNodeData* StateNode(i32 layer, i32 state) const;
         // Persist / restore the preview rig (skeleton + skinned mesh) per graph (project settings).
         void LoadPreviewPref();
         void SavePreviewPref();
@@ -212,9 +215,9 @@ export namespace editor
 
         // preview world (shared substrate hosts a scene; wireframe + optional skinned mesh)
         UniquePtr<PreviewViewport> m_preview;
-        void PickPreviewMesh(); // pick a SkinnedMeshAsset to skin with the graph pose
-        RefPtr<ui::Button> m_skeletonButton; // shows the picked skeleton's name
-        RefPtr<ui::Button> m_meshButton;     // shows the picked preview mesh's name
+        void SetPreviewMesh(const Guid& id); // the SkinnedMeshAsset skinned with the graph pose
+        RefPtr<app::CompactAssetSlot> m_skeletonSlot; // the preview skeleton
+        RefPtr<app::CompactAssetSlot> m_meshSlot;     // the preview mesh
         RefPtr<ui::Button> m_skeletonToggle; // wireframe on/off
         RefPtr<ui::Button> m_meshToggle;     // skinned mesh on/off
         RefPtr<ui::Button> m_playButton;

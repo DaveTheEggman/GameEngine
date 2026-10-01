@@ -13,6 +13,8 @@ import foundation.core;
 import foundation.content;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.resource;
+import foundation.materials;
 import engine.render;
 import foundation.ui;
 import foundation.ui.toolkit;
@@ -752,4 +754,73 @@ TEST_CASE("inspector: a list of reflected structs gets a per-slot expander of le
         slot2Present |= inspector.Grid()->PropertyAt(i)->Category() == u8"Layers 2";
     }
     CHECK(!slot2Present);
+}
+
+// editor-lists-and-asset-slots P1 (Sedulous 71c65cf0): a generated asset list takes a dropped
+// asset of its type. On a slot the drop is the slot's assignment, on the list it appends, each as
+// ONE undo step; a wrong type changes nothing.
+TEST_CASE("inspector: the materials list takes drops, each one undo step; a wrong type is refused")
+{
+    engine::render::RegisterRenderComponentReflection();
+    scene::Scene scene{DefaultAllocator()};
+    auto* meshes = scene.AddSystem<engine::render::MeshComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    EditorContext editor{DefaultAllocator()};
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
+
+    const Guid crate = edit.CreateEntity(u8"Crate");
+    meshes->Add(scene.FindEntity(crate))
+        .materials.PushBack(foundation::resource::Ref<foundation::materials::Material>{});
+    edit.EntitySelection().Set(crate);
+    inspector.Refresh();
+    auto materials = [&]() -> auto& { return meshes->Get(scene.FindEntity(crate))->materials; };
+
+    const Guid meshId{0x3333, 3};
+    const Guid materialId{0x4444, 4};
+    auto list = [&]()
+    {
+        return foundation::core::Cast<editor::app::ContainerListEditor>(
+            inspector.Grid()->GetProperty(u8"Materials"));
+    };
+    REQUIRE(list() != nullptr);
+    REQUIRE(list()->AcceptedTypes().Size() == 1u);
+    auto* column = foundation::core::Cast<foundation::ui::ViewGroup>(list()->EditorView());
+    auto* firstSlot = foundation::core::Cast<editor::app::AssetPickerSlot>(
+        foundation::core::Cast<foundation::ui::ViewGroup>(column->GetChildAt(1))->GetChildAt(0));
+    REQUIRE(firstSlot != nullptr);
+
+    // A mesh is refused on the slot.
+    auto mesh = MakeRef<editor::app::AssetDragData>(DefaultAllocator(), meshId,
+                                                    StringView(u8"StaticMeshAsset"),
+                                                    StringView(u8"crate"));
+    const usize before = commands.Size();
+    CHECK(firstSlot->OnDrop(mesh.Get(), 0, 0) == foundation::ui::DragDropEffects::None);
+    CHECK(commands.Size() == before);
+    CHECK(materials()[0].id.IsNil());
+
+    // A material on the slot assigns it.
+    auto material = MakeRef<editor::app::AssetDragData>(
+        DefaultAllocator(), materialId, list()->AcceptedTypes()[0].AsView(), StringView(u8"red"));
+    CHECK(firstSlot->OnDrop(material.Get(), 0, 0) == foundation::ui::DragDropEffects::Link);
+    CHECK(materials()[0].id == materialId);
+    CHECK(commands.Size() == before + 1);
+
+    // A material on the list appends it.
+    inspector.Refresh();
+    inspector.Refresh();
+    REQUIRE(list() != nullptr);
+    foundation::ui::IDropTarget* zone = list()->EditorView()->AsDropTarget();
+    REQUIRE(zone != nullptr);
+    CHECK(zone->OnDrop(material.Get(), 0, 0) == foundation::ui::DragDropEffects::Link);
+    REQUIRE(materials().Size() == 2u);
+    CHECK(materials()[1].id == materialId);
+    CHECK(commands.Size() == before + 2);
+
+    // Undo takes back the append alone.
+    commands.Undo();
+    REQUIRE(materials().Size() == 1u);
+    CHECK(materials()[0].id == materialId);
 }

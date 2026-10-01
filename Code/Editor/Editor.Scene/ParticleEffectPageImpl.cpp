@@ -1427,6 +1427,18 @@ namespace editor
         }
     }
 
+    void ParticleEffectEditorPage::AssignMaterial(i32 sysIndex, usize slot, const Guid& picked)
+    {
+        particles::ParticleSystem* s = m_asset->Effect().GetSystem(sysIndex);
+        if (s != nullptr && slot < s->materialRefs.Size())
+        {
+            s->materialRefs[slot] = picked;
+            CommitEdit(u8"material");
+            RebuildPreviewResources(); // re-resolve the new material
+            QueueInspectorRebuild();
+        }
+    }
+
     void ParticleEffectEditorPage::QueueInspectorRebuild()
     {
         // Rebuilding clears the property grid (destroys the row views). When the trigger is an enum row
@@ -1560,32 +1572,28 @@ namespace editor
         {
             const StringView cat = u8"Texture";
             ParticleEffectEditorPage* self = this;
-            String label =
-                sys.textureRef.IsNil() ? String(u8"(none)") : String(u8"(set - click to change)");
-            RowButton(g, label.AsView(), cat,
-                      [self, sysIndex]()
-                      {
-                          ui::UIContext* ctx = self->Ctx();
-                          if (ctx == nullptr || self->m_context->Project() == nullptr)
-                          {
-                              return;
-                          }
-                          Array<String> types;
-                          types.PushBack(String(u8"TextureAsset"));
-                          auto dialog = MakeRef<app::AssetPickerDialog>(
-                              self->Allocator(), *self->m_context, Move(types));
-                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
-                          {
-                              if (particles::ParticleSystem* s =
-                                      self->m_asset->Effect().GetSystem(sysIndex))
-                              {
-                                  s->textureRef = picked;
-                                  self->CommitEdit(u8"texture");
-                                  self->RebuildInspector();
-                              }
-                          };
-                          dialog->Show(ctx);
-                      });
+            const StringView types[] = {u8"TextureAsset"};
+            auto texture = MakeRef<app::ResourceRefEditor>(Allocator(), StringView(u8"Texture"),
+                                                           StringView(u8"(none)"), cat,
+                                                           Span<const StringView>{types, 1});
+            texture->BindAsset(
+                *m_context,
+                [self, sysIndex]()
+                {
+                    particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex);
+                    return s != nullptr ? s->textureRef : Guid{};
+                },
+                [self, sysIndex](const Guid& picked)
+                {
+                    if (particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex))
+                    {
+                        s->textureRef = picked;
+                        self->CommitEdit(u8"texture");
+                        self->RebuildPreviewResources();
+                        self->QueueInspectorRebuild();
+                    }
+                });
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(texture.Get()));
         }
 
         // --- Mesh --- (Mesh render mode only: the per-particle mesh + its scale)
@@ -1593,34 +1601,28 @@ namespace editor
         {
             const StringView cat = u8"Mesh";
             ParticleEffectEditorPage* self = this;
-            String label =
-                sys.meshRef.IsNil() ? String(u8"(none)") : String(u8"(set - click to change)");
-            RowButton(g, label.AsView(), cat,
-                      [self, sysIndex]()
-                      {
-                          ui::UIContext* ctx = self->Ctx();
-                          if (ctx == nullptr || self->m_context->Project() == nullptr)
-                          {
-                              return;
-                          }
-                          Array<String> types;
-                          types.PushBack(String(u8"StaticMeshAsset"));
-                          types.PushBack(String(u8"SkinnedMeshAsset"));
-                          auto dialog = MakeRef<app::AssetPickerDialog>(
-                              self->Allocator(), *self->m_context, Move(types));
-                          dialog->OnPicked = [self, sysIndex](const Guid& picked)
-                          {
-                              if (particles::ParticleSystem* s =
-                                      self->m_asset->Effect().GetSystem(sysIndex))
-                              {
-                                  s->meshRef = picked;
-                                  self->CommitEdit(u8"mesh");
-                                  self->RebuildPreviewResources(); // re-resolve the new mesh
-                                  self->RebuildInspector();
-                              }
-                          };
-                          dialog->Show(ctx);
-                      });
+            const StringView meshTypes[] = {u8"StaticMeshAsset", u8"SkinnedMeshAsset"};
+            auto mesh = MakeRef<app::ResourceRefEditor>(Allocator(), StringView(u8"Mesh"),
+                                                        StringView(u8"(none)"), cat,
+                                                        Span<const StringView>{meshTypes, 2});
+            mesh->BindAsset(
+                *m_context,
+                [self, sysIndex]()
+                {
+                    particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex);
+                    return s != nullptr ? s->meshRef : Guid{};
+                },
+                [self, sysIndex](const Guid& picked)
+                {
+                    if (particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex))
+                    {
+                        s->meshRef = picked;
+                        self->CommitEdit(u8"mesh");
+                        self->RebuildPreviewResources(); // re-resolve the new mesh
+                        self->QueueInspectorRebuild();
+                    }
+                });
+            Add(g, RefPtr<ui::toolkit::PropertyEditor>(mesh.Get()));
             RowFloat(g, u8"Mesh Scale", &sys.meshScale, cat, page, 0.001, 1000.0, 0.01);
 
             // Effect-level per-submesh materials (materialRefs; slot 0 = whole-mesh material, indexed by
@@ -1632,15 +1634,10 @@ namespace editor
                                                                StringView(u8"Materials"), cat);
                 for (usize mi = 0; mi < sys.materialRefs.Size(); ++mi)
                 {
-                    String name(u8"Material ");
-                    name.Append(Format(u8"{}", mi).AsView());
+                    String name(m_context->AssetNameFor(sys.materialRefs[mi]));
                     if (mi == 0)
                     {
                         name.Append(u8" (whole mesh)");
-                    }
-                    if (sys.materialRefs[mi].IsNil())
-                    {
-                        name.Append(u8" (none)");
                     }
                     slots->slotNames.PushBack(Move(name));
                 }
@@ -1695,17 +1692,33 @@ namespace editor
                     auto dialog = MakeRef<app::AssetPickerDialog>(self->Allocator(),
                                                                   *self->m_context, Move(types));
                     dialog->OnPicked = [self, sysIndex, slot](const Guid& picked)
-                    {
-                        particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex);
-                        if (s != nullptr && slot < s->materialRefs.Size())
-                        {
-                            s->materialRefs[slot] = picked;
-                            self->CommitEdit(u8"material");
-                            self->RebuildPreviewResources(); // re-resolve the new material
-                            self->RebuildInspector();
-                        }
-                    };
+                    { self->AssignMaterial(sysIndex, slot, picked); };
                     dialog->Show(ctx);
+                };
+                // A drop on a slot is the same write as a pick; a drop on the list appends.
+                Array<String> accepted;
+                accepted.PushBack(String(u8"MaterialAsset"));
+                slots->SetAcceptedTypes(Move(accepted));
+                slots->OnAssignSlot = [self, sysIndex](usize slot, const Guid& picked)
+                { self->AssignMaterial(sysIndex, slot, picked); };
+                slots->OnAppendDropped = [self, sysIndex](const Guid& picked)
+                {
+                    if (particles::ParticleSystem* s = self->m_asset->Effect().GetSystem(sysIndex))
+                    {
+                        s->materialRefs.PushBack(picked);
+                        self->CommitEdit(u8"material-add");
+                        self->RebuildPreviewResources();
+                        self->QueueInspectorRebuild();
+                    }
+                };
+                app::ContainerListEditor* rawSlots = slots.Get();
+                slots->OnRejectedDrop = [self, rawSlots](StringView assetName, StringView typeName)
+                {
+                    self->m_context->Notify(
+                        editor::NoticeKind::Warning,
+                        app::AssetPickerSlot::RejectionText(assetName, typeName,
+                                                            rawSlots->AcceptedTypes(), u8"list")
+                            .AsView());
                 };
                 Add(g, RefPtr<ui::toolkit::PropertyEditor>(slots.Get()));
             }
