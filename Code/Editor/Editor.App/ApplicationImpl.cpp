@@ -511,6 +511,7 @@ namespace editor::app
         {
             panel->SetPersistenceId(u8"game-page");
         }
+        panel->DestroyOnClose = true; // the page's views die with it, as for any page
         panel->OnCloseRequested.Add(
             [this, uiPage](ui::toolkit::DockablePanel*)
             {
@@ -564,6 +565,9 @@ namespace editor::app
             uiPage->InstanceId().ToChars(guidChars);
             panel->SetPersistenceId(StringView(guidChars));
         }
+        // The page's views die with the page: its close destroys the panel, or a later layout
+        // restore would find the stale one by this id and float it holding freed content.
+        panel->DestroyOnClose = true;
         // (Docking activates the new tab - toolkit behavior.)
         // The DockManager's own close handling (wired in AddPanel) destroys the panel through
         // its deferred-delete queue; we additionally tear down the PAGE - deferred through the
@@ -683,6 +687,19 @@ namespace editor::app
         {
             m_context.Notify(editor::NoticeKind::Error, u8"Asset-edit persist FAILED (see Console).");
         }
+    }
+
+    void EditorApplication::ClosePanelAndPage(PagePanel entry)
+    {
+        if (entry.panel != nullptr)
+        {
+            entry.panel->SetContent(nullptr); // the page holds the last reference to its views
+            if (m_shell.Docks() != nullptr)
+            {
+                m_shell.Docks()->ClosePanel(entry.panel);
+            }
+        }
+        ClosePage(entry.page);
     }
 
     void EditorApplication::ClosePage(UIEditorPage* page)
@@ -2485,10 +2502,7 @@ namespace editor::app
             {
                 if (m_pagePanels[i].page->InstanceId() == id)
                 {
-                    ui::toolkit::DockablePanel* panel = m_pagePanels[i].panel;
-                    UIEditorPage* page = m_pagePanels[i].page;
-                    m_shell.Docks()->ClosePanel(panel);
-                    ClosePage(page);
+                    ClosePanelAndPage(m_pagePanels[i]);
                     return;
                 }
             }
@@ -2823,12 +2837,7 @@ namespace editor::app
             {
                 if (static_cast<editor::EditorPage*>(entry.page) == page)
                 {
-                    const PagePanel closing = entry; // the tab-close pair: panel, then page
-                    if (m_shell.Docks() != nullptr && closing.panel != nullptr)
-                    {
-                        m_shell.Docks()->ClosePanel(closing.panel);
-                    }
-                    ClosePage(closing.page);
+                    ClosePanelAndPage(entry);
                     return;
                 }
             }
@@ -2877,16 +2886,11 @@ namespace editor::app
         m_thumbnailStage = {};      // unstages + drops GPU objects while the renderer is alive
         m_thumbnailService.Reset(); // in-flight slots outlive harmlessly; entries drop
         SaveLayout();             // pages.bin + layout.xml for the next open
-        // Close every page: the tab-close pair (panel, then page), applied to all. ClosePage
-        // erases the entry from m_pagePanels, so drain from the front.
+        // Close every page: the panel-and-page pair, applied to all. ClosePage erases the
+        // entry from m_pagePanels, so drain from the front.
         while (!m_pagePanels.IsEmpty())
         {
-            PagePanel entry = m_pagePanels[0];
-            if (m_shell.Docks() != nullptr && entry.panel != nullptr)
-            {
-                m_shell.Docks()->ClosePanel(entry.panel);
-            }
-            ClosePage(entry.page);
+            ClosePanelAndPage(m_pagePanels[0]);
         }
         m_gamePage = nullptr;
         m_shell.SetAssetsContent(nullptr);

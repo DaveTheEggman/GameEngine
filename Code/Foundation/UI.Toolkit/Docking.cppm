@@ -152,6 +152,12 @@ export namespace foundation::ui::toolkit
         /// only. A dock-level notion (the panel clicked last) would be wrong here - a click into
         /// a tool panel must not move the ring off the page.
         bool ActiveMark = false;
+        /// A panel with a persistence id normally SURVIVES its close, undocked but registered, so
+        /// a saved layout (or the app) docks the same object again: the app's fixed tool panels.
+        /// A panel whose content dies with the close (an editor page) sets this: its close
+        /// destroys it like any other, so a later layout restore cannot find it under its id
+        /// and float it holding the dead content.
+        bool DestroyOnClose = false;
 
         Event<void(DockablePanel*)> OnCloseRequested;
 
@@ -1779,9 +1785,10 @@ export namespace foundation::ui::toolkit
             // the registry keeps it, so Reset Layout and a layout restore re-dock the same
             // object and whoever borrowed its pointer (the editor shell) never dangles. Before
             // 2026-09-23 a closed Assets panel was destroyed, and View > Reset Layout then read
-            // its Parent out of freed memory (the RTHomes1 crash). A PAGE panel (no persistence
-            // id: its content dies with the page) is destroyed as before.
-            if (panel->PersistenceId().Size() > 0)
+            // its Parent out of freed memory (the RTHomes1 crash). A panel without an id, and a
+            // PAGE panel (an id so the layout re-places it, but DestroyOnClose: its content dies
+            // with the page), is destroyed.
+            if (panel->PersistenceId().Size() > 0 && !panel->DestroyOnClose)
             {
                 return;
             }

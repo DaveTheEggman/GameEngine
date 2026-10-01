@@ -412,6 +412,12 @@ export namespace editor::app
             UIEditorPage* page = nullptr;                // borrowed (context owns the page)
             ui::toolkit::DockablePanel* panel = nullptr; // borrowed (dock manager owns the panel)
         };
+        /// Closes a page and its panel together, synchronously: the code paths (Close Project, an
+        /// open asset deleted, page_close), where the tab close runs the same pair deferred. The
+        /// page's views borrow what the page owns (its scene, its edit context, its images), so
+        /// they must die while the page lives; the panel's deletion is deferred, so the panel
+        /// lets go of its content FIRST, and the page then frees its views in its own teardown.
+        void ClosePanelAndPage(PagePanel entry);
         editor::EditorContext m_context{m_editorAllocator};
         UniquePtr<editor::EditorProject> m_project;
         pipeline::BuilderRegistry m_builders{m_editorAllocator}; // exe-assembled (registerEditors)

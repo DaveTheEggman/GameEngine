@@ -524,3 +524,47 @@ TEST_CASE("dock-persistence: Roundtrip_PreservesActiveTab")
         CHECK(group->SelectedIndex() == 1);
     }
 }
+
+// The editor's close project, reopen, restore: a page panel carries an id so the layout re-places
+// it, but its content dies with the page. Closed with DestroyOnClose it is gone, so the reopened
+// page's new panel under the same id is the only one the layout places, and nothing is left over
+// to float holding dead content. An app panel with an id still survives its close.
+TEST_CASE("dock-persistence: a closed page panel is gone and the next restore floats nothing")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+
+    auto dm = MakeRef<DockManager>(DefaultAllocator());
+    root->AddView(dm.Get());
+
+    DockablePanel* assets = dm->AddPanel(StringView(u8"Assets"), MakeLabel(u8"A").Get());
+    assets->SetPersistenceId(StringView(u8"assets"));
+    dm->DockPanel(assets, DockPosition::Center);
+    DockablePanel* page = dm->AddPanel(StringView(u8"Texture"), MakeLabel(u8"T").Get());
+    page->SetPersistenceId(StringView(u8"page-guid"));
+    page->DestroyOnClose = true;
+    dm->DockPanelRelativeTo(page, DockPosition::Center, assets->Parent);
+    auto layout = dm->ExportLayout();
+    REQUIRE(layout.Get() != nullptr);
+
+    // Close: the page panel is destroyed; the app's own panel would have stayed.
+    dm->ClosePanel(page);
+    CHECK(dm->FindPanelById(StringView(u8"page-guid")) == nullptr);
+    CHECK(dm->RegisteredPanelCount() == 1);
+
+    // Reopen: the page's new panel under the same id, then the saved layout.
+    DockablePanel* reopened = dm->AddPanel(StringView(u8"Texture"), MakeLabel(u8"T2").Get());
+    reopened->SetPersistenceId(StringView(u8"page-guid"));
+    reopened->DestroyOnClose = true;
+    dm->ApplyLayout(layout.Get());
+    CHECK(dm->RegisteredPanelCount() == 2);
+    CHECK(Cast<DockableWindow>(assets->Parent) == nullptr);   // nothing floated
+    CHECK(Cast<DockableWindow>(reopened->Parent) == nullptr);
+    CHECK(Cast<DockTabGroup>(reopened->Parent) != nullptr);   // the new panel took the saved place
+
+    // An app panel with an id still survives its close, for the layout to dock again.
+    dm->ClosePanel(assets);
+    CHECK(dm->FindPanelById(StringView(u8"assets")) == assets);
+}
