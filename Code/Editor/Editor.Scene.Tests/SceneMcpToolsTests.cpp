@@ -17,6 +17,7 @@ import foundation.resource;
 import foundation.materials;
 import engine.render;
 import engine.script;
+import foundation.script;
 import foundation.script.resource;
 import editor.core;
 import editor.scene;
@@ -449,6 +450,62 @@ TEST_CASE("scene-mcp-tools: an entity by name or path, and a Script component's 
                Format(u8"{{\"page\":\"{}\",\"entity\":\"Ghost\"}}", arena.AsView()).AsView());
     CHECK(got.error.AsView().StartsWith(u8"no entity 'Ghost' in page 'Arena'"));
     context.ClosePage(page);
+}
+
+namespace
+{
+    // A running behaviour's instance: two fields, `speed` and the private `m_hits`.
+    class FakeInstance final : public foundation::script::ScriptObject
+    {
+    public:
+        [[nodiscard]] Result<Variant> Invoke(StringView, Span<Variant>) override
+        {
+            return Err(ErrorCode::NotFound);
+        }
+        [[nodiscard]] Result<Variant> GetProperty(StringView name) override
+        {
+            if (name == u8"speed")
+            {
+                return Variant::From<f64>(3.5);
+            }
+            if (name == u8"m_hits")
+            {
+                return Variant::From<f64>(2.0);
+            }
+            return Err(ErrorCode::NotFound);
+        }
+    };
+}
+
+// Sedulous 4d8bfa88: a running behaviour's own state reads by `<BehaviorClass>.<field>`, private
+// fields too, and entity_inspect lists each running behaviour's values under `live`.
+TEST_CASE("scene-mcp-tools: a running behaviour's fields read by class name, and listed as live")
+{
+    scene::Scene level(DefaultAllocator(), u8"run");
+    auto* scripts = level.AddSystem<engine::script::ScriptComponentManager>();
+    const scene::EntityHandle hero = level.CreateEntity(u8"Hero");
+    RefPtr<foundation::script::ScriptClass> mover = MakeRef<foundation::script::ScriptClass>(DefaultAllocator());
+    mover->className = String(u8"Mover");
+    foundation::script::ScriptPropertyDesc speed;
+    speed.name = String(u8"speed");
+    speed.hash = foundation::script::ScriptPropertyNameHash(u8"speed");
+    speed.type = foundation::script::ScriptPropertyType::Float;
+    mover->properties.PushBack(Move(speed));
+    engine::script::ScriptBehavior behavior;
+    behavior.script.SetDirect(mover);
+    behavior.boundClass = mover.Get();
+    behavior.instance = MakeRef<FakeInstance>(DefaultAllocator());
+    scripts->Add(hero).behaviors.PushBack(Move(behavior));
+
+    CHECK(EntityFieldJson(level, hero, u8"Hero", u8"Mover.speed").Value().AsNumber() == doctest::Approx(3.5));
+    CHECK(EntityFieldJson(level, hero, u8"Hero", u8"Mover.m_hits").Value().AsNumber() == doctest::Approx(2.0));
+    auto other = EntityFieldJson(level, hero, u8"Hero", u8"Jumper.speed");
+    REQUIRE_FALSE(other.HasValue());
+    CHECK(other.Error().AsView().ContainsIgnoreCase(u8"<BehaviorClass>.<field>"));
+
+    const JsonValue entity = EntityJson(level, hero);
+    const JsonValue live = entity.Get(u8"components").At(0).Get(u8"behaviors").At(0).Get(u8"live");
+    CHECK(live.Get(u8"speed").AsNumber() == doctest::Approx(3.5));
 }
 
 TEST_CASE("scene-mcp-tools: component_set writes one property through the undo path - leaves, an "

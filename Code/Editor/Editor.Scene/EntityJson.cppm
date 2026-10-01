@@ -49,13 +49,20 @@ export namespace editor
     FindComponentManager(foundation::scene::Scene& scene, foundation::scene::EntityHandle entity,
                          StringView component);
 
+    /// The field of a running behaviour of `className` on the entity (its instance's member, a
+    /// private one too); false when the entity runs no such behaviour or its class no such field.
+    [[nodiscard]] bool BehaviorField(foundation::scene::Scene& scene,
+                                     foundation::scene::EntityHandle handle, StringView className,
+                                     StringView field, foundation::json::JsonValue& out);
+
     /// An entity by guid, slash path or name; unassigned when none.
     [[nodiscard]] foundation::scene::EntityHandle FindEntity(foundation::scene::Scene& scene,
                                                              StringView text);
 
     /// A field path's value: `worldPosition`, `position`, `rotation`, `scale`, `active`, or
     /// `<component>.<property>` (the component as entity_inspect names it, which may hold dots),
-    /// then `.x`/`.y`/`.z`/`.w`, a key or an index to go inside. The reason, naming
+    /// or `<BehaviorClass>.<field>` of a behaviour running on it, then `.x`/`.y`/`.z`/`.w`, a key
+    /// or an index to go inside. The reason, naming
     /// `entityText`, when the path reads nothing.
     [[nodiscard]] Result<foundation::json::JsonValue, String>
     EntityFieldJson(foundation::scene::Scene& scene, foundation::scene::EntityHandle handle,

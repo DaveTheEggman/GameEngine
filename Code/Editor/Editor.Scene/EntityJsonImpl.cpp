@@ -273,10 +273,53 @@ namespace editor
                                    ScriptValueJson(o.value));
                 }
                 entry.Set(u8"properties", Move(properties));
+                // Running (a PIE game, a Simulate): the instance's current values of the class's
+                // properties, where `properties` holds what is authored.
+                if (behavior.instance.Get() != nullptr && scriptClass != nullptr)
+                {
+                    JsonValue live = JsonValue::MakeObject();
+                    for (const foundation::script::ScriptPropertyDesc& desc : scriptClass->properties)
+                    {
+                        Result<Variant> value = behavior.instance->GetProperty(desc.name.AsView());
+                        if (value.HasValue())
+                        {
+                            live.Set(desc.name, ValueJson(value.Value()));
+                        }
+                    }
+                    entry.Set(u8"live", Move(live));
+                }
                 list.Add(Move(entry));
             }
             return list;
         }
+    }
+
+    bool BehaviorField(scene::Scene& scene, scene::EntityHandle handle, StringView className,
+                       StringView field, JsonValue& out)
+    {
+        auto* scripts = scene.GetSystem<engine::script::ScriptComponentManager>();
+        const engine::script::ScriptComponent* component =
+            scripts != nullptr ? scripts->Get(handle) : nullptr;
+        if (component == nullptr)
+        {
+            return false;
+        }
+        for (const engine::script::ScriptBehavior& behavior : component->behaviors)
+        {
+            if (behavior.instance.Get() == nullptr || behavior.boundClass == nullptr ||
+                behavior.boundClass->className.AsView() != className)
+            {
+                continue;
+            }
+            Result<Variant> value = behavior.instance->GetProperty(field);
+            if (!value.HasValue())
+            {
+                return false;
+            }
+            out = ValueJson(value.Value());
+            return true;
+        }
+        return false;
     }
 
     JsonValue EntityJson(scene::Scene& scene, scene::EntityHandle handle,
@@ -424,6 +467,11 @@ namespace editor
         {
             node = JsonValue::MakeBool(scene.IsActive(handle));
         }
+        else if (segments.Size() > 1 &&
+                 BehaviorField(scene, handle, segments[0], segments[1], node))
+        {
+            rest = 2; // a running behaviour's field, `<BehaviorClass>.<field>`
+        }
         else
         {
             // `<component>.<property>`: the component's name may hold dots
@@ -456,8 +504,8 @@ namespace editor
         if (!found)
         {
             return Err(Format(u8"entity '{}' has no field '{}' (worldPosition, position, rotation, "
-                              u8"scale, active, or <component>.<property> as entity_inspect names "
-                              u8"them)",
+                              u8"scale, active, <component>.<property> as entity_inspect names "
+                              u8"them, or <BehaviorClass>.<field> of a behaviour running on it)",
                               entityText, path));
         }
         for (usize s = rest; s < segments.Size(); ++s)
