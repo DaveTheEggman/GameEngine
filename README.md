@@ -1,199 +1,173 @@
 # Game Engine
 
-C++23 game engine (ported from the Sedulous engine and grown well past it). Built on C++
-modules throughout. The GPU layer is an abstract RHI with Vulkan 1.3 as the primary desktop
-backend and WebGPU as a first-class second backend - wgpu-native on desktop, the browser's
-WebGPU when built for the web with Emscripten. Ships with a full editor (scene editing,
-asset pipeline/cook, play-in-editor, export) driven by a Godot-style built-in project
-manager, all in one executable.
+[![Discord](https://img.shields.io/badge/Discord-Join-5865F2?logo=discord&logoColor=white)](https://discord.gg/WSvxW8mWH5)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-## Requirements
+A game engine in C++23, built on modules throughout: a layered runtime over an abstract RHI with
+Vulkan, WebGPU and Direct3D 12 backends, a scene editor with play in editor, an asset pipeline,
+AngelScript and Luau gameplay scripting, and a CSS styled UI framework. It runs on Linux,
+Windows and, through Emscripten, in the browser, and ships games to the Steam Deck.
 
-### All platforms
-- CMake 3.28+
-- Ninja
-- Vulkan SDK (1.3+)
+[Sedulous](https://github.com/SedulousWorks/SedulousEngine) is its mirror in Beef; the two move
+together.
 
-### Windows
-- Clang 17+ (via LLVM) - the project builds with clang, not MSVC
-- Windows SDK
+![The editor](Documentation/Images/Editor.png)
 
-### Linux
-- Clang 17+ and/or GCC 15+ (both toolchains are kept green; clang is the daily driver)
-- Vulkan development libraries
-- SDL3 build dependencies
+## What is here
 
-#### Ubuntu / Debian
+**Rendering.** A render graph over the RHI: forward PBR with a depth prepass, cascaded and
+local shadows, IBL and reflection probes, decals, sprites, particles, skinned meshes, terrain
+and vegetation, and a post stack with ambient occlusion, SSR, SSGI (experimental), bloom, TAA,
+MSAA, auto exposure, grading and FXAA. Vulkan 1.3 is the primary desktop backend; WebGPU runs on
+the desktop through wgpu-native and in the browser as itself; Direct3D 12 runs on Windows.
+Shaders are HLSL, compiled through DXC and cross compiled to WGSL for the web, and cooked into
+packs.
 
-```bash
-sudo apt install cmake ninja-build clang pkg-config \
-    libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
-    libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
-    libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
-```
+**Scene and engine.** Entities with hierarchical transforms, component managers per domain,
+prefabs with overrides, scene serialization, and the subsystems a game needs: physics (Jolt),
+navigation (Recast/Detour), audio (miniaudio, four fixed buses plus custom ones with effect
+chains), animation (skeletal, graphs, property animation), particles, splines, terrain, input
+maps, networking with state replication, and world space UI.
 
-### Web (Emscripten)
-- emsdk **6.0.5** with the project's response-file patch applied
-  (`Tools/Emscripten/emcc-compile-response-file.patch` - a stock emsdk cannot compile the
-  module-heavy targets on Windows). Setup details, including the Windows-host cook tools:
-  `docs/emscripten-windows.md`.
+**Scripting.** Gameplay code in AngelScript or Luau over the engine's reflected script facades:
+behaviours per entity, a level script per scene, a game script per run, coroutines and events.
+See [Documentation/Shipping/Scripting.md](Documentation/Shipping/Scripting.md).
+
+**Editor.** A project manager, scene hierarchy, a viewport with gizmos and per domain tools
+(terrain sculpting and painting, vegetation, spline editing), inspectors from reflection, an
+asset browser over the import and cook pipeline, undo and redo, play in editor (several
+instances side by side), and a page per asset type: materials, meshes, textures, fonts, audio,
+animation clips and graphs, particles, input maps, UI documents and themes, scripts with a
+debugger.
+
+**Pipeline.** Importers (glTF, FBX and OBJ, images, audio, fonts), cooks per asset type, texture
+compression (BC7, ASTC), an export that packages a project for the desktop player, the web or a
+Steam Deck, and headless tools for all of it.
+
+**UI.** A retained view tree with flex, dock, grid and flow layouts, `.sml` markup and `.sss`
+stylesheets with a cascade, transitions and themes, keyboard and gamepad navigation, a vector
+graphics layer with SVG, distance field and coverage fonts, and an editor toolkit (docking,
+property grids, colour pickers, curve and gradient editors, a node graph canvas).
+
+**Agent tooling.** An MCP host (`Tools.Mcp`) exposes the engine's reflection, the script API and
+project operations (import, cook, scene validation, export, health checks); the editor serves
+the same tools over HTTP for its open project, plus pages and play in editor, so an agent can
+build and playtest a game. [AGENTS.md](AGENTS.md) is how an agent works on the engine itself.
 
 ## Building
 
-Everything goes through CMake presets; build outputs (executables, cooked shader packs,
-runtime sidecars) land in `Bin/<Config>/<Platform>-<Compiler>/`, e.g. `Bin/Debug/Linux64-Clang/`,
-`Bin/Debug/Win64-Clang/`, `Bin/Debug/Emscripten-Clang/`.
+Requirements:
+
+- CMake 3.28+ and Ninja.
+- Linux x64: Clang 17+ and/or GCC 15+ (both are kept green; Clang is the daily driver), the
+  Vulkan development libraries, and SDL3's build dependencies. On Ubuntu or Debian:
+
+  ```
+  sudo apt install cmake ninja-build clang pkg-config \
+      libvulkan-dev vulkan-tools vulkan-validationlayers mesa-vulkan-drivers \
+      libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
+      libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev
+  ```
+
+- Windows x64: Clang 17+ (LLVM; not MSVC) and the Windows SDK.
+- A Vulkan 1.3 (or, on Windows, D3D12) capable GPU to run anything that draws.
+- For web builds, emsdk 6.0.5 with the project's response file patch applied; see
+  [Documentation/Guides/emscripten-windows.md](Documentation/Guides/emscripten-windows.md).
+
+Everything goes through CMake presets; outputs (executables, cooked shader packs, runtime
+sidecars) land in `Bin/<Config>/<Platform>-<Compiler>/`, e.g. `Bin/Debug/Linux64-Clang/`.
+
+```
+cmake --preset clang                  # or gcc; clang-release, clang-shipping, wasm, ...
+cmake --build --preset clang
+ctest --preset clang                  # the unit and integration tests
+```
 
 | Preset | Meaning |
 |---|---|
-| `clang` / `gcc` | Debug (the development configuration) |
-| `clang-reldbg` | RelWithDebInfo (perf validation) |
+| `clang` / `gcc` | Debug, the development configuration |
+| `clang-shared` | Debug with shared libraries |
+| `clang-reldbg` | RelWithDebInfo, for performance work |
 | `clang-release` / `gcc-release` | Release |
 | `clang-shipping` / `gcc-shipping` | Shipping (no asserts, stripped) |
 | `wasm` / `wasm-shipping` | Emscripten wasm32 |
 
-### Linux
+Running the editor:
 
-```bash
-cmake --preset clang            # or: gcc
-cmake --build --preset clang
-ctest --preset clang            # unit tests
+```
+Bin/Debug/Linux64-Clang/Tools.Editor               # the project manager
+Bin/Debug/Linux64-Clang/Tools.Editor <projectDir>  # open a project
 ```
 
-### Windows (clang)
+Add `--mcp` to serve the open project to an agent over MCP while you work in the editor.
 
-```powershell
-cmake --preset clang
-cmake --build --preset clang
-ctest --preset clang
-```
+## Sample projects
 
-### Web
+Game projects under `Data/SampleProjects/`, opened from the editor's project manager.
 
-```bash
-# emsdk env active (source emsdk_env.sh / emsdk_env.bat first)
-cmake --preset wasm
-cmake --build --preset wasm
-```
+**Sky Hopper** (`PlatformerGame`) is a small 3D platformer built entirely through the engine's
+MCP tools by an AI agent, played through to the end over the same tools, and shipped to a Steam
+Deck: three levels, coins, enemies and hazards, menus with volume settings, music and effects,
+and gamepad support throughout.
 
-The web build cooks browser shaders (WGSL) on the host during the build; the host cook
-tools (DXC, naga, tint) are vendored for both Linux and Windows hosts.
+| Title | Level 1 | Settings |
+|:---:|:---:|:---:|
+| ![Title](Documentation/Images/SkyHopper-Title.png) | ![Playing](Documentation/Images/SkyHopper-Play.png) | ![Settings](Documentation/Images/SkyHopper-Settings.png) |
 
-## The editor
+**PaperKid**, an arcade paper-route game, is a work in progress. **NativeSample** is the
+reference for a game with native C++ code beside its scripts.
 
-One executable, Godot-style project management:
-
-```bash
-Bin/Debug/Linux64-Clang/Tools.Editor                    # PROJECT MANAGER screen
-Bin/Debug/Linux64-Clang/Tools.Editor --project <dir>    # open a project directly
-Bin/Debug/Linux64-Clang/Tools.Editor <dir>              # same, positional form
-```
-
-With no project argument the editor starts on the project manager: recent projects (stored
-per-user in `<user-data>/gameengine/editor.settings.xml`, shared by every engine version on
-the machine), open/create/remove, and an engine-version gate on open (backup-then-upgrade
-prompt for older projects, a hard warning for projects saved by a newer engine).
-File > Close Project returns to the manager. A CLI-opened editor keeps the single-project
-lifecycle and scaffolds a fresh project if the directory has no `Project.xml` yet.
-
-The full project/settings model is documented in `docs/design/project-and-settings.md`.
-
-## WebScene - the renderer comparison scene
-
-`Code/Samples/WebScene` is the full-renderer exercise scene, built for BOTH desktop and the
-browser so the backends can be compared side by side: analytic sky -> IBL, CSM sun + shadowed
-spot + orbiting point light, PBR sphere grid, SSR floor, reflection probe + chrome sphere,
-instanced ring, decal, sprites, particles, debug draw, and an ImGui tweak panel.
-
-### Desktop
-
-```bash
-cmake --build --preset clang --target WebScene Tools.ShaderPack
-
-Bin/Debug/Linux64-Clang/WebScene --vulkan     # Vulkan reference
-Bin/Debug/Linux64-Clang/WebScene --webgpu     # WebGPU via wgpu-native (SPIR-V ingestion)
-```
-
-To run the EXACT browser shaders (cooked WGSL) on desktop - the fast local repro for
-web-render bugs - cook a WGSL pack beside the exe and force the WGSL path:
-
-```bash
-# Linux
-Bin/Debug/Linux64-Clang/Tools.ShaderPack Data/Shaders Bin/Debug/Linux64-Clang/shaders.dpak wgsl spirv
-OPTION_USE_SHADER_PACK=1 ENV_WEBGPU_WGSL=1 Bin/Debug/Linux64-Clang/WebScene --webgpu
-```
-
-```powershell
-# Windows (PowerShell env syntax - `set X=1` is cmd-only and silently does nothing here)
-Bin\Debug\Win64-Clang\Tools.ShaderPack.exe Data\Shaders Bin\Debug\Win64-Clang\shaders.dpak wgsl spirv
-$env:OPTION_USE_SHADER_PACK="1"
-$env:ENV_WEBGPU_WGSL="1"
-Bin\Debug\Win64-Clang\WebScene.exe --webgpu
-```
-
-On `--webgpu` the backend logs every GPU adapter at startup and prefers a discrete GPU; on
-multi-adapter machines where the pick is wrong, override it with
-`ENV_WEBGPU_ADAPTER=<index from the logged list>`.
-
-### Browser
-
-```bash
-cmake --build --preset wasm --target WebScene
-cd Bin/Debug/Emscripten-Clang && python3 -m http.server 8080
-# open http://localhost:8080/WebScene.html
-```
-
-If the plain server causes MIME/caching trouble, `Code/Engine/Engine.Player/serve.py`
-serves a folder with the correct wasm MIME and no-store headers.
-
-## Samples
-
-Sample executables build into the same `Bin/` directory as everything else
-(`OPTION_BUILD_SAMPLES=ON` by default). Highlights: `Sandbox` (the heavy desktop dev
-harness), `WebScene` (above), `RHI/` (numbered RHI bring-up samples), `VG/VGSandbox`
-(2D vector graphics), `UI` (widget toolkit), `PhysicsPlayground`, `AudioPlayground`,
-`ParticleFX`, `ScriptPlayground`, `InputActions`, `NetEcho`, `RenderStressTest`,
-`AnimStressTest`, `AnimatedCrowd`. GPU samples take `--vulkan` / `--webgpu`
-(`--dx12` where staged).
-
-## Directory layout
+## Repository layout
 
 ```
 Code/
-  Foundation/     Engine-agnostic libraries: Core (types/containers/math/RTTI),
-                  RHI (+ Vulkan/WebGPU/Null backends, validation layer), Graphics,
-                  Render + RenderGraph, Materials, Shaders (DXC + WGSL cook),
-                  Scene (ECS), Geometry, Model, Image, Texture, Fonts, VG (2D vector
-                  graphics), UI (+ toolkit/runtime/viewport), Audio, Input, Physics,
-                  Particles, Net, Script (AngelScript + Luau), Content, Resource,
-                  VFS, Xml, Settings, Profiler, Shell (OS integration), Runtime
-  Engine/         The assembled game runtime: DefaultApp, GameInstance, Player,
-                  Project, per-subsystem engine bindings (Render/Scene/Audio/...)
-  Pipeline/       Asset cook/build pipeline: importers, builders, and the per-language
-                  script cooks (AngelScript/Luau) behind one neutral registration root
-  Integration/    Cross-subsystem composition (MCP agent host, physics<->script bridge, ...)
-  Editor/         Editor libraries: Core (headless domain: project, registry, cook,
-                  export), App (UI shell + project manager), per-subsystem editors
-  Tools/          Executables: Tools.Editor, .Cook, .Export, .ShaderPack
-  Extensions/     Extensions.Imgui (Dear ImGui debug-UI extension)
-  Experimental/   Parked experiments (Experimental.GUI)
-  Samples/
-Data/
-  Shaders/          Engine HLSL shader corpus (dev-compiled or cooked into packs)
-  Assets/           Raw assets (fonts, models)
-ThirdParty/         Vendored dependencies (see below)
-docs/               Design docs + platform guides
+  Foundation/     Core, RHI and backends, Shell, Resource, VFS, Scene, Render, UI, VG,
+                  Fonts, Audio, Physics, Navigation, Net, Script, Shaders, Mcp, ...
+  Engine/         The subsystems over Foundation, the composition root, the default
+                  application, the game instance, the player
+  Pipeline/       Importers and cooks per asset type, the per-language script cooks
+  Editor/         Editor core, the project half, the app and one module per domain;
+                  the MCP tools
+  Tools/          Editor, Cook, Export, ShaderPack and Mcp executables
+  Integration/    Flows that cross collections
+  Samples/        Engine samples and the RHI samples
+  Extensions/     Dear ImGui as a debug UI extension
+Data/             Engine data (shaders, fonts, themes) and the sample projects
+ThirdParty/       Vendored dependencies
+scripts/          Distribution, export template and Steam Deck builds
+Documentation/    Shipping documentation (served to agents through the MCP host), systems,
+                  guides and plans
 ```
 
-## Third-party dependencies
+Each Foundation and Engine module has a sibling `.Tests` target; `Code/Integration/` holds the
+flows that cross collections. The RHI samples exercise one backend feature each and take
+`--vulkan` / `--webgpu` (`--dx12` on Windows).
 
-- **SDL3** - windowing/input shell backend (pre-built on Windows; system package on Linux)
-- **Vulkan SDK** - system install (headers + loader)
-- **wgpu-native** - the desktop WebGPU implementation (runtime sidecar, loaded at run time)
-- **DXC** - HLSL -> SPIR-V (runtime sidecar); **naga** + **tint** - the WGSL cook + validation toolchain
-- **JoltPhysics** - physics
-- **miniaudio** - audio
-- **AngelScript** + **Luau** - scripting backends
-- **Dear ImGui** - debug-UI extension
-- **stb / cgltf / ufbx / msdfgen** - fonts, images, glTF, FBX, MSDF font baking
-- **doctest** - unit tests
+## Platform support
+
+Linux and Windows are the development platforms. WebGPU runs on the desktop through wgpu-native
+and in the browser through a wasm build; `WebScene` renders the same scene on every backend for
+side by side comparison ([Documentation/Guides/webscene.md](Documentation/Guides/webscene.md)),
+and the export produces a web player. A Steam Deck player builds in a container
+(`scripts/build-steamdeck.sh`, glibc 2.35, below SteamOS) and installs as an export template, so
+the export packages a game for the Deck. macOS has no backend yet.
+
+## Dependencies
+
+Vendored under `ThirdParty/`: SDL3 (prebuilt on Windows, the system's on Linux), wgpu-native,
+DXC, naga and tint, JoltPhysics, recastnavigation, miniaudio, AngelScript and Luau, cgltf and
+ufbx, meshoptimizer, msdfgen, stb, astcenc, bc7enc and bcdec, Dear ImGui, and doctest. The Vulkan
+SDK is a system install.
+
+## Community
+
+Join the [Discord](https://discord.gg/WSvxW8mWH5) for discussion and support.
+
+## Inspiration
+
+The engine draws inspiration from [ezEngine](https://github.com/ezEngine/ezEngine),
+[LumixEngine](https://github.com/nem0/LumixEngine) and [Traktor](https://github.com/apistol78/traktor).
+
+## License
+
+MIT. See [LICENSE](LICENSE).
