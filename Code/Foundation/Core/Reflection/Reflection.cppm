@@ -330,6 +330,21 @@ export namespace foundation::core
         const char* name; // optional; "" when unknown
     };
 
+    /// The operator a reflected method implements, for consumers that spell operators (the
+    /// scripting backends: AngelScript's opAdd, Luau's __add). Opaque authored metadata like
+    /// overloadedName: the method's left operand is its first parameter (a static method); a
+    /// unary operator takes its one operand. Only what the C++ type defines is marked.
+    enum class MethodOperator : u8
+    {
+        None,
+        Add,
+        Subtract,
+        Multiply,
+        Divide,
+        Negate,
+        Equals,
+    };
+
     struct MethodInfo
     {
         const char* name;
@@ -345,6 +360,8 @@ export namespace foundation::core
         // Opaque authored metadata - Core stores it and does not interpret it (like param names);
         // the scripting layer decides how it is spelled and enforces uniqueness. Empty/null = none.
         const char* overloadedName = nullptr;
+        // The operator this method implements (MethodOperator), None for a plain method.
+        MethodOperator op = MethodOperator::None;
     };
 
     [[nodiscard]] inline Result<Variant> InvokeMethod(const MethodInfo& method,
@@ -1707,6 +1724,18 @@ export namespace foundation::core
             DIAGNOSTIC_ASSERT(m_data.methods.Size() > 0 &&
                               "OverloadedName() must follow a Method()");
             m_data.methods[m_data.methods.Size() - 1].overloadedName = scriptName;
+            return *this;
+        }
+
+        /// Mark the LAST-added method as implementing `op` (MethodOperator): a static whose first
+        /// parameter is the left operand. Call fluently after Method():
+        /// `.Method<static_cast<Float3 (*)(Float3, Float3)>(&operator+)>("Add").Operator(Add)`.
+        TypeBuilder& Operator(MethodOperator op)
+        {
+            DIAGNOSTIC_ASSERT(m_data.methods.Size() > 0 && "Operator() must follow a Method()");
+            DIAGNOSTIC_ASSERT(m_data.methods[m_data.methods.Size() - 1].isStatic &&
+                              "an operator is a static whose first parameter is the left operand");
+            m_data.methods[m_data.methods.Size() - 1].op = op;
             return *this;
         }
 

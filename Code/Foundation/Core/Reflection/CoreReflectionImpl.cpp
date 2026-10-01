@@ -47,6 +47,22 @@ import :guid;
 
 namespace foundation::core
 {
+    namespace
+    {
+        // The unary minus and equality the math types define, as statics a reflected operator
+        // can name (the member operator- and the constexpr operator== have no plain pointer).
+        template <typename T>
+        T Negated(T value) noexcept
+        {
+            return -value;
+        }
+        template <typename T>
+        bool EqualValues(T a, T b) noexcept
+        {
+            return a == b;
+        }
+    }
+
     // Matrices store a C array (f32[N][N]) that can't be a property, so their
     // elements are exposed via the container facility: a flat, row-major view of
     // N*N scalars (read m(r,c) as element r*N + c). No change to the math types.
@@ -80,6 +96,23 @@ namespace foundation::core
             .Constant("One", Float2::One)
             .Constant("UnitX", Float2::UnitX)
             .Constant("UnitY", Float2::UnitY)
+            // The operators Float2 defines, marked for the script surfaces (a + b, v * 2, -v).
+            .Method<static_cast<Float2 (*)(Float2, Float2)>(&operator+)>("Add", {"a", "b"})
+            .Operator(MethodOperator::Add)
+            .Method<static_cast<Float2 (*)(Float2, Float2)>(&operator-)>("Sub", {"a", "b"})
+            .Operator(MethodOperator::Subtract)
+            .Method<static_cast<Float2 (*)(Float2, Float2)>(&operator*)>("Mul")
+            .Operator(MethodOperator::Multiply)
+            .Method<static_cast<Float2 (*)(Float2, f32)>(&operator*)>("Mul")
+            .OverloadedName("MulScalar")
+            .Operator(MethodOperator::Multiply)
+            .Method<static_cast<Float2 (*)(Float2, f32)>(&operator/)>("Div")
+            .OverloadedName("DivScalar")
+            .Operator(MethodOperator::Divide)
+            .Method<&Negated<Float2>>("Neg", {"v"})
+            .Operator(MethodOperator::Negate)
+            .Method<&EqualValues<Float2>>("Equals", {"a", "b"})
+            .Operator(MethodOperator::Equals)
             .Constructor()
             .Constructor<f32, f32>();
     }
@@ -103,13 +136,26 @@ namespace foundation::core
             .Method<static_cast<Float3 (*)(Float3)>(&Normalized)>("Normalized")
             .Method<static_cast<Float3 (*)(Float3, Float3, f32)>(&Lerp)>("Lerp", {"a", "b", "t"})
             // Vector add/sub as named statics (a dynamic script surface cannot resolve operators by value).
+            // Each marked as the operator it is, for the script surfaces (a + b, v * 2, -v).
             .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator+)>("Add", {"a", "b"})
+            .Operator(MethodOperator::Add)
             .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator-)>("Sub", {"a", "b"})
+            .Operator(MethodOperator::Subtract)
             // Two same-named overloads, resolved by parameter type at lookup.
             .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator*)>("Mul")
+            .Operator(MethodOperator::Multiply)
             // Same arity as Mul, genuinely type-overloaded (vec*vec vs vec*scalar) - a distinct
             // script name, since a dynamically-typed surface cannot pick between them by value.
             .Method<static_cast<Float3 (*)(Float3, f32)>(&operator*)>("Mul").OverloadedName("MulScalar")
+            .Operator(MethodOperator::Multiply)
+            .Method<static_cast<Float3 (*)(Float3, Float3)>(&operator/)>("Div")
+            .Operator(MethodOperator::Divide)
+            .Method<static_cast<Float3 (*)(Float3, f32)>(&operator/)>("Div").OverloadedName("DivScalar")
+            .Operator(MethodOperator::Divide)
+            .Method<&Negated<Float3>>("Neg", {"v"})
+            .Operator(MethodOperator::Negate)
+            .Method<&EqualValues<Float3>>("Equals", {"a", "b"})
+            .Operator(MethodOperator::Equals)
             .Constructor()
             .Constructor<f32, f32, f32>();
     }
@@ -123,6 +169,16 @@ namespace foundation::core
             .Constant("Zero", Float4::Zero)
             .Constant("One", Float4::One)
             .Method<&Float4::XYZ>("XYZ")
+            .Method<static_cast<Float4 (*)(Float4, Float4)>(&operator+)>("Add", {"a", "b"})
+            .Operator(MethodOperator::Add)
+            .Method<static_cast<Float4 (*)(Float4, Float4)>(&operator-)>("Sub", {"a", "b"})
+            .Operator(MethodOperator::Subtract)
+            .Method<static_cast<Float4 (*)(Float4, f32)>(&operator*)>("Mul").OverloadedName("MulScalar")
+            .Operator(MethodOperator::Multiply)
+            .Method<&Negated<Float4>>("Neg", {"v"})
+            .Operator(MethodOperator::Negate)
+            .Method<&EqualValues<Float4>>("Equals", {"a", "b"})
+            .Operator(MethodOperator::Equals)
             .Constructor()
             .Constructor<f32, f32, f32, f32>();
     }
@@ -141,6 +197,12 @@ namespace foundation::core
             .Constant("Transparent", Color::Transparent)
             .Method<&Color::ToRGBA8>("ToRGBA8")     // const member
             .Method<&Color::FromRGBA8>("FromRGBA8") // static factory
+            .Method<static_cast<Color (*)(Color, Color)>(&operator+)>("Add", {"a", "b"})
+            .Operator(MethodOperator::Add)
+            .Method<static_cast<Color (*)(Color, f32)>(&operator*)>("Mul").OverloadedName("MulScalar")
+            .Operator(MethodOperator::Multiply)
+            .Method<&EqualValues<Color>>("Equals", {"a", "b"})
+            .Operator(MethodOperator::Equals)
             .Constructor()
             .Constructor<f32, f32, f32, f32>();
     }
@@ -156,6 +218,7 @@ namespace foundation::core
             .Method<static_cast<Quaternion (*)(f32, f32, f32)>(&FromYawPitchRoll)>(
                 "FromYawPitchRoll", {"yaw", "pitch", "roll"})
             .Method<static_cast<Quaternion (*)(Quaternion, Quaternion)>(&operator*)>("Mul", {"a", "b"})
+            .Operator(MethodOperator::Multiply) // composes in the engine's order
             .Method<static_cast<Float3 (*)(Quaternion, Float3)>(&RotateVector)>("RotateVector",
                                                                                {"q", "v"})
             .Method<static_cast<Quaternion (*)(Quaternion)>(&Normalized)>("Normalized", {"q"})

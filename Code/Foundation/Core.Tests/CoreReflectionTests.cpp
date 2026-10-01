@@ -236,6 +236,45 @@ TEST_CASE("core-reflection: Float3 vector ops reflect (Cross/Add/Sub/Lerp/Distan
     CHECK(NearlyEqual(invoke("LengthSquared", Span<Variant>{lenSqArgs, 1}).Get<f32>(), 9.0f));
 }
 
+// Sedulous 22a73e31: the math values' operators are marked, each a static whose first parameter
+// is the left operand, so a script surface spells them as operators.
+TEST_CASE("core-reflection: the math values mark the operators they define")
+{
+    EnsureRegistered();
+    const auto ops = [](const TypeInfo& type, MethodOperator op)
+    {
+        u32 count = 0;
+        for (const MethodInfo& method : Methods(type))
+        {
+            if (method.op == op)
+            {
+                CHECK(method.isStatic);
+                CHECK(method.paramCount == (op == MethodOperator::Negate ? 1u : 2u));
+                ++count;
+            }
+        }
+        return count;
+    };
+    CHECK(ops(TypeOf<Float3>(), MethodOperator::Add) == 1u);
+    CHECK(ops(TypeOf<Float3>(), MethodOperator::Multiply) == 2u); // by a vector, by a scalar
+    CHECK(ops(TypeOf<Float3>(), MethodOperator::Divide) == 2u);
+    CHECK(ops(TypeOf<Float3>(), MethodOperator::Negate) == 1u);
+    CHECK(ops(TypeOf<Float3>(), MethodOperator::Equals) == 1u);
+    CHECK(ops(TypeOf<Float2>(), MethodOperator::Subtract) == 1u);
+    CHECK(ops(TypeOf<Float4>(), MethodOperator::Divide) == 0u); // Float4 defines no division
+    CHECK(ops(TypeOf<Quaternion>(), MethodOperator::Multiply) == 1u);
+    CHECK(ops(TypeOf<Color>(), MethodOperator::Add) == 1u);
+
+    const MethodInfo* neg = FindMethod(TypeOf<Float3>(), "Neg");
+    REQUIRE(neg != nullptr);
+    Variant v[] = {Variant::From(Float3{1.0f, -2.0f, 3.0f})};
+    CHECK(InvokeStatic(*neg, Span<Variant>{v, 1}).Value().Get<Float3>() == Float3{-1.0f, 2.0f, -3.0f});
+    const MethodInfo* equals = FindMethod(TypeOf<Float3>(), "Equals");
+    REQUIRE(equals != nullptr);
+    Variant same[] = {Variant::From(Float3{1.0f, 2.0f, 3.0f}), Variant::From(Float3{1.0f, 2.0f, 3.0f})};
+    CHECK(InvokeStatic(*equals, Span<Variant>{same, 2}).Value().Get<bool>());
+}
+
 TEST_CASE("core-reflection: Quaternion ops reflect (FromAxisAngle/Mul/RotateVector/Slerp)")
 {
     EnsureRegistered();
