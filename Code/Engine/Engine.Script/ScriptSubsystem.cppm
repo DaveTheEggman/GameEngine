@@ -719,8 +719,11 @@ export namespace engine::script
                 return;
             }
             PROFILE_SCOPE("Script.Update");
+            m_deltaTime = deltaTime;
+            m_elapsed += static_cast<f64>(deltaTime);
             TickBehaviors(deltaTime);
             DrainMessages(); // deferred entity.send delivery - same frame, never nested
+            AddPendingBehaviors(); // SceneScripts.addBehavior: started on the next tick
             // Resume due coroutines ONCE per simulated frame, at the tick's top level (no
             // VM call active - the backend's resume is safe here). Gated to a backend that
             // actually has the scheduler; a non-supporting one no-ops anyway.
@@ -731,6 +734,26 @@ export namespace engine::script
                 PROFILE_SCOPE("Script.Coroutines");
                 manager->AdvanceCoroutines(static_cast<f64>(deltaTime));
             }
+        }
+
+        /// The scene's last delivered frame time and its simulated seconds since it started
+        /// (SceneScripts.deltaTime / elapsed): scaled time, so both stand still at time scale 0.
+        [[nodiscard]] f32 DeltaTime() const noexcept { return m_deltaTime; }
+        [[nodiscard]] f64 Elapsed() const noexcept { return m_elapsed; }
+
+        /// A behaviour of the script class `scriptClass` (an asset id) for `entity`, added after
+        /// this tick's behaviours ran and started on the next (Sedulous's AddBehavior): the
+        /// component is made when the entity has none. Deferred because a behaviour asking for
+        /// it is running inside the very array it would grow. False for a stale entity or a nil
+        /// id; an id naming no class leaves a behaviour that never starts, as an authored one.
+        bool QueueBehavior(scene::EntityHandle entity, const Guid& scriptClass)
+        {
+            if (m_scene == nullptr || !m_scene->IsValid(entity) || scriptClass.IsNil())
+            {
+                return false;
+            }
+            m_pendingBehaviors.PushBack(PendingBehavior{entity, scriptClass});
+            return true;
         }
 
         /// Live instance count (the subsystem's context-teardown bookkeeping).
@@ -1223,6 +1246,49 @@ export namespace engine::script
             String handler;      // prebuilt "on<Message>"
             Array<Variant> args; // marshalled at send time
         };
+        struct PendingBehavior
+        {
+            scene::EntityHandle entity;
+            Guid scriptClass;
+        };
+
+        void AddPendingBehaviors()
+        {
+            if (m_pendingBehaviors.IsEmpty())
+            {
+                return;
+            }
+            Array<PendingBehavior> pending = Move(m_pendingBehaviors);
+            m_pendingBehaviors = Array<PendingBehavior>{};
+            auto* components = m_scene->GetSystem<ScriptComponentManager>();
+            if (components == nullptr)
+            {
+                return;
+            }
+            resource::ResourceManager* resources =
+                (m_host != nullptr && m_host->Binding().resolveResources)
+                    ? m_host->Binding().resolveResources()
+                    : nullptr;
+            for (const PendingBehavior& request : pending)
+            {
+                if (!m_scene->IsValid(request.entity))
+                {
+                    continue; // destroyed in the meantime
+                }
+                ScriptComponent* component = components->Get(request.entity);
+                if (component == nullptr)
+                {
+                    component = &components->Add(request.entity);
+                }
+                ScriptBehavior behavior;
+                behavior.script.SetId(request.scriptClass);
+                if (resources != nullptr)
+                {
+                    behavior.script.Bind(*resources);
+                }
+                component->behaviors.PushBack(Move(behavior));
+            }
+        }
         static constexpr usize kMaxMessagesPerDrain = 4096;
 
         scene::Scene* m_scene = nullptr;
@@ -1230,9 +1296,82 @@ export namespace engine::script
         Function<void()> m_runObserver;
         Array<scene::EntityHandle> m_tickOwners; // per-tick snapshot (reused)
         Array<PendingMessage> m_messages;        // deferred entity.send queue
+        Array<PendingBehavior> m_pendingBehaviors; // SceneScripts.addBehavior, after the tick
         ScriptEventSubscriptions m_eventSubs;    // this scene's bus subscriptions -> BroadcastEvent
+        f32 m_deltaTime = 0.0f;
+        f64 m_elapsed = 0.0;
         bool m_started = false;
     };
+
+    /// The scene's scripting (Sedulous's `scene.Scripts`), in our SceneX.of shape:
+    /// `SceneScripts.of(scene)`. The scene's script time (scaled: it stands still at time scale
+    /// 0), the messages between behaviours (`send`, as `entity.send` on the target), the events
+    /// on the scene's bus (`emit`, as `scene.events.emit`), and a behaviour added at runtime by
+    /// its class's asset id. A value type; a null scene makes every call a safe no-op.
+    struct SceneScripts
+    {
+        scene::Scene* scene = nullptr;
+
+        [[nodiscard]] ScriptSceneSystem* System() const
+        {
+            return scene != nullptr ? scene->GetSystem<ScriptSceneSystem>() : nullptr;
+        }
+
+        [[nodiscard]] f32 deltaTime() const
+        {
+            ScriptSceneSystem* system = System();
+            return system != nullptr ? system->DeltaTime() : 0.0f;
+        }
+        [[nodiscard]] f64 elapsed() const
+        {
+            ScriptSceneSystem* system = System();
+            return system != nullptr ? system->Elapsed() : 0.0;
+        }
+        /// Queues `on<Message>(...)` for every behaviour of `target` that declares it.
+        void send(Entity target, String message) const
+        {
+            if (target.scene == scene)
+            {
+                target.send(Move(message));
+            }
+        }
+        void send(Entity target, String message, Variant payload) const
+        {
+            if (target.scene == scene)
+            {
+                target.send(Move(message), Move(payload));
+            }
+        }
+        /// Publishes on the scene's bus: every behaviour and the Level declaring `on<Event>`.
+        void emit(String name) const
+        {
+            SceneEvents events;
+            events.scene = scene;
+            events.emit(Move(name));
+        }
+        void emit(String name, Variant payload) const
+        {
+            SceneEvents events;
+            events.scene = scene;
+            events.emit(Move(name), Move(payload));
+        }
+        /// A behaviour of the class (a script asset id) on the entity, started on the next tick.
+        bool addBehavior(Entity entity, Guid scriptClass) const
+        {
+            ScriptSceneSystem* system = System();
+            return system != nullptr && entity.scene == scene &&
+                   system->QueueBehavior(entity.Handle(), scriptClass);
+        }
+
+        [[nodiscard]] static SceneScripts of(foundation::script::Scene sceneHandle)
+        {
+            SceneScripts scripts;
+            scripts.scene = sceneHandle.scene;
+            return scripts;
+        }
+    };
+
+    void RegisterScriptSceneFacade();
 
     // ---- scene-level scripting (the third tier): one `Level` script object per scene ----
 

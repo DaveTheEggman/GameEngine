@@ -86,5 +86,7 @@ export namespace engine
     /// facades. A new domain facade bumps this deliberately; a lost registration fails loudly.
     // 33 = +RayCastHit: ScenePhysics.rayCast returns the explicit hit-result value handle.
     // 34 = +DebugDraw: DebugDraw.of(scene) immediate-mode debug draw facade.
-    inline constexpr usize kSubsystemFacadeNameCount = 36; // + SplineHit + SceneSplines
+    // 36 = + SplineHit + SceneSplines.
+    // 37 = +SceneScripts: SceneScripts.of(scene), the scene's script time, send/emit, addBehavior.
+    inline constexpr usize kSubsystemFacadeNameCount = 37;
 }

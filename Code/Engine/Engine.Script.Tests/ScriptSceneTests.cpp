@@ -4704,3 +4704,108 @@ TEST_CASE("script.scene: ScenePrefabs spawns by asset id at a position, turned, 
         u8"    end\n"
         u8"end\n");
 }
+
+// SceneScripts.of(scene) (Sedulous's scene.Scripts): the scene's script time, send to another
+// entity's behaviours, emit on the scene's bus, and a behaviour added by class id - queued after the
+// tick and present on the entity next frame; a nil id is refused.
+namespace
+{
+    void CheckSceneScriptsScript(StringView language, StringView bossSource, StringView receiverSource)
+    {
+        engine::script::RegisterScriptSceneFacade();
+        ScriptedScene bed;
+        const Guid added{0xAB12, 0xCD34};
+        RefPtr<ScriptClass> boss = MakeClassLang(language, u8"Boss", bossSource, {u8"onStart", u8"onUpdate"});
+        RefPtr<ScriptClass> receiver =
+            MakeClassLang(language, u8"Receiver", receiverSource, {u8"onPing", u8"onHello"});
+        const scene::EntityHandle target = bed.AddScripted(receiver, u8"target");
+        const scene::EntityHandle bossEntity = bed.AddScripted(boss, u8"boss");
+        const scene::EntityHandle asked = bed.scene.CreateEntity(u8"flagA");
+        const scene::EntityHandle heard = bed.scene.CreateEntity(u8"flagB");
+
+        bed.Start();
+        bed.Frame();
+        bed.Frame();
+
+        ScriptComponent* bossComp = bed.components->Get(bossEntity);
+        REQUIRE(bossComp != nullptr);
+        CHECK_FALSE(bossComp->behaviors[0].faulted);
+        CHECK(bed.scene.GetEntityName(asked) == StringView(u8"asked"));   // added, nil refused
+        CHECK(bed.scene.GetEntityName(target) == StringView(u8"pinged")); // send(target, "Ping", 3)
+        CHECK(bed.scene.GetEntityName(heard) == StringView(u8"heard"));   // emit("Hello", 5)
+        CHECK(bed.scene.GetEntityName(bossEntity) == StringView(u8"timed")); // 0.5 s frames
+        // The added behaviour landed after the tick, behind the authored one.
+        ScriptComponent* targetComp = bed.components->Get(target);
+        REQUIRE(targetComp != nullptr);
+        REQUIRE(targetComp->behaviors.Size() == 2u);
+        CHECK(targetComp->behaviors[1].script.id == added);
+    }
+}
+
+TEST_CASE("script.scene: SceneScripts gives the scene's script time, sends, emits and adds a "
+          "behaviour by class id (AngelScript)")
+{
+    CheckSceneScriptsScript(
+        u8"angelscript",
+        u8"class Boss {\n"
+        u8"    private Entity@ self;\n"
+        u8"    private int frames = 0;\n"
+        u8"    Boss(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        SceneScripts scripts = SceneScripts::of(self.scene);\n"
+        u8"        Entity@ target = self.scene.find(\"target\");\n"
+        u8"        bool added = scripts.addBehavior(target, Guid(0xAB12, 0xCD34));\n"
+        u8"        bool refused = !scripts.addBehavior(target, Guid(\"not-a-guid\"));\n"
+        u8"        scripts.send(target, \"Ping\", 3);\n"
+        u8"        scripts.emit(\"Hello\", 5);\n"
+        u8"        if (added && refused) { self.scene.find(\"flagA\").setName(\"asked\"); }\n"
+        u8"    }\n"
+        u8"    void onUpdate(float dt) {\n"
+        u8"        SceneScripts scripts = SceneScripts::of(self.scene);\n"
+        u8"        frames++;\n"
+        u8"        if (frames == 2 && scripts.deltaTime() == 0.5f && scripts.elapsed() > 0.9) {\n"
+        u8"            self.setName(\"timed\");\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n",
+        u8"class Receiver {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Receiver(Entity@ entity) { @self = entity; }\n"
+        u8"    void onPing(int value) { if (value == 3) { self.setName(\"pinged\"); } }\n"
+        u8"    void onHello(int value) { if (value == 5) { self.scene.find(\"flagB\").setName(\"heard\"); } }\n"
+        u8"}\n");
+}
+
+TEST_CASE("script.scene: SceneScripts gives the scene's script time, sends, emits and adds a "
+          "behaviour by class id (Luau)")
+{
+    CheckSceneScriptsScript(
+        u8"luau",
+        u8"Boss = {}\n"
+        u8"Boss.__index = Boss\n"
+        u8"function Boss.new(entity) return setmetatable({ entity = entity, frames = 0 }, Boss) end\n"
+        u8"function Boss:onStart()\n"
+        u8"    local me = self.entity\n"
+        u8"    local scripts = SceneScripts.of(me.scene)\n"
+        u8"    local target = me.scene:find(\"target\")\n"
+        u8"    local added = scripts:addBehavior(target, Guid.new(\"00000000-0000-ab12-0000-00000000cd34\"))\n"
+        u8"    local refused = not scripts:addBehavior(target, Guid.new(\"not-a-guid\"))\n"
+        u8"    scripts:send(target, \"Ping\", 3)\n"
+        u8"    scripts:emit(\"Hello\", 5)\n"
+        u8"    if added and refused then me.scene:find(\"flagA\"):setName(\"asked\") end\n"
+        u8"end\n"
+        u8"function Boss:onUpdate(dt)\n"
+        u8"    local scripts = SceneScripts.of(self.entity.scene)\n"
+        u8"    self.frames = self.frames + 1\n"
+        u8"    if self.frames == 2 and scripts:deltaTime() == 0.5 and scripts:elapsed() > 0.9 then\n"
+        u8"        self.entity:setName(\"timed\")\n"
+        u8"    end\n"
+        u8"end\n",
+        u8"Receiver = {}\n"
+        u8"Receiver.__index = Receiver\n"
+        u8"function Receiver.new(entity) return setmetatable({ entity = entity }, Receiver) end\n"
+        u8"function Receiver:onPing(value) if value == 3 then self.entity:setName(\"pinged\") end end\n"
+        u8"function Receiver:onHello(value)\n"
+        u8"    if value == 5 then self.entity.scene:find(\"flagB\"):setName(\"heard\") end\n"
+        u8"end\n");
+}

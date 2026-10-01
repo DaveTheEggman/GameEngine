@@ -86,6 +86,37 @@ namespace engine::script
 
 namespace engine::script
 {
+    REFLECT_VALUE(SceneScripts, "rtti::engine::script")
+    {
+        builder.Method<&SceneScripts::deltaTime>("deltaTime");
+        builder.Method<&SceneScripts::elapsed>("elapsed");
+        // send and emit - ARITY FAMILIES with a Variant payload, as entity.send / scene.events.emit.
+        builder.Method<static_cast<void (SceneScripts::*)(foundation::script::Entity, String) const>(&SceneScripts::send)>(
+            "send", {"target", "message"});
+        builder.Method<static_cast<void (SceneScripts::*)(foundation::script::Entity, String, Variant) const>(
+            &SceneScripts::send)>("send", {"target", "message", "payload"});
+        builder.Method<static_cast<void (SceneScripts::*)(String) const>(&SceneScripts::emit)>(
+            "emit", {"name"});
+        builder.Method<static_cast<void (SceneScripts::*)(String, Variant) const>(&SceneScripts::emit)>(
+            "emit", {"name", "payload"});
+        builder.Method<&SceneScripts::addBehavior>("addBehavior", {"entity", "scriptClass"});
+        builder.Method<&SceneScripts::of>("of", {"scene"});
+        builder.Constructor(); // some backends only materialize constructible foreign classes
+    }
+
+    void RegisterScriptSceneFacade()
+    {
+        static const bool once = []()
+        {
+            RttiRegisterValue_SceneScripts();
+            GlobalTypeRegistry().Register(TypeOf<SceneScripts>());
+            foundation::script::RegisterExtraScriptRootType(&TypeOf<SceneScripts>());
+            foundation::script::RegisterExtraFacadeName(u8"SceneScripts");
+            return true;
+        }();
+        (void)once;
+    }
+
     const engine::DomainModule& ScriptDomain() noexcept
     {
         static const foundation::resource::ResourceModule* const kResources[] = {
@@ -94,6 +125,7 @@ namespace engine::script
             .id = u8"script",
             .installScene = &AddScriptSceneManagers,
             .registerReflection = &RegisterScriptComponentReflection,
+            .registerScriptFacade = &RegisterScriptSceneFacade,
             .resources = foundation::core::Span<const foundation::resource::ResourceModule* const>{
                 kResources, sizeof(kResources) / sizeof(kResources[0])}};
         return kModule;
