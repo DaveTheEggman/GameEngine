@@ -493,7 +493,12 @@ namespace foundation::script::angelscript
             ContainerMove,
             // A plain nested-VALUE member (`emitter`, a curve): getter returns a BORROW handle over the
             // member address (edited in place; owner pinned + generation-guarded). `property` = member.
-            NestedGet
+            NestedGet,
+            // A reflected operator (MethodInfo::op) as the object's opAdd/opSub/opMul/opDiv/opNeg/
+            // opEquals: the static invoked with `self` as its left operand. `method` = the static.
+            Operator,
+            // Its compound form (opAddAssign ...): the result written back into `self`.
+            OperatorAssign
         };
         Kind kind;
         AngelScriptManager* manager;
@@ -512,6 +517,7 @@ namespace foundation::script::angelscript
     void PropertyGetDispatch(asIScriptGeneric* gen);
     void PropertySetDispatch(asIScriptGeneric* gen);
     void MethodDispatch(asIScriptGeneric* gen);
+    void OperatorDispatch(asIScriptGeneric* gen); // a reflected operator (Binding::Kind::Operator*)
     void CoroutineStartDispatch(asIScriptGeneric* gen); // startCoroutine(ScriptCoroutine@)
     void CoroutineWaitDispatch(asIScriptGeneric* gen);  // wait(float seconds)
 
@@ -791,6 +797,16 @@ namespace foundation::script::angelscript
                     member.isStatic = method.isStatic;
                     member.kind = ScriptApiMemberKind::Method;
                     api.members.PushBack(core::Move(member));
+                    // The operator it also binds as (RegisterOperator), in the script's spelling.
+                    core::String operatorSignature;
+                    if (BuildOperatorSignature(operatorSignature, type, method))
+                    {
+                        ScriptApiMember op;
+                        op.name = core::String(OperatorSymbol(method.op));
+                        op.signature = core::Move(operatorSignature);
+                        op.kind = ScriptApiMemberKind::Operator;
+                        api.members.PushBack(core::Move(op));
+                    }
                 }
                 result.PushBack(core::Move(api));
             }
@@ -1755,6 +1771,54 @@ namespace foundation::script::angelscript
         // Builds the AngelScript declaration string of a method for the introspection
         // surface (return name(params), statics as Type::name). False when a return/param
         // type is not expressible - i.e. BindType never registered it either.
+        // An operator as a script writes it: `Float3 + Float3 -> Float3 (and +=)`, `-Float3 ->
+        // Float3`. False for a method that binds as no operator (RegisterOperator's rule).
+        [[nodiscard]] bool BuildOperatorSignature(core::String& out, const core::TypeInfo& type,
+                                                  const core::MethodInfo& method) const
+        {
+            const bool unary = method.op == core::MethodOperator::Negate;
+            if (method.op == core::MethodOperator::None || !method.isStatic ||
+                method.paramCount != (unary ? 1u : 2u) || method.params[0].type == nullptr ||
+                method.params[0].type() != &type)
+            {
+                return false;
+            }
+            const core::TypeInfo* returnType =
+                (method.returnType != nullptr) ? method.returnType() : nullptr;
+            const char* typeName = ScriptTypeName(type);
+            const core::StringView symbol = OperatorSymbol(method.op);
+            if (unary)
+            {
+                AppendAscii(out, "-");
+                AppendAscii(out, typeName);
+            }
+            else
+            {
+                AppendAscii(out, typeName);
+                AppendAscii(out, " ");
+                out.Append(symbol);
+                AppendAscii(out, " ");
+                const core::TypeInfo* right =
+                    method.params[1].type != nullptr ? method.params[1].type() : nullptr;
+                if (right == nullptr || !AppendDeclType(out, right, /*isParam*/ false))
+                {
+                    return false;
+                }
+            }
+            AppendAscii(out, " -> ");
+            if (returnType == nullptr || !AppendDeclType(out, returnType, /*isParam*/ false))
+            {
+                return false;
+            }
+            if (!unary && method.op != core::MethodOperator::Equals && returnType == &type)
+            {
+                AppendAscii(out, " (and ");
+                out.Append(symbol);
+                AppendAscii(out, "=)");
+            }
+            return true;
+        }
+
         [[nodiscard]] bool BuildMemberSignature(core::String& out, const core::TypeInfo& type,
                                                 const core::MethodInfo& method) const
         {
@@ -2323,6 +2387,98 @@ namespace foundation::script::angelscript
                 {
                     dedupe.PushBack(core::Move(decl));
                 }
+                RegisterOperator(name, type, method, used);
+            }
+        }
+
+        // A method marked as an operator (MethodInfo::op, a static whose first parameter is this
+        // type) also binds as the object's AngelScript operator: `a + b`, `v * 2.0f`, `-v`,
+        // `a == b`, and, when it yields this type, the compound `p += v`.
+        void RegisterOperator(const char* name, const core::TypeInfo& type,
+                              const core::MethodInfo& method, core::Array<core::String>& used)
+        {
+            const char* opName = nullptr;
+            const char* assignName = nullptr;
+            switch (method.op)
+            {
+            case core::MethodOperator::Add:
+                opName = "opAdd";
+                assignName = "opAddAssign";
+                break;
+            case core::MethodOperator::Subtract:
+                opName = "opSub";
+                assignName = "opSubAssign";
+                break;
+            case core::MethodOperator::Multiply:
+                opName = "opMul";
+                assignName = "opMulAssign";
+                break;
+            case core::MethodOperator::Divide:
+                opName = "opDiv";
+                assignName = "opDivAssign";
+                break;
+            case core::MethodOperator::Negate:
+                opName = "opNeg";
+                break;
+            case core::MethodOperator::Equals:
+                opName = "opEquals";
+                break;
+            case core::MethodOperator::None:
+                return;
+            }
+            const bool unary = method.op == core::MethodOperator::Negate;
+            if (!method.isStatic || method.paramCount != (unary ? 1u : 2u) ||
+                method.params[0].type == nullptr || method.params[0].type() != &type)
+            {
+                return;
+            }
+            const core::TypeInfo* returnType =
+                (method.returnType != nullptr) ? method.returnType() : nullptr;
+            core::String operand; // the right operand's declaration, binary only
+            if (!unary && !AppendParams(operand, method.params + 1, 1))
+            {
+                return;
+            }
+            core::String decl;
+            if (returnType == nullptr || !AppendDeclType(decl, returnType, /*isParam*/ false))
+            {
+                return;
+            }
+            AppendAscii(decl, " ");
+            AppendAscii(decl, opName);
+            AppendAscii(decl, "(");
+            decl.Append(operand.AsView());
+            AppendAscii(decl, ")");
+            if (!IsUsed(used, decl))
+            {
+                Binding* binding = MakeBinding(Binding{Binding::Kind::Operator, this, &type,
+                                                       nullptr, nullptr, &method});
+                if (m_engine->RegisterObjectMethod(name, CStr(decl), asFUNCTION(OperatorDispatch),
+                                                   asCALL_GENERIC, binding) >= 0)
+                {
+                    used.PushBack(core::Move(decl));
+                }
+            }
+            if (assignName == nullptr || returnType != &type)
+            {
+                return;
+            }
+            core::String assign;
+            AppendAscii(assign, name);
+            AppendAscii(assign, "& ");
+            AppendAscii(assign, assignName);
+            AppendAscii(assign, "(");
+            assign.Append(operand.AsView());
+            AppendAscii(assign, ")");
+            if (!IsUsed(used, assign))
+            {
+                Binding* binding = MakeBinding(Binding{Binding::Kind::OperatorAssign, this, &type,
+                                                       nullptr, nullptr, &method});
+                if (m_engine->RegisterObjectMethod(name, CStr(assign), asFUNCTION(OperatorDispatch),
+                                                   asCALL_GENERIC, binding) >= 0)
+                {
+                    used.PushBack(core::Move(assign));
+                }
             }
         }
 
@@ -2646,6 +2802,36 @@ namespace foundation::script::angelscript
         {
             BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
             result = core::InvokeMethod(method, core::ToInstance(self->value), argSpan);
+        }
+        binding->manager->SetGenericReturn(gen,
+                                           result.HasValue() ? result.Value() : core::Variant{});
+    }
+
+    void OperatorDispatch(asIScriptGeneric* gen)
+    {
+        const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
+        const core::MethodInfo& method = *binding->method;
+        BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
+        core::Variant args[2];
+        args[0] = self->value; // the left operand
+        const bool binary = gen->GetArgCount() == 1;
+        if (binary)
+        {
+            const core::TypeInfo* expected =
+                method.params[1].type != nullptr ? method.params[1].type() : nullptr;
+            args[1] = binding->manager->ValueFromArg(gen, 0, expected);
+            ReleaseHandleArgs(gen, binding->manager);
+        }
+        core::Result<core::Variant> result =
+            core::InvokeStatic(method, core::Span<core::Variant>{args, binary ? 2u : 1u});
+        if (binding->kind == Binding::Kind::OperatorAssign)
+        {
+            if (result.HasValue())
+            {
+                self->value = core::Move(result.Value());
+            }
+            gen->SetReturnAddress(self);
+            return;
         }
         binding->manager->SetGenericReturn(gen,
                                            result.HasValue() ? result.Value() : core::Variant{});

@@ -28,7 +28,31 @@ export namespace foundation::script
         Method,   // callable member / free function
         Property, // field-like accessor (get / get+set)
         Constant, // named constant value
+        Operator, // an operator the type takes (a + b), bound from a reflected one (MethodOperator)
     };
+
+    /// How a script writes `op` ("+", "-", "*", "/", "-x", "=="); empty for None.
+    [[nodiscard]] inline core::StringView OperatorSymbol(core::MethodOperator op) noexcept
+    {
+        switch (op)
+        {
+        case core::MethodOperator::Add:
+            return u8"+";
+        case core::MethodOperator::Subtract:
+            return u8"-";
+        case core::MethodOperator::Multiply:
+            return u8"*";
+        case core::MethodOperator::Divide:
+            return u8"/";
+        case core::MethodOperator::Negate:
+            return u8"-x";
+        case core::MethodOperator::Equals:
+            return u8"==";
+        case core::MethodOperator::None:
+            break;
+        }
+        return {};
+    }
 
     /// One script-visible member of a bound type, spelled the way the backend presents
     /// it (the `signature` is language-formatted, e.g. AngelScript

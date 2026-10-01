@@ -58,6 +58,8 @@ namespace foundation::mcp::script_detail
             return u8"property";
         case foundation::script::ScriptApiMemberKind::Constant:
             return u8"constant";
+        case foundation::script::ScriptApiMemberKind::Operator:
+            return u8"operator";
         case foundation::script::ScriptApiMemberKind::Method:
         default:
             return u8"method";

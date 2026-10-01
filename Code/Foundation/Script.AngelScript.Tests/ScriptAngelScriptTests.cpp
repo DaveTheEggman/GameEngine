@@ -539,6 +539,53 @@ TEST_CASE("angelscript: reflected value types support value assignment (Float3 p
           1.0); // value semantics: a not mutated by b's reassign
 }
 
+// Sedulous 22a73e31: the math values' operators, bound from what reflection marks: a + b, v * 2,
+// -v, a == b, the compound p += v, and a quaternion product composing in the engine's order.
+TEST_CASE("angelscript: reflected operators - a + b, v * 2.0f, -v, a == b, p += v, q * r")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    REQUIRE(static_cast<bool>(ctx));
+
+    const Status status =
+        ctx->Load(u8"double SumY; double ScaledZ; double NegX; bool Same; bool Differ;\n"
+                  u8"double MovedX; double HalfY; double TwoD; double QW; double Hue;\n"
+                  u8"void main() {\n"
+                  u8"  Float3 a = Float3(1, 2, 3);\n"
+                  u8"  Float3 b = Float3(4, 5, 6);\n"
+                  u8"  Float3 sum = a + b;\n"
+                  u8"  SumY = sum.y;\n"
+                  u8"  ScaledZ = (a * 2.0f).z;\n"
+                  u8"  NegX = (-a).x;\n"
+                  u8"  Same = a == Float3(1, 2, 3);\n"
+                  u8"  Differ = a != b;\n"
+                  u8"  Float3 p = a;\n"
+                  u8"  p += b;\n"
+                  u8"  p -= Float3(1, 1, 1);\n"
+                  u8"  MovedX = p.x;\n"
+                  u8"  HalfY = (b / 2.0f).y;\n"
+                  u8"  Float2 d = Float2(1, 1) - Float2(3, 4);\n"
+                  u8"  TwoD = d.y;\n"
+                  u8"  Quaternion q = Quaternion(0, 0, 0, 1) * Quaternion(0, 0, 0, 1);\n"
+                  u8"  QW = q.w;\n"
+                  u8"  Hue = (Color(0.25f, 0, 0, 1) + Color(0.5f, 0, 0, 0)).r;\n"
+                  u8"}\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"SumY").Get<f64>() == doctest::Approx(7.0));
+    CHECK(ctx->GetGlobal(u8"ScaledZ").Get<f64>() == doctest::Approx(6.0));
+    CHECK(ctx->GetGlobal(u8"NegX").Get<f64>() == doctest::Approx(-1.0));
+    CHECK(ctx->GetGlobal(u8"Same").Get<bool>());
+    CHECK(ctx->GetGlobal(u8"Differ").Get<bool>());
+    CHECK(ctx->GetGlobal(u8"MovedX").Get<f64>() == doctest::Approx(4.0)); // 1 + 4 - 1
+    CHECK(ctx->GetGlobal(u8"HalfY").Get<f64>() == doctest::Approx(2.5));
+    CHECK(ctx->GetGlobal(u8"TwoD").Get<f64>() == doctest::Approx(-3.0));
+    CHECK(ctx->GetGlobal(u8"QW").Get<f64>() == doctest::Approx(1.0));
+    CHECK(ctx->GetGlobal(u8"Hue").Get<f64>() == doctest::Approx(0.75));
+}
+
 TEST_CASE("angelscript: 64-bit integer facade args/returns round-trip exactly (no double funnel)")
 {
     RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
@@ -956,6 +1003,12 @@ TEST_CASE("angelscript: bound-api signatures carry reflected parameter names")
     const ScriptApiMember* cross = findMember(*float3, u8"Cross");
     REQUIRE(cross != nullptr);
     CHECK(cross->signature.AsView().EndsWith(u8" b)"));
+    // The operators it binds are listed as such, as a script writes them.
+    const ScriptApiMember* plus = findMember(*float3, u8"+");
+    REQUIRE(plus != nullptr);
+    CHECK(plus->kind == ScriptApiMemberKind::Operator);
+    CHECK(plus->signature.AsView().StartsWith(u8"Float3 + "));
+    CHECK(plus->signature.AsView().EndsWith(u8"(and +=)"));
 
     const ScriptApiType* math = findType(u8"Math");
     REQUIRE(math != nullptr);
