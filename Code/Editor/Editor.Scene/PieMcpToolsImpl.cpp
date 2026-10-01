@@ -398,9 +398,10 @@ namespace editor
         server.RegisterTool(
             u8"pie_state",
             u8"One PIE instance's state: whether it is running (or starting, waiting on the cook), "
-            u8"the scene it is in, `runTime`, the seconds of frames since it started (unscaled: a "
-            u8"menu that stops gameplay time does not stop it), the frames rendered since, and its "
-            u8"startup script's state (`none`, `running`, or `faulted` with the reason).",
+            u8"the scene it is in, `runTime`, the seconds of frames since it started (unscaled: it "
+            u8"keeps going while the game pauses its scene at time scale 0, as behind a menu), the "
+            u8"frames rendered since, and its startup script's state (`none`, `running`, or "
+            u8"`faulted` with the reason).",
             SchemaBuilder().Str(u8"pie", kPieArgument).Build(), ToolAnnotations::ReadOnly(),
             [ctx](const JsonValue& args) -> ToolOutcome
             {

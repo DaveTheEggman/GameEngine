@@ -490,9 +490,9 @@ export namespace engine::runtime
         /// a clean stop; a start clears it.
         [[nodiscard]] core::StringView ScriptFault() const noexcept { return m_scriptFault.AsView(); }
         /// Seconds of frames since ResetRunClock: the host's delta, NOT scaled by the context's,
-        /// the instance's or the scene's time scale, so a menu that stops gameplay time (scene
-        /// time scale 0) does not stop it; a scripted playtest times its input by it. Stands
-        /// still while the debugger holds the run.
+        /// the instance's or the scene's time scale, so it keeps going while the game pauses its
+        /// scene at time scale 0 (a menu over a paused scene still takes clicks); a scripted
+        /// playtest times its input by it. Stands still while the debugger holds the run.
         [[nodiscard]] f64 RunTime() const noexcept { return m_runTime; }
         void ResetRunClock() noexcept { m_runTime = 0.0; }
         [[nodiscard]] script::IScriptContext* ScriptContext() const noexcept

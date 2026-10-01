@@ -1260,8 +1260,8 @@ TEST_CASE("game-instance: a faulted game script says where and why, and the run 
 }
 
 // agent-playtesting-and-asset-creation.md P4 (Sedulous aaf5ff78): the run clock is the host's
-// unscaled delta, so a game that stops its gameplay time (a pause menu) does not stop a
-// playtest's timeline; and a playtest reads the running game script's properties.
+// unscaled delta, so it keeps going while the game pauses its scene (behind a menu) and a
+// playtest's timeline goes on; and a playtest reads the running game script's properties.
 TEST_CASE("game-instance: the run clock ignores time scale, and a game script's properties read")
 {
     RegisterCoreTypes();
@@ -1276,7 +1276,7 @@ TEST_CASE("game-instance: the run clock ignores time scale, and a game script's 
                             u8"function Game:update(dt) self.score = self.score + 1 end\n"
                             u8"function Game:exit() end\n";
     REQUIRE(gi.StartScript(game, u8"game.luau"));
-    gi.SetInstanceTimeScale(0.0f); // gameplay time stopped: the run clock still moves
+    gi.SetInstanceTimeScale(0.0f); // the scene paused: the run clock still moves
     for (int i = 0; i < 3; ++i)
     {
         gi.TickScript(1.0f / 60.0f, 1.0f);

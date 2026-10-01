@@ -48,9 +48,9 @@ export namespace editor
         /// The scene the run is in, empty when it has none (a script that owns boot, between
         /// levels).
         [[nodiscard]] virtual StringView SceneName() const noexcept = 0;
-        /// Seconds of frames since the run started, unscaled: a menu that stops gameplay time
-        /// does not stop it; it stands still while the debugger holds the run. Scripted input is
-        /// timed by it.
+        /// Seconds of frames since the run started, unscaled: it keeps going while the game has
+        /// its scene paused at time scale 0 (behind a menu, which still works); it stands still
+        /// while the debugger holds the run. Scripted input is timed by it.
         [[nodiscard]] virtual f64 RunTime() const noexcept = 0;
         /// Frames rendered since the run started.
         [[nodiscard]] virtual u64 FrameCount() const noexcept = 0;
