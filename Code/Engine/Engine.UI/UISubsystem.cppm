@@ -597,6 +597,9 @@ export namespace engine::ui
 
         void SyncCanvases();
         void PumpInput();
+        // Nothing is focused and a navigation input came: the top screen's default focus, or
+        // failing a screen the first focusable anywhere. False when there is nothing to focus.
+        bool LandFocus();
         // RenderTexture canvas roots are STANDALONE context roots owned by their
         // component - this registry (strong refs, mark-sweep like the canvas hosts) is
         // how a vanished component (despawn/removal; managers have no destroy hook)

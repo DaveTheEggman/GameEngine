@@ -261,25 +261,35 @@ namespace foundation::ui::gamekit
                 RecomputeVisibility();
                 raw->OnEnter();
                 raw->OnShown();
-                if (FocusManager* fm = Focus())
-                {
-                    View* target = nullptr;
-                    if (!raw->DefaultFocus().IsEmpty())
-                    {
-                        target = raw->FindByName(raw->DefaultFocus());
-                    }
-                    if (target != nullptr)
-                    {
-                        fm->SetFocus(target, FocusSource::Programmatic);
-                    }
-                    else
-                    {
-                        fm->FocusFirstIn(raw);
-                    }
-                }
+                (void)FocusDefault(FocusSource::Programmatic);
                 PlayTransition(raw, raw->InTransition(), /*isEnter*/ true, {});
             });
         return raw;
+    }
+
+    bool ScreenStack::FocusDefault(FocusSource source)
+    {
+        UIScreen* screen = Top();
+        FocusManager* focus = Focus();
+        if (screen == nullptr || focus == nullptr)
+        {
+            return false;
+        }
+        View* target = nullptr;
+        if (!screen->DefaultFocus().IsEmpty())
+        {
+            target = screen->FindByName(screen->DefaultFocus());
+        }
+        if (target == nullptr && focus->FocusFirstIn(screen))
+        {
+            target = focus->FocusedView();
+        }
+        if (target == nullptr)
+        {
+            return false;
+        }
+        focus->SetFocus(target, source);
+        return true;
     }
 
     void ScreenStack::Pop()

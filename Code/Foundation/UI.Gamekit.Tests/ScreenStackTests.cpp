@@ -181,6 +181,36 @@ TEST_CASE("screenstack: focus is saved on push and restored on pop")
     CHECK(fm->FocusedView() == a->button.Get());
 }
 
+TEST_CASE("screenstack: FocusDefault lands on the top screen's default, lit as keyboard focus")
+{
+    // Focus cleared by a click on empty space comes back where the top screen starts it: its
+    // default-focus, not its first focusable (Sedulous fb39977b).
+    Bed bed;
+    FocusManager* fm = bed.context.GetFocusManager();
+    REQUIRE(fm != nullptr);
+    CHECK_FALSE(bed.stack.FocusDefault()); // no screen, nothing to land on
+
+    auto menu = MakeScreen();
+    menu->AddButton(u8"first");
+    RefPtr<Button> first = menu->button;
+    menu->AddButton(u8"second");
+    RefPtr<Button> second = menu->button;
+    menu->SetDefaultFocus(u8"second");
+    bed.stack.Push(menu);
+    CHECK(fm->FocusedView() == second.Get()); // a push starts at the default
+
+    fm->ClearFocus();
+    CHECK(bed.stack.FocusDefault());
+    CHECK(fm->FocusedView() == second.Get());
+    CHECK(fm->Source() == FocusSource::Keyboard); // keyboard landed, so it draws its ring
+
+    // No default named: the first focusable.
+    menu->SetDefaultFocus(u8"");
+    fm->ClearFocus();
+    CHECK(bed.stack.FocusDefault());
+    CHECK(fm->FocusedView() == first.Get());
+}
+
 TEST_CASE("screenstack: Back pops the top unless it is the last screen")
 {
     Bed bed;

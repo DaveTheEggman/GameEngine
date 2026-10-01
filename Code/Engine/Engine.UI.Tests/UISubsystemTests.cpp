@@ -469,7 +469,80 @@ namespace
         {
             return index == 0 ? &pad : nullptr;
         }
+        Array<foundation::shell::InputEvent> events; // this frame's key stream
+        [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override
+        {
+            return Span<const foundation::shell::InputEvent>(events.Data(), events.Size());
+        }
+        void PressKey(foundation::shell::KeyCode key)
+        {
+            events.Clear();
+            foundation::shell::InputEvent event{};
+            event.kind = foundation::shell::InputEventKind::KeyDown;
+            event.key = key;
+            events.PushBack(event);
+        }
     };
+}
+
+TEST_CASE("ui.subsystem: an arrow with nothing focused lands on the menu, and does not also move on")
+{
+    // A click on empty space clears the UI's focus, and an arrow key with nothing focused went
+    // nowhere, so a menu could not be reached from the keyboard again (Sedulous fb39977b).
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm{DefaultAllocator()};
+    scenes->RegisterManager(&sm);
+    {
+        const scene::SceneModule uiModule{u8"ui", &AddUISceneManagers, nullptr};
+        const scene::SceneModule* modules[] = {&uiModule};
+        scenes->SetComposition(scene::SceneComposition::Build(modules));
+    }
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+
+    NavFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::EntityHandle e = scene->CreateEntity(u8"pause");
+    UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+    canvas.document =
+        MakeDocument(u8"<Flex direction=\"vertical\" spacing=\"4\">"
+                     u8"<Button id=\"top\" text=\"Top\" width=\"200\" height=\"36\"/>"
+                     u8"<Button id=\"bottom\" text=\"Bottom\" width=\"200\" height=\"36\"/>"
+                     u8"</Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(root);
+    FocusManager* focus = ui->Context().GetFocusManager();
+    REQUIRE(focus != nullptr);
+    CHECK(focus->FocusedView() == nullptr);
+
+    // Down with nothing focused lands on the first item; that press does not also move on.
+    devices.PressKey(foundation::shell::KeyCode::Down);
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"top");
+    CHECK(focus->Source() == FocusSource::Keyboard);
+
+    // The next Down moves on as before.
+    devices.PressKey(foundation::shell::KeyCode::Down);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"bottom");
+
+    // Focus cleared (a click on empty space): an arrow finds the menu again.
+    focus->ClearFocus();
+    devices.PressKey(foundation::shell::KeyCode::Up);
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"top");
+
+    devices.events.Clear();
+    ctx.Shutdown();
 }
 
 TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")

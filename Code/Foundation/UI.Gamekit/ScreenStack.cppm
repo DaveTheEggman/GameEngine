@@ -48,6 +48,12 @@ export namespace foundation::ui::gamekit
         void Clear();
 
         [[nodiscard]] UIScreen* Top() const noexcept;
+
+        // Puts focus where the top screen starts it: its default-focus, or failing that its first
+        // focusable. What a push does, and what a menu's navigation input does when nothing is
+        // focused (a click on empty space clears focus, and an arrow must still find the menu).
+        // False with no screen, or nothing on it to focus.
+        bool FocusDefault(foundation::ui::FocusSource source = foundation::ui::FocusSource::Keyboard);
         [[nodiscard]] usize Count() const noexcept { return m_entries.Size(); }
 
         // Back/Cancel handling: pop the top screen unless it is the last one (a menu Back that would

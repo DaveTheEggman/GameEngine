@@ -927,6 +927,27 @@ namespace engine::ui
         }
     }
 
+    namespace
+    {
+        [[nodiscard]] bool IsArrow(foundation::shell::KeyCode key)
+        {
+            using foundation::shell::KeyCode;
+            return key == KeyCode::Up || key == KeyCode::Down || key == KeyCode::Left ||
+                   key == KeyCode::Right;
+        }
+    }
+
+    bool UISubsystem::LandFocus()
+    {
+        if (m_screenStack.FocusDefault(FocusSource::Keyboard))
+        {
+            return true;
+        }
+        FocusManager* focus = m_context.GetFocusManager();
+        focus->FocusNext();
+        return focus->FocusedView() != nullptr;
+    }
+
     void UISubsystem::PumpInput()
     {
         // The global-overlay layer eats input only while it holds something INTERACTIVE
@@ -1204,6 +1225,15 @@ namespace engine::ui
             switch (event.kind)
             {
             case foundation::shell::InputEventKind::KeyDown:
+                // An arrow with nothing focused lands on the menu first, as the pad does,
+                // rather than going nowhere; that press does not also move on.
+                if (IsArrow(event.key) && m_context.GetFocusManager()->FocusedView() == nullptr &&
+                    LandFocus())
+                {
+                    break;
+                }
+                (void)m_bridge.Dispatch(event);
+                break;
             case foundation::shell::InputEventKind::KeyUp:
             case foundation::shell::InputEventKind::TextInput:
                 (void)m_bridge.Dispatch(event);
@@ -1266,8 +1296,8 @@ namespace engine::ui
                 }
                 if (focus->FocusedView() == nullptr)
                 {
-                    focus->FocusNext();
-                } // bootstrap
+                    (void)LandFocus();
+                } // nothing focused yet, so land somewhere first
                 else
                 {
                     (void)focus->MoveFocus(directions[i]);
