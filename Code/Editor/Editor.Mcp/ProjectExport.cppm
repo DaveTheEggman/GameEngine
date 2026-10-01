@@ -29,6 +29,7 @@ import editor.project;
 import :session;
 import :operations;
 import :asset_uses; // CollectSceneReferences (the scene-edge scan the scanner delegates to)
+import :export_presets; // RefreshExportTemplates
 
 using namespace foundation::core;
 using foundation::json::JsonValue;
@@ -89,17 +90,7 @@ export namespace editor::mcp
                     StringView hostToolDir, StringView dataRoot, const ExportRequest& request)
     {
         editor::TemplateRegistry templates;
-        {
-            const String templatesRoot = editor::ResolveTemplatesRoot();
-            UniquePtr<vfs::NativeFileSystem> rootFs;
-            if (DirectoryExists(templatesRoot.AsView()))
-            {
-                rootFs = MakeUnique<vfs::NativeFileSystem>(
-                    editor::EditorRootAllocator(), templatesRoot.AsView(), editor::EditorRootAllocator());
-            }
-            vfs::NativeFileSystem toolFs(hostToolDir, editor::EditorRootAllocator());
-            templates.Refresh(templatesRoot.AsView(), rootFs.Get(), hostToolDir, &toolFs);
-        }
+        detail::RefreshExportTemplates(templates, hostToolDir);
         HashMap<Guid, Array<byte>> sceneStreams;
         detail::CollectExportSceneStreams(session.project->SourceDb().RootGroup(), sceneStreams);
         const editor::SceneReferenceScanner scanner =

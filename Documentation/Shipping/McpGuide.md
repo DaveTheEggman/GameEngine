@@ -160,7 +160,11 @@ never trust memorized signatures. A member with `readOnly: true` (a network iden
 
 **Export**: `project_health` first (catch breakage before a long cook), then
 `project_export` (preset optional; default = first/host preset). The dist lands under
-`<project>/Dist` unless `out` says otherwise.
+`<project>/Dist` unless `out` says otherwise. `export_presets` lists the project's presets and the
+export templates this machine has (each preset's `template` is the one it resolves to here, null
+when none); `export_preset_set` creates, changes or removes one by `name` - another device's
+target, say, with its own render size or window. Its platform and config must be ones a template
+here has; its templateId need not, since presets travel with the project and templates do not.
 
 ## Per-tool gotchas
 

@@ -21,6 +21,7 @@ export import :asset_create;
 export import :asset_data;
 export import :project_settings;
 export import :reflected_fields;
+export import :export_presets;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
@@ -634,7 +635,7 @@ export namespace editor::mcp
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 27;
+    inline constexpr usize kEngineToolCount = 29;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -682,7 +683,8 @@ export namespace editor::mcp
     }
 
     // The engine tool surface EVERY MCP host serves, listed ONCE: reflection (type_list /
-    // type_info), script_api, project_info / project_settings_set, the asset tools (list / info / import / cook / uses /
+    // type_info), script_api, project_info / project_settings_set, export_presets /
+    // export_preset_set, the asset tools (list / info / import / cook / uses /
     // creators / create / data read and write),
     // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
     // tools, script_validate / script_create, project_export, and the docs:// + project://
@@ -700,6 +702,8 @@ export namespace editor::mcp
         foundation::mcp::RegisterScriptTools(server);
         RegisterProjectInfoTool(server, session);
         RegisterProjectSettingsTool(server, session);
+        RegisterExportPresetTools(server, session, GetExecutableDirectory()); // the host's own player
+
         RegisterAssetTools(server, session);
         RegisterAssetWriteTools(server, session, importers, operations);
         RegisterAssetCreateTools(server, session, creators, operations);

@@ -10,6 +10,7 @@
 #include <initializer_list>
 #include <filesystem>
 #include <fstream>
+#include <cstdlib> // setenv (the scratch templates root)
 #include "Core/Prelude.h"
 import foundation.core;
 import foundation.json;
@@ -941,4 +942,149 @@ TEST_CASE("integration.mcp: a headless model import generates its prefab")
     owner.project.Reset();
     session.project = nullptr;
     (void)RemoveDirectoryRecursive(u8"mcp_model_prefab");
+}
+
+// Sedulous 4f483f5e: the project's export presets over MCP, read and set through ExportPreset's
+// reflection, against the templates this machine has (a scratch templates root holding one
+// Release template for the host, so the test does not depend on what is installed here).
+TEST_CASE("integration.mcp: export_presets and export_preset_set")
+{
+    const String templatesRoot = String(u8"mcp_presets_templates");
+    const String binBase = String(u8"mcp_presets_bin");
+    (void)RemoveDirectoryRecursive(templatesRoot.AsView());
+    (void)RemoveDirectoryRecursive(binBase.AsView());
+    {
+        String leaf(GetHostPlatformName());
+        leaf += u8"-Clang";
+        const String binDir =
+            PathJoin(PathJoin(PathJoin(binBase.AsView(), u8"Bin").AsView(), u8"Release").AsView(), leaf.AsView());
+        REQUIRE(CreateDirectories(binDir.AsView()));
+        std::ofstream(reinterpret_cast<const char*>(
+                          PathJoin(binDir.AsView(), GetExecutableName(u8"Engine.Player").AsView()).CStr()))
+            << "#!player\n";
+        REQUIRE(editor::CreateTemplate(binDir.AsView(), templatesRoot.AsView(), editor::TemplateOutput::Install).IsOk());
+    }
+#ifdef _WIN32
+    _putenv_s("ENV_TEMPLATES_DIR", reinterpret_cast<const char*>(templatesRoot.CStr()));
+#else
+    setenv("ENV_TEMPLATES_DIR", reinterpret_cast<const char*>(templatesRoot.CStr()), 1);
+#endif
+
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    (void)RemoveDirectoryRecursive(u8"mcp_presets");
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_presets"), u8"name", u8"Presets"));
+    (void)FfCall(server, u8"project_open", FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_presets"));
+
+    const auto refused = [&server](JsonValue arguments)
+    {
+        JsonValue params = JsonValue::MakeObject();
+        params.Set(u8"name", JsonValue::MakeString(String(u8"export_preset_set")));
+        params.Set(u8"arguments", Move(arguments));
+        JsonValue req = JsonValue::MakeObject();
+        req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+        req.Set(u8"id", JsonValue::MakeNumber(7));
+        req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
+        req.Set(u8"params", Move(params));
+        LineOutcome line = server.HandleLine(req.ToString().AsView());
+        JsonValue result = json::Parse(line.response.AsView()).value.Get(u8"result");
+        CHECK(result.Get(u8"isError").AsBool());
+        return result.Get(u8"content").At(0).Get(u8"text").AsString();
+    };
+    const String releaseId = Format(u8"{}-{}-release-{}", TEMPLATE_ID_PREFIX,
+                                    editor::AsciiLower(GetHostPlatformName()), engine::project::kEngineVersionString);
+
+    // No export_presets.xml: the synthesized host preset, resolving to the Release template.
+    JsonValue listed = FfCall(server, u8"export_presets", JsonValue::MakeObject());
+    CHECK(listed.Get(u8"synthesized").AsBool());
+    REQUIRE(listed.Get(u8"presets").Count() == 1);
+    CHECK(listed.Get(u8"presets").At(0).Get(u8"template").AsString() == releaseId.AsView());
+    bool sawRelease = false;
+    for (i64 i = 0; i < listed.Get(u8"templates").Count(); ++i)
+    {
+        sawRelease = sawRelease || listed.Get(u8"templates").At(i).Get(u8"id").AsString() == releaseId.AsView();
+    }
+    CHECK(sawRelease);
+
+    // A new preset with a template not on this machine, its own window and an extra file: kept,
+    // the template unresolved here; the host preset stays.
+    {
+        JsonValue arguments = FfStr(FfStr(JsonValue::MakeObject(), u8"name", u8"Deck"), u8"templateId", u8"elsewhere");
+        arguments.Set(u8"overridesWindow", JsonValue::MakeBool(true));
+        arguments.Set(u8"windowMode", JsonValue::MakeString(String(u8"Fullscreen")));
+        JsonValue files = JsonValue::MakeArray();
+        files.Add(JsonValue::MakeString(String(u8"notes.txt")));
+        arguments.Set(u8"additionalFiles", Move(files));
+        JsonValue set = FfCall(server, u8"export_preset_set", Move(arguments));
+        CHECK_FALSE(set.Get(u8"synthesized").AsBool());
+        REQUIRE(set.Get(u8"presets").Count() == 2);
+        const JsonValue deck = set.Get(u8"presets").At(1);
+        CHECK(deck.Get(u8"name").AsString() == StringView(u8"Deck"));
+        CHECK(deck.Get(u8"platform").AsString() == GetHostPlatformName());
+        CHECK(deck.Get(u8"template").IsNull());
+        CHECK(deck.Get(u8"windowMode").AsString() == StringView(u8"Fullscreen"));
+        CHECK(deck.Get(u8"overridesWindow").AsBool());
+        REQUIRE(deck.Get(u8"additionalFiles").Count() == 1);
+        CHECK(deck.Get(u8"additionalFiles").At(0).AsString() == StringView(u8"notes.txt"));
+    }
+    // On disk: a reopen reads it back.
+    {
+        foundation::vfs::NativeFileSystem projectFs(u8"mcp_presets", DefaultAllocator());
+        editor::ExportPresetSet onDisk;
+        REQUIRE(editor::LoadExportPresets(projectFs, onDisk).IsOk());
+        REQUIRE(onDisk.presets.Size() == 2u);
+        CHECK(onDisk.presets[1].windowMode == engine::project::WindowMode::Fullscreen);
+    }
+
+    // Refusals: a platform or config no template here has (each lists what there is), an
+    // unknown field, a size out of range, a removal with more than its name; nothing changes.
+    CHECK(refused(FfStr(FfStr(JsonValue::MakeObject(), u8"name", u8"Deck"), u8"platform", u8"Amiga"))
+              .AsView()
+              .StartsWith(u8"`platform` takes a platform this machine has export templates for: "));
+    CHECK(refused(FfStr(FfStr(JsonValue::MakeObject(), u8"name", u8"Deck"), u8"config", u8"Shipping"))
+              .AsView()
+              .StartsWith(u8"`config` takes a config this machine has export templates for: "));
+    CHECK(refused(FfStr(FfStr(JsonValue::MakeObject(), u8"name", u8"Deck"), u8"plattform", u8"Linux64"))
+              .AsView()
+              .StartsWith(u8"no preset field 'plattform'"));
+    {
+        JsonValue wide = FfStr(JsonValue::MakeObject(), u8"name", u8"Deck");
+        wide.Set(u8"windowWidth", JsonValue::MakeNumber(0));
+        CHECK(refused(Move(wide)) == StringView(u8"`windowWidth` takes 1 to 16384"));
+    }
+    {
+        JsonValue both = FfStr(FfStr(JsonValue::MakeObject(), u8"name", u8"Deck"), u8"playerName", u8"Game");
+        both.Set(u8"remove", JsonValue::MakeBool(true));
+        CHECK(refused(Move(both)) == StringView(u8"`remove` takes only `name`"));
+    }
+    CHECK(FfCall(server, u8"export_presets", JsonValue::MakeObject()).Get(u8"presets").Count() == 2);
+
+    // Removal.
+    {
+        JsonValue remove = FfStr(JsonValue::MakeObject(), u8"name", u8"Deck");
+        remove.Set(u8"remove", JsonValue::MakeBool(true));
+        CHECK(FfCall(server, u8"export_preset_set", Move(remove)).Get(u8"presets").Count() == 1);
+    }
+
+    owner.project.Reset();
+    session.project = nullptr;
+#ifdef _WIN32
+    _putenv_s("ENV_TEMPLATES_DIR", "");
+#else
+    unsetenv("ENV_TEMPLATES_DIR");
+#endif
+    (void)RemoveDirectoryRecursive(u8"mcp_presets");
+    (void)RemoveDirectoryRecursive(templatesRoot.AsView());
+    (void)RemoveDirectoryRecursive(binBase.AsView());
 }
