@@ -39,6 +39,10 @@ export namespace foundation::render
         // Viewport sub-rect within the target, in pixels (split-screen). Width 0 => the full target.
         i32 viewportX = 0, viewportY = 0;
         u32 viewportWidth = 0, viewportHeight = 0;
+        // The size the scene draws at, when it is not the viewport's: the whole scene chain runs
+        // at this size, and one last pass scales the finished image into the viewport. Nought
+        // draws at the viewport's own size.
+        u32 sceneWidth = 0, sceneHeight = 0;
         // Target resource-state handling for the imported color target. `targetTexture` is the backing
         // texture the graph barriers (null => host-managed backbuffer; the graph touches no barrier).
         // `targetFinalState` is where the graph leaves it - RenderTarget for present, or ShaderRead /
@@ -82,6 +86,24 @@ export namespace foundation::render
             m_viewportY = (settings.viewportWidth > 0) ? settings.viewportY : 0;
             m_viewportW = (settings.viewportWidth > 0) ? settings.viewportWidth : width;
             m_viewportH = (settings.viewportHeight > 0) ? settings.viewportHeight : height;
+            m_outputWidth = width;
+            m_outputHeight = height;
+            m_outputViewportX = m_viewportX;
+            m_outputViewportY = m_viewportY;
+            m_outputViewportW = m_viewportW;
+            m_outputViewportH = m_viewportH;
+            // A scene size of its own: the chain runs at it, the whole of it the view's.
+            m_scaled = settings.sceneWidth > 0 && settings.sceneHeight > 0 &&
+                       (settings.sceneWidth != m_viewportW || settings.sceneHeight != m_viewportH);
+            if (m_scaled)
+            {
+                m_width = settings.sceneWidth;
+                m_height = settings.sceneHeight;
+                m_viewportX = 0;
+                m_viewportY = 0;
+                m_viewportW = settings.sceneWidth;
+                m_viewportH = settings.sceneHeight;
+            }
             m_drawList.Clear();
         }
 
@@ -157,12 +179,23 @@ export namespace foundation::render
         [[nodiscard]] const ViewSettings& Settings() const noexcept { return m_settings; }
         [[nodiscard]] rhi::TextureView* Target() const noexcept { return m_target; }
         [[nodiscard]] rhi::TextureFormat TargetFormat() const noexcept { return m_targetFormat; }
-        [[nodiscard]] u32 Width() const noexcept { return m_width; } // full target
+        // The size the scene chain runs at, which the transients are sized to: the full target, or
+        // with a scene size of its own (IsScaled), that size.
+        [[nodiscard]] u32 Width() const noexcept { return m_width; }
         [[nodiscard]] u32 Height() const noexcept { return m_height; }
         [[nodiscard]] i32 ViewportX() const noexcept { return m_viewportX; }
         [[nodiscard]] i32 ViewportY() const noexcept { return m_viewportY; }
         [[nodiscard]] u32 ViewportWidth() const noexcept { return m_viewportW; }
         [[nodiscard]] u32 ViewportHeight() const noexcept { return m_viewportH; }
+        // The scene draws at its own size and is scaled into the output rectangle at the end.
+        [[nodiscard]] bool IsScaled() const noexcept { return m_scaled; }
+        // The real target and the view's rectangle in it: the same as the above, unless scaled.
+        [[nodiscard]] u32 OutputWidth() const noexcept { return m_outputWidth; }
+        [[nodiscard]] u32 OutputHeight() const noexcept { return m_outputHeight; }
+        [[nodiscard]] i32 OutputViewportX() const noexcept { return m_outputViewportX; }
+        [[nodiscard]] i32 OutputViewportY() const noexcept { return m_outputViewportY; }
+        [[nodiscard]] u32 OutputViewportWidth() const noexcept { return m_outputViewportW; }
+        [[nodiscard]] u32 OutputViewportHeight() const noexcept { return m_outputViewportH; }
         [[nodiscard]] Span<const DrawItem> DrawList() const noexcept
         {
             return Span<const DrawItem>{m_drawList.Data(), m_drawList.Size()};
@@ -190,12 +223,19 @@ export namespace foundation::render
         ViewSettings m_settings;
         rhi::TextureView* m_target = nullptr;
         rhi::TextureFormat m_targetFormat = rhi::TextureFormat::BGRA8Unorm;
-        u32 m_width = 0; // full target size
+        u32 m_width = 0; // the size the scene chain runs at (the full target, or the scene size)
         u32 m_height = 0;
-        i32 m_viewportX = 0; // viewport sub-rect within the target
+        i32 m_viewportX = 0; // where in that the view draws
         i32 m_viewportY = 0;
         u32 m_viewportW = 0;
         u32 m_viewportH = 0;
+        u32 m_outputWidth = 0; // the real target, and the view's rectangle in it
+        u32 m_outputHeight = 0;
+        i32 m_outputViewportX = 0;
+        i32 m_outputViewportY = 0;
+        u32 m_outputViewportW = 0;
+        u32 m_outputViewportH = 0;
+        bool m_scaled = false;
         const void* m_debugScene = nullptr; // opaque debug::DebugDraw* for this view's scene
         const void* m_debugView = nullptr;  // opaque debug::DebugDraw* for THIS view only
         const void* m_sceneKey = nullptr;   // opaque scene identity (overlay matching)

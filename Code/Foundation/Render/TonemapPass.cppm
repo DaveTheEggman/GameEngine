@@ -83,13 +83,14 @@ export namespace foundation::render
                             f32 aoStrength = 0.0f, bool debugShowAo = false, bool agx = true,
                             bool sceneYFlipped = false,
                             const TonemapAutoExposure& autoExposure = {},
-                            const TonemapGrading& grading = {});
+                            const TonemapGrading& grading = {}, bool copyOnly = false);
 
     private:
         static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;
         static constexpr u32 kMaxFramesInFlight = 8;
         static constexpr u32 kMaxViews = 8;
-        static constexpr u32 kMaxSlots = kMaxViews * kMaxFramesInFlight;
+        // Two uses per view a frame: the scene's tone map, and a scaled view's present copy.
+        static constexpr u32 kMaxSlots = kMaxViews * kMaxFramesInFlight * 2;
 
         // Build the fullscreen pipeline for `fmt` (rebuilt if the LDR target format changes - usually one).
         rhi::RenderPipeline* EnsurePipeline(rhi::TextureFormat fmt);

@@ -89,15 +89,18 @@ namespace foundation::render
                                      Float2 uvScale, Float2 uvOffset, f32 aoStrength,
                                      bool debugShowAo, bool agx, bool sceneYFlipped,
                                      const TonemapAutoExposure& autoExposure,
-                                     const TonemapGrading& grading)
+                                     const TonemapGrading& grading, bool copyOnly)
     {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr)
         {
             return;
         }
-        const u32 slot =
-            (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
+        // The present copy has slots of its own: the tone map's group for this view is still
+        // referenced by commands recorded earlier in the frame.
+        const u32 use = copyOnly ? 1u : 0u;
+        const u32 slot = ((use * kMaxViews) + (viewIndex % kMaxViews)) * m_framesInFlight +
+                         (frameIndex % m_framesInFlight);
         // The scene input is mirrored on Y-flip backends unless the TAA resolve un-mirrored
         // it upstream; tonemap compensates then (see tonemap.ps.hlsl FlipSceneY).
         const bool flipSceneY = sceneYFlipped && m_device->NeedsClipSpaceYFlip();
@@ -112,7 +115,7 @@ namespace foundation::render
         const f32 push[20] = {
             exposure,          bloomIntensity, uvScale.x,  uvScale.y,
             uvOffset.x,        uvOffset.y,     aoStrength, debugShowAo ? 1.0f : 0.0f,
-            agx ? 1.0f : 0.0f, flipSceneY ? 1.0f : 0.0f,
+            copyOnly ? 2.0f : (agx ? 1.0f : 0.0f), flipSceneY ? 1.0f : 0.0f,
             autoOn ? 1.0f : 0.0f, autoExposure.key, autoExposure.minExposure,
             autoExposure.maxExposure,
             gradeOn ? grading.intensity : 0.0f, gradeOn ? grading.lutSize : 0.0f,

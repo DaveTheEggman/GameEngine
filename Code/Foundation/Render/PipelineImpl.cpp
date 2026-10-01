@@ -1729,11 +1729,22 @@ namespace foundation::render
                     const ViewSettings& s = v->Settings();
                     colorH = m_graph.ImportTarget(u8"forward.color", s.targetTexture, tgt,
                                                   s.targetFinalState, s.targetCurrentState);
-                    imported.PushBack(
-                        TargetImport{tgt, colorH, v->Width(), v->Height(), v->TargetFormat()});
+                    imported.PushBack(TargetImport{tgt, colorH, v->OutputWidth(), v->OutputHeight(),
+                                                   v->TargetFormat()});
                 }
-                const bool clearColor =
-                    !found; // first view to a target clears it; later views Load
+                // A view drawn at a scene size of its own renders the whole chain into a scene
+                // sized image of the target's format, every pass unchanged at that size, and a last
+                // pass scales the finished image into the view's rectangle of the real target
+                // (the present copy below), which is where the target's clear then happens.
+                const rendergraph::RGHandle targetH = colorH;
+                const bool clearTarget = !found; // first view to a target clears it; later views Load
+                const bool scaled = v->IsScaled() && m_tonemap != nullptr;
+                if (scaled)
+                {
+                    colorH = m_graph.CreateTransient(
+                        u8"view.scene", rendergraph::RGTextureDesc(v->TargetFormat(), v->Width(), v->Height()));
+                }
+                const bool clearColor = scaled || clearTarget;
 
                 // Cluster build (compute) declared before the forward pass so the graph orders the
                 // light-binning write ahead of the shading read. viewIndex isolates per-view buffers.
@@ -2301,6 +2312,20 @@ namespace foundation::render
                                                    v->ViewportWidth(), v->ViewportHeight(),
                                                    m_frameIndex, viewIndex);
                     }
+                }
+
+                // A scaled view's finished image, scaled (filtered) into its rectangle of the real
+                // target: the tone map's fullscreen pass as a plain copy. The first view to the
+                // target clears it, black, which is the bars a letterbox leaves.
+                if (scaled)
+                {
+                    m_tonemap->DeclareTonemap(m_graph, colorH, colorH, colorH, targetH, clearTarget,
+                                              rhi::ClearColor::Black(), v->TargetFormat(),
+                                              v->OutputViewportX(), v->OutputViewportY(),
+                                              v->OutputViewportWidth(), v->OutputViewportHeight(),
+                                              m_frameIndex, viewIndex, 1.0f, 0.0f, Float2{1.0f, 1.0f},
+                                              Float2{0.0f, 0.0f}, 0.0f, false, false, false, {}, {},
+                                              /*copyOnly*/ true);
                 }
             }
 
