@@ -106,7 +106,13 @@ is normal - clear it with `asset_cook`.
 component), copy from `docs://generated/SceneExample.scene.xml`, read the target with
 `scene_read` (or the `project://` resource), author XML, loop on `scene_validate` (xml or
 guid; `valid` + empty `warnings` = the engine will load it), then `scene_write`. Prefabs
-mirror it with a single-root rule.
+mirror it with a single-root rule. To PLACE a prefab (an imported model's is the `Prefab` asset
+beside its manifest), add an element to the scene's `prefabInstances`, in the format's
+`prefabInstanceRecord` (the schema's `format` section): the prefab's guid, the root's parent and
+transform, a fresh `rootLive` guid, and empty `members`, `destroyed`, `transformOverrides` and
+`componentOps`; the load spawns it and a save fills those in. `scene_validate` counts them as
+`prefabInstances`, apart from `entityCount`, and warns about one whose prefab is not in the
+project.
 
 **Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
 never trust memorized signatures. A member with `readOnly: true` (a network identity's
@@ -126,8 +132,8 @@ never trust memorized signatures. A member with `readOnly: true` (a network iden
 - `script_validate` is a COMPILE check (`checkLevel: "compile"`): engine-API calls are not
   type-checked - a misspelled method compiles and fails at runtime. Cross-check with
   `script_api`.
-- `scene_validate` warnings mean component records of a type the engine does not know -
-  they would be SKIPPED on load. Treat warnings as breakage to fix, not noise.
+- `scene_validate` warnings mean component records of a type the engine does not know, or
+  prefab instances whose prefab is not in the project - they would be SKIPPED on load. Treat warnings as breakage to fix, not noise.
 - `asset_uses` reports DIRECT users only; re-run on a user to walk the chain. An empty
   result plus empty `projectSettingsUses` is the "safe to touch" signal.
 - `log_read` is incremental - always pass the previous `lastSequence`; a non-zero

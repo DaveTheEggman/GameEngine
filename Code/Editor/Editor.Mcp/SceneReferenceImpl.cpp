@@ -613,7 +613,7 @@ namespace
 
     // ---- the schema's sections ----
 
-    JsonValue FormatSection(const SchemaNode& stream)
+    JsonValue FormatSection(const SchemaNode& stream, const SchemaNode& prefabRecord)
     {
         JsonValue out = JsonValue::MakeObject();
         out.Set(u8"magic", JsonValue::MakeString(Decimal(scene::detail::kSceneStreamMagic)));
@@ -725,6 +725,63 @@ namespace
                 }
                 out.Set(u8"settingsRecord", Move(record));
             }
+        }
+        // The prefab instance record: the writer's run of keys for one prefabInstances element
+        // (recorded from a parked instance, since the example has no prefab to spawn), with what
+        // an author puts in the keys a placement needs.
+        {
+            JsonValue fields = FieldsJson(prefabRecord, nullptr, ctx);
+            JsonValue described = JsonValue::MakeArray();
+            for (i64 i = 0; i < fields.Count(); ++i)
+            {
+                JsonValue field = fields.At(i);
+                const String key = field.Get(u8"key").AsString();
+                const StringView k = key.AsView();
+                if (k == u8"prefab")
+                {
+                    field.Set(u8"value", JsonValue::MakeString(
+                                             u8"the prefab asset's guid (asset_list: type "
+                                             u8"PrefabDocument; an imported model's is the `Prefab` "
+                                             u8"beside its manifest)"));
+                }
+                else if (k == u8"parent")
+                {
+                    field.Set(u8"value", JsonValue::MakeString(u8"the entity the instance root "
+                                                               u8"sits under; nil for a scene "
+                                                               u8"root"));
+                }
+                else if (k == u8"rootLive")
+                {
+                    field.Set(u8"value", JsonValue::MakeString(u8"the instance root's entity id "
+                                                               u8"as last saved; any fresh guid "
+                                                               u8"when authoring"));
+                }
+                else if (k == u8"placement")
+                {
+                    field.Set(u8"value", JsonValue::MakeString(u8"1: the transform places the "
+                                                               u8"root"));
+                }
+                else if (k == u8"members")
+                {
+                    field.Set(u8"value", JsonValue::MakeString(
+                                             u8"the prefab's entity ids paired with the "
+                                             u8"instance's; EMPTY when authoring: the load mints "
+                                             u8"fresh ids, and a save records them"));
+                }
+                described.Add(Move(field));
+            }
+            JsonValue record = JsonValue::MakeObject();
+            record.Set(u8"mode",
+                       JsonValue::MakeString(Format(
+                           u8"prefabMode must be {} (referenced) for prefabInstances to be read; "
+                           u8"each element is a run of these keys, in this order, laid inline in "
+                           u8"the array. Authoring a placement: the prefab, the root's parent and "
+                           u8"transform, a fresh rootLive, nil owner, nestedSrcRoot and "
+                           u8"nextSibling, and every array empty; the load spawns it and a save "
+                           u8"fills the arrays in",
+                           static_cast<u32>(scene::detail::kPrefabWireReferenced3))));
+            record.Set(u8"fields", Move(described));
+            out.Set(u8"prefabInstanceRecord", Move(record));
         }
         return out;
     }
@@ -936,12 +993,22 @@ namespace editor::mcp
             }
         }
 
-        // The framing: the whole example stream recorded once.
+        // The framing: the whole example stream recorded once, and one prefab instance record
+        // through the same writer, every array but the component ops holding an element so
+        // their shapes show.
         {
             SchemaRecorder stream(allocator);
             scene::SerializeScene(stream, world, scene::ScenePrefabMode::Referenced, true,
                                   scene::detail::SceneStreamEncoding::Text);
-            schema.Set(u8"format", FormatSection(stream.Root()));
+            scene::Scene::PendingPrefabInstance probe;
+            probe.sourceIds.PushBack(Guid{});
+            probe.liveIds.PushBack(Guid{});
+            probe.destroyedMembers.PushBack(Guid{});
+            probe.overrideTransformIds.PushBack(Guid{});
+            probe.overrideTransforms.PushBack(Transform{});
+            SchemaRecorder prefabRecord(allocator);
+            scene::detail::WritePrefabRecord(prefabRecord, world, probe, /*text=*/true);
+            schema.Set(u8"format", FormatSection(stream.Root(), prefabRecord.Root()));
         }
         schema.Set(u8"components", Move(components));
         schema.Set(u8"settings", Move(settings));

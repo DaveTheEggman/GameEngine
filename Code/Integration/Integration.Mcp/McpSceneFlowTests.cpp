@@ -266,6 +266,83 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     }
 }
 
+// Sedulous ae7a128a: prefab instances are counted apart from the scene's own entities, and one
+// whose prefab is not a prefab of the project is a warning from validate and from write.
+TEST_CASE("integration.mcp: scene tools - validation counts prefab instances and warns on a missing "
+          "prefab")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_scene_prefabs", ec);
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterSceneTools(server, session);
+    (void)CallOk(server, u8"project_create",
+                 With(With(Obj(), u8"directory", u8"mcp_scene_prefabs"), u8"name", u8"Prefabs"));
+    (void)CallOk(server, u8"project_open", With(Obj(), u8"directory", u8"mcp_scene_prefabs"));
+    engine::RegisterAllSceneComponentReflection();
+
+    const auto storedXml = [&](scene::Scene& authored, StringView name) -> String
+    {
+        auto* inst = session.project->SourceDb().RootGroup()->CreateInstance(
+            name, scene::SceneDocument::StaticType());
+        REQUIRE(inst != nullptr);
+        REQUIRE(scene::SaveScene(authored, *inst).IsOk());
+        utf8char text[37];
+        inst->Id().ToChars(text);
+        return CallOk(server, u8"scene_read", With(Obj(), u8"guid", StringView(text, 36)))
+            .Get(u8"xml")
+            .AsString();
+    };
+
+    // A one-entity prefab, written the agent's way.
+    String prefabId;
+    {
+        scene::Scene block(DefaultAllocator(), u8"block");
+        engine::AddAllSceneManagers(block);
+        (void)block.CreateEntity(u8"block");
+        const String xml = storedXml(block, u8"staging");
+        JsonValue written = CallOk(server, u8"prefab_write",
+                                   With(With(Obj(), u8"xml", xml.AsView()), u8"name", u8"Block"));
+        prefabId = written.Get(u8"guid").AsString();
+    }
+
+    // A level with one entity of its own and two instances: the prefab, and a guid that names
+    // nothing.
+    Random rng(17);
+    const Guid missing = Guid::Generate(rng);
+    String levelXml;
+    {
+        scene::Scene level(DefaultAllocator(), u8"level");
+        engine::AddAllSceneManagers(level);
+        (void)level.CreateEntity(u8"sun");
+        auto good = MakeUnique<scene::Scene::PendingPrefabInstance>(DefaultAllocator());
+        REQUIRE(Guid::TryParse(prefabId.AsView(), good->prefabId));
+        level.AddPendingPrefabInstance(Move(good));
+        auto bad = MakeUnique<scene::Scene::PendingPrefabInstance>(DefaultAllocator());
+        bad->prefabId = missing;
+        level.AddPendingPrefabInstance(Move(bad));
+        levelXml = storedXml(level, u8"level");
+    }
+    JsonValue report = CallOk(server, u8"scene_validate", With(Obj(), u8"xml", levelXml.AsView()));
+    CHECK(report.Get(u8"valid").AsBool());
+    CHECK(report.Get(u8"entityCount").AsNumber() == doctest::Approx(1.0)); // its own entities only
+    CHECK(report.Get(u8"prefabInstances").AsNumber() == doctest::Approx(2.0));
+    const JsonValue warnings = report.Get(u8"warnings");
+    REQUIRE(warnings.Count() == 1);
+    utf8char missingText[37];
+    missing.ToChars(missingText);
+    CHECK(warnings.At(0).AsString().AsView().StartsWith(
+        Format(u8"prefab instance 1: {} is not a prefab in this project",
+               StringView(missingText, 36))
+            .AsView()));
+
+    JsonValue written = CallOk(server, u8"scene_write",
+                               With(With(Obj(), u8"xml", levelXml.AsView()), u8"name", u8"authored"));
+    CHECK(written.Get(u8"warnings").Count() == 1); // the write reports it too
+}
+
 TEST_CASE("integration.mcp: host_info reports pid, stamp, versions, and host state")
 {
     McpServer server;

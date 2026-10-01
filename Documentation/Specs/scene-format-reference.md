@@ -331,8 +331,10 @@ three corrections found during this research:
   record and each kind's payload key from the value's own Serialize, one kind at a time
   (the kind table is `ScriptPropertyTypeNames()`, the one table the parser reads too).
 - No prefab instance in the example: the composition has no prefab asset to instance. The
-  `prefabInstances` section is present and empty; its record shape is a P2 item together
-  with the golden test.
+  `prefabInstances` section is present and empty. Its record shape is documented apart
+  (2026-10-01, from Sedulous ae7a128a): `format.prefabInstanceRecord` is one parked instance
+  recorded through `WritePrefabRecord`, its arrays holding an element each, and a test holds
+  its keys to what a scene save writes.
 - Nested math values (`Float3`, `Color`, ...) have no reflected fields, so their components
   are not counted as unreflected; only a type that reflects SOME property has its missing
   keys listed. First findings from the lists: `instances`/`tints` (instanced mesh),

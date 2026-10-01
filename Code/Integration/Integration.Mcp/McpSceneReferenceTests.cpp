@@ -406,3 +406,32 @@ TEST_CASE("integration.mcp: scene reference - RegisterEngineTools serves both ge
     CHECK(refused.Get(u8"result").Get(u8"isError").AsBool() == true);
     CHECK(refused.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString().AsView().ContainsIgnoreCase(u8"light"));
 }
+
+// Sedulous ae7a128a: the documented prefab instance record is the writer's - a scene holding one
+// parked instance writes exactly the documented keys, in the documented order.
+TEST_CASE("integration.mcp: scene reference - the prefab instance record is the keys a save writes")
+{
+    Fixture f;
+    const editor::mcp::SceneReference reference = f.Generate();
+    const JsonValue record = reference.schema.Get(u8"format").Get(u8"prefabInstanceRecord");
+    CHECK(record.Get(u8"mode").AsString().AsView().StartsWith(u8"prefabMode must be 4"));
+    const JsonValue fields = record.Get(u8"fields");
+    REQUIRE(fields.Count() > 0);
+    CHECK(fields.At(0).Get(u8"key").AsString() == StringView(u8"prefab"));
+
+    scene::Scene probe(DefaultAllocator(), u8"probe");
+    auto pending = MakeUnique<scene::Scene::PendingPrefabInstance>(DefaultAllocator());
+    Random rng(3);
+    pending->prefabId = Guid::Generate(rng);
+    probe.AddPendingPrefabInstance(Move(pending)); // parked: re-emitted verbatim on save
+    SchemaRecorder recorder(DefaultAllocator());
+    scene::SerializeScene(recorder, probe, scene::ScenePrefabMode::Referenced, true,
+                          scene::detail::SceneStreamEncoding::Text);
+    const SchemaNode* instances = recorder.Root().Find(u8"prefabInstances");
+    REQUIRE(instances != nullptr);
+    REQUIRE(instances->children.Size() == static_cast<usize>(fields.Count()));
+    for (usize i = 0; i < instances->children.Size(); ++i)
+    {
+        CHECK(instances->children[i]->key == fields.At(static_cast<i64>(i)).Get(u8"key").AsString());
+    }
+}

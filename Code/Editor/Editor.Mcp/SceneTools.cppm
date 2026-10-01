@@ -62,6 +62,9 @@ namespace editor::mcp::detail
         Array<String> warnings; // skipped/unknown component records etc.
         usize entityCount = 0;
         usize rootCount = 0;
+        /// The prefab each prefab instance names, one per instance in stream order. Its entities
+        /// are not in entityCount: they spawn from the prefab at load.
+        Array<Guid> prefabIds;
         String sceneName;
     };
 
@@ -95,6 +98,9 @@ namespace editor::mcp::detail
         report.valid = true;
         report.sceneName = String(scratch.Name());
         report.entityCount = scratch.EntityCount();
+        // The instances park unresolved: the parse has no database to spawn them from.
+        scratch.ForEachPendingPrefabInstance([&report](scene::Scene::PendingPrefabInstance& pending)
+                                             { report.prefabIds.PushBack(pending.prefabId); });
         for (scene::EntityHandle root = scratch.GetFirstRoot(); root.IsAssigned();
              root = scratch.GetNextSibling(root))
         {
@@ -123,11 +129,39 @@ namespace editor::mcp::detail
             out.Set(u8"entityCount",
                     JsonValue::MakeNumber(static_cast<f64>(report.entityCount)));
             out.Set(u8"rootCount", JsonValue::MakeNumber(static_cast<f64>(report.rootCount)));
+            out.Set(u8"prefabInstances",
+                    JsonValue::MakeNumber(static_cast<f64>(report.prefabIds.Size())));
         }
         // Honesty marker: component payloads validate through the FULL engine manager set
         // (Engine.Composition); warnings list any genuinely unknown component types.
         out.Set(u8"componentValidation", JsonValue::MakeString(u8"full"));
         return out;
+    }
+
+    // A prefab instance whose prefab is not a prefab of the open project is skipped at load, its
+    // entities never appearing: a warning, as an unknown component type is.
+    inline void CheckPrefabs(editor::EditorProject* project, SceneParseReport& report)
+    {
+        if (project == nullptr)
+        {
+            return;
+        }
+        const StringView prefabType(
+            reinterpret_cast<const utf8char*>(scene::PrefabDocument::StaticType().name));
+        for (usize i = 0; i < report.prefabIds.Size(); ++i)
+        {
+            const Guid& id = report.prefabIds[i];
+            content::Instance* instance = project->SourceDb().GetInstance(id);
+            if (instance == nullptr || instance->TypeName() != prefabType)
+            {
+                utf8char text[37];
+                id.ToChars(text);
+                report.warnings.PushBack(Format(u8"prefab instance {}: {} is not a prefab in this "
+                                                u8"project (asset_list: type {}) - it would be "
+                                                u8"skipped at load",
+                                                i, StringView(text, 36), prefabType));
+            }
+        }
     }
 
     // Resolve {guid} to an instance of the wanted document type; a wrong-type hit returns the
@@ -236,7 +270,10 @@ export namespace editor::mcp
             u8"scene_validate",
             u8"Validate scene/prefab XML without writing anything - use this as the validation "
             u8"loop when authoring scenes. Pass `xml` (raw text) OR `guid` (validate the stored "
-            u8"stream). Returns {valid, error?, warnings[], sceneName, entityCount, rootCount}. "
+            u8"stream). Returns {valid, error?, warnings[], sceneName, entityCount, rootCount, "
+            u8"prefabInstances}: entityCount is the scene's own entities; a prefab instance's "
+            u8"spawn from its prefab at load, and one whose prefab is not in the project is a "
+            u8"warning. "
             u8"Validation is FULL: the stream is parsed by the engine's own reader through every "
             u8"component manager and settings system, so framing, hierarchy and every component "
             u8"payload are checked; only a genuinely unknown component type surfaces as a warning "
@@ -283,7 +320,9 @@ export namespace editor::mcp
                     }
                     xml = stored.Value();
                 }
-                return detail::ReportToJson(detail::ParseSceneXml(xml.AsView()));
+                detail::SceneParseReport report = detail::ParseSceneXml(xml.AsView());
+                detail::CheckPrefabs(s->project, report);
+                return detail::ReportToJson(report);
             });
 
         const auto makeWrite = [s, &server](StringView tool, StringView wantedType,
@@ -318,8 +357,8 @@ export namespace editor::mcp
                     {
                         return Err(String(u8"`xml` is required and was empty"));
                     }
-                    const detail::SceneParseReport report =
-                        detail::ParseSceneXml(xml.AsView());
+                    detail::SceneParseReport report = detail::ParseSceneXml(xml.AsView());
+                    detail::CheckPrefabs(s->project, report);
                     if (!report.valid)
                     {
                         JsonValue refusal = detail::ReportToJson(report);
