@@ -11,6 +11,7 @@
 
 import foundation.core;
 import foundation.particles;
+import particles.pipeline; // SeedDefaultParticleEffect
 import editor.scene;
 
 using namespace foundation::core;
@@ -19,7 +20,7 @@ namespace particles = foundation::particles;
 TEST_CASE("particle page: default seed builds a one-system fountain with the core modules")
 {
     particles::ParticleEffect fx;
-    editor::SeedDefaultParticleEffect(fx);
+    pipeline::SeedDefaultParticleEffect(fx);
 
     REQUIRE(fx.SystemCount() == 1);
     particles::ParticleSystem* sys = fx.GetSystem(0);

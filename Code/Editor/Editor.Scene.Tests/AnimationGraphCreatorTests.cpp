@@ -49,7 +49,7 @@ TEST_CASE("animation graph: creator path round-trips through a real project")
         group->CreateInstance(u8"AnimationGraph", pipeline::AnimationGraphAsset::StaticType());
     REQUIRE(instance != nullptr);
     pipeline::AnimationGraphAsset asset;
-    SeedDefaultAnimationGraph(asset);
+    pipeline::SeedDefaultAnimationGraph(asset);
     REQUIRE(instance->WriteObject(asset).IsOk());
 
     // The page-open read path.

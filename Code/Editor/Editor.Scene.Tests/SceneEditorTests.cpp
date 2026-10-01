@@ -15,6 +15,8 @@ import foundation.scene;
 import foundation.scene.resource;
 import foundation.resource;
 import foundation.materials;
+import pipeline.core;  // AssetCreatorRegistry
+import scene.pipeline; // the Scene creator
 import engine.render;
 import foundation.ui;
 import foundation.ui.toolkit;
@@ -180,7 +182,20 @@ TEST_CASE("editor-camera: wheel dolly keeps the orbit pivot fixed at any zoom")
     CHECK(cam.focusDistance > 4.0f); // roughly back out (exponential retreat)
 }
 
-TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument instances")
+namespace
+{
+    // The Scene creator File > New runs (scene.pipeline), over a real project.
+    foundation::content::Instance* CreateScene(EditorProject& project)
+    {
+        pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+        pipeline::RegisterSceneCreators(creators);
+        const pipeline::AssetCreator* scene = creators.FindByLabel(u8"Scene");
+        REQUIRE(scene != nullptr);
+        return scene->Create(nullptr, project.SourceDb().RootGroup(), project.SourcesRoot());
+    }
+}
+
+TEST_CASE("editor-scene: the Scene creator makes uniquely-named SceneDocument instances")
 {
     GlobalTypeRegistry().Register(foundation::scene::SceneDocument::StaticType());
     RegisterSerializable<foundation::scene::SceneDocument>();
@@ -191,14 +206,10 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
 
-    EditorContext ctx{DefaultAllocator()};
-    ctx.SetProject(project.Get());
+    // No source database -> null.
+    CHECK(pipeline::CreateSceneInstance(nullptr, u8"Scene", DefaultAllocator()) == nullptr);
 
-    // No project -> null.
-    EditorContext empty{DefaultAllocator()};
-    CHECK(CreateSceneInstance(empty) == nullptr);
-
-    foundation::content::Instance* first = CreateSceneInstance(ctx);
+    foundation::content::Instance* first = CreateScene(*project);
     REQUIRE(first != nullptr);
     CHECK(first->Name() == u8"Scene");
     CHECK(first->Path() == u8"Scenes/Scene");
@@ -212,7 +223,7 @@ TEST_CASE("editor-scene: CreateSceneInstance makes uniquely-named SceneDocument 
     CHECK(doc->name == u8"Scene");
 
     // Second create picks a unique name in the same group.
-    foundation::content::Instance* second = CreateSceneInstance(ctx);
+    foundation::content::Instance* second = CreateScene(*project);
     REQUIRE(second != nullptr);
     CHECK(second->Name() == u8"Scene.2");
     CHECK(second->Id() != first->Id());
@@ -473,10 +484,7 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
-    EditorContext ctx{DefaultAllocator()};
-    ctx.SetProject(project.Get());
-
-    foundation::content::Instance* instance = CreateSceneInstance(ctx);
+    foundation::content::Instance* instance = CreateScene(*project);
     REQUIRE(instance != nullptr);
 
     foundation::scene::Scene loaded{DefaultAllocator()};

@@ -5,6 +5,8 @@ target_link_libraries(PropertyAnimation.Pipeline
     PRIVATE Foundation::Policy)
 
 target_sources(PropertyAnimation.Pipeline
+    PRIVATE
+        PropertyAnimationCreatorsImpl.cpp # File > New, asset_create
     PUBLIC
         FILE_SET propertyanimation_pipeline_modules TYPE CXX_MODULES FILES
             PropertyAnimationAsset.cppm)

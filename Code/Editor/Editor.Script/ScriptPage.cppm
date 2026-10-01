@@ -337,64 +337,9 @@ export namespace editor
                                                        content::Instance& instance) override;
     };
 
-    // Seeds a fresh script asset: a starter source file (the language cook's NewAssetTemplate -
-    // never hardcoded text) copied into Sources/, plus a ScriptClassAsset recording its file +
-    // language. Backend-neutral: the caller passes the language id + extension from the backend
-    // registry, so this works for whichever language the New Asset item is for.
-    inline content::Instance* CreateScriptInstance(EditorContext& context, content::Group* group,
-                                                   StringView languageId, StringView extension,
-                                                   pipeline::ScriptTier tier,
-                                                   StringView baseName)
-    {
-        if (context.Project() == nullptr)
-        {
-            return nullptr;
-        }
-        content::Group* target =
-            group != nullptr ? group : context.Project()->SourceDb().RootGroup();
-
-        const String name = target->UniqueInstanceName(baseName);
-
-        String fileName(name.AsView());
-        fileName.PushBack(utf8char('.'));
-        fileName.Append(extension);
-
-        pipeline::IScriptLanguageCook* cook =
-            pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(languageId);
-        if (cook == nullptr)
-        {
-            return nullptr;
-        }
-        const StringView starter = cook->NewAssetTemplate(tier);
-
-        const String path = PathJoin(context.Project()->SourcesRoot().AsView(), fileName.AsView());
-        if (!WriteFile(
-                 path.AsView(),
-                 Span<const byte>(reinterpret_cast<const byte*>(starter.Data()), starter.Size()))
-                 .IsOk())
-        {
-            return nullptr;
-        }
-
-        content::Instance* instance =
-            target->CreateInstance(name.AsView(), pipeline::ScriptClassAsset::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-        pipeline::ScriptClassAsset asset;
-        asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
-        asset.language = String(languageId);
-        if (!instance->WriteObject(asset).IsOk())
-        {
-            return nullptr;
-        }
-        context.RequestCook(false); // cook now so the new class is pickable + attachable
-        return instance;
-    }
-
     /// The editor executable's entry point for the script plugin: registers the ScriptPage
-    /// factory + one New-Asset creator per registered script backend (AngelScript, Luau, ...).
+    /// factory. The New Asset creators (one per tier per backend with a cook) are the script
+    /// pipeline's (pipeline::RegisterScriptCreators).
     /// Language SYNTAX (lexer tables) is not registered here - each backend's editor-UI
     /// module does that (RegisterAngelScriptEditorUI / RegisterLuauEditorUI), keeping this
     /// page module backend-neutral.
@@ -402,69 +347,5 @@ export namespace editor
     {
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             editor::EditorRootAllocator().New<ScriptClassPageFactory>(), editor::EditorRootAllocator()));
-
-        const auto backends = foundation::script::ScriptBackendRegistry::Get().All();
-        LOG_INFO(u8"Editor",
-                          u8"RegisterScriptEditor: {} script backend(s) in the registry",
-                          backends.Size());
-        core::u32 registeredCreators = 0;
-        for (const foundation::script::ScriptBackendDesc& backend : backends)
-        {
-            // A backend with no cook (compile/harvest) cannot seed a starter - skip it.
-            if (pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(
-                    backend.languageId.AsView()) == nullptr)
-            {
-                LOG_WARNING(
-                    u8"Editor",
-                    u8"  script backend '{}' has NO registered cook - no New-Asset creator",
-                    backend.languageId);
-                continue;
-            }
-            const String extension = backend.fileExtensions.IsEmpty()
-                                         ? String(backend.languageId.AsView())
-                                         : String(backend.fileExtensions[0].AsView());
-            const StringView displayName = backend.displayName.IsEmpty()
-                                               ? backend.languageId.AsView()
-                                               : backend.displayName.AsView();
-
-            // One New-Asset creator per tier (Behavior / Level / Game), each seeded from the
-            // cook's tier starter. Labels read "<Language> <Tier>" under the Scripts category.
-            struct TierDesc
-            {
-                pipeline::ScriptTier tier;
-                StringView suffix;   // label suffix
-                StringView baseName; // unique-name stem
-            };
-            const TierDesc kTiers[] = {
-                {pipeline::ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
-                {pipeline::ScriptTier::Level, u8"Level", u8"NewLevel"},
-                {pipeline::ScriptTier::Game, u8"Game", u8"NewGame"},
-            };
-            for (const TierDesc& t : kTiers)
-            {
-                String label(displayName);
-                label.PushBack(utf8char(' '));
-                label.Append(t.suffix);
-
-                EditorContext::AssetCreator creator;
-                creator.label = Move(label);
-                creator.category = String(u8"Scripts");
-                String languageId(backend.languageId.AsView());
-                String extensionCopy(extension.AsView());
-                String baseName(t.baseName);
-                creator.create = [languageId = Move(languageId), extension = Move(extensionCopy),
-                                  tier = t.tier, baseName = Move(baseName)](
-                                     EditorContext& ctx, content::Group* g)
-                {
-                    return CreateScriptInstance(ctx, g, languageId.AsView(), extension.AsView(),
-                                                tier, baseName.AsView());
-                };
-                context.RegisterCreator(Move(creator));
-                ++registeredCreators;
-            }
-        }
-        LOG_INFO(u8"Editor",
-                          u8"RegisterScriptEditor: {} script New-Asset creator(s) registered",
-                          registeredCreators);
     }
 }

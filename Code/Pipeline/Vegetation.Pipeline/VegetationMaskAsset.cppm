@@ -269,4 +269,7 @@ export namespace pipeline
         GlobalTypeRegistry().Register(VegetationMaskAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<VegetationMaskAsset>();
     }
+
+    /// File > New's vegetation creator (pipeline.registration composes every domain's).
+    void RegisterVegetationCreators(AssetCreatorRegistry& registry);
 }

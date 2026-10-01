@@ -291,8 +291,6 @@ export namespace editor
         ui::runtime::UIHost* m_uiHost;
     };
 
-    // Seed a fresh effect with a simple upward fountain (the "New Particle Effect" default).
-    void SeedDefaultParticleEffect(particles::ParticleEffect& effect);
 
     // Registers the ParticleEffect page factory + a "Particle Effect" New-Asset creator.
     void RegisterParticleEditor(EditorContext& context, runtime::IApplicationHost& host,

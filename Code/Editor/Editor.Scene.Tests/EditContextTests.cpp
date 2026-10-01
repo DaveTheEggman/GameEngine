@@ -24,6 +24,7 @@ import editor.scene;
 import foundation.content;
 import foundation.materials;
 import materials.pipeline;
+import pipeline.core; // AssetCreatorRegistry
 
 using namespace foundation::core;
 using namespace editor;
@@ -714,11 +715,18 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     REQUIRE(editor::EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
     UniquePtr<editor::EditorProject> project = editor::EditorProject::Open(DefaultAllocator(), dir);
     REQUIRE(static_cast<bool>(project));
-    editor::EditorContext ctx{DefaultAllocator()};
-    ctx.SetProject(project.Get());
+    // The material creators File > New runs (materials.pipeline), over a real project.
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    pipeline::RegisterMaterialCreators(creators);
+    const auto create = [&](StringView label)
+    {
+        const pipeline::AssetCreator* creator = creators.FindByLabel(label);
+        REQUIRE(creator != nullptr);
+        return creator->Create(nullptr, project->SourceDb().RootGroup(), project->SourcesRoot());
+    };
 
     // PBR: the lit property set on the "forward" shader; lands in Materials/ (unique names).
-    foundation::content::Instance* pbr = CreateMaterialInstance(ctx, nullptr, /*unlit*/ false);
+    foundation::content::Instance* pbr = create(u8"PBR Material");
     REQUIRE(pbr != nullptr);
     CHECK(pbr->Path() == u8"Materials/Material");
     {
@@ -738,7 +746,7 @@ TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right
     }
 
     // Unlit: BaseColor + AlbedoMap only, on the "unlit" shader.
-    foundation::content::Instance* unlit = CreateMaterialInstance(ctx, nullptr, /*unlit*/ true);
+    foundation::content::Instance* unlit = create(u8"Unlit Material");
     REQUIRE(unlit != nullptr);
     CHECK(unlit->Path() == u8"Materials/Material.2");
     {

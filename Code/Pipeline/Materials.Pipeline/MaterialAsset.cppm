@@ -115,4 +115,10 @@ export namespace pipeline{
     // MaterialAsset::StaticType() is defined WITH its reflected surface (a Nested `source`
     // property) in MaterialAssetImpl.cpp - GCC module hygiene: REFLECT_MEMBERS out of interfaces.
 
+
+    /// A preset material (PBR, or unlit) in `target`, named `baseName` made unique.
+    [[nodiscard]] foundation::content::Instance* CreateMaterialInstance(
+        foundation::content::Group* target, StringView baseName, bool unlit);
+    /// File > New's material creators (pipeline.registration composes every domain's).
+    void RegisterMaterialCreators(AssetCreatorRegistry& registry);
 } // namespace foundation::materials

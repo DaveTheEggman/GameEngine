@@ -6,5 +6,7 @@ target_link_libraries(Terrain.Pipeline PUBLIC
     Foundation::Terrain.Resource Foundation::Content Foundation::Policy)
 target_sources(Terrain.Pipeline
     PRIVATE
+        TerrainCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         TerrainAssetImpl.cpp
     PUBLIC FILE_SET terrain_pipeline_modules TYPE CXX_MODULES FILES TerrainAsset.cppm)

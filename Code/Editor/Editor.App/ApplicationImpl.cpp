@@ -1075,24 +1075,33 @@ namespace editor::app
     }
 
     void
-    EditorApplication::CreateAndOpen(const editor::EditorContext::AssetCreator& creator,
+    EditorApplication::CreateAndOpen(const pipeline::AssetCreator& creator,
                                      foundation::content::Group* group)
     {
         // Cook gate: the plan worker reads the DBs with their structure frozen -
         // creating instances mid-plan is a race. Queue and replay when idle.
         if (m_cookService.MutationLocked())
         {
-            const editor::EditorContext::AssetCreator* entry = &creator;
+            const pipeline::AssetCreator* entry = &creator;
             m_cookService.RunWhenIdle(
                 Function<void()>{[this, entry, group]() { CreateAndOpen(*entry, group); }});
             m_context.Notify(editor::NoticeKind::Info,
                              u8"Create queued until the current cook finishes.");
             return;
         }
-        foundation::content::Instance* instance = creator.create(m_context, group);
+        if (!m_project)
+        {
+            m_context.Notify(editor::NoticeKind::Error, u8"Create failed: no project is open.");
+            return;
+        }
+        const String sourcesRoot(m_project->SourcesRoot().AsView());
+        foundation::content::Instance* instance =
+            creator.Create(group, m_project->SourceDb().RootGroup(), sourcesRoot.AsView());
         if (instance == nullptr)
         {
-            m_context.Notify(editor::NoticeKind::Error, u8"Create failed (no project open?).");
+            m_context.Notify(editor::NoticeKind::Error,
+                             Format(u8"Create failed: the {} could not be written.", creator.label)
+                                 .AsView());
             return;
         }
         if (creator.setsDefaultScene && m_project && m_project->Settings().defaultSceneId.IsNil() &&
@@ -2480,7 +2489,7 @@ namespace editor::app
             }
         };
         m_assetsView->OnCreate =
-            [this](const editor::EditorContext::AssetCreator& creator,
+            [this](const pipeline::AssetCreator& creator,
                    foundation::content::Group* group) { CreateAndOpen(creator, group); };
         // "Import..." in the asset-browser menu: open the native file dialog, then route each picked
         // file through ImportFile (importer chooser / options dialog / no-importer warning).
@@ -3626,8 +3635,7 @@ namespace editor::app
                 // File > New <creator> from the registry (per-subsystem editor modules).
                 // Categorized creators (e.g. "Primitives") nest in a submenu of that name.
                 Array<StringView> categories;
-                for (const editor::EditorContext::AssetCreator& creator :
-                     m_context.Creators())
+                for (const pipeline::AssetCreator& creator : m_context.Creators().All())
                 {
                     if (creator.category.IsEmpty())
                     {
@@ -3660,8 +3668,7 @@ namespace editor::app
                     {
                         continue;
                     }
-                    for (const editor::EditorContext::AssetCreator& creator :
-                         m_context.Creators())
+                    for (const pipeline::AssetCreator& creator : m_context.Creators().All())
                     {
                         if (creator.category.AsView() != category)
                         {

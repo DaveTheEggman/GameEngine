@@ -793,126 +793,6 @@ export namespace editor
         ui::runtime::UIHost* m_uiHost;
     };
 
-    // Create a fresh empty prefab instance under "Prefabs/", named uniquely (Prefab,
-    // Prefab2, ...). Content arrives when the user saves the opened page (an unsaved prefab
-    // has no payload; spawning one warns).
-    inline foundation::content::Instance*
-    CreatePrefabInstance(EditorContext& context, foundation::content::Group* target = nullptr)
-    {
-        EditorProject* project = context.Project();
-        if (project == nullptr)
-        {
-            return nullptr;
-        }
-
-        foundation::content::Group* prefabs = target;
-        if (prefabs == nullptr)
-        {
-            foundation::content::Group* root = project->SourceDb().RootGroup();
-            prefabs = root->GetGroup(u8"Prefabs");
-            if (prefabs == nullptr)
-            {
-                prefabs = root->CreateGroup(u8"Prefabs");
-            }
-        }
-        if (prefabs == nullptr)
-        {
-            return nullptr;
-        }
-
-        const String name = prefabs->UniqueInstanceName(u8"Prefab");
-
-        foundation::content::Instance* instance =
-            prefabs->CreateInstance(name.AsView(), scene::PrefabDocument::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-        scene::PrefabDocument doc;
-        doc.name = name;
-        if (!instance->WriteObject(doc).IsOk())
-        {
-            return nullptr;
-        }
-
-        // Seed one root entity so the prefab opens in the enforced single-root shape and is
-        // spawnable immediately (an empty payload can't spawn).
-        scene::Scene seed(editor::EditorRootAllocator(), u8"seed");
-        scene::EntityHandle root = seed.CreateEntity(name.AsView());
-        MemoryStream buffer;
-        if (scene::CapturePrefab(seed, root, buffer).IsOk())
-        {
-            (void)instance->WriteData(u8"scene", buffer.Bytes());
-        }
-        return instance;
-    }
-
-    // Create a fresh scene instance in the project's source DB under "Scenes/", named uniquely
-    // (Scene, Scene2, ...). Writes the SceneDocument primary so the instance materializes; the
-    // page treats the missing "scene" stream as an empty scene.
-    inline foundation::content::Instance*
-    CreateSceneInstance(EditorContext& context, foundation::content::Group* target = nullptr)
-    {
-        EditorProject* project = context.Project();
-        if (project == nullptr)
-        {
-            return nullptr;
-        }
-
-        foundation::content::Group* scenes = target;
-        if (scenes == nullptr)
-        {
-            foundation::content::Group* root = project->SourceDb().RootGroup();
-            scenes = root->GetGroup(u8"Scenes");
-            if (scenes == nullptr)
-            {
-                scenes = root->CreateGroup(u8"Scenes");
-            }
-        }
-        if (scenes == nullptr)
-        {
-            return nullptr;
-        }
-
-        const String name = scenes->UniqueInstanceName(u8"Scene");
-
-        foundation::content::Instance* instance =
-            scenes->CreateInstance(name.AsView(), scene::SceneDocument::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-
-        scene::SceneDocument doc;
-        doc.name = name;
-        if (!instance->WriteObject(doc).IsOk())
-        {
-            return nullptr;
-        }
-
-        // Seed default content: a directional Sun so a fresh scene is LIT out of the box
-        // (with no light, meshes render in the dim flat ambient fallback and read as broken -
-        // the classic "why is my duck untextured"). An authored entity, not editor magic: it
-        // saves with the scene, shows in the hierarchy, and is free to edit or delete.
-        {
-            scene::Scene seeded(editor::EditorRootAllocator(), name.AsView());
-            seeded.AddSystem<engine::render::LightComponentManager>();
-            const scene::EntityHandle sun = seeded.CreateEntity(u8"Sun");
-            Transform t;
-            // Shines along the entity's forward (-Z): tilt ~60 deg down, a slight compass yaw
-            // (the Sandbox key-light default) so shading has direction.
-            t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
-                         Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
-            seeded.SetLocalTransform(sun, t);
-            engine::render::LightComponent& light =
-                seeded.GetSystem<engine::render::LightComponentManager>()->Add(sun);
-            light.castsShadows = true; // intensity stays the component default (the value the
-                                       // duck-scene fix was verified with)
-            (void)scene::SaveScene(seeded, *instance);
-        }
-        return instance;
-    }
-
     inline void RegisterSceneEditor(EditorContext& context, runtime::IApplicationHost& host,
                                     ui::runtime::UIHost& uiHost,
                                     engine::runtime::DefaultApplication* embeddedApp = nullptr)
@@ -933,18 +813,7 @@ export namespace editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             editor::EditorRootAllocator().New<PrefabEditorPageFactory>(host, uiHost), editor::EditorRootAllocator()));
 
-        EditorContext::AssetCreator creator;
-        creator.label = String(u8"Scene");
-        creator.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreateSceneInstance(ctx, group); };
-        creator.setsDefaultScene = true;
-        context.RegisterCreator(Move(creator));
 
-        EditorContext::AssetCreator prefabCreator;
-        prefabCreator.label = String(u8"Prefab");
-        prefabCreator.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreatePrefabInstance(ctx, group); };
-        context.RegisterCreator(Move(prefabCreator));
         // The scene editor's actions: the Scene menu, the chords, the page toolbar and the
         // hierarchy's menus are served from these; the palette and the MCP bridge read them.
         RegisterSceneEditorActions(context);

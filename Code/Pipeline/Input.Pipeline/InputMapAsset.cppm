@@ -103,4 +103,7 @@ export namespace pipeline{
 
     // InputMapAsset::StaticType() is defined WITH its reflected surface (a Nested `map` property)
     // in InputMapAssetImpl.cpp - GCC module hygiene: REFLECT_MEMBERS out of interfaces.
+
+    /// File > New's input creators (pipeline.registration composes every domain's).
+    void RegisterInputCreators(AssetCreatorRegistry& registry);
 }

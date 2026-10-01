@@ -9,4 +9,5 @@ target_sources(Pipeline.Core
         AssetImpl.cpp
     PUBLIC
         FILE_SET pipeline_modules TYPE CXX_MODULES FILES
-            Asset.cppm)
+            Asset.cppm
+            AssetCreator.cppm)

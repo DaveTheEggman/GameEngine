@@ -208,19 +208,6 @@ namespace editor
                                          : Span<const byte>{};
     }
 
-    void EditorContext::RegisterCreator(AssetCreator creator)
-    {
-        if (creator.create)
-        {
-            m_creators.PushBack(Move(creator));
-        }
-    }
-
-    Span<const EditorContext::AssetCreator> EditorContext::Creators() const noexcept
-    {
-        return Span<const AssetCreator>{m_creators.Data(), m_creators.Size()};
-    }
-
     EditorPage* EditorContext::OpenPage(foundation::content::Instance& instance)
     {
         for (const UniquePtr<EditorPage>& page : m_pages)

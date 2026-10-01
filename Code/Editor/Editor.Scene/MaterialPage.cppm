@@ -223,52 +223,6 @@ export namespace editor
         ui::runtime::UIHost* m_uiHost;
     };
 
-    // Create a preset material instance in `group` (or Materials/ from the File menu).
-    inline foundation::content::Instance*
-    CreateMaterialInstance(EditorContext& context, foundation::content::Group* group, bool unlit)
-    {
-        if (context.Project() == nullptr)
-        {
-            return nullptr;
-        }
-        foundation::content::Group* target = group;
-        if (target == nullptr)
-        {
-            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
-            target = root->GetGroup(u8"Materials");
-            if (target == nullptr)
-            {
-                target = root->CreateGroup(u8"Materials");
-            }
-        }
-        if (target == nullptr)
-        {
-            return nullptr;
-        }
-
-        const String name = target->UniqueInstanceName(u8"Material");
-
-        foundation::content::Instance* instance =
-            target->CreateInstance(name.AsView(), pipeline::MaterialAsset::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-
-        RefPtr<materials::Material> built =
-            unlit ? materials::CreateUnlit(name.AsView()) : materials::CreatePBR(name.AsView());
-        pipeline::MaterialAsset asset;
-        pipeline::MaterialImporter::Import(*built, Guid{}, asset);
-        if (!instance->WriteObject(asset).IsOk())
-        {
-            return nullptr;
-        }
-        LOG_INFO(u8"Editor", u8"created {} material '{}'", unlit ? u8"unlit" : u8"PBR",
-                          instance->Path());
-        context.RequestCook(false); // pickable as soon as the product lands
-        return instance;
-    }
-
     // Per-asset material-preview prefs: {assetGuid -> (shape, meshGuid)} - a section in the
     // per-project editor-settings store (rewritten whole; the page reads/writes its row).
     struct MaterialPreviewPref
@@ -318,19 +272,6 @@ export namespace editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             editor::EditorRootAllocator().New<MaterialEditorPageFactory>(host, uiHost), editor::EditorRootAllocator()));
 
-        EditorContext::AssetCreator pbr;
-        pbr.label = String(u8"PBR Material");
-        pbr.category = String(u8"Materials");
-        pbr.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreateMaterialInstance(ctx, group, /*unlit*/ false); };
-        context.RegisterCreator(Move(pbr));
-
-        EditorContext::AssetCreator unlit;
-        unlit.label = String(u8"Unlit Material");
-        unlit.category = String(u8"Materials");
-        unlit.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreateMaterialInstance(ctx, group, /*unlit*/ true); };
-        context.RegisterCreator(Move(unlit));
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(MaterialPreviewSettings, "rtti::editor::editor", 1)

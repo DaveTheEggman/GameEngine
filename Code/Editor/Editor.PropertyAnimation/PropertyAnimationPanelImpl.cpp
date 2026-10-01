@@ -505,7 +505,7 @@ namespace editor
                     [self](foundation::content::Group& group, StringView name)
                 {
                     foundation::content::Instance* inst =
-                        CreatePropertyAnimationClipNamed(*self->m_editorCtx, group, name);
+                        pipeline::CreatePropertyAnimationClip(&group, name);
                     if (inst == nullptr)
                     {
                         LOG_WARNING(u8"PropertyAnimation", u8"Create clip '{}' failed", name);

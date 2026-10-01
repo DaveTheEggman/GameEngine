@@ -23,7 +23,7 @@ namespace anim = foundation::animation;
 TEST_CASE("animation graph page: default seed = one layer, Idle default state, Speed param")
 {
     pipeline::AnimationGraphAsset asset;
-    editor::SeedDefaultAnimationGraph(asset);
+    pipeline::SeedDefaultAnimationGraph(asset);
 
     REQUIRE(asset.source.paramNames.Size() == 1u);
     CHECK(asset.source.paramNames[0].AsView() == u8"Speed");
@@ -47,7 +47,7 @@ TEST_CASE("animation graph page: default seed = one layer, Idle default state, S
 TEST_CASE("animation graph page: asset round-trips source + canvas layout (undo blob path)")
 {
     pipeline::AnimationGraphAsset a;
-    editor::SeedDefaultAnimationGraph(a);
+    pipeline::SeedDefaultAnimationGraph(a);
     // Author a bit beyond the seed: a second state, a transition with a condition, a moved node.
     anim::GraphStateData run;
     run.name = String(u8"Run");

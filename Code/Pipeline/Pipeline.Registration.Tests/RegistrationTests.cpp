@@ -17,6 +17,8 @@ import foundation.core;
 import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
+import foundation.content; // ContentDatabase: a plain source database, no editor
+import foundation.vfs;
 
 using namespace foundation::core;
 
@@ -119,4 +121,58 @@ TEST_CASE("pipeline.registration: every builder's ProductType is a registered se
                  doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
             CHECK(GlobalSerializableRegistry().Contains(product->id));
         });
+}
+
+// agent-playtesting-and-asset-creation.md P1 (Sedulous 4b6207d2): every creator runs against a
+// plain source database with no editor - the source database and a sources folder are all a
+// creation needs, so a headless host creates through the same creators.
+TEST_CASE("pipeline.registration: every creator makes its asset with no editor")
+{
+    pipeline::RegisterPipelineTypes(); // the script creators need the cooks
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    const usize scripts = pipeline::RegisterAllCreators(creators);
+    CHECK(scripts % 3 == 0u); // three tiers per language with a cook
+    CHECK(creators.Count() == pipeline::kCreatorCount + scripts);
+
+    constexpr StringView kRoot = u8"scratch_creators_db";
+    constexpr StringView kSources = u8"scratch_creators_sources";
+    (void)CreateDirectory(kSources);
+    {
+        foundation::vfs::NativeFileSystem mount(kRoot, DefaultAllocator());
+        foundation::content::ContentDatabase db(DefaultAllocator(), mount,
+                                                foundation::core::BinarySerializerFactory(),
+                                                u8".xasset");
+        const String sourcesRoot = PathJoin(GetCurrentDirectory().AsView(), kSources);
+        for (const pipeline::AssetCreator& creator : creators.All())
+        {
+            CAPTURE(creator.label);
+            REQUIRE(creator.type != nullptr);
+            foundation::content::Instance* instance =
+                creator.Create(nullptr, db.RootGroup(), sourcesRoot.AsView());
+            REQUIRE(instance != nullptr);
+            CHECK(instance->TypeName() == creator.TypeName());
+            // A creator with a default group lands there unless one was picked.
+            if (!creator.defaultGroup.IsEmpty())
+            {
+                CHECK(creator.TargetFor(nullptr, db.RootGroup()) ==
+                      db.RootGroup()->GetGroup(creator.defaultGroup.AsView()));
+            }
+        }
+
+        // A name asked for is used; the registry finds a creator by label and, when there is
+        // only one, by type.
+        const pipeline::AssetCreator* scene = creators.FindByLabel(u8"scene");
+        REQUIRE(scene != nullptr);
+        CHECK(scene->setsDefaultScene);
+        foundation::content::Instance* named =
+            scene->Create(nullptr, db.RootGroup(), sourcesRoot.AsView(), u8"Level1");
+        REQUIRE(named != nullptr);
+        CHECK(named->Name() == u8"Level1");
+        CHECK(creators.FindByType(scene->TypeName()) == scene);
+        const pipeline::AssetCreator* pbr = creators.FindByLabel(u8"PBR Material");
+        REQUIRE(pbr != nullptr);
+        CHECK(creators.FindByType(pbr->TypeName()) == nullptr); // PBR and Unlit share the type
+    }
+    (void)RemoveDirectoryRecursive(kRoot);
+    (void)RemoveDirectoryRecursive(kSources);
 }

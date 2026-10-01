@@ -789,4 +789,7 @@ export namespace pipeline{
     // 2: the custom-bus slot bank (see Serialize).
     RTTI_DEFINE_OBJECT_VERSIONED(AudioBusLayoutAsset, "rtti::pipeline::audio", 2)
     RTTI_DEFINE_OBJECT(SoundCueAsset, "rtti::pipeline::audio")
+
+    /// File > New's audio creators (pipeline.registration composes every domain's).
+    void RegisterAudioCreators(AssetCreatorRegistry& registry);
 }

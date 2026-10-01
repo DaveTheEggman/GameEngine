@@ -768,4 +768,7 @@ export namespace pipeline
         GlobalTypeRegistry().Register(SplatmapAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<SplatmapAsset>();
     }
+
+    /// File > New's terrain creators (pipeline.registration composes every domain's).
+    void RegisterTerrainCreators(AssetCreatorRegistry& registry);
 }

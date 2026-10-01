@@ -2220,71 +2220,6 @@ namespace editor
         return UniquePtr<EditorPage>(page, editor::EditorRootAllocator());
     }
 
-    void SeedDefaultAnimationGraph(pipeline::AnimationGraphAsset& asset)
-    {
-        animation::AnimationGraphSource& source = asset.source;
-        source.paramNames.PushBack(String(u8"Speed"));
-        source.paramTypes.PushBack(0); // Float
-        source.paramFloats.PushBack(0.0f);
-        source.paramInts.PushBack(0);
-        source.paramBools.PushBack(0);
-
-        animation::GraphLayerData layer;
-        layer.name = String(u8"Base");
-        animation::GraphStateData idle;
-        idle.name = String(u8"Idle");
-        idle.node.kind = 0; // clip (unassigned - pick in the inspector)
-        layer.states.PushBack(Move(idle));
-        layer.defaultState = 0;
-        source.layers.PushBack(Move(layer));
-
-        Array<Float2> positions;
-        positions.PushBack(Float2{280.0f, 120.0f});
-        asset.layerStatePositions.PushBack(Move(positions));
-        asset.layerAnyStatePositions.PushBack(Float2{60.0f, 40.0f});
-    }
-
-    inline foundation::content::Instance*
-    CreateAnimationGraphInstance(EditorContext& context, foundation::content::Group* group)
-    {
-        if (context.Project() == nullptr)
-        {
-            return nullptr;
-        }
-        foundation::content::Group* target = group;
-        if (target == nullptr)
-        {
-            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
-            target = root->GetGroup(u8"Animation");
-            if (target == nullptr)
-            {
-                target = root->CreateGroup(u8"Animation");
-            }
-        }
-        if (target == nullptr)
-        {
-            return nullptr;
-        }
-
-        const String name = target->UniqueInstanceName(u8"AnimationGraph");
-
-        foundation::content::Instance* instance =
-            target->CreateInstance(name.AsView(), pipeline::AnimationGraphAsset::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-        pipeline::AnimationGraphAsset asset;
-        SeedDefaultAnimationGraph(asset);
-        if (!instance->WriteObject(asset).IsOk())
-        {
-            return nullptr;
-        }
-        LOG_INFO(u8"Editor", u8"created animation graph '{}'", instance->Path());
-        context.RequestCook(false);
-        return instance;
-    }
-
     void RegisterAnimationGraphEditor(EditorContext& context, runtime::IApplicationHost& host,
                                       ui::runtime::UIHost& uiHost)
     {
@@ -2295,12 +2230,6 @@ namespace editor
         context.Pages().Register(UniquePtr<IEditorPageFactory>(
             editor::EditorRootAllocator().New<AnimationGraphPageFactory>(host, uiHost), editor::EditorRootAllocator()));
 
-        EditorContext::AssetCreator creator;
-        creator.label = String(u8"Animation Graph");
-        creator.category = String(u8"Animation");
-        creator.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreateAnimationGraphInstance(ctx, group); };
-        context.RegisterCreator(Move(creator));
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(GraphPreviewSettings, "rtti::editor::editor.graph", 1)

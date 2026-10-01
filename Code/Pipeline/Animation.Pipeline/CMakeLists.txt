@@ -6,6 +6,8 @@ target_link_libraries(Animation.Pipeline
            Foundation::Animation Foundation::Animation.Resource Foundation::Policy)
 
 target_sources(Animation.Pipeline
+    PRIVATE
+        AnimationCreatorsImpl.cpp # File > New, asset_create
     PUBLIC
         FILE_SET animation_editor_modules TYPE CXX_MODULES FILES
             AnimationAsset.cppm)

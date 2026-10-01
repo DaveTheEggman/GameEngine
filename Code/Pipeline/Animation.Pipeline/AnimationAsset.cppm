@@ -146,4 +146,9 @@ export namespace pipeline{
     RTTI_DEFINE_OBJECT(AnimationClipAsset, "rtti::pipeline::animation")
     RTTI_DEFINE_OBJECT(AnimationGraphAsset, "rtti::pipeline::animation")
 
+
+    /// A new graph's content: a Speed parameter and a Base layer holding an Idle state.
+    void SeedDefaultAnimationGraph(AnimationGraphAsset& asset);
+    /// File > New's animation creators (pipeline.registration composes every domain's).
+    void RegisterAnimationCreators(AssetCreatorRegistry& registry);
 } // namespace foundation::animation

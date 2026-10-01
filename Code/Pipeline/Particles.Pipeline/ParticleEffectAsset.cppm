@@ -128,4 +128,9 @@ export namespace pipeline{
     }
 
     RTTI_DEFINE_OBJECT(ParticleEffectAsset, "rtti::pipeline::particles")
+
+    /// A new effect's content: one continuous fountain system.
+    void SeedDefaultParticleEffect(foundation::particles::ParticleEffect& effect);
+    /// File > New's particle creator (pipeline.registration composes every domain's).
+    void RegisterParticleCreators(AssetCreatorRegistry& registry);
 }

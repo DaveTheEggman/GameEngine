@@ -289,4 +289,7 @@ export namespace pipeline
         GlobalTypeRegistry().Register(HeightfieldAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<HeightfieldAsset>();
     }
+
+    /// File > New's heightfield creator (pipeline.registration composes every domain's).
+    void RegisterHeightfieldCreators(AssetCreatorRegistry& registry);
 }

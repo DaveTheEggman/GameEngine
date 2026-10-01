@@ -309,4 +309,7 @@ export namespace pipeline{
         GlobalTypeRegistry().Register(PhysicalMaterialAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<PhysicalMaterialAsset>();
     }
+
+    /// File > New's physics creators (pipeline.registration composes every domain's).
+    void RegisterPhysicsCreators(AssetCreatorRegistry& registry);
 }

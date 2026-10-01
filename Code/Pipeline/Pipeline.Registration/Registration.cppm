@@ -45,10 +45,18 @@ export namespace pipeline
     /// asset_import surface): texture, model, UI, audio, script, font.
     void RegisterAllImporters(ImporterRegistry& registry);
 
+    /// Populate `registry` with every New Asset creator the pipeline domains offer (File > New,
+    /// asset_create), in the menu's order, the scripts' last. Run RegisterPipelineTypes first:
+    /// the script creators are one set per language with a registered cook. Answers how many
+    /// script creators that added (three per such language).
+    usize RegisterAllCreators(AssetCreatorRegistry& registry);
+
     // === Tripwire counts (Pipeline.Registration.Tests asserts against these) ===
     // A new builder/importer bumps the matching constant DELIBERATELY; a lost registration then
     // fails the test loudly. This converts "nobody checks the three copies stay in sync" into
     // "the build checks the one copy is complete".
     inline constexpr usize kBuilderCount = 27;
     inline constexpr usize kImporterCount = 10;
+    /// The creators every build has; the scripts add three per language with a cook on top.
+    inline constexpr usize kCreatorCount = 25;
 }

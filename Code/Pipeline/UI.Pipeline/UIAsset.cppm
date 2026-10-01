@@ -287,4 +287,7 @@ export namespace pipeline{
 
     // UIDocumentAsset/UIThemeAsset StaticType() are defined WITH reflected properties in
     // UIAssetImpl.cpp.
+
+    /// File > New's UI creators (pipeline.registration composes every domain's).
+    void RegisterUICreators(AssetCreatorRegistry& registry);
 }

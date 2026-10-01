@@ -37,6 +37,7 @@ import foundation.fonts;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
+import pipeline.core; // AssetCreator (the New menus)
 import :editor_icons;
 import :asset_drag_data;
 import :import_dialog;
@@ -59,7 +60,7 @@ export namespace editor::app
         Function<void()> OnBrowseImport;
         /// Create an asset via a registry creator (wired by the application - it also opens it).
         /// `group` = the group the menu was invoked for (creations land there).
-        Function<void(const editor::EditorContext::AssetCreator&, content::Group*)>
+        Function<void(const pipeline::AssetCreator&, content::Group*)>
             OnCreate;
         /// Close any open editor page for this instance BEFORE it is deleted (wired by the
         /// application; called from a mutation-queue action, so synchronous teardown is safe).

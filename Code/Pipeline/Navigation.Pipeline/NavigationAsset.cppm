@@ -143,4 +143,7 @@ export namespace pipeline
     }
 
     RTTI_DEFINE_OBJECT_VERSIONED(NavigationZoneAsset, "rtti::pipeline::navigation", 2) // 2: frame stamp left
+
+    /// File > New's navigation creators (pipeline.registration composes every domain's).
+    void RegisterNavigationCreators(AssetCreatorRegistry& registry);
 }

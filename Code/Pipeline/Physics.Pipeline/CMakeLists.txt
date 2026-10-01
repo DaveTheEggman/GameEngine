@@ -5,6 +5,8 @@ target_link_libraries(Physics.Pipeline PUBLIC
     Foundation::Geometry.Resource Foundation::Physics Foundation::Physics.Resource Foundation::Policy)
 target_sources(Physics.Pipeline
     PRIVATE
+        PhysicsCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         PhysicsAssetImpl.cpp
     PUBLIC FILE_SET physics_editor_modules TYPE CXX_MODULES FILES PhysicsAsset.cppm)
 

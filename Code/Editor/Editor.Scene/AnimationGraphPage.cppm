@@ -278,9 +278,6 @@ export namespace editor
                                Span<const animation::BoneTransform> localPoses,
                                Array<Float4x4>& worldScratch);
 
-    // Seed a fresh graph: one layer with an "Idle" clip state (default) + a float "Speed"
-    // parameter. Free + pure so the New-Asset seed is unit-tested without a live host.
-    void SeedDefaultAnimationGraph(pipeline::AnimationGraphAsset& asset);
 
     // Registers the AnimationGraph page factory + an "Animation Graph" New-Asset creator.
     void RegisterAnimationGraphEditor(EditorContext& context, runtime::IApplicationHost& host,

@@ -5,6 +5,8 @@ target_link_libraries(Audio.Pipeline PUBLIC
     Foundation::Audio Foundation::Audio.Resource Foundation::Policy)
 target_sources(Audio.Pipeline
     PRIVATE
+        AudioCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         AudioAssetImpl.cpp
     PUBLIC FILE_SET audio_editor_modules TYPE CXX_MODULES FILES AudioAsset.cppm)
 

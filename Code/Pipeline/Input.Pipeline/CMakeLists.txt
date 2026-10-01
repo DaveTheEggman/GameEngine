@@ -6,6 +6,8 @@ target_link_libraries(Input.Pipeline
 
 target_sources(Input.Pipeline
     PRIVATE
+        InputCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         InputMapAssetImpl.cpp   # InputMapAsset reflection body (Nested map; GCC hygiene)
     PUBLIC
         FILE_SET input_editor_modules TYPE CXX_MODULES FILES

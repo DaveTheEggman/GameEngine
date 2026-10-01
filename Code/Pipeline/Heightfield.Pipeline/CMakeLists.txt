@@ -7,5 +7,7 @@ target_link_libraries(Heightfield.Pipeline PUBLIC
     Foundation::Content Foundation::Policy)
 target_sources(Heightfield.Pipeline
     PRIVATE
+        HeightfieldCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         HeightfieldAssetImpl.cpp
     PUBLIC FILE_SET heightfield_pipeline_modules TYPE CXX_MODULES FILES HeightfieldAsset.cppm)

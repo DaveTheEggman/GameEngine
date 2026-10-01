@@ -10,6 +10,8 @@ target_link_libraries(Geometry.Pipeline
 
 target_sources(Geometry.Pipeline
     PRIVATE
+        GeometryCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         MeshOptimizeImpl.cpp   # optimization pass (meshoptimizer lives here only)
     PUBLIC
         FILE_SET mesh_editor_modules TYPE CXX_MODULES FILES

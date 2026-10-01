@@ -37,6 +37,7 @@ import foundation.fonts;
 import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
+import pipeline.core; // AssetCreator (the New menus)
 import foundation.settings;
 import :editor_icons;
 import :import_dialog;
@@ -1176,7 +1177,7 @@ namespace editor::app
             if (create != nullptr)
             {
                 const auto addCreator = [self, target](ui::ContextMenu& into,
-                                                       const editor::EditorContext::AssetCreator&
+                                                       const pipeline::AssetCreator&
                                                            creator)
                 {
                     const auto* entry = &creator;
@@ -1191,7 +1192,7 @@ namespace editor::app
                                  });
                 };
                 Array<StringView> categories;
-                for (const editor::EditorContext::AssetCreator& creator : m_context->Creators())
+                for (const pipeline::AssetCreator& creator : m_context->Creators().All())
                 {
                     if (creator.category.IsEmpty())
                     {
@@ -1225,8 +1226,7 @@ namespace editor::app
                     {
                         continue;
                     }
-                    for (const editor::EditorContext::AssetCreator& creator :
-                         m_context->Creators())
+                    for (const pipeline::AssetCreator& creator : m_context->Creators().All())
                     {
                         if (creator.category.AsView() == category)
                         {

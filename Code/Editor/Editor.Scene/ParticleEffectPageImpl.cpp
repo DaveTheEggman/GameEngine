@@ -2206,61 +2206,6 @@ namespace editor
         return UniquePtr<EditorPage>(page, context.Allocator());
     }
 
-    void SeedDefaultParticleEffect(particles::ParticleEffect& fx)
-    {
-        particles::ParticleSystem& sys = fx.AddSystem(2000);
-        sys.AddInitializer<particles::LifetimeInitializer>().lifetime =
-            particles::RangeFloat(1.5f, 2.5f);
-        sys.AddInitializer<particles::VelocityInitializer>().baseVelocity =
-            Float3{0.0f, 5.0f, 0.0f};
-        sys.AddInitializer<particles::SizeInitializer>();
-        sys.AddInitializer<particles::ColorInitializer>();
-        sys.AddBehavior<particles::GravityBehavior>();
-        sys.emitter.mode = particles::EmissionMode::Continuous;
-        sys.emitter.spawnRate = 120.0f;
-    }
-
-    inline foundation::content::Instance*
-    CreateParticleEffectInstance(EditorContext& context, foundation::content::Group* group)
-    {
-        if (context.Project() == nullptr)
-        {
-            return nullptr;
-        }
-        foundation::content::Group* target = group;
-        if (target == nullptr)
-        {
-            foundation::content::Group* root = context.Project()->SourceDb().RootGroup();
-            target = root->GetGroup(u8"ParticleEffects");
-            if (target == nullptr)
-            {
-                target = root->CreateGroup(u8"ParticleEffects");
-            }
-        }
-        if (target == nullptr)
-        {
-            return nullptr;
-        }
-
-        const String name = target->UniqueInstanceName(u8"ParticleEffect");
-
-        foundation::content::Instance* instance =
-            target->CreateInstance(name.AsView(), pipeline::ParticleEffectAsset::StaticType());
-        if (instance == nullptr)
-        {
-            return nullptr;
-        }
-        pipeline::ParticleEffectAsset asset;
-        SeedDefaultParticleEffect(asset.Effect());
-        if (!instance->WriteObject(asset).IsOk())
-        {
-            return nullptr;
-        }
-        LOG_INFO(u8"Editor", u8"created particle effect '{}'", instance->Path());
-        context.RequestCook(false);
-        return instance;
-    }
-
     void RegisterParticleEditor(EditorContext& context, runtime::IApplicationHost& host,
                                 ui::runtime::UIHost& uiHost)
     {
@@ -2268,10 +2213,5 @@ namespace editor
             context.Allocator().New<ParticleEffectPageFactory>(host, uiHost),
             context.Allocator()));
 
-        EditorContext::AssetCreator creator;
-        creator.label = String(u8"Particle Effect");
-        creator.create = [](EditorContext& ctx, foundation::content::Group* group)
-        { return CreateParticleEffectInstance(ctx, group); };
-        context.RegisterCreator(Move(creator));
     }
 }

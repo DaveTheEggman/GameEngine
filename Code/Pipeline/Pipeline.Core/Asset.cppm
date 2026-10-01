@@ -29,6 +29,7 @@ export module pipeline.core;
 import foundation.core;
 import foundation.content;
 export import foundation.vfs; // Asset::fileName is vfs::SourcePath
+export import :asset_creator; // AssetCreator, AssetCreationContext, AssetCreatorRegistry
 
 using namespace foundation::core;
 
@@ -291,4 +292,37 @@ export namespace pipeline
     // surfaces its source file through the base chain (FindProperty walks bases). Idempotent.
     // Asset::StaticType() itself is defined WITH the fileName property in AssetImpl.cpp.
     void RegisterAssetReflection();
+
+    /// A file-backed creation: `starter` written to "<name><extension>" in the context's
+    /// sources folder, and a uniquely named instance of `type` whose `asset` links that file
+    /// through fileName (a script, a UI document). Null when there is no sources folder or a
+    /// write is refused.
+    [[nodiscard]] inline foundation::content::Instance*
+    CreateLinkedTextAsset(const AssetCreationContext& context, StringView baseName,
+                          StringView extension, StringView starter, const TypeInfo& type,
+                          Asset& asset)
+    {
+        foundation::content::Group* target = context.Target();
+        if (target == nullptr || context.sourcesRoot.IsEmpty())
+        {
+            return nullptr;
+        }
+        const String name = target->UniqueInstanceName(context.NameOr(baseName));
+        String fileName(name.AsView());
+        fileName.Append(extension);
+        const String path = PathJoin(context.sourcesRoot, fileName.AsView());
+        if (!WriteFile(path.AsView(), Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
+                                                       starter.Size()))
+                 .IsOk())
+        {
+            return nullptr;
+        }
+        foundation::content::Instance* instance = target->CreateInstance(name.AsView(), type);
+        if (instance == nullptr)
+        {
+            return nullptr;
+        }
+        asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
+        return instance->WriteObject(asset).IsOk() ? instance : nullptr;
+    }
 }

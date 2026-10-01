@@ -293,4 +293,13 @@ export namespace pipeline{
     RTTI_DEFINE_OBJECT_VERSIONED(StaticMeshAsset, "rtti::pipeline::geometry", 5)
     RTTI_DEFINE_OBJECT_VERSIONED(SkinnedMeshAsset, "rtti::pipeline::geometry", 5)
 
+
+    /// A static mesh asset of `mesh` in `target`, named `baseName` made unique, its geometry in
+    /// the binary sidecar (WriteMeshAsset). The primitive creators and the new-project seed
+    /// make meshes through this.
+    [[nodiscard]] foundation::content::Instance* CreatePrimitiveMeshInstance(
+        foundation::content::Group* target, StringView baseName,
+        RefPtr<foundation::geometry::StaticMesh> mesh);
+    /// File > New's primitive creators (pipeline.registration composes every domain's).
+    void RegisterGeometryCreators(AssetCreatorRegistry& registry);
 } // namespace foundation::geometry

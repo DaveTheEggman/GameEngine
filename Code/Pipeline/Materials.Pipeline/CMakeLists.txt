@@ -7,6 +7,8 @@ target_link_libraries(Materials.Pipeline
 
 target_sources(Materials.Pipeline
     PRIVATE
+        MaterialsCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         MaterialAssetImpl.cpp   # MaterialAsset reflection body (Nested source; GCC hygiene)
     PUBLIC
         FILE_SET material_editor_modules TYPE CXX_MODULES FILES

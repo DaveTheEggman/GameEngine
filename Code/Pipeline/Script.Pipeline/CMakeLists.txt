@@ -7,6 +7,8 @@ target_link_libraries(Script.Pipeline PUBLIC
     Foundation::Script Foundation::Script.Resource Foundation::Policy)
 target_sources(Script.Pipeline
     PRIVATE
+        ScriptCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         ScriptAssetImpl.cpp
     PUBLIC FILE_SET script_editor_modules TYPE CXX_MODULES FILES ScriptAsset.cppm)
 

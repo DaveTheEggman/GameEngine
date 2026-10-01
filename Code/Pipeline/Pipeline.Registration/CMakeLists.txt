@@ -20,6 +20,7 @@ target_link_libraries(Pipeline.Registration PUBLIC
     Foundation::Script.Resource Foundation::Script.Facades
     Pipeline::Script ${SCRIPTLIB_ANGELSCRIPT_PIPELINE} ${SCRIPTLIB_LUAU_PIPELINE}
     Foundation::UI.Resource Pipeline::UI
+    Pipeline::Scene
     Foundation::Policy)
 
 target_sources(Pipeline.Registration

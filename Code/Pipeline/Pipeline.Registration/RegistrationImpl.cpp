@@ -64,6 +64,7 @@ import script.luau.pipeline;
 #endif
 import foundation.script.resource;
 import script.pipeline;
+import scene.pipeline;
 
 using namespace foundation::core;
 
@@ -195,5 +196,24 @@ namespace pipeline
         AddImporter<HeightfieldFileImporter>(registry);
         AddImporter<SplatmapFileImporter>(registry);
         AddImporter<VegetationMaskFileImporter>(registry);
+    }
+
+    usize RegisterAllCreators(AssetCreatorRegistry& registry)
+    {
+        RegisterSceneCreators(registry);
+        RegisterInputCreators(registry);
+        RegisterNavigationCreators(registry);
+        RegisterParticleCreators(registry);
+        RegisterGeometryCreators(registry);
+        RegisterMaterialCreators(registry);
+        RegisterPhysicsCreators(registry);
+        RegisterAudioCreators(registry);
+        RegisterUICreators(registry);
+        RegisterHeightfieldCreators(registry);
+        RegisterTerrainCreators(registry);
+        RegisterVegetationCreators(registry);
+        RegisterAnimationCreators(registry);
+        RegisterPropertyAnimationCreators(registry);
+        return RegisterScriptCreators(registry);
     }
 }

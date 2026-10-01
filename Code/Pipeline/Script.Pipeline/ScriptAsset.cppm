@@ -895,4 +895,14 @@ export namespace pipeline{
     }
 
     // ScriptClassAsset::StaticType() is defined WITH reflected properties in ScriptAssetImpl.cpp.
+
+    /// A new script asset: the language cook's starter for `tier` written to the sources folder
+    /// as "<name>.<extension>", and a ScriptClassAsset linking it with its language. Null when
+    /// the language has no cook or a write is refused.
+    [[nodiscard]] foundation::content::Instance* CreateScriptInstance(
+        const AssetCreationContext& context, StringView languageId, StringView extension,
+        ScriptTier tier, StringView baseName);
+    /// File > New's script creators: three per registered backend with a cook (Behavior,
+    /// Level, Game). Answers how many it registered. Register the cooks first.
+    usize RegisterScriptCreators(AssetCreatorRegistry& registry);
 }

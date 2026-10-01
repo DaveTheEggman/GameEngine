@@ -6,6 +6,8 @@ target_link_libraries(Particles.Pipeline
            Foundation::Content Foundation::Policy)
 
 target_sources(Particles.Pipeline
+    PRIVATE
+        ParticlesCreatorsImpl.cpp # File > New, asset_create
     PUBLIC
         FILE_SET particles_editor_modules TYPE CXX_MODULES FILES
             ParticleEffectAsset.cppm)

@@ -6,5 +6,8 @@ util_add_engine_library(Navigation.Pipeline ALIAS Pipeline::Navigation)
 target_link_libraries(Navigation.Pipeline PUBLIC
     Foundation::Core Pipeline::Core Foundation::Content
     Foundation::Navigation Foundation::Navigation.Resource Foundation::Policy)
-target_sources(Navigation.Pipeline PUBLIC
+target_sources(Navigation.Pipeline
+    PRIVATE
+        NavigationCreatorsImpl.cpp # File > New, asset_create
+    PUBLIC
     FILE_SET navigation_pipeline_modules TYPE CXX_MODULES FILES NavigationAsset.cppm)

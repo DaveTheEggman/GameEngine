@@ -16,6 +16,7 @@ export module propertyanimation.pipeline;
 
 import foundation.core;
 import pipeline.core;
+import foundation.content; // CreatePropertyAnimationClip
 import foundation.propertyanimation;
 import foundation.propertyanimation.resource;
 
@@ -74,4 +75,11 @@ export namespace pipeline
     }
 
     RTTI_DEFINE_OBJECT(PropertyAnimationClipAsset, "rtti::pipeline::propertyanimation")
+
+    /// An empty clip in `target`, named `name` made unique (empty: "Clip"); the creator and
+    /// the animation panel's Create Clip both make clips through this.
+    [[nodiscard]] foundation::content::Instance* CreatePropertyAnimationClip(
+        foundation::content::Group* target, StringView name);
+    /// File > New's property animation creator (pipeline.registration composes every domain's).
+    void RegisterPropertyAnimationCreators(AssetCreatorRegistry& registry);
 }

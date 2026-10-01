@@ -19,6 +19,7 @@ import foundation.resource;
 import foundation.settings;
 import foundation.mcp;
 import pipeline.importer;
+import pipeline.core; // AssetCreatorRegistry (File > New)
 import foundation.content;
 import foundation.ui; // IClipboard (CopyText)
 import :command;
@@ -61,7 +62,7 @@ export namespace editor
         // The allocator (required - the editor app passes its tagged "Editor" root)
         // is the authority every page, panel, and editor service builds on.
         explicit EditorContext(IAllocator& allocator) noexcept
-            : m_allocator(&allocator), m_importers(allocator)
+            : m_allocator(&allocator), m_importers(allocator), m_creators(allocator)
         {
             // The nullary action calls (menus, chords, the palette, the MCP bridge) run over
             // the active page; a page's own toolbar names its page instead.
@@ -303,22 +304,13 @@ export namespace editor
         [[nodiscard]] const EditorActionRegistry& Actions() const noexcept { return m_actions; }
 
 
-        /// Asset creators (File > New <label>): create a fresh source instance in the project DB.
-        /// Registered by per-subsystem editor modules; the shell builds menu items from them.
-        struct AssetCreator
+        /// File > New's creators, every pipeline domain's (pipeline::RegisterAllCreators fills
+        /// it); the host runs one and does what follows a creation.
+        [[nodiscard]] pipeline::AssetCreatorRegistry& Creators() noexcept { return m_creators; }
+        [[nodiscard]] const pipeline::AssetCreatorRegistry& Creators() const noexcept
         {
-            String label;
-            // Menu grouping: creators sharing a category land in a submenu of that name
-            // ("Primitives"); empty = a top-level "New <label>" item.
-            String category;
-            // `group` = the browser group the user invoked the creator FROM (null = no context,
-            // e.g. the File menu - the creator picks its own default group).
-            Function<foundation::content::Instance*(EditorContext&, foundation::content::Group*)>
-                create;
-            // Only document-like creations (scenes) become the project's default scene when it
-            // is unset; data assets (primitive meshes, materials) never should.
-            bool setsDefaultScene = false;
-        };
+            return m_creators;
+        }
 
         // === Favorites (pinned asset instances - the browser + picker surface them first) ===
 
@@ -342,10 +334,6 @@ export namespace editor
         bool CopyText(foundation::ui::IClipboard* clipboard, StringView text, StringView what);
         [[nodiscard]] StringView ClipboardKind() const noexcept { return m_clipboardKind.AsView(); }
         [[nodiscard]] Span<const byte> ClipboardData(StringView kind) const noexcept;
-
-        void RegisterCreator(AssetCreator creator);
-
-        [[nodiscard]] Span<const AssetCreator> Creators() const noexcept;
 
         // === Open pages ===
 
@@ -503,7 +491,7 @@ export namespace editor
         pipeline::ImporterRegistry m_importers;                               // borrowed
         EditorPageRegistry m_pageRegistry;
         EditorActionRegistry m_actions;
-        Array<AssetCreator> m_creators;
+        pipeline::AssetCreatorRegistry m_creators;
         String m_clipboardKind;
         Array<byte> m_clipboard;
         Array<Guid> m_favorites;

@@ -218,7 +218,7 @@ export namespace editor::app
     private:
         // File > New <creator>: create the source instance, remember it as the project's default
         // document if none is set yet (so a fresh project reopens where you left off), open it.
-        void CreateAndOpen(const editor::EditorContext::AssetCreator& creator, foundation::content::Group* group = nullptr);
+        void CreateAndOpen(const pipeline::AssetCreator& creator, foundation::content::Group* group = nullptr);
 
         // True = nothing dirty, exit may proceed. Otherwise shows the exit prompt and returns
         // false; its buttons finish the job (save-all -> exit / discard -> exit / cancel).

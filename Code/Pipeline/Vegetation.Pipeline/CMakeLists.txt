@@ -9,5 +9,7 @@ target_link_libraries(Vegetation.Pipeline PUBLIC
     Foundation::Vegetation.Resource Foundation::Content Foundation::Policy)
 target_sources(Vegetation.Pipeline
     PRIVATE
+        VegetationCreatorsImpl.cpp # File > New, asset_create
+    PRIVATE
         VegetationMaskAssetImpl.cpp
     PUBLIC FILE_SET vegetation_pipeline_modules TYPE CXX_MODULES FILES VegetationMaskAsset.cppm)
