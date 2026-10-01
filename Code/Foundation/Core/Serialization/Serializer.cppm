@@ -88,6 +88,10 @@ export namespace foundation::core
         void FailPayload(ErrorCode code) noexcept override { Fail(code); }
         [[nodiscard]] bool IsPayloadOk() const noexcept override { return IsOk(); }
 
+        /// Where the first failure happened, in words, for a backend that can say (a text one
+        /// knows the key it looked for and the scopes it was in); nothing otherwise.
+        virtual void DescribeFailure(String& outText) const { (void)outText; }
+
         [[nodiscard]] bool IsReading() const noexcept { return m_mode == SerializeMode::Read; }
         [[nodiscard]] bool IsWriting() const noexcept { return m_mode == SerializeMode::Write; }
 

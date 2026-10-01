@@ -667,6 +667,9 @@ TEST_CASE("integration.mcp: an agent edits a data asset through its envelope")
                 u8"is not this asset's");
     refusedWith(ReplaceAll(edited.AsView(), u8"name=\"priority\"", u8"name=\"prio\"").AsView(),
                 u8"the payload did not read");
+    // And says which key, where (Sedulous ac705dee).
+    refusedWith(ReplaceAll(edited.AsView(), u8"name=\"priority\"", u8"name=\"prio\"").AsView(),
+                u8"'priority' at payload/");
     refusedWith(ReplaceAll(edited.AsView(), u8">InputMapAsset<", u8">SoundCueAsset<").AsView(),
                 u8"type");
     CHECK(FfCall(server, u8"asset_data_read", FfStr(JsonValue::MakeObject(), u8"guid", guid.AsView()))

@@ -350,8 +350,16 @@ namespace foundation::content
         EndVersionedPayload(ar);
         if (!ar.IsOk())
         {
-            return Err(String(u8"the payload did not read: a missing or misspelled key, a value "
-                              u8"of the wrong kind, or dataVersions other than this build's"));
+            String error(u8"the payload did not read: a missing or misspelled key, a value "
+                         u8"of the wrong kind, or dataVersions other than this build's");
+            String place;
+            ar.DescribeFailure(place);
+            if (!place.IsEmpty())
+            {
+                error += StringView(u8" - ");
+                error += place.AsView();
+            }
+            return Err(Move(error));
         }
         return object;
     }

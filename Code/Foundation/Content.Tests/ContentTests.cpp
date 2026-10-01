@@ -750,6 +750,9 @@ TEST_CASE("content: ReadObjectFrom reads an edited envelope, and refuses another
     auto misspelled = readFrom(*steel, ReplaceAll(stored.AsView(), u8"shininess", u8"shine").AsView());
     REQUIRE_FALSE(misspelled.HasValue());
     CHECK(misspelled.Error().AsView().StartsWith(u8"the payload did not read"));
+    // And says which key, where, and what stood there (Sedulous ac705dee).
+    CHECK(misspelled.Error().AsView().ContainsIgnoreCase(
+        u8" - no i32 'shininess' at payload (next there: <i32 name=\"shine\">)"));
     auto garbage = readFrom(*steel, u8"<nothing/>");
     REQUIRE_FALSE(garbage.HasValue());
 

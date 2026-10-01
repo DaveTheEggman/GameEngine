@@ -188,6 +188,38 @@ TEST_CASE("xml.serialize: missing field reports error on read")
     Serialize(r, "nope", missing);
     CHECK_FALSE(r.IsOk());
     CHECK(r.GetStatus().Code() == ErrorCode::NotFound);
+    // And says where: what was wanted, by key, and what stood there instead.
+    String place;
+    r.DescribeFailure(place);
+    CHECK(place == StringView(u8"no i32 'nope' at the top (next there: <i32 name=\"a\">)"));
+}
+
+TEST_CASE("xml.serialize: a failure deep inside names its path, the first failure winning")
+{
+    XmlDocument doc(foundation::core::DefaultAllocator());
+    REQUIRE(doc.Parse(u8"<root><object name=\"outer\"><object name=\"inner\">"
+                      u8"<i32 name=\"kept\">1</i32></object></object></root>") == XmlResult::Ok);
+    XmlSerializer r(doc);
+    r.Key("outer");
+    r.BeginObject();
+    r.Key("inner");
+    r.BeginObject();
+    f32 dropped = 0.0f;
+    Serialize(r, "drag", dropped);
+    Serialize(r, "later", dropped);
+    String place;
+    r.DescribeFailure(place);
+    CHECK(place == StringView(u8"no f32 'drag' at outer/inner (next there: <i32 name=\"kept\">)"));
+
+    // A value of the wrong kind says what it was.
+    XmlDocument wrong(foundation::core::DefaultAllocator());
+    REQUIRE(wrong.Parse(u8"<root><i32 name=\"n\">x</i32></root>") == XmlResult::Ok);
+    XmlSerializer w(wrong);
+    i32 n = 0;
+    Serialize(w, "n", n);
+    String what;
+    w.DescribeFailure(what);
+    CHECK(what == StringView(u8"not a i32: <i32> 'n' at the top (nothing left there)"));
 }
 
 namespace

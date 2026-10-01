@@ -84,7 +84,7 @@ export namespace foundation::xml
                 XmlElement* element = Locate();
                 if (element == nullptr)
                 {
-                    Fail(ErrorCode::NotFound);
+                    FailRead(ErrorCode::NotFound, u8"no object");
                     return;
                 }
                 PushRead(element);
@@ -131,13 +131,13 @@ export namespace foundation::xml
                 if (element == nullptr)
                 {
                     count = 0;
-                    Fail(ErrorCode::NotFound);
+                    FailRead(ErrorCode::NotFound, u8"no array");
                     return;
                 }
                 u64 parsed = 0;
                 if (!ParseU64(element->GetAttribute(u8"count"), parsed))
                 {
-                    Fail(ErrorCode::Internal);
+                    FailRead(ErrorCode::Internal, u8"no count on the array");
                 }
                 count = static_cast<u32>(parsed);
                 PushRead(element);
@@ -160,14 +160,15 @@ export namespace foundation::xml
                 XmlElement* element = Locate();
                 if (element == nullptr)
                 {
-                    Fail(ErrorCode::NotFound);
+                    FailRead(ErrorCode::NotFound, Format(u8"no {}", ScalarTag(kind)).AsView());
                     return;
                 }
                 String text;
                 element->GetTextContent(text);
                 if (!ReadScalar(value, kind, text))
                 {
-                    Fail(ErrorCode::Internal);
+                    FailRead(ErrorCode::Internal,
+                             Format(u8"not a {}: <{}>", ScalarTag(kind), element->TagName()).AsView());
                 }
             }
         }
@@ -184,7 +185,7 @@ export namespace foundation::xml
                 XmlElement* element = Locate();
                 if (element == nullptr)
                 {
-                    Fail(ErrorCode::NotFound);
+                    FailRead(ErrorCode::NotFound, u8"no string");
                     return;
                 }
                 value.Clear();
@@ -206,7 +207,7 @@ export namespace foundation::xml
                 XmlElement* element = Locate();
                 if (element == nullptr)
                 {
-                    Fail(ErrorCode::NotFound);
+                    FailRead(ErrorCode::NotFound, u8"no blob");
                     return;
                 }
                 String hex;
@@ -287,6 +288,8 @@ export namespace foundation::xml
             return true;
         }
 
+        void DescribeFailure(String& outText) const override { outText += m_failure.AsView(); }
+
     private:
         struct ReadScope
         {
@@ -309,6 +312,67 @@ export namespace foundation::xml
         }
 
         // --- read helpers ---
+
+        // Fails the read, and the FIRST failure also says where: what was wanted (by key when
+        // one was asked for), the scopes it was wanted in, and what stood there instead.
+        void FailRead(ErrorCode code, StringView what)
+        {
+            if (IsOk())
+            {
+                m_failure = String(what);
+                if (m_lastKey != nullptr)
+                {
+                    m_failure += Format(u8" '{}'", StringView(reinterpret_cast<const utf8char*>(m_lastKey)))
+                                     .AsView();
+                }
+                m_failure += StringView(u8" at ");
+                bool any = false;
+                for (usize i = 1; i < m_readStack.Size(); ++i)
+                {
+                    const XmlElement* element = m_readStack[i].element;
+                    if (element == nullptr)
+                    {
+                        continue;
+                    }
+                    if (any)
+                    {
+                        m_failure += StringView(u8"/");
+                    }
+                    const StringView name = element->GetAttribute(u8"name");
+                    m_failure += name.IsEmpty() ? Format(u8"<{}>", element->TagName()).AsView() : name;
+                    any = true;
+                }
+                if (!any)
+                {
+                    m_failure += StringView(u8"the top");
+                }
+                if (!m_readStack.IsEmpty())
+                {
+                    XmlNode* node = m_readStack[m_readStack.Size() - 1].cursor;
+                    while (node != nullptr && node->NodeType() != XmlNodeType::Element)
+                    {
+                        node = node->NextSibling();
+                    }
+                    if (node != nullptr)
+                    {
+                        const XmlElement* next = static_cast<const XmlElement*>(node);
+                        const StringView nextName = next->GetAttribute(u8"name");
+                        m_failure += StringView(u8" (next there: <");
+                        m_failure += next->TagName();
+                        if (!nextName.IsEmpty())
+                        {
+                            m_failure += Format(u8" name=\"{}\"", nextName).AsView();
+                        }
+                        m_failure += StringView(u8">)");
+                    }
+                    else
+                    {
+                        m_failure += StringView(u8" (nothing left there)");
+                    }
+                }
+            }
+            Fail(code);
+        }
         static void ResetCursor(ReadScope& scope)
         {
             scope.cursor = (scope.element != nullptr) ? scope.element->FirstChild() : nullptr;
@@ -331,6 +395,7 @@ export namespace foundation::xml
                 return nullptr;
             }
 
+            m_lastKey = m_pendingKey;
             if (m_pendingKey != nullptr)
             {
                 const StringView name(reinterpret_cast<const utf8char*>(m_pendingKey));
@@ -602,6 +667,10 @@ export namespace foundation::xml
         Array<XmlElement*> m_writeStack;
         Array<ReadScope> m_readStack; // read mode
         const char* m_pendingKey = nullptr;
+        // The key the last Locate looked for (null when it read the next element in order). It
+        // is only read by a FailRead in the same call, while the caller's key is still alive.
+        const char* m_lastKey = nullptr;
+        String m_failure; // where the first read failure happened, in words
     };
 
     // =======================================================================
