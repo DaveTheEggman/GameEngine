@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor::Scene - :model_prefab partition.
+// Pipeline::Scene - :model_prefab partition.
 //
 // Model->prefab generation: a model import's manifest (node hierarchy + cooked
 // leaf guids) becomes a spawnable PrefabDocument named "Prefab" inside the model's group. The
@@ -12,9 +12,10 @@
 //
 // RE-IMPORT REGENERATES: the "Prefab" instance is found by name and reused (same guid), so
 // placed instances rebuild through the standard prefab machinery. This lives in the scene
-// editor plugin - not the importer - because it needs scene + component machinery the
-// importer library (linked by the headless cooker) deliberately never links; the import flow
-// reaches it through EditorContext's import listeners.
+// domain's pipeline library - not the importer - because it needs scene + component machinery
+// the importer library (linked by the headless cooker) deliberately never links. Every host runs
+// it once an import has landed (GenerateForImport): the editor through its import listener,
+// which adds its own effects, the stdio MCP host through pipeline::AfterImport.
 //
 // GenerateModelScene is the twin: the SAME BuildModelScene hierarchy saved as a standalone
 // SceneDocument named "Scene" (a bare scene - model nodes only, no default camera/light) when
@@ -24,7 +25,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
 
-export module editor.scene:model_prefab;
+export module scene.pipeline:model_prefab;
 
 import foundation.core;
 import foundation.content;
@@ -37,11 +38,11 @@ import engine.animation;
 import foundation.physics;
 import engine.physics;
 import modelimporter;
-import editor.core;
+import pipeline.importer;
 
 using namespace foundation::core;
 
-export namespace editor
+export namespace pipeline
 {
     namespace scene = foundation::scene;
     namespace render = foundation::render;
@@ -62,7 +63,7 @@ export namespace editor
         auto* asset = Cast<pipeline::ModelManifestAsset>(object.Get());
         if (asset == nullptr)
         {
-            LOG_ERROR(u8"Editor", u8"model prefab/scene: manifest '{}' failed to read back",
+            LOG_ERROR(u8"Import", u8"model prefab/scene: manifest '{}' failed to read back",
                       manifestInstance.Name());
             return false;
         }
@@ -202,10 +203,10 @@ export namespace editor
     /// content-DB work - the caller handles editor-side follow-ups (instance rebuild,
     /// open-page refresh, notices).
     [[nodiscard]] inline ModelPrefabResult
-    GenerateModelPrefab(foundation::content::Instance& manifestInstance)
+    GenerateModelPrefab(IAllocator& allocator, foundation::content::Instance& manifestInstance)
     {
         ModelPrefabResult result;
-        scene::Scene scene(editor::EditorRootAllocator(), manifestInstance.Name());
+        scene::Scene scene(allocator, manifestInstance.Name());
         scene::EntityHandle root;
         if (!BuildModelScene(manifestInstance, scene, root))
         {
@@ -215,7 +216,7 @@ export namespace editor
         MemoryStream payload;
         if (!scene::CapturePrefab(scene, root, payload).IsOk())
         {
-            LOG_ERROR(u8"Editor", u8"model prefab: capture failed for '{}'",
+            LOG_ERROR(u8"Import", u8"model prefab: capture failed for '{}'",
                       manifestInstance.Name());
             return result;
         }
@@ -240,7 +241,7 @@ export namespace editor
         }
         if (prefab == nullptr)
         {
-            LOG_ERROR(u8"Editor",
+            LOG_ERROR(u8"Import",
                       u8"model prefab: could not create the 'Prefab' instance beside '{}'",
                       manifestInstance.Name());
             return result;
@@ -253,7 +254,7 @@ export namespace editor
                                foundation::content::StreamEncoding::Text)
                  .IsOk())
         {
-            LOG_ERROR(u8"Editor", u8"model prefab write failed for '{}'",
+            LOG_ERROR(u8"Import", u8"model prefab write failed for '{}'",
                                manifestInstance.Name());
             result.regenerated = false;
             return result;
@@ -267,10 +268,10 @@ export namespace editor
     /// model nodes only, no default camera/light). Re-import REUSES the instance by name (same guid)
     /// so placed scene references survive.
     [[nodiscard]] inline ModelPrefabResult
-    GenerateModelScene(foundation::content::Instance& manifestInstance)
+    GenerateModelScene(IAllocator& allocator, foundation::content::Instance& manifestInstance)
     {
         ModelPrefabResult result;
-        scene::Scene scene(editor::EditorRootAllocator(), manifestInstance.Name());
+        scene::Scene scene(allocator, manifestInstance.Name());
         scene::EntityHandle root;
         if (!BuildModelScene(manifestInstance, scene, root))
         {
@@ -300,7 +301,7 @@ export namespace editor
         }
         if (sceneInstance == nullptr)
         {
-            LOG_ERROR(u8"Editor",
+            LOG_ERROR(u8"Import",
                       u8"model scene: could not create the 'Scene' instance beside '{}'",
                       manifestInstance.Name());
             return result;
@@ -308,12 +309,50 @@ export namespace editor
 
         if (!scene::SaveScene(scene, *sceneInstance).IsOk())
         {
-            LOG_ERROR(u8"Editor", u8"model scene write failed for '{}'",
+            LOG_ERROR(u8"Import", u8"model scene write failed for '{}'",
                                manifestInstance.Name());
             result.regenerated = false;
             return result;
         }
         result.instance = sceneInstance;
         return result;
+    }
+
+    /// What a finished model import generates, by its options (null is the defaults): the
+    /// prefab unless "Generate prefab" is off, the scene when "Generate scene" is on. Every host
+    /// runs it once an import has landed, so a model imported anywhere gets the same assets; the
+    /// editor adds its own effects (refreshing placed instances) around it. False, generating
+    /// nothing, when `primary` is not a model manifest. A result's instance is null when that one
+    /// was not asked for, or failed (logged).
+    [[nodiscard]] inline bool GenerateForImport(IAllocator& allocator,
+                                                foundation::content::Instance& primary,
+                                                const ImportOptions* options,
+                                                ModelPrefabResult& outPrefab,
+                                                ModelPrefabResult& outScene)
+    {
+        outPrefab = ModelPrefabResult{};
+        outScene = ModelPrefabResult{};
+        const StringView manifestType(
+            reinterpret_cast<const utf8char*>(ModelManifestAsset::StaticType().name));
+        if (primary.TypeName() != manifestType)
+        {
+            return false;
+        }
+        bool wantPrefab = true;
+        bool wantScene = false;
+        if (const auto* model = Cast<ModelImportOptions>(const_cast<ImportOptions*>(options)))
+        {
+            wantPrefab = model->generatePrefab;
+            wantScene = model->generateScene;
+        }
+        if (wantPrefab)
+        {
+            outPrefab = GenerateModelPrefab(allocator, primary);
+        }
+        if (wantScene)
+        {
+            outScene = GenerateModelScene(allocator, primary);
+        }
+        return true;
     }
 }

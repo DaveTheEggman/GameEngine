@@ -18,7 +18,8 @@ import foundation.scene.resource;
 import engine.render;
 import engine.animation;
 import modelimporter;
-import editor.scene;
+import pipeline.importer;
+import scene.pipeline;
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -124,8 +125,8 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     REQUIRE(manifestInst != nullptr);
     REQUIRE(manifestInst->WriteObject(asset).IsOk());
 
-    editor::ModelPrefabResult generated =
-        editor::GenerateModelPrefab(*manifestInst);
+    pipeline::ModelPrefabResult generated =
+        pipeline::GenerateModelPrefab(DefaultAllocator(), *manifestInst);
     REQUIRE(generated.instance != nullptr);
     CHECK(!generated.regenerated);
     CHECK(generated.instance->Name() == StringView(u8"Prefab"));
@@ -192,8 +193,8 @@ TEST_CASE("model-prefab: manifest -> spawnable prefab; regeneration reuses the i
     CHECK(animCount == 1u); // one animator for the whole model
 
     // Regeneration finds + reuses the instance: same guid, refreshed payload.
-    editor::ModelPrefabResult again =
-        editor::GenerateModelPrefab(*manifestInst);
+    pipeline::ModelPrefabResult again =
+        pipeline::GenerateModelPrefab(DefaultAllocator(), *manifestInst);
     REQUIRE(again.instance != nullptr);
     CHECK(again.regenerated);
     CHECK(again.instance->Id() == prefabId);
@@ -244,7 +245,7 @@ TEST_CASE("model-scene: manifest -> standalone scene; regeneration reuses the in
     REQUIRE(manifestInst != nullptr);
     REQUIRE(manifestInst->WriteObject(asset).IsOk());
 
-    editor::ModelPrefabResult generated = editor::GenerateModelScene(*manifestInst);
+    pipeline::ModelPrefabResult generated = pipeline::GenerateModelScene(DefaultAllocator(), *manifestInst);
     REQUIRE(generated.instance != nullptr);
     CHECK(!generated.regenerated);
     CHECK(generated.instance->Name() == StringView(u8"Scene"));
@@ -284,10 +285,64 @@ TEST_CASE("model-scene: manifest -> standalone scene; regeneration reuses the in
     CHECK(meshCount == 1u);
 
     // Regeneration finds + reuses the instance: same guid, refreshed payload.
-    editor::ModelPrefabResult regen = editor::GenerateModelScene(*manifestInst);
+    pipeline::ModelPrefabResult regen = pipeline::GenerateModelScene(DefaultAllocator(), *manifestInst);
     REQUIRE(regen.instance != nullptr);
     CHECK(regen.regenerated);
     CHECK(regen.instance->Id() == sceneId);
 
+    RemoveTreeMP(dir);
+}
+
+// Sedulous 6b33743b: what a finished import generates is the pipeline's decision, the same in
+// every host: the prefab by default, the scene when asked, nothing for what is not a model.
+TEST_CASE("model-prefab: an import generates by its options, and only for a model")
+{
+    pipeline::RegisterModelManifestAsset();
+    engine::render::RegisterRenderComponentReflection();
+    engine::animation::RegisterAnimationComponentReflection();
+    GlobalTypeRegistry().Register(scene::PrefabDocument::StaticType());
+    RegisterSerializable<scene::PrefabDocument>();
+    GlobalTypeRegistry().Register(scene::SceneDocument::StaticType());
+    RegisterSerializable<scene::SceneDocument>();
+
+    const StringView dir = u8"scratch_model_import_generation_db";
+    RemoveTreeMP(dir);
+    (void)CreateDirectory(dir);
+    foundation::vfs::NativeFileSystem mount(dir, DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+    pipeline::ModelManifestAsset asset;
+    foundation::model::ModelNode rootNode;
+    rootNode.name = String(u8"Root");
+    rootNode.parentIndex = -1;
+    asset.manifest.nodes.PushBack(Move(rootNode));
+    foundation::content::Group* group = db.RootGroup()->CreateGroup(u8"Rock");
+    foundation::content::Instance* manifest =
+        group->CreateInstance(u8"Rock", pipeline::ModelManifestAsset::StaticType());
+    REQUIRE(manifest != nullptr);
+    REQUIRE(manifest->WriteObject(asset).IsOk());
+
+    // The defaults (no options): the prefab, no scene.
+    pipeline::ModelPrefabResult prefab;
+    pipeline::ModelPrefabResult generatedScene;
+    REQUIRE(pipeline::GenerateForImport(DefaultAllocator(), *manifest, nullptr, prefab,
+                                        generatedScene));
+    REQUIRE(prefab.instance != nullptr);
+    CHECK(prefab.instance->Name() == StringView(u8"Prefab"));
+    CHECK(generatedScene.instance == nullptr);
+
+    // The options say: no prefab, a scene.
+    pipeline::ModelImportOptions options;
+    options.generatePrefab = false;
+    options.generateScene = true;
+    REQUIRE(pipeline::GenerateForImport(DefaultAllocator(), *manifest, &options, prefab,
+                                        generatedScene));
+    CHECK(prefab.instance == nullptr);
+    REQUIRE(generatedScene.instance != nullptr);
+    CHECK(generatedScene.instance->Name() == StringView(u8"Scene"));
+
+    // Not a model: nothing.
+    CHECK_FALSE(pipeline::GenerateForImport(DefaultAllocator(), *generatedScene.instance, nullptr,
+                                            prefab, generatedScene));
     RemoveTreeMP(dir);
 }

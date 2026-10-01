@@ -50,7 +50,6 @@ import editor.app;
 import editor.camera;
 import :camera_preview;
 import :edit;
-import :model_prefab;
 import :game_page;
 import :gizmo;
 import :component_gizmos;

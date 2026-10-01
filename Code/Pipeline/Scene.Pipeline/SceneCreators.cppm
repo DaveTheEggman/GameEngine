@@ -9,6 +9,7 @@ module;
 #include "Core/Prelude.h"
 
 export module scene.pipeline;
+export import :model_prefab;
 
 import foundation.core;
 import foundation.content;

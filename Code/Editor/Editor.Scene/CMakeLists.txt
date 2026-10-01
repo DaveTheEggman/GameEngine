@@ -10,7 +10,7 @@ target_link_libraries(Editor.Scene
         Foundation::Render Engine::Render Foundation::Animation Engine::Animation
         Foundation::Animation.Resource Pipeline::Animation
         Foundation::PropertyAnimation.Resource
-        Pipeline::ModelImporter Foundation::Texture.Resource
+        Pipeline::ModelImporter Pipeline::Scene Foundation::Texture.Resource
         Foundation::Particles Foundation::Particles.Resource Pipeline::Particles Engine::Particles
         Foundation::Physics Foundation::Physics.Resource Engine::Physics Foundation::Heightfield Foundation::Terrain.Resource Foundation::Vegetation.Resource
         Engine::Navigation Foundation::Navigation.Resource Editor::Navigation
@@ -72,6 +72,5 @@ target_sources(Editor.Scene
             AnimationGraphPage.cppm
             AnimationClipPage.cppm
             SkeletonPage.cppm
-            ModelPrefab.cppm
             EditorSceneModule.cppm)
 

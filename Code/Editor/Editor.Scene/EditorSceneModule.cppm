@@ -36,4 +36,3 @@ export import :particle_effect_page;
 export import :animation_graph_page;
 export import :animation_clip_page;
 export import :skeleton_page;
-export import :model_prefab;

@@ -47,6 +47,8 @@ import foundation.ui.viewport;
 import foundation.vg.renderer;
 import editor.core;
 import pipeline.importer; // the import framework (a consumer imports it itself)
+import scene.pipeline;    // a model import's prefab and scene (GenerateForImport)
+import modelimporter;     // ModelImportOptions (the import's prefab and scene toggles)
 import editor.app;
 import editor.propertyanimation; // the persistent in-scene property-animation editor panel
 import editor.camera;
@@ -58,7 +60,6 @@ import :viewport_capture;     // ViewportCaptureRecorder (viewport_screenshot)
 import :pie_tools;            // RegisterPieTools (the contribution)
 import :actions; // the scene editor's action declarations
 import :mcp_tools;            // RegisterSceneLiveTools (the contribution)
-import :model_prefab;
 import :game_page;
 import :gizmo;
 import :tools;
@@ -917,28 +918,23 @@ export namespace editor
             [editorContext, appHost](foundation::content::Instance& instance,
                                      const pipeline::ImportOptions* options)
             {
-                if (instance.TypeName() != StringView(u8"ModelManifestAsset"))
+                // A model's prefab and scene, the pipeline's generation every host runs, then
+                // what only the editor does with them.
+                pipeline::ModelPrefabResult generated;
+                pipeline::ModelPrefabResult generatedScene;
+                if (!pipeline::GenerateForImport(editor::EditorRootAllocator(), instance, options,
+                                                 generated, generatedScene))
                 {
                     return;
                 }
-                // Prefab + scene are independent toggles (either, both, or neither). No options
-                // object = the default fresh import, which generates the prefab only.
-                bool wantPrefab = true;
-                bool wantScene = false;
-                if (options != nullptr)
-                {
-                    auto* modelOptions = Cast<pipeline::ModelImportOptions>(
-                        const_cast<pipeline::ImportOptions*>(options));
-                    if (modelOptions != nullptr)
-                    {
-                        wantPrefab = modelOptions->generatePrefab;
-                        wantScene = modelOptions->generateScene;
-                    }
-                }
+                // No options object = the default fresh import, which generates the prefab only.
+                const auto* modelOptions =
+                    Cast<pipeline::ModelImportOptions>(const_cast<pipeline::ImportOptions*>(options));
+                const bool wantPrefab = modelOptions == nullptr || modelOptions->generatePrefab;
+                const bool wantScene = modelOptions != nullptr && modelOptions->generateScene;
 
                 if (wantPrefab)
                 {
-                    ModelPrefabResult generated = GenerateModelPrefab(instance);
                     if (generated.instance == nullptr)
                     {
                         editorContext->Notify(NoticeKind::Error,
@@ -999,7 +995,6 @@ export namespace editor
 
                 if (wantScene)
                 {
-                    ModelPrefabResult generatedScene = GenerateModelScene(instance);
                     if (generatedScene.instance == nullptr)
                     {
                         editorContext->Notify(NoticeKind::Error,
