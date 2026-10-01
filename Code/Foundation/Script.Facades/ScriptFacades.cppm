@@ -199,6 +199,70 @@ export namespace foundation::script
             }
         }
 
+        // ---- as Sedulous's Entity: identity, the local transform by value, the hierarchy ----
+        /// The entity's stable id (what an EntityRef stores); nil when stale.
+        [[nodiscard]] Guid id() const { return Live() ? scene->GetEntityId(Handle()) : Guid{}; }
+        void setPosition(Float3 position)
+        {
+            if (Live())
+            {
+                scene->SetLocalPosition(Handle(), position);
+            }
+        }
+        [[nodiscard]] Quaternion rotation() const
+        {
+            return Live() ? scene->GetLocalTransform(Handle()).rotation : Quaternion{};
+        }
+        void setRotation(Quaternion rotation)
+        {
+            if (!Live())
+            {
+                return;
+            }
+            Transform transform = scene->GetLocalTransform(Handle());
+            transform.rotation = rotation;
+            scene->SetLocalTransform(Handle(), transform);
+        }
+        [[nodiscard]] Float3 scale() const
+        {
+            return Live() ? scene->GetLocalTransform(Handle()).scale : Float3{1.0f, 1.0f, 1.0f};
+        }
+        void setScale(Float3 scale)
+        {
+            if (!Live())
+            {
+                return;
+            }
+            Transform transform = scene->GetLocalTransform(Handle());
+            transform.scale = scale;
+            scene->SetLocalTransform(Handle(), transform);
+        }
+        [[nodiscard]] Transform localTransform() const
+        {
+            return Live() ? scene->GetLocalTransform(Handle()) : Transform{};
+        }
+        void setLocalTransform(Transform transform)
+        {
+            if (Live())
+            {
+                scene->SetLocalTransform(Handle(), transform);
+            }
+        }
+        /// The parent, invalid at a root.
+        [[nodiscard]] Entity parent() const;
+        /// The first child, then each next sibling in order; invalid past the end.
+        [[nodiscard]] Entity firstChild() const;
+        [[nodiscard]] Entity nextSibling() const;
+        /// The first direct child with this name, invalid if none.
+        [[nodiscard]] Entity findChildByName(String name) const;
+        /// Under `parent` (an invalid one makes it a root), last among its siblings; the local
+        /// transform kept, or with `keepWorldTransform` the world one.
+        void setParent(Entity parent) const;
+        void setParent(Entity parent, bool keepWorldTransform) const;
+        /// Just before `sibling`, under the sibling's parent.
+        void moveBefore(Entity sibling) const;
+        void moveBefore(Entity sibling, bool keepWorldTransform) const;
+
         /// The BOUND scene this entity belongs to (reflected as `.scene`). Operating through it
         /// (`entity.scene.spawn/find/...`) always targets THIS entity's scene - correct from any
         /// call site (update, onDestroy, a physics event, a stored callback), no ambient state.
@@ -348,6 +412,42 @@ export namespace foundation::script
             result.entityGeneration = handle.generation;
         }
         return result;
+    }
+
+    inline Entity Entity::parent() const
+    {
+        return Live() ? WrapEntity(scene, scene->GetParent(Handle())) : Entity{};
+    }
+    inline Entity Entity::firstChild() const
+    {
+        return Live() ? WrapEntity(scene, scene->GetFirstChild(Handle())) : Entity{};
+    }
+    inline Entity Entity::nextSibling() const
+    {
+        return Live() ? WrapEntity(scene, scene->GetNextSibling(Handle())) : Entity{};
+    }
+    inline Entity Entity::findChildByName(String name) const
+    {
+        return Live() ? WrapEntity(scene, scene->FindChildByName(Handle(), name.AsView())) : Entity{};
+    }
+    inline void Entity::setParent(Entity parent) const { setParent(parent, false); }
+    inline void Entity::setParent(Entity parent, bool keepWorldTransform) const
+    {
+        // Only within this entity's own scene: a parent from another scene reads as none.
+        if (Live())
+        {
+            const scene::EntityHandle under =
+                (parent.scene == scene && parent.Live()) ? parent.Handle() : scene::EntityHandle{};
+            scene->SetParent(Handle(), under, keepWorldTransform);
+        }
+    }
+    inline void Entity::moveBefore(Entity sibling) const { moveBefore(sibling, false); }
+    inline void Entity::moveBefore(Entity sibling, bool keepWorldTransform) const
+    {
+        if (Live() && sibling.scene == scene && sibling.Live())
+        {
+            scene->MoveBefore(Handle(), sibling.Handle(), keepWorldTransform);
+        }
     }
 
     inline Scene Entity::sceneHandle() const

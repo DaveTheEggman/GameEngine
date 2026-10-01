@@ -29,11 +29,36 @@ namespace foundation::script
         builder.Method<&Entity::name>("name");
         builder.Method<&Entity::setName>("setName");
         builder.Method<&Entity::position>("position");
-        builder.Method<&Entity::setPosition>("setPosition");
+        builder.Method<static_cast<void (Entity::*)(f32, f32, f32)>(&Entity::setPosition)>(
+            "setPosition", {"x", "y", "z"});
+        builder.Method<static_cast<void (Entity::*)(Float3)>(&Entity::setPosition)>("setPosition",
+                                                                                  {"position"});
         builder.Method<&Entity::worldPosition>("worldPosition");
         builder.Method<&Entity::setRotationEuler>("setRotationEuler");
-        builder.Method<&Entity::setScale>("setScale");
+        builder.Method<&Entity::rotation>("rotation");
+        builder.Method<&Entity::setRotation>("setRotation", {"rotation"});
+        builder.Method<&Entity::scale>("scale");
+        builder.Method<static_cast<void (Entity::*)(f32, f32, f32)>(&Entity::setScale)>(
+            "setScale", {"x", "y", "z"});
+        builder.Method<static_cast<void (Entity::*)(Float3)>(&Entity::setScale)>("setScale",
+                                                                               {"scale"});
+        builder.Method<&Entity::localTransform>("localTransform");
+        builder.Method<&Entity::setLocalTransform>("setLocalTransform", {"transform"});
         builder.Method<&Entity::destroy>("destroy");
+        // Identity and the hierarchy, as Sedulous's Entity.
+        builder.Method<&Entity::id>("id");
+        builder.Method<&Entity::parent>("parent");
+        builder.Method<&Entity::firstChild>("firstChild");
+        builder.Method<&Entity::nextSibling>("nextSibling");
+        builder.Method<&Entity::findChildByName>("findChildByName", {"name"});
+        builder.Method<static_cast<void (Entity::*)(Entity) const>(&Entity::setParent)>(
+            "setParent", {"parent"});
+        builder.Method<static_cast<void (Entity::*)(Entity, bool) const>(&Entity::setParent)>(
+            "setParent", {"parent", "keepWorldTransform"});
+        builder.Method<static_cast<void (Entity::*)(Entity) const>(&Entity::moveBefore)>(
+            "moveBefore", {"sibling"});
+        builder.Method<static_cast<void (Entity::*)(Entity, bool) const>(&Entity::moveBefore)>(
+            "moveBefore", {"sibling", "keepWorldTransform"});
         // A computed property (parens-less): `entity.scene` reads its bound Scene. Not a
         // method, so scripts write `entity.scene.find(...)` without call parens.
         builder.ComputedProperty<&Entity::sceneHandle>("scene");

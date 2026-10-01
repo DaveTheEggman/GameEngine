@@ -4527,3 +4527,97 @@ TEST_CASE("script.scene: the world-space UI components reach script via .of")
     REQUIRE(panels->Get(e) != nullptr);
     CHECK_FALSE(panels->Get(e)->interactive);
 }
+
+// The entity's identity, its local transform by value and the hierarchy (Sedulous's Entity): a
+// behaviour walks its children, reorders and reparents them, and moves one by Float3 and
+// Quaternion. Shared by both backends; each script writes the same outcome.
+namespace
+{
+    void CheckEntityHierarchyScript(StringView language, StringView className, StringView source)
+    {
+        ScriptedScene bed;
+        RefPtr<ScriptClass> walker = MakeClassLang(language, className, source, {u8"onStart"});
+        const scene::EntityHandle root = bed.AddScripted(walker, u8"root");
+        const scene::EntityHandle a = bed.scene.CreateEntity(u8"a");
+        const scene::EntityHandle b = bed.scene.CreateEntity(u8"b");
+        const scene::EntityHandle other = bed.scene.CreateEntity(u8"other");
+        bed.scene.SetParent(a, root);
+        bed.scene.SetParent(b, root);
+
+        bed.Start();
+        bed.Frame();
+
+        ScriptComponent* comp = bed.components->Get(root);
+        REQUIRE(comp != nullptr);
+        CHECK_FALSE(comp->behaviors[0].faulted);
+        // The walk read root -> a -> b with no parent above the root, and the id it read was
+        // the root's own: the script names itself "walked" only then.
+        CHECK(bed.scene.GetEntityName(root) == StringView(u8"walked"));
+        // b moved before a; a went under `other`, keeping its local transform.
+        CHECK(bed.scene.GetFirstChild(root) == b);
+        CHECK(bed.scene.GetParent(a) == other);
+        const Transform moved = bed.scene.GetLocalTransform(a);
+        CHECK(Near(moved.position.x, 1.0f));
+        CHECK(Near(moved.position.y, 2.0f));
+        CHECK(Near(moved.position.z, 3.0f));
+        CHECK(Near(moved.scale.y, 2.0f));
+        // b took a's rotation by value (a quarter turn about +Y).
+        const Quaternion turned = bed.scene.GetLocalTransform(b).rotation;
+        const Quaternion source90 = bed.scene.GetLocalTransform(a).rotation;
+        CHECK(Near(turned.y, source90.y));
+        CHECK(Near(turned.w, source90.w));
+        CHECK(Abs(turned.y) > 0.5f);
+    }
+}
+
+TEST_CASE("script.scene: an AngelScript behaviour walks, reorders and reparents its children, "
+          "and moves one by Float3 and Quaternion")
+{
+    CheckEntityHierarchyScript(
+        u8"angelscript", u8"Walker",
+        u8"class Walker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Walker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        Entity@ a = self.firstChild();\n"
+        u8"        Entity@ b = a.nextSibling();\n"
+        u8"        bool walked = !self.parent().isValid() && a.name() == \"a\" && b.name() == \"b\"\n"
+        u8"            && !b.nextSibling().isValid() && self.findChildByName(\"b\").name() == \"b\"\n"
+        u8"            && !self.id().IsNil() && self.scene.find(\"root\").id().high == self.id().high\n"
+        u8"            && self.scene.find(\"root\").id().low == self.id().low;\n"
+        u8"        b.moveBefore(a);\n"
+        u8"        a.setParent(self.scene.find(\"other\"));\n"
+        u8"        a.setPosition(Float3(1, 2, 3));\n"
+        u8"        a.setScale(Float3(2, 2, 2));\n"
+        u8"        a.setRotationEuler(0, 90, 0);\n"
+        u8"        b.setRotation(a.rotation());\n"
+        u8"        if (walked) { self.setName(\"walked\"); }\n"
+        u8"    }\n"
+        u8"}\n");
+}
+
+TEST_CASE("script.scene: a Luau behaviour walks, reorders and reparents its children, and moves "
+          "one by Float3 and Quaternion")
+{
+    CheckEntityHierarchyScript(
+        u8"luau", u8"Walker",
+        u8"Walker = {}\n"
+        u8"Walker.__index = Walker\n"
+        u8"function Walker.new(entity) return setmetatable({ entity = entity }, Walker) end\n"
+        u8"function Walker:onStart()\n"
+        u8"    local me = self.entity\n"
+        u8"    local a = me:firstChild()\n"
+        u8"    local b = a:nextSibling()\n"
+        u8"    local id = me:id()\n"
+        u8"    local walked = not me:parent():isValid() and a:name() == \"a\" and b:name() == \"b\"\n"
+        u8"        and not b:nextSibling():isValid() and me:findChildByName(\"b\"):name() == \"b\"\n"
+        u8"        and not id:IsNil()\n" // Luau boxes the u64 halves: compared in AngelScript
+        u8"    b:moveBefore(a)\n"
+        u8"    a:setParent(me.scene:find(\"other\"))\n"
+        u8"    a:setPosition(Float3.new(1, 2, 3))\n"
+        u8"    a:setScale(Float3.new(2, 2, 2))\n"
+        u8"    a:setRotationEuler(0, 90, 0)\n"
+        u8"    b:setRotation(a:rotation())\n"
+        u8"    if walked then me:setName(\"walked\") end\n"
+        u8"end\n");
+}
