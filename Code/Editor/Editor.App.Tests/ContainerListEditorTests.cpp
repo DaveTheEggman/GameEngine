@@ -13,6 +13,7 @@
 
 import foundation.core;
 import foundation.ui;
+import foundation.ui.toolkit; // TreeDragData: a hierarchy row
 import editor.core;
 import editor.app;
 
@@ -283,4 +284,70 @@ TEST_CASE("resource-row: the settings dialog and a compact slot build and releas
         CHECK(slot->OnDrop(skeleton.Get(), 0, 0) == ui::DragDropEffects::Link);
         CHECK(current == kMaterial);
     }
+}
+
+// editor-lists-and-asset-slots P3 (Sedulous 0fac1640): an entity reference takes a hierarchy row
+// through the same drop as an asset, and no asset; an asset slot, the any-asset one included,
+// takes no entity.
+TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
+{
+    Guid current;
+    const StringView entityType[] = {app::AssetPickerSlot::kEntity};
+    auto row = MakeRef<app::ResourceRefEditor>(DefaultAllocator(), StringView(u8"Target"),
+                                               StringView(u8"(none)"), StringView(u8"Follow"),
+                                               Span<const StringView>{entityType, 1});
+    row->BindEntity([&]() { return current; }, [&](const Guid& id) { current = id; },
+                    [](const Guid&) { return String(u8"Cart"); }, []() {});
+    auto* slot = Cast<app::AssetPickerSlot>(row->EditorView());
+    REQUIRE(slot != nullptr);
+    CHECK(slot->AsDropTarget() != nullptr); // an entity row is a drop target
+
+    // A hierarchy row that names its entity is assigned.
+    auto entity = MakeRef<ui::toolkit::TreeDragData>(DefaultAllocator(), 0);
+    entity->ItemKind = String(app::AssetPickerSlot::kEntityItemKind);
+    entity->ItemId = kMaterial;
+    entity->ItemName = String(u8"Cart");
+    CHECK(slot->OnDrop(entity.Get(), 0, 0) == ui::DragDropEffects::Link);
+    CHECK(current == kMaterial);
+    CHECK(row->ValueText() == StringView(u8"Cart"));
+
+    // An asset is refused, and so is a tree row that names nothing.
+    auto material = Drag(kTexture, u8"MaterialAsset");
+    CHECK(slot->OnDrop(material.Get(), 0, 0) == ui::DragDropEffects::None);
+    auto bare = MakeRef<ui::toolkit::TreeDragData>(DefaultAllocator(), 0);
+    CHECK(slot->CanAcceptDrop(bare.Get(), 0, 0) == ui::DragDropEffects::None);
+    CHECK(current == kMaterial);
+
+    // Clear is the same write, with the nil id.
+    slot->ClearButton()->FireClick();
+    CHECK(current.IsNil());
+    CHECK(row->ValueText() == StringView(u8"(none)"));
+
+    // An asset slot, even the any-asset one, refuses an entity, and says what it wanted.
+    const StringView anyType[] = {app::AssetPickerSlot::kAnyAsset};
+    auto any = MakeRef<app::ResourceRefEditor>(DefaultAllocator(), StringView(u8"Thing"),
+                                               StringView(u8"(none)"), StringView(u8"Cat"),
+                                               Span<const StringView>{anyType, 1});
+    CHECK(Cast<app::AssetPickerSlot>(any->EditorView())->OnDrop(entity.Get(), 0, 0) ==
+          ui::DragDropEffects::None);
+    CHECK(app::AssetPickerSlot::RejectionText(u8"Cart", app::AssetPickerSlot::kEntity,
+                                              any->AcceptedTypes(), u8"field") ==
+          StringView(u8"Cart is an entity - this field takes any asset"));
+
+    // An entity list takes one on a slot and appends one; an asset is refused.
+    auto list = MakeRef<app::ContainerListEditor>(DefaultAllocator(), StringView(u8"Targets"),
+                                                  StringView(u8"Follow"));
+    list->slotNames.PushBack(String(u8"(none)"));
+    list->SetAcceptedTypes(Types(app::AssetPickerSlot::kEntity));
+    Guid assigned;
+    Guid appended;
+    list->OnAssignSlot = [&](usize, const Guid& id) { assigned = id; };
+    list->OnAppendDropped = [&](const Guid& id) { appended = id; };
+    CHECK(SlotAt(list->EditorView(), 0)->OnDrop(entity.Get(), 0, 0) == ui::DragDropEffects::Link);
+    CHECK(list->EditorView()->AsDropTarget()->OnDrop(entity.Get(), 0, 0) ==
+          ui::DragDropEffects::Link);
+    CHECK(assigned == kMaterial);
+    CHECK(appended == kMaterial);
+    CHECK(list->EditorView()->AsDropTarget()->OnDrop(material.Get(), 0, 0) ==
+          ui::DragDropEffects::None);
 }

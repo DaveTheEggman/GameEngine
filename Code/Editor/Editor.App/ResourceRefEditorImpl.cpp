@@ -27,7 +27,8 @@ namespace editor::app
         {
             m_acceptedTypes.PushBack(String(type));
         }
-        if (!acceptedTypes.IsEmpty() && acceptedTypes[0] != AssetPickerSlot::kAnyAsset)
+        if (!acceptedTypes.IsEmpty() && acceptedTypes[0] != AssetPickerSlot::kAnyAsset &&
+            acceptedTypes[0] != AssetPickerSlot::kEntity)
         {
             m_previewIcon = EditorIcons::Get().ForAssetType(acceptedTypes[0]);
         }
@@ -45,6 +46,7 @@ namespace editor::app
         m_context = &context;
         m_current = Move(current);
         m_assign = Move(assign);
+        m_nameFor = Function<String(const Guid&)>{};
         ResourceRefEditor* self = this;
         OnPick = [self]()
         {
@@ -105,22 +107,55 @@ namespace editor::app
         Refresh();
     }
 
+    void ResourceRefEditor::BindEntity(Function<Guid()> current,
+                                       Function<void(const Guid&)> assign,
+                                       Function<String(const Guid&)> nameFor,
+                                       Function<void()> pick)
+    {
+        m_context = nullptr;
+        m_current = Move(current);
+        m_assign = Move(assign);
+        m_nameFor = Move(nameFor);
+        OnPick = Move(pick);
+        OnEdit = Function<void()>{};
+        OnReveal = Function<void()>{};
+        OnRejectedDrop = Function<void(StringView, StringView)>{};
+        ResourceRefEditor* self = this;
+        OnAssignDropped = [self](const Guid& id) { self->Assign(id); };
+        OnClear = [self]() { self->Assign(Guid{}); };
+        Refresh();
+    }
+
     void ResourceRefEditor::Refresh()
     {
-        if (m_context == nullptr || !m_current)
+        if (!m_current || (m_context == nullptr && !m_nameFor))
         {
             return;
         }
         const Guid id = m_current();
         m_boundHasValue = !id.IsNil();
-        SetValueText(id.IsNil() ? m_emptyText.AsView() : m_context->AssetNameFor(id));
+        if (id.IsNil())
+        {
+            SetValueText(m_emptyText.AsView());
+        }
+        else if (m_nameFor)
+        {
+            SetValueText(m_nameFor(id).AsView());
+        }
+        else
+        {
+            SetValueText(m_context->AssetNameFor(id));
+        }
         if (m_slot.Get() != nullptr)
         {
             m_slot->SetValue(m_valueText.AsView(), HasValue());
         }
-        SetPreviewThumbnail((!id.IsNil() && m_context->Thumbnails() != nullptr)
-                                ? m_context->Thumbnails()->Get(id)
-                                : RefPtr<ui::Drawable>{});
+        if (m_context != nullptr)
+        {
+            SetPreviewThumbnail((!id.IsNil() && m_context->Thumbnails() != nullptr)
+                                    ? m_context->Thumbnails()->Get(id)
+                                    : RefPtr<ui::Drawable>{});
+        }
     }
 
     void ResourceRefEditor::SetValueText(StringView text)

@@ -35,16 +35,16 @@ namespace editor::app
         }
         [[nodiscard]] ui::DragDropEffects CanAcceptDrop(ui::DragData* data, f32, f32) override
         {
-            return Cast<AssetDragData>(data) != nullptr ? ui::DragDropEffects::Link
-                                                        : ui::DragDropEffects::None;
+            AssetPickerSlot::DraggedItem item;
+            return AssetPickerSlot::DescribeDrag(data, item) ? ui::DragDropEffects::Link
+                                                             : ui::DragDropEffects::None;
         }
         void OnDragEnter(ui::DragData* data, f32, f32) override
         {
-            auto* asset = Cast<AssetDragData>(data);
-            m_hover = asset != nullptr;
-            m_matches = asset != nullptr &&
-                        AssetPickerSlot::Accepts(m_owner->AcceptedTypes(),
-                                                 asset->AssetTypeName.AsView());
+            AssetPickerSlot::DraggedItem item;
+            m_hover = AssetPickerSlot::DescribeDrag(data, item);
+            m_matches =
+                m_hover && AssetPickerSlot::Accepts(m_owner->AcceptedTypes(), item.typeName.AsView());
             Invalidate();
         }
         void OnDragOver(ui::DragData*, f32, f32) override {}
@@ -57,23 +57,22 @@ namespace editor::app
         {
             m_hover = false;
             Invalidate();
-            auto* asset = Cast<AssetDragData>(data);
-            if (asset == nullptr)
+            AssetPickerSlot::DraggedItem item;
+            if (!AssetPickerSlot::DescribeDrag(data, item))
             {
                 return ui::DragDropEffects::None;
             }
-            if (!AssetPickerSlot::Accepts(m_owner->AcceptedTypes(), asset->AssetTypeName.AsView()))
+            if (!AssetPickerSlot::Accepts(m_owner->AcceptedTypes(), item.typeName.AsView()))
             {
                 LOG_WARNING(u8"Assets", u8"'{}' is a {} - this list does not accept it",
-                            asset->DisplayName, asset->AssetTypeName);
+                            item.name, AssetPickerSlot::TypeLabel(item.typeName.AsView()));
                 if (m_owner->OnRejectedDrop)
                 {
-                    m_owner->OnRejectedDrop(asset->DisplayName.AsView(),
-                                            asset->AssetTypeName.AsView());
+                    m_owner->OnRejectedDrop(item.name.AsView(), item.typeName.AsView());
                 }
                 return ui::DragDropEffects::None;
             }
-            m_owner->OnAppendDropped(asset->Id);
+            m_owner->OnAppendDropped(item.id);
             return ui::DragDropEffects::Link;
         }
 

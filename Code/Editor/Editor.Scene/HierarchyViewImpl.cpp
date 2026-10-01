@@ -28,6 +28,7 @@ import foundation.fonts;
 import foundation.scene;
 import foundation.ui;
 import foundation.ui.toolkit;
+import editor.app; // AssetPickerSlot::kEntityItemKind (a dragged row names its entity)
 import editor.core;
 import :edit;
 import :actions;
@@ -115,10 +116,35 @@ namespace editor
         }
     }
 
+    void SceneHierarchyView::DecorateDrag(ui::toolkit::TreeDragData& data)
+    {
+        ui::FlattenedTreeAdapter* flat = m_tree->InternalTreeView()->FlatAdapter();
+        if (flat == nullptr || data.SourcePosition < 0 || data.SourcePosition >= flat->ItemCount())
+        {
+            return;
+        }
+        const Guid id = GuidOfNode(flat->GetNodeId(data.SourcePosition));
+        if (id.IsNil())
+        {
+            return;
+        }
+        data.ItemKind = String(editor::app::AssetPickerSlot::kEntityItemKind);
+        data.ItemId = id;
+        const scene::EntityHandle h = m_edit->Scene().FindEntity(id);
+        if (h.IsAssigned())
+        {
+            data.ItemName = String(m_edit->Scene().GetEntityName(h));
+        }
+    }
+
     void SceneHierarchyView::WireEvents()
     {
         ui::TreeView* tree = m_tree->InternalTreeView();
         SceneHierarchyView* self = this;
+
+        // A dragged row names its entity, so an inspector's entity slot can take it.
+        m_tree->OnDecorateDragData = [self](ui::toolkit::TreeDragData& data)
+        { self->DecorateDrag(data); };
 
         tree->OnItemClick.Add(
             [self](ui::TreeView::ItemClickInfo info)

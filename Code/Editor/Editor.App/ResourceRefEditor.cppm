@@ -8,8 +8,8 @@
 //
 // The accepted asset types are a CONSTRUCTOR argument, so a row that names an asset cannot be
 // built without being a drop target for that asset: AssetPickerSlot::kAnyAsset for a genuinely
-// untyped field, and no types at all only for a row that is not an asset (an entity
-// reference). BindAsset wires every verb to ONE assignment, so a pick, a drop and a clear are
+// untyped field, AssetPickerSlot::kEntity for an entity reference (a hierarchy row drops on it).
+// BindAsset and BindEntity wire every verb to ONE assignment, so a pick, a drop and a clear are
 // the same write - one code path, one undo step.
 module;
 #include "Core/Prelude.h"
@@ -64,7 +64,19 @@ export namespace editor::app
         void BindAsset(editor::EditorContext& context, Function<Guid()> current,
                        Function<void(const Guid&)> assign, BindOptions options);
 
-        /// Re-reads the bound asset: its name, and its thumbnail when the context has one.
+        /// Wires an ENTITY reference the same way: `pick` opens the scene's entity picker (the
+        /// caller's, which assigns through AssignValue), a hierarchy row dropped on the slot is
+        /// assigned, clear assigns the nil id, and `nameFor` names the entity. Build the row
+        /// with AssetPickerSlot::kEntity as its accepted type. The same contract on `assign` as
+        /// BindAsset.
+        void BindEntity(Function<Guid()> current, Function<void(const Guid&)> assign,
+                        Function<String(const Guid&)> nameFor, Function<void()> pick);
+
+        /// Assigns through the bound write, as a pick would: for a caller's own picker.
+        void AssignValue(const Guid& id) { Assign(id); }
+
+        /// Re-reads the bound reference: its name, and an asset's thumbnail when the context has
+        /// one.
         void Refresh();
 
         void SetValueText(StringView text);
@@ -115,5 +127,6 @@ export namespace editor::app
         editor::EditorContext* m_context = nullptr; // set by BindAsset: names and thumbnails
         Function<Guid()> m_current;
         Function<void(const Guid&)> m_assign;
+        Function<String(const Guid&)> m_nameFor; // set by BindEntity: names what the id refers to
     };
 }

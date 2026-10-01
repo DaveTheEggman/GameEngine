@@ -23,6 +23,7 @@ import editor.core;
 import editor.scene;
 import engine.animation;
 import engine.script; // ScriptComponent: the behaviours section list
+import engine.spline; // PathFollowComponent: an entity reference field
 import engine.vegetation; // TerrainVegetationComponent: a reflected list of structs
 import foundation.shell;
 import foundation.settings;
@@ -923,4 +924,85 @@ TEST_CASE("inspector: behaviours are sections whose rows follow a move")
     interval->Setter(5.0);
     CHECK(live().behaviors[0].updateInterval == 5.0f);
     CHECK(live().behaviors[1].updateInterval == 1.0f);
+}
+
+// editor-lists-and-asset-slots P3 (Sedulous 0fac1640): a hierarchy row dragged onto an entity
+// slot assigns it, as one undo step; an asset, or a tree row naming nothing, is refused; an
+// entity list takes one on a slot and appends one.
+TEST_CASE("inspector: a hierarchy row drops on an entity slot")
+{
+    engine::spline::RegisterSplineComponentReflection();
+    engine::animation::RegisterAnimationComponentReflection();
+    scene::Scene scene{DefaultAllocator()};
+    auto* followers = scene.AddSystem<engine::spline::PathFollowComponentManager>();
+    auto* anims = scene.AddSystem<engine::animation::SkeletalAnimationComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    EditorContext editor{DefaultAllocator()};
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
+    auto hierarchyRef = foundation::core::MakeRef<SceneHierarchyView>(DefaultAllocator(), edit);
+    SceneHierarchyView& hierarchy = *hierarchyRef;
+
+    const Guid cart = edit.CreateEntity(u8"Cart");
+    const Guid track = edit.CreateEntity(u8"Track");
+    followers->Add(scene.FindEntity(cart));
+    hierarchy.Refresh();
+    auto follower = [&]() -> engine::spline::PathFollowComponent&
+    { return *followers->Get(scene.FindEntity(cart)); };
+
+    // The hierarchy names the dragged row's entity: Track is the second root.
+    auto drag = MakeRef<foundation::ui::toolkit::TreeDragData>(DefaultAllocator(), 1);
+    hierarchy.DecorateDrag(*drag);
+    CHECK(drag->ItemKind.AsView() == editor::app::AssetPickerSlot::kEntityItemKind);
+    CHECK(drag->ItemId == track);
+    CHECK(drag->ItemName == u8"Track");
+
+    edit.EntitySelection().Set(cart);
+    inspector.Refresh();
+    auto* row =
+        foundation::core::Cast<editor::app::ResourceRefEditor>(inspector.Grid()->GetProperty(u8"spline"));
+    REQUIRE(row != nullptr);
+    auto* slot = foundation::core::Cast<editor::app::AssetPickerSlot>(row->EditorView());
+    REQUIRE(slot != nullptr);
+
+    // An asset is refused, and so is a row that names nothing.
+    auto asset = MakeRef<editor::app::AssetDragData>(DefaultAllocator(), Guid{0x6666, 6},
+                                                     StringView(u8"MaterialAsset"),
+                                                     StringView(u8"red"));
+    CHECK(slot->OnDrop(asset.Get(), 0, 0) == foundation::ui::DragDropEffects::None);
+    auto bare = MakeRef<foundation::ui::toolkit::TreeDragData>(DefaultAllocator(), 0);
+    CHECK(slot->CanAcceptDrop(bare.Get(), 0, 0) == foundation::ui::DragDropEffects::None);
+    CHECK(follower().spline.id.IsNil());
+
+    // The hierarchy row assigns, and one undo takes it back.
+    CHECK(slot->OnDrop(drag.Get(), 0, 0) == foundation::ui::DragDropEffects::Link);
+    CHECK(follower().spline.id == track);
+    CHECK(row->ValueText() == StringView(u8"Track"));
+    commands.Undo();
+    CHECK(follower().spline.id.IsNil());
+
+    // An entity list: a drop on its slot assigns, a drop on the list appends.
+    anims->Add(scene.FindEntity(cart)).meshEntities.PushBack(foundation::scene::EntityRef{});
+    inspector.Refresh();
+    inspector.Refresh();
+    auto list = [&]()
+    {
+        return foundation::core::Cast<editor::app::ContainerListEditor>(
+            inspector.Grid()->GetProperty(u8"Mesh Entities"));
+    };
+    REQUIRE(list() != nullptr);
+    auto* column = foundation::core::Cast<foundation::ui::ViewGroup>(list()->EditorView());
+    auto* first = foundation::core::Cast<editor::app::AssetPickerSlot>(
+        foundation::core::Cast<foundation::ui::ViewGroup>(column->GetChildAt(1))->GetChildAt(0));
+    REQUIRE(first != nullptr);
+    CHECK(first->OnDrop(drag.Get(), 0, 0) == foundation::ui::DragDropEffects::Link);
+    CHECK(anims->Get(scene.FindEntity(cart))->meshEntities[0].id == track);
+    inspector.Refresh();
+    inspector.Refresh();
+    REQUIRE(list() != nullptr);
+    CHECK(list()->EditorView()->AsDropTarget()->OnDrop(drag.Get(), 0, 0) ==
+          foundation::ui::DragDropEffects::Link);
+    CHECK(anims->Get(scene.FindEntity(cart))->meshEntities.Size() == 2u);
 }

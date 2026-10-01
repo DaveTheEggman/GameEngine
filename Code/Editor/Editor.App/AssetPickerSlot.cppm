@@ -27,6 +27,7 @@ export module editor.app:asset_picker_slot;
 
 import foundation.core;
 import foundation.ui;
+import foundation.ui.toolkit; // TreeDragData: a hierarchy row dropped on an entity slot
 import :editor_icons;
 import :asset_drag_data;
 
@@ -152,9 +153,15 @@ export namespace editor::app
         /// The accepted type that means ANY asset: a row whose field is genuinely untyped.
         static constexpr StringView kAnyAsset = u8"*";
 
+        /// The accepted type of an ENTITY reference: the slot takes a hierarchy row, and no asset.
+        static constexpr StringView kEntity = u8"@entity";
+        /// The item kind a tree row carries when it names an entity (TreeDragData::ItemKind, set
+        /// by the hierarchy through DraggableTreeView::OnDecorateDragData).
+        static constexpr StringView kEntityItemKind = u8"entity";
+
         /// The asset-type names this slot accepts (the picker's filter list). Non-empty makes
-        /// the slot a drop target for asset-browser drags; kAnyAsset accepts every asset type.
-        /// Empty is not a drop target at all, which is what an entity reference row wants.
+        /// the slot a drop target: kAnyAsset accepts every asset type, kEntity a hierarchy row.
+        /// Empty is not a drop target at all.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
         [[nodiscard]] Span<const String> AcceptedTypes() const noexcept
         {
@@ -174,19 +181,88 @@ export namespace editor::app
                     wanted.Append(i + 1 == accepted.Size() ? StringView(u8" or ")
                                                            : StringView(u8", "));
                 }
-                wanted.Append(accepted[i].AsView());
+                wanted.Append(TypeLabel(accepted[i].AsView()));
             }
-            return Format(u8"{} is a {} - this {} takes {}", assetName, typeName, noun,
-                          wanted.IsEmpty() ? StringView(u8"no asset") : wanted.AsView());
+            const StringView label = TypeLabel(typeName);
+            return Format(u8"{} is {} {} - this {} takes {}", assetName, Article(label), label,
+                          noun, wanted.IsEmpty() ? StringView(u8"no asset") : wanted.AsView());
         }
 
-        /// Whether `typeName` is one of `accepted` (kAnyAsset takes everything). Shared by the
-        /// slot and the list widget's append drop.
+        /// "an" before a vowel, "a" otherwise: the rejection text's article.
+        [[nodiscard]] static StringView Article(StringView word)
+        {
+            const utf8char first = word.IsEmpty() ? u8'x' : word[0];
+            for (const utf8char vowel : StringView(u8"AEIOUaeiou"))
+            {
+                if (first == vowel)
+                {
+                    return u8"an";
+                }
+            }
+            return u8"a";
+        }
+
+        /// An accepted or dragged type as a person reads it: the markers by their meaning.
+        [[nodiscard]] static StringView TypeLabel(StringView typeName)
+        {
+            if (typeName == kEntity)
+            {
+                return u8"entity";
+            }
+            if (typeName == kAnyAsset)
+            {
+                return u8"any asset";
+            }
+            return typeName;
+        }
+
+        /// What a drag carries for a slot: an asset (its id, type and name), or a tree row that
+        /// names an entity (type kEntity).
+        struct DraggedItem
+        {
+            Guid id;
+            String typeName;
+            String name;
+        };
+        /// False for a drag that is neither.
+        [[nodiscard]] static bool DescribeDrag(ui::DragData* data, DraggedItem& out)
+        {
+            if (auto* asset = Cast<AssetDragData>(data))
+            {
+                out.id = asset->Id;
+                out.typeName = asset->AssetTypeName;
+                out.name = asset->DisplayName;
+                return true;
+            }
+            if (auto* row = Cast<ui::toolkit::TreeDragData>(data))
+            {
+                if (row->ItemKind.AsView() != kEntityItemKind || row->ItemId.IsNil())
+                {
+                    return false;
+                }
+                out.id = row->ItemId;
+                out.typeName = String(kEntity);
+                out.name = row->ItemName;
+                return true;
+            }
+            return false;
+        }
+
+        /// Whether `typeName`, a dragged asset's type or kEntity, is one of `accepted`
+        /// (kAnyAsset takes every asset and no entity). Shared by the slot and the list widget.
         [[nodiscard]] static bool Accepts(Span<const String> accepted, StringView typeName)
         {
+            const bool isEntity = typeName == kEntity;
             for (const String& type : accepted)
             {
-                if (type.AsView() == kAnyAsset || type.AsView() == typeName)
+                if (type.AsView() == kEntity)
+                {
+                    if (isEntity)
+                    {
+                        return true;
+                    }
+                }
+                else if (!isEntity && (type.AsView() == kAnyAsset || type.AsView() == typeName))
                 {
                     return true;
                 }
@@ -194,24 +270,25 @@ export namespace editor::app
             return false;
         }
 
-        // === IDropTarget (asset-browser drags) ===
-        // Any asset drag is ACCEPTED at hover level so OnDrop can warn on a type mismatch
-        // (the manager never calls OnDrop for a None effect); the hover cue distinguishes
-        // match (accent ring) from mismatch (error ring).
+        // === IDropTarget (asset-browser and hierarchy drags) ===
+        // Any asset or entity drag is ACCEPTED at hover level so OnDrop can warn on a type
+        // mismatch (the manager never calls OnDrop for a None effect); the hover cue
+        // distinguishes match (accent ring) from mismatch (error ring).
         [[nodiscard]] ui::IDropTarget* AsDropTarget() override
         {
             return m_acceptedTypes.Size() > 0 ? this : nullptr;
         }
         [[nodiscard]] ui::DragDropEffects CanAcceptDrop(ui::DragData* data, f32, f32) override
         {
-            return Cast<AssetDragData>(data) != nullptr ? ui::DragDropEffects::Link
-                                                              : ui::DragDropEffects::None;
+            DraggedItem item;
+            return DescribeDrag(data, item) ? ui::DragDropEffects::Link
+                                            : ui::DragDropEffects::None;
         }
         void OnDragEnter(ui::DragData* data, f32, f32) override
         {
-            auto* asset = Cast<AssetDragData>(data);
-            m_dropHover = asset != nullptr;
-            m_dropMatches = asset != nullptr && TypeAccepted(asset->AssetTypeName.AsView());
+            DraggedItem item;
+            m_dropHover = DescribeDrag(data, item);
+            m_dropMatches = m_dropHover && TypeAccepted(item.typeName.AsView());
             Invalidate();
         }
         void OnDragOver(ui::DragData*, f32, f32) override {}
@@ -224,24 +301,24 @@ export namespace editor::app
         {
             m_dropHover = false;
             Invalidate();
-            auto* asset = Cast<AssetDragData>(data);
-            if (asset == nullptr)
+            DraggedItem item;
+            if (!DescribeDrag(data, item))
             {
                 return ui::DragDropEffects::None;
             }
-            if (!TypeAccepted(asset->AssetTypeName.AsView()))
+            if (!TypeAccepted(item.typeName.AsView()))
             {
                 LOG_WARNING(u8"Assets", u8"'{}' is a {} - this slot does not accept it",
-                            asset->DisplayName, asset->AssetTypeName);
+                            item.name, TypeLabel(item.typeName.AsView()));
                 if (OnRejectedDrop)
                 {
-                    OnRejectedDrop(asset->DisplayName.AsView(), asset->AssetTypeName.AsView());
+                    OnRejectedDrop(item.name.AsView(), item.typeName.AsView());
                 }
                 return ui::DragDropEffects::None;
             }
             if (OnAssignDropped)
             {
-                OnAssignDropped(asset->Id);
+                OnAssignDropped(item.id);
             }
             return ui::DragDropEffects::Link;
         }

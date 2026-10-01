@@ -2294,6 +2294,14 @@ namespace editor
         }
     }
 
+    // An entity reference's display name: the entity's name, or "(missing)" for an id no entity
+    // answers to (scene-owned strings and literals: safe to hold as a view).
+    static StringView EntityDisplayName(SceneEditContext& edit, const Guid& target)
+    {
+        const scene::EntityHandle h = edit.Scene().FindEntity(target);
+        return h.IsAssigned() ? edit.Scene().GetEntityName(h) : StringView(u8"(missing)");
+    }
+
     void SceneInspectorView::BuildScriptEntityPropertyRow(
         StringView category, const foundation::script::ScriptPropertyDesc& property,
         const RefPtr<ScriptPropertyAccess>& access)
@@ -2301,59 +2309,46 @@ namespace editor
         using foundation::script::ScriptPropertyType;
         using foundation::script::ScriptPropertyValue;
         SceneInspectorView* self = this;
+        SceneEditContext* edit = m_edit;
 
-        auto currentTarget = [access]() -> Guid { return access->effective().guid; };
-        auto nameOf = [self](const Guid& target) -> StringView
+        // The scene tree picker, a hierarchy row dropped on it, and clear (which removes the
+        // override), all one write.
+        auto setTarget = [access](const Guid& picked)
         {
-            if (target.IsNil())
+            if (picked.IsNil())
             {
-                return u8"(none)";
+                access->removeOverride();
+                return;
             }
-            const scene::EntityHandle h = self->m_edit->Scene().FindEntity(target);
-            return h.IsAssigned() ? self->m_edit->Scene().GetEntityName(h)
-                                  : StringView(u8"(missing)");
+            ScriptPropertyValue value;
+            value.kind = ScriptPropertyType::Entity;
+            value.guid = picked;
+            access->setOverride(value);
         };
-
+        const StringView entityType[] = {editor::app::AssetPickerSlot::kEntity};
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
-                                                 nameOf(currentTarget()), category,
-                                                 Span<const StringView>{});
+                                                 StringView(u8"(none)"), category,
+                                                 Span<const StringView>{entityType, 1});
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
         {
             raw->SetTooltip(property.description.AsView());
         }
-        raw->OnPick = [self, access]()
-        {
-            if (self->Context == nullptr)
+        raw->BindEntity(
+            [access]() { return access->effective().guid; }, setTarget,
+            [edit](const Guid& id) { return String(EntityDisplayName(*edit, id)); },
+            [self, edit, access, setTarget]()
             {
-                return;
-            }
-            auto menu = MakeRef<ui::ContextMenu>(self->MemoryAllocator());
-            menu->AddItem(StringView(u8"(none)"), [access]() { access->removeOverride(); });
-            menu->AddSeparator();
-            self->m_edit->Scene().ForEachEntity(
-                [self, access, &menu](scene::EntityHandle handle)
+                if (self->Context == nullptr)
                 {
-                    const Guid target = self->m_edit->Scene().GetEntityId(handle);
-                    String label(self->m_edit->Scene().GetEntityName(handle));
-                    menu->AddItem(label.AsView(),
-                                  [access, target]()
-                                  {
-                                      ScriptPropertyValue value;
-                                      value.kind = ScriptPropertyType::Entity;
-                                      value.guid = target;
-                                      access->setOverride(value);
-                                  });
-                });
-            const Float2 pos = self->m_addButton->LocalToScreen(Float2{0.0f, 0.0f});
-            menu->Show(self->Context, pos.x, pos.y);
-        };
-        AddEditor(raw,
-                  [self, currentTarget, nameOf, raw]()
-                  {
-                      (void)self;
-                      raw->SetValueText(nameOf(currentTarget()));
-                  });
+                    return;
+                }
+                auto dialog = MakeRef<editor::EntityPickerDialog>(
+                    self->MemoryAllocator(), edit->Scene(), access->effective().guid);
+                dialog->OnPicked = setTarget;
+                dialog->Show(self->Context);
+            });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
     }
 
     // Reflected-component EntityRef picker: the twin of BuildScriptEntityPropertyRow (which serves
@@ -2381,36 +2376,31 @@ namespace editor
             return (address != nullptr) ? static_cast<foundation::scene::EntityRef*>(address)->id
                                         : Guid{};
         };
-        // Display name of a target guid (scene-owned strings / literals - safe to hold as a view).
-        auto nameOf = [edit](const Guid& target) -> StringView
-        {
-            if (target.IsNil())
-            {
-                return u8"(none)";
-            }
-            const scene::EntityHandle h = edit->Scene().FindEntity(target);
-            return h.IsAssigned() ? edit->Scene().GetEntityName(h) : StringView(u8"(missing)");
-        };
-
-        auto editor =
-            MakeRef<ResourceRefEditor>(MemoryAllocator(), name, nameOf(currentTarget()), category,
-                                       Span<const StringView>{});
+        // The scene tree picker, a hierarchy row dropped on it, and clear, all through the
+        // undoable SetComponentEntityRef.
+        auto assign = [edit, id, type, propName, path](const Guid& target)
+        { edit->SetComponentEntityRef(id, type, path, propName, target); };
+        const StringView entityType[] = {editor::app::AssetPickerSlot::kEntity};
+        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), name, StringView(u8"(none)"),
+                                                 category, Span<const StringView>{entityType, 1});
         ResourceRefEditor* raw = editor.Get();
-        raw->OnPick = [self, edit, id, type, propName, path, currentTarget]()
-        {
-            if (self->Context == nullptr)
+        raw->BindEntity(
+            currentTarget, assign,
+            [edit](const Guid& target) { return String(EntityDisplayName(*edit, target)); },
+            [self, edit, currentTarget, assign]()
             {
-                return;
-            }
-            // Modal, filterable entity TREE (mirrors the asset picker + hierarchy view), replacing
-            // the flat menu that was unusable in large scenes. Pre-selects the current target.
-            auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(), edit->Scene(),
-                                                             currentTarget());
-            dialog->OnPicked = [edit, id, type, propName, path](const Guid& target)
-            { edit->SetComponentEntityRef(id, type, path, propName, target); };
-            dialog->Show(self->Context);
-        };
-        AddEditor(raw, [currentTarget, nameOf, raw]() { raw->SetValueText(nameOf(currentTarget())); });
+                if (self->Context == nullptr)
+                {
+                    return;
+                }
+                // Modal, filterable entity TREE (mirrors the asset picker + hierarchy view).
+                // Pre-selects the current target.
+                auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(),
+                                                                 edit->Scene(), currentTarget());
+                dialog->OnPicked = assign;
+                dialog->Show(self->Context);
+            });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
     }
 
     void SceneInspectorView::BuildScriptAssetPropertyRow(
@@ -2738,7 +2728,28 @@ namespace editor
         // type-filtered asset picker.
         if (prop.type->container->elementType == &TypeOf<foundation::scene::EntityRef>())
         {
-            rawList->OnPickSlot = [self, id, type, propPtr](usize i)
+            // One write for a slot, whether the entity came from the picker or a hierarchy drag.
+            auto assignEntity = [self, id, type, propPtr](usize i, const Guid& target)
+            {
+                self->MutateComponent(
+                    id, type,
+                    [propPtr, i, target](const Instance& comp)
+                    {
+                        const Instance container(propPtr->address(comp), propPtr->type);
+                        const ContainerInfo& ci = *propPtr->type->container;
+                        if (i >= ContainerSize(ci, container))
+                        {
+                            return;
+                        }
+                        const Instance el = ContainerAddressAt(ci, container, i);
+                        if (el.Pointer() != nullptr)
+                        {
+                            static_cast<foundation::scene::EntityRef*>(el.Pointer())->id = target;
+                        }
+                    });
+                self->m_forceRebuild = true;
+            };
+            rawList->OnPickSlot = [self, id, type, propPtr, assignEntity](usize i)
             {
                 if (self->Context == nullptr)
                 {
@@ -2769,28 +2780,38 @@ namespace editor
                 }
                 auto dialog = MakeRef<editor::EntityPickerDialog>(self->MemoryAllocator(),
                                                                  self->m_edit->Scene(), current);
-                dialog->OnPicked = [self, id, type, propPtr, i](const Guid& target)
-                {
-                    self->MutateComponent(
-                        id, type,
-                        [propPtr, i, target](const Instance& comp)
-                        {
-                            const Instance container(propPtr->address(comp), propPtr->type);
-                            const ContainerInfo& ci = *propPtr->type->container;
-                            if (i >= ContainerSize(ci, container))
-                            {
-                                return;
-                            }
-                            const Instance el = ContainerAddressAt(ci, container, i);
-                            if (el.Pointer() != nullptr)
-                            {
-                                static_cast<foundation::scene::EntityRef*>(el.Pointer())->id =
-                                    target;
-                            }
-                        });
-                    self->m_forceRebuild = true;
-                };
+                dialog->OnPicked = [assignEntity, i](const Guid& target) { assignEntity(i, target); };
                 dialog->Show(self->Context);
+            };
+            // A hierarchy row dropped on a slot assigns it, on the list appends it.
+            Array<String> accepted;
+            accepted.PushBack(String(editor::app::AssetPickerSlot::kEntity));
+            rawList->SetAcceptedTypes(Move(accepted));
+            rawList->OnAssignSlot = assignEntity;
+            rawList->OnAppendDropped = [self, id, type, propPtr](const Guid& target)
+            {
+                self->MutateComponent(
+                    id, type,
+                    [propPtr, target](const Instance& comp)
+                    {
+                        const Instance container(propPtr->address(comp), propPtr->type);
+                        const ContainerInfo& ci = *propPtr->type->container;
+                        const Instance el =
+                            ContainerEmplaceDefault(ci, container, ContainerSize(ci, container));
+                        if (el.Pointer() != nullptr)
+                        {
+                            static_cast<foundation::scene::EntityRef*>(el.Pointer())->id = target;
+                        }
+                    });
+                self->m_forceRebuild = true;
+            };
+            rawList->OnRejectedDrop = [self, rawList](StringView itemName, StringView typeName)
+            {
+                self->m_editor->Notify(
+                    editor::NoticeKind::Warning,
+                    editor::app::AssetPickerSlot::RejectionText(itemName, typeName,
+                                                                rawList->AcceptedTypes(), u8"list")
+                        .AsView());
             };
             AddEditor(rawList,
                       [self, rawList, computeNames]()

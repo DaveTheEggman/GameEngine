@@ -111,6 +111,9 @@ export namespace editor
         void BeginRename(const Guid& entity);
 
         [[nodiscard]] ui::toolkit::DraggableTreeView* Tree() const noexcept { return m_tree.Get(); }
+
+        /// Names the entity a drag of flat row `data.SourcePosition` carries.
+        void DecorateDrag(ui::toolkit::TreeDragData& data);
         [[nodiscard]] usize NodeCount() const noexcept { return m_nodes.Size(); }
 
         // Right-click on empty space (below the rows): create a root entity.

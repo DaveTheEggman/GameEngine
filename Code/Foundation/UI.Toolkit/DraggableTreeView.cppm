@@ -65,6 +65,12 @@ export namespace foundation::ui::toolkit
         }
 
         i32 SourcePosition = 0;
+        /// What the row IS, for a drop outside the tree, set by the tree's owner through
+        /// DraggableTreeView::OnDecorateDragData: a hierarchy row names its entity (the editor's
+        /// entity kind, and the entity's id and name). Empty for a tree that names nothing.
+        String ItemKind;
+        Guid ItemId;
+        String ItemName;
     };
 
     // ============================================================================================
@@ -77,6 +83,9 @@ export namespace foundation::ui::toolkit
         Event<void(DraggableTreeView*, i32, i32)> OnItemReordered;
         /// Fired when an item is dropped INTO another (the adapter's DropInto ran).
         Event<void(DraggableTreeView*, i32, i32)> OnItemDroppedInto;
+        /// Names what a dragged row is, so a target outside the tree can take it (an entity slot
+        /// takes a hierarchy row).
+        Function<void(TreeDragData&)> OnDecorateDragData;
 
         DraggableTreeView()
         {
@@ -164,14 +173,21 @@ export namespace foundation::ui::toolkit
             {
                 return RefPtr<DragData>{};
             }
-            return MakeRef<TreeDragData>(MemoryAllocator(), sel);
+            RefPtr<TreeDragData> data = MakeRef<TreeDragData>(MemoryAllocator(), sel);
+            if (OnDecorateDragData)
+            {
+                OnDecorateDragData(*data);
+            }
+            return data;
         }
 
         [[nodiscard]] RefPtr<View> CreateDragVisual(DragData* data) override
         {
-            (void)data;
+            auto* treeDrag = Cast<TreeDragData>(data);
             RefPtr<Label> label = MakeRef<Label>(MemoryAllocator());
-            label->SetText(u8"Moving item");
+            label->SetText((treeDrag != nullptr && !treeDrag->ItemName.IsEmpty())
+                               ? treeDrag->ItemName.AsView()
+                               : StringView(u8"Moving item"));
             return label;
         }
 
