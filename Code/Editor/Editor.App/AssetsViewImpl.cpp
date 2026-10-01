@@ -562,7 +562,12 @@ namespace editor::app
         message += importer->Label();
         message += u8").";
         m_context->Notify(editor::NoticeKind::Success, message.AsView());
-        m_context->NotifyImported(primary, options.Get());
+        AfterImport(primary, options.Get());
+    }
+
+    void AssetsView::AfterImport(content::Instance& primary, const pipeline::ImportOptions* options)
+    {
+        m_context->NotifyImported(primary, options);
         // Cook the imported assets explicitly (scoped to the primary's group; the plan
         // skips anything clean). The Sources/ watcher triggers auto-cook off the provenance
         // copy, but a re-import of identical bytes skips that copy, so the watcher never fires

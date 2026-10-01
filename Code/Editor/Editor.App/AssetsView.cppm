@@ -275,6 +275,11 @@ export namespace editor::app
         void FinishImport(content::Instance& primary, pipeline::IFileImporter* importer,
                           const RefPtr<pipeline::ImportOptions>& options);
 
+        /// What follows any finished import, from the browser or from an agent's asset_import:
+        /// the listeners (a model's prefab), the cook of what it made, the browser. Null
+        /// `options` is the importer's defaults.
+        void AfterImport(content::Instance& primary, const pipeline::ImportOptions* options);
+
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
         /// A thumbnail finished for `id`: rebind just that row/tile in place (no tree or list

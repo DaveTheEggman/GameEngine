@@ -182,7 +182,17 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
           "placement, the deferred flush on the job service - and lands its stream")
 {
     Bench bench(u8"mcp_ops_import");
-    app::EditorProjectOperations ops(bench.Seams());
+    app::EditorProjectOperationsSeams seams = bench.Seams();
+    // The host's after-import effects (a model's prefab, the cook, the browser) run once per
+    // finished import, over its primary, and never for a failed one (Sedulous f9f5b8e2).
+    u32 afterImports = 0;
+    Guid lastImported;
+    seams.onImported = [&](content::Instance& primary)
+    {
+        ++afterImports;
+        lastImported = primary.Id();
+    };
+    app::EditorProjectOperations ops(Move(seams));
     TwoPhaseImporter importer(/*worker=*/true);
     editor::mcp::ImportRequest request;
     request.source = String(u8"anything.two");
@@ -207,6 +217,8 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
     UniquePtr<IStream> bulk = instance->ReadData(u8"bulk");
     REQUIRE(bulk);
     CHECK(bulk->Size() == 2);
+    CHECK(afterImports == 1u);
+    CHECK(lastImported == outcome.guid); // after the writes landed, over the primary
 
     // An inline importer (no worker prepare) places at once and still flushes on the job.
     TwoPhaseImporter inlineImporter(/*worker=*/false);
@@ -223,6 +235,7 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
     step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
     REQUIRE_FALSE(step.HasValue());
     CHECK(step.Error().AsView().StartsWith(u8"import of 'anything.two' failed"));
+    CHECK(afterImports == 2u); // a failed import has no after
     request.importer = &inlineImporter;
     step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
     REQUIRE(step.HasValue());

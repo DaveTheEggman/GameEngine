@@ -43,6 +43,10 @@ export namespace editor::app
         /// After a creation: the editor's effects (a first scene as the default, the browser,
         /// the cook), the ones File > New has.
         Function<void(const pipeline::AssetCreator&, foundation::content::Instance&)> onCreated;
+        /// After an import: the editor's effects, the ones an import from the Assets browser has
+        /// (the import listeners, a model's prefab among them; the cook of what it made; the
+        /// browser).
+        Function<void(foundation::content::Instance& primary)> onImported;
     };
 
     class EditorProjectOperations final : public editor::mcp::IProjectOperations

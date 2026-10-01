@@ -135,6 +135,21 @@ namespace editor::app
             job = ImportJob{};
             return Err(Move(message));
         };
+        // Every write has landed: the import is whole, so what follows an import runs now.
+        const auto finish = [this, &job]() -> OperationStep<ImportOutcome>
+        {
+            ImportOutcome outcome = Move(job.outcome);
+            job = ImportJob{};
+            if (m_seams.onImported)
+            {
+                if (content::Instance* primary =
+                        m_seams.project->SourceDb().GetInstance(outcome.guid))
+                {
+                    m_seams.onImported(*primary);
+                }
+            }
+            return Optional<ImportOutcome>(Move(outcome));
+        };
         if (job.phase == ImportJob::Phase::Idle)
         {
             job.startedTicks = GetTicks();
@@ -234,9 +249,7 @@ namespace editor::app
             job.outcome.mainMs = job.mainMs;
             if (job.shared->writes->IsEmpty())
             {
-                ImportOutcome outcome = Move(job.outcome);
-                job = ImportJob{};
-                return Optional<ImportOutcome>(Move(outcome));
+                return finish();
             }
             // Phase 3, the bulk stream writes, on the worker.
             job.phase = ImportJob::Phase::Flushing;
@@ -261,9 +274,7 @@ namespace editor::app
                                request.source.AsView()));
         }
         job.outcome.flushMs = job.shared->flushMs;
-        ImportOutcome outcome = Move(job.outcome);
-        job = ImportJob{};
-        return Optional<ImportOutcome>(Move(outcome));
+        return finish();
     }
 
     void EditorProjectOperations::SubmitExportJob()
