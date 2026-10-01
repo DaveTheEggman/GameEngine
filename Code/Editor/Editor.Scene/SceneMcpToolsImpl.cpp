@@ -410,6 +410,8 @@ namespace editor
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context)
     {
+        RegisterSceneEditTools(server, context);
+
         EditorContext* ctx = &context;
 
         server.RegisterTool(

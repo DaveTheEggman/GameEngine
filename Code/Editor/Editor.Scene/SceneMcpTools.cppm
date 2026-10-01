@@ -31,7 +31,10 @@ export namespace editor
     /// The number of tools RegisterSceneLiveTools registers (selection_get / selection_set /
     /// simulate_start / simulate_stop / entity_inspect / component_set / viewport_camera_get /
     /// viewport_camera_set / viewport_screenshot); a tripwire like kEngineToolCount.
-    inline constexpr usize kSceneLiveToolCount = 9;
+    /// The live editing tools (SceneMcpEditToolsImpl.cpp): entity_create, entity_update,
+    /// entity_delete, component_add, component_remove, prefab_spawn, behavior_add, behavior_set.
+    inline constexpr usize kSceneEditToolCount = 8;
+    inline constexpr usize kSceneLiveToolCount = 9 + kSceneEditToolCount;
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context);
 }
@@ -57,4 +60,6 @@ namespace editor
     /// the reason when it names none.
     [[nodiscard]] Result<Guid, String> ResolveSceneEntity(const AddressedPage& addressed,
                                                           StringView text);
+    /// The editing tools, registered by RegisterSceneLiveTools.
+    void RegisterSceneEditTools(foundation::mcp::McpServer& server, EditorContext& context);
 }

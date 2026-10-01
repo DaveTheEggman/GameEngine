@@ -36,6 +36,7 @@ target_sources(Editor.Scene
         ScenePageImpl.cpp
         EntityJsonImpl.cpp
         SceneMcpToolsImpl.cpp
+        SceneMcpEditToolsImpl.cpp
         PieMcpToolsImpl.cpp
         PieRunToolImpl.cpp
         GamePageImpl.cpp

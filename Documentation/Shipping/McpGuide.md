@@ -32,6 +32,15 @@ viewport never renders - move the camera, shoot, read the file). A `scene_write`
 reaches its page at once: a clean page reloads in place, a page with unsaved edits keeps
 them and warns the user - ask before `page_reload` with `force`, which discards them.
 
+To build ON AN OPEN PAGE instead, live and undoable (the editor host): `entity_create`,
+`entity_update` (name, parent, active, transform), `entity_delete`, `component_add`,
+`component_remove`, `prefab_spawn`, `behavior_add` and `behavior_set` (a script behaviour's
+properties by name, typed by its cooked class), with `component_set` for a component's fields.
+Each call is one undo step, the page dirty after and nothing saved; an entity is named by guid,
+name or slash path; each answers the entity as `entity_inspect` shows it, a Script component's
+`behaviors` included. The user watches the level take shape and can undo any step; `file.save`
+(action_execute) keeps it. XML suits a whole level written at once, these tools an edit.
+
 Play in editor (PIE) is the editor's too, and it is how gameplay is tested: `simulate_start`
 previews ONE scene in its page, while PIE runs the project as the player does (the default
 scene, the startup script, the input map). PIE is not one game: every Game tab runs its own
