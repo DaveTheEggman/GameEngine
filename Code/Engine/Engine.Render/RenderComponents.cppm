@@ -865,39 +865,46 @@ export namespace engine::render
 
         // Swap the entity's MeshComponent mesh to resource `id`, binding it through the run's
         // resource manager so the swap takes effect live (a bare VM with no manager sets the id
-        // only, unbound). No-op if the scene is null or the entity has no MeshComponent.
-        void setMesh(foundation::script::Entity entity, Guid id) const
+        // only, unbound). False (a no-op) if the scene is null or the entity has no MeshComponent.
+        bool setMesh(foundation::script::Entity entity, Guid id) const
         {
             MeshComponent* mesh = MeshOf(entity);
             if (mesh == nullptr)
             {
-                return;
+                return false;
             }
             mesh->mesh.SetId(id);
             if (auto* resources = foundation::script::CurrentRunResources())
             {
                 mesh->mesh.Bind(*resources);
             }
+            return true;
         }
 
-        // Swap the entity's slot-0 material (single-material meshes / the whole-mesh slot) to
-        // resource `id`, binding it through the run's resource manager.
-        void setMaterial(foundation::script::Entity entity, Guid id) const
+        // Swap the entity's material in `slot` (slot 0: single-material meshes / the whole-mesh slot)
+        // to resource `id`, binding it through the run's resource manager; the slots grow to reach
+        // it. False for an entity without a mesh or a negative slot (Sedulous's SetMaterial).
+        bool setMaterial(foundation::script::Entity entity, Guid id) const
+        {
+            return setMaterial(entity, id, 0);
+        }
+        bool setMaterial(foundation::script::Entity entity, Guid id, i32 slot) const
         {
             MeshComponent* mesh = MeshOf(entity);
-            if (mesh == nullptr)
+            if (mesh == nullptr || slot < 0)
             {
-                return;
+                return false;
             }
-            if (mesh->materials.IsEmpty())
+            while (mesh->materials.Size() <= static_cast<usize>(slot))
             {
                 mesh->materials.PushBack(foundation::resource::Ref<materials::Material>{});
             }
-            mesh->materials[0].SetId(id);
+            mesh->materials[static_cast<usize>(slot)].SetId(id);
             if (auto* resources = foundation::script::CurrentRunResources())
             {
-                mesh->materials[0].Bind(*resources);
+                mesh->materials[static_cast<usize>(slot)].Bind(*resources);
             }
+            return true;
         }
 
         [[nodiscard]] static SceneRender of(foundation::script::Scene sceneHandle)

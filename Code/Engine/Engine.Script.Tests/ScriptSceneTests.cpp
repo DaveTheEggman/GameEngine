@@ -3763,8 +3763,12 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
                   u8"    Swapper(Entity@ entity) { @self = entity; }\n"
                   u8"    void onStart() {\n"
                   u8"        SceneRender@ r = SceneRender::of(self.scene);\n"
-                  u8"        r.setMesh(self, meshRes);\n"
+                  u8"        bool swapped = r.setMesh(self, meshRes);\n"
                   u8"        r.setMaterial(self, matRes);\n"
+                  u8"        bool slotted = r.setMaterial(self, matRes, 2);\n"
+                  u8"        if (swapped && slotted && !r.setMaterial(self, matRes, -1)) {\n"
+                  u8"            self.setName(\"swapped\");\n"
+                  u8"        }\n"
                   u8"    }\n"
                   u8"}\n",
                   {u8"onStart"});
@@ -3797,6 +3801,10 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
     CHECK(meshes->Get(e)->mesh.id == meshId);          // mesh Ref id swapped from script
     REQUIRE_FALSE(meshes->Get(e)->materials.IsEmpty()); // slot 0 created
     CHECK(meshes->Get(e)->materials[0].id == matId);    // material slot-0 Ref id swapped
+    // Slot 2 by number (Sedulous's SetMaterial slot): the slots grew to reach it; -1 refused.
+    REQUIRE(meshes->Get(e)->materials.Size() == 3u);
+    CHECK(meshes->Get(e)->materials[2].id == matId);
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"swapped"));
 }
 
 // ---- audio surface: AudioSourceComponent.of (live volume/pitch/loop - DATA) +
