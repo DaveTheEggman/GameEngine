@@ -272,6 +272,7 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         project->Settings().startupScriptId = scriptId;
         project->Settings().loadingDocumentId = sceneId; // any guid: the dist must carry it
         project->Settings().renderMsaaSamples = 4;
+        project->Settings().uiFontIds.PushBack(sceneId); // any guid: the dist must carry the list
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
@@ -312,6 +313,8 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     // The player reads the loading screen and the MSAA from the dist manifest too.
     CHECK(manifest.loadingDocumentId == sceneId);
     CHECK(manifest.renderMsaaSamples == 4u);
+    REQUIRE(manifest.uiFontIds.Size() == 1u); // the other UI fonts (Sedulous fbf1a4ff)
+    CHECK(manifest.uiFontIds[0] == sceneId);
 
     foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());
