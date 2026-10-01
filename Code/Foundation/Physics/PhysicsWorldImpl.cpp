@@ -336,8 +336,19 @@ namespace foundation::physics
             switch (desc.kind)
             {
             case ShapeKind::Box:
-                shape = new JPH::BoxShape(ToJph(desc.halfExtents));
+            {
+                // Jolt asserts halfExtent >= convexRadius: a thin box (an imported model's
+                // placeholder body box is 0.01) gets a smaller radius, as a query box does.
+                const f32 minExtent =
+                    Min(desc.halfExtents.x, Min(desc.halfExtents.y, desc.halfExtents.z));
+                if (!(minExtent > 0.0f))
+                {
+                    return nullptr;
+                }
+                shape = new JPH::BoxShape(ToJph(desc.halfExtents),
+                                          Min(JPH::cDefaultConvexRadius, minExtent * 0.5f));
                 break;
+            }
             case ShapeKind::Sphere:
                 shape = new JPH::SphereShape(desc.radius);
                 break;

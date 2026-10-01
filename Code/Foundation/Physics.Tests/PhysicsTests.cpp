@@ -409,6 +409,46 @@ TEST_CASE("physics: sphere overlap finds intersecting bodies (deduped) + honors 
     CHECK(hits[0] == bodyA);
 }
 
+// A box thinner than Jolt's default convex radius (0.05) builds with a smaller radius instead of
+// tripping Jolt's assert: an imported model's prefab gives its body a 0.01 placeholder box beside
+// the real collider, so a level of such models used to stop a debug build at play.
+TEST_CASE("physics: a box thinner than the convex radius builds, alone and in a compound")
+{
+    PhysicsWorld world(DefaultAllocator());
+    BodyDesc thin;
+    thin.motion = MotionKind::Static;
+    thin.layer = PhysicsLayer::Static;
+    ShapeDesc sliver;
+    sliver.kind = ShapeKind::Box;
+    sliver.halfExtents = Float3{0.01f, 0.01f, 0.01f};
+    thin.shapes.PushBack(sliver);
+    CHECK(world.CreateBody(thin).IsValid());
+
+    // The prefab's shape: the placeholder at the origin and the real (here a half-metre box)
+    // beside it, compounded. A ray finds the real one.
+    BodyDesc model;
+    model.motion = MotionKind::Static;
+    model.layer = PhysicsLayer::Static;
+    model.userData = 7;
+    model.position = Float3{5.0f, 0.0f, 0.0f};
+    model.shapes.PushBack(sliver);
+    ShapeDesc solid;
+    solid.kind = ShapeKind::Box;
+    solid.halfExtents = Float3{0.5f, 0.5f, 0.5f};
+    solid.localPosition = Float3{0.0f, 0.5f, 0.0f};
+    model.shapes.PushBack(solid);
+    REQUIRE(world.CreateBody(model).IsValid());
+    RayHit hit;
+    REQUIRE(world.RayCast(Float3{5.0f, 10.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f}, 100.0f, hit));
+    CHECK(hit.userData == 7u);
+    CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.02)); // the real box's top face
+
+    // A box with no extent is no shape: the body is refused, not built degenerate.
+    BodyDesc flat = thin;
+    flat.shapes[0].halfExtents = Float3{0.5f, 0.0f, 0.5f};
+    CHECK_FALSE(world.CreateBody(flat).IsValid());
+}
+
 TEST_CASE("physics: a BOX query shape overlaps too (not only spheres)")
 {
     PhysicsWorld world(DefaultAllocator());
