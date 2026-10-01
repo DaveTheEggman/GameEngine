@@ -58,6 +58,7 @@ namespace
         [[nodiscard]] StringView ScriptFault() const noexcept override { return fault.AsView(); }
         void RequestViewportCapture(StringView path) override
         {
+            ++captureRequests;
             capture = ViewportCapture{};
             capture.state = ViewportCaptureState::Pending;
             capture.path = String(path);
@@ -143,6 +144,7 @@ namespace
         PieScriptState script = PieScriptState::Running;
         String fault;
         ViewportCapture capture;
+        u32 captureRequests = 0;
 
     private:
         String m_pieId;
@@ -207,12 +209,13 @@ namespace
         String error;
     };
 
-    Answer Pump(McpServer& server, StringView tool, StringView argumentsJson)
+    /// One entry of the call the transport knows as `callId` (0: known by its line).
+    Answer Pump(McpServer& server, u64 callId, StringView tool, StringView argumentsJson)
     {
         const String line = Format(u8"{{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\","
                                    u8"\"params\":{{\"name\":\"{}\",\"arguments\":{}}}}}",
                                    tool, argumentsJson);
-        LineOutcome outcome = server.HandleLine(line.AsView());
+        LineOutcome outcome = server.HandleLine(line.AsView(), callId);
         Answer answer;
         if (outcome.state != LineState::Answered)
         {
@@ -231,6 +234,11 @@ namespace
             answer.error = text;
         }
         return answer;
+    }
+
+    Answer Pump(McpServer& server, StringView tool, StringView argumentsJson)
+    {
+        return Pump(server, 0, tool, argumentsJson);
     }
 }
 
@@ -627,4 +635,85 @@ TEST_CASE("pie-tools: two instances run side by side, and only the scripted one 
     CHECK(hostSamples.At(hostSamples.Count() - 1).Get(u8"values").Get(u8"Player.position.x").AsNumber() > 0.8);
     CHECK(clientSamples.At(clientSamples.Count() - 1).Get(u8"values").Get(u8"Player.position.x").AsNumber() ==
           doctest::Approx(0.0));
+}
+
+// Sedulous beb10b49: two agents make the same call at once; each call keeps its own wait, where
+// its arguments alone would have made the second the first's re-entry.
+TEST_CASE("pie-tools: identical calls in flight each keep their own wait")
+{
+    PlayRig rig;
+    rig.primary = rig.Open(u8"game-page");
+    rig.primary->Run();
+
+    // Two new instances asked for with the same arguments: two tabs, one each.
+    const StringView newInstance = u8"{\"newInstance\":true}";
+    CHECK_FALSE(Pump(rig.server, 1, u8"pie_start", newInstance).finished);
+    CHECK_FALSE(Pump(rig.server, 2, u8"pie_start", newInstance).finished);
+    HeadlessGamePage* one = rig.Page(u8"game-page-1");
+    HeadlessGamePage* two = rig.Page(u8"game-page-2");
+    REQUIRE(one != nullptr);
+    REQUIRE(two != nullptr); // the second start opened a tab of its own
+    one->Run();
+    two->Run();
+    Answer second = Pump(rig.server, 2, u8"pie_start", newInstance);
+    Answer first = Pump(rig.server, 1, u8"pie_start", newInstance);
+    REQUIRE(first.finished);
+    REQUIRE(second.finished);
+    CHECK(first.payload.Get(u8"pie").AsString() == StringView(u8"game-page-1"));
+    CHECK(second.payload.Get(u8"pie").AsString() == StringView(u8"game-page-2"));
+
+    // Two screenshots of one tab: the tab holds one request, so a call whose request was replaced
+    // asks again once the replacing one is done, and each gets its own file.
+    HeadlessGamePage& tab = *rig.primary;
+    const StringView a = u8"{\"pie\":\"game-page\",\"path\":\"a.png\"}";
+    const StringView b = u8"{\"pie\":\"game-page\",\"path\":\"b.png\"}";
+    CHECK_FALSE(Pump(rig.server, 3, u8"pie_screenshot", a).finished);
+    CHECK_FALSE(Pump(rig.server, 4, u8"pie_screenshot", b).finished);
+    CHECK(tab.capture.path == u8"b.png"); // b replaced a
+    CHECK_FALSE(Pump(rig.server, 3, u8"pie_screenshot", a).finished);
+    CHECK(tab.captureRequests == 2u); // a waits while b's is pending
+    tab.capture.state = ViewportCaptureState::Written;
+    CHECK_FALSE(Pump(rig.server, 3, u8"pie_screenshot", a).finished); // b's file is not a's
+    CHECK(tab.capture.path == u8"a.png");                            // a asked again
+    CHECK(tab.capture.state == ViewportCaptureState::Pending);
+    CHECK_FALSE(Pump(rig.server, 4, u8"pie_screenshot", b).finished); // a's request is not b's
+    tab.capture.state = ViewportCaptureState::Written;
+    Answer shotA = Pump(rig.server, 3, u8"pie_screenshot", a);
+    REQUIRE(shotA.finished);
+    CHECK(shotA.payload.Get(u8"path").AsString() == StringView(u8"a.png"));
+    CHECK_FALSE(Pump(rig.server, 4, u8"pie_screenshot", b).finished);
+    CHECK(tab.capture.path == u8"b.png"); // b asked again
+    tab.capture.state = ViewportCaptureState::Written;
+    Answer shotB = Pump(rig.server, 4, u8"pie_screenshot", b);
+    REQUIRE(shotB.finished);
+    CHECK(shotB.payload.Get(u8"path").AsString() == StringView(u8"b.png"));
+    CHECK(rig.server.CallsInFlight() == 0u);
+}
+
+// Sedulous beb10b49: a second run on a busy instance is refused, not taken for the first's
+// re-entry; a run whose caller went away ends, and the tab's input goes back to the user.
+TEST_CASE("pie-tools: a second run is refused, and an abandoned run hands the input back")
+{
+    PlayRig rig;
+    HeadlessGamePage* host = RunningPie(rig, u8"game-page");
+    const StringView args = u8"{\"duration\":5,\"input\":[{\"at\":0,\"key\":\"D\"}]}";
+    CHECK_FALSE(Pump(rig.server, 1, u8"pie_run", args).finished);
+    PlayFrame(*host, 0.1);
+    Answer refused = Pump(rig.server, 2, u8"pie_run", args);
+    REQUIRE(refused.finished);
+    CHECK(refused.error.AsView().StartsWith(u8"PIE instance 'game-page' is already in a pie_run"));
+    CHECK_FALSE(Pump(rig.server, 1, u8"pie_run", args).finished); // the first run goes on
+    CHECK(host->IsScripted());
+    CHECK_FALSE(host->scriptEnding);
+
+    rig.server.AbandonCall(1);
+    CHECK(rig.server.CallsInFlight() == 0u);
+    CHECK(host->scriptEnding); // the abandoned run let the tab's input go
+    PlayFrame(*host, 0.1);
+    CHECK_FALSE(host->IsScripted());
+
+    // The instance is free for the next run.
+    CHECK_FALSE(Pump(rig.server, 3, u8"pie_run", args).finished);
+    CHECK(host->scriptsBegun == 2u);
+    rig.server.AbandonCall(3);
 }

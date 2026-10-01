@@ -76,7 +76,10 @@ it stopped: `duration`, `until`, `stopped` or `timeout`. A menu is played the sa
 against the running game before the run starts, so a typo fails at once. Runs are real frames
 at real frame rates: a time lands within a frame of where it was asked, so compare with
 tolerances, and start from `pie_start` for a run you mean to repeat. One `pie_run` per instance
-at a time; instances run side by side. `entity_inspect` with `pie` (and an `entity` by guid,
+at a time (a second is refused while the first plays); instances run side by side. Over HTTP
+each call is its own, even two identical ones from two agents: two `newInstance` starts open two
+tabs, two screenshots of one tab each get their file, and a call whose connection closes ends
+there (an unfinished `pie_run` lets go of the tab's input). `entity_inspect` with `pie` (and an `entity` by guid,
 name or path) reads a running game's entity outside a run, each running behaviour's
 properties under `live` beside what is authored.
 

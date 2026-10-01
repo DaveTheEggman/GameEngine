@@ -48,9 +48,18 @@ namespace editor
             String label;
         };
 
-        struct Run
+        struct Runs;
+
+        /// One pie_run in flight, its call's state: destroyed when the call answers or its caller
+        /// leaves, and then the tab's input goes back to the user.
+        struct Run final : foundation::mcp::ToolCallState
         {
-            EditorPage* page = nullptr; // borrowed; the run is dropped when the page closes
+            ~Run() override;
+
+            EditorPage* page = nullptr; // borrowed; checked against the open pages before use
+            EditorContext* context = nullptr; // borrowed
+            Runs* owner = nullptr;            // borrowed: the tool's list of runs in flight
+            bool scripted = false;            // the timeline drives the tab's input until the end
             f64 start = 0.0;
             u64 startFrames = 0;
             f64 duration = 0.0;
@@ -66,6 +75,7 @@ namespace editor
             usize nextShot = 0;
             bool shotInFlight = false;
             f64 shotAt = 0.0;
+            String shotPath; // where the shot in flight writes: a pie_screenshot can replace it
             String shotDirectory;
             u32 serial = 0;
             JsonValue samples = JsonValue::MakeArray();
@@ -75,11 +85,33 @@ namespace editor
             Stopwatch clock;
         };
 
+        /// The runs in flight, one per instance; each run is its call's.
         struct Runs
         {
-            Array<Run> active;
+            Array<Run*> active;
             u32 serial = 0;
         };
+
+        bool IsOpenPage(const EditorContext& context, const EditorPage* page);
+
+        Run::~Run()
+        {
+            if (owner != nullptr)
+            {
+                for (usize i = 0; i < owner->active.Size(); ++i)
+                {
+                    if (owner->active[i] == this)
+                    {
+                        owner->active.RemoveAt(i);
+                        break;
+                    }
+                }
+            }
+            if (scripted && context != nullptr && IsOpenPage(*context, page))
+            {
+                ServiceOf<IPieInstancePage>(page)->EndScriptedInput();
+            }
+        }
 
         bool IsOpenPage(const EditorContext& context, const EditorPage* page)
         {
@@ -436,15 +468,15 @@ namespace editor
             run.lastSampleTime = t;
         }
 
-        ToolOutcome Finish(Runs& runs, usize index, StringView endedBy, f64 t)
+        ToolOutcome Finish(Run& run, StringView endedBy, f64 t)
         {
-            Run& run = runs.active[index];
             IPieInstancePage& pie = *ServiceOf<IPieInstancePage>(run.page);
             if (pie.IsRunning() && !run.probes.IsEmpty() && run.lastSampleTime < t)
             {
                 TakeSample(pie, run, t);
             }
             pie.EndScriptedInput();
+            run.scripted = false;
             JsonValue out = JsonValue::MakeObject();
             out.Set(u8"pie", JsonValue::MakeString(String(pie.PieId())));
             out.Set(u8"endedBy", JsonValue::MakeString(String(endedBy)));
@@ -456,25 +488,31 @@ namespace editor
             out.Set(u8"screenshots", Move(run.shots));
             out.Set(u8"until", Move(run.untilHit));
             out.Set(u8"state", PieStateJson(pie));
-            runs.active.RemoveAt(index);
-            return out;
+            return out; // the run goes with the call
         }
 
-        ToolOutcome Step(EditorContext& context, Runs& runs, usize index)
+        ToolOutcome Step(EditorContext& context, Run& run)
         {
-            Run& run = runs.active[index];
             IPieInstancePage& pie = *ServiceOf<IPieInstancePage>(run.page);
             const f64 t = pie.RunTime() - run.start;
             if (!pie.IsRunning())
             {
-                return Finish(runs, index, u8"stopped", t);
+                return Finish(run, u8"stopped", t);
             }
 
             if (run.shotInFlight)
             {
                 const ViewportCapture& capture = pie.LastViewportCapture();
-                if (capture.state == ViewportCaptureState::Written ||
-                    capture.state == ViewportCaptureState::Failed)
+                if (capture.path != run.shotPath)
+                {
+                    // Another call's capture replaced the shot: once that one is done, ask again.
+                    if (capture.state != ViewportCaptureState::Pending)
+                    {
+                        pie.RequestViewportCapture(run.shotPath.AsView());
+                    }
+                }
+                else if (capture.state == ViewportCaptureState::Written ||
+                         capture.state == ViewportCaptureState::Failed)
                 {
                     JsonValue shot = JsonValue::MakeObject();
                     shot.Set(u8"at", JsonValue::MakeNumber(run.shotAt));
@@ -518,7 +556,7 @@ namespace editor
                     hit.Set(u8"value", Move(value.Value()));
                     hit.Set(u8"t", JsonValue::MakeNumber(t));
                     run.untilHit = Move(hit);
-                    return Finish(runs, index, u8"until", t);
+                    return Finish(run, u8"until", t);
                 }
             }
 
@@ -529,24 +567,25 @@ namespace editor
                 const String name = Format(u8"{}-{}-run{}-{}ms.png", pie.PieId(), ProcessId(),
                                            run.serial, static_cast<i64>(run.shotAt * 1000.0));
                 context.RevealPage(run.page); // a hidden tab never renders
-                pie.RequestViewportCapture(PathJoin(run.shotDirectory.AsView(), name.AsView()).AsView());
+                run.shotPath = PathJoin(run.shotDirectory.AsView(), name.AsView());
+                pie.RequestViewportCapture(run.shotPath.AsView());
                 run.shotInFlight = true;
             }
 
             if (t >= run.duration && !run.shotInFlight && run.nextShot >= run.shotTimes.Size())
             {
-                return Finish(runs, index, u8"duration", t);
+                return Finish(run, u8"duration", t);
             }
             // The run clock stood still: the debugger holds the run, or the editor is not ticking.
             if (run.clock.Elapsed().AsSeconds() > run.duration * 4.0 + 30.0)
             {
-                return Finish(runs, index, u8"timeout", t);
+                return Finish(run, u8"timeout", t);
             }
             return ToolOutcome::NotFinished();
         }
 
-        ToolOutcome Begin(EditorContext& context, Runs& runs, EditorPage* page,
-                          const JsonValue& args)
+        ToolOutcome Begin(EditorContext& context, Runs& runs, foundation::mcp::ToolCall& call,
+                          EditorPage* page, const JsonValue& args)
         {
             IPieInstancePage& pie = *ServiceOf<IPieInstancePage>(page);
             if (!pie.IsRunning())
@@ -554,7 +593,8 @@ namespace editor
                 return Err(Format(u8"PIE instance '{}' is not running (pie_start runs it)",
                                   pie.PieId()));
             }
-            Run run;
+            auto owned = MakeUnique<Run>(context.Allocator());
+            Run& run = *owned;
             const JsonValue durationArg = args.Get(u8"duration");
             if (!durationArg.IsNumber() || durationArg.AsNumber() <= 0.0 ||
                 durationArg.AsNumber() > kMaxDuration)
@@ -680,33 +720,41 @@ namespace editor
             run.serial = ++runs.serial;
             run.clock.Start();
             pie.BeginScriptedInput(Move(source));
-            runs.active.PushBack(Move(run));
+            run.context = &context;
+            run.owner = &runs;
+            run.scripted = true;
+            runs.active.PushBack(&run);
+            call.state = Move(owned);
             return ToolOutcome::NotFinished();
         }
 
-        ToolOutcome Handle(EditorContext& context, Runs& runs, const JsonValue& args)
+        ToolOutcome Handle(EditorContext& context, Runs& runs, foundation::mcp::ToolCall& call,
+                           const JsonValue& args)
         {
-            // A run whose tab closed is over; its page pointer is never used again.
-            for (usize i = runs.active.Size(); i > 0; --i)
+            if (Run* run = call.State<Run>())
             {
-                if (!IsOpenPage(context, runs.active[i - 1].page))
+                // Re-entered: this run, one pump later.
+                if (!IsOpenPage(context, run->page))
                 {
-                    runs.active.RemoveAt(i - 1);
+                    return Err(String(u8"the Game tab closed during the run"));
                 }
+                return Step(context, *run);
             }
             Result<EditorPage*, String> resolved = ResolvePie(context, args);
             if (!resolved.HasValue())
             {
                 return Err(Move(resolved.Error()));
             }
-            for (usize i = 0; i < runs.active.Size(); ++i)
+            for (const Run* active : runs.active)
             {
-                if (runs.active[i].page == resolved.Value())
+                if (active->page == resolved.Value())
                 {
-                    return Step(context, runs, i);
+                    return Err(Format(u8"PIE instance '{}' is already in a pie_run; one run per "
+                                      u8"instance at a time",
+                                      ServiceOf<IPieInstancePage>(resolved.Value())->PieId()));
                 }
             }
-            return Begin(context, runs, resolved.Value(), args);
+            return Begin(context, runs, call, resolved.Value(), args);
         }
     }
 
@@ -770,7 +818,8 @@ namespace editor
             u8"compare with tolerances. Start from pie_start for a reproducible run. One run per "
             u8"instance at a time.",
             Move(schema), ToolAnnotations::Creates(),
-            [ctx, runsPtr, keep = Move(runs)](const JsonValue& args) -> ToolOutcome
-            { return Handle(*ctx, *runsPtr, args); });
+            [ctx, runsPtr, keep = Move(runs)](foundation::mcp::ToolCall& call,
+                                              const JsonValue& args) -> ToolOutcome
+            { return Handle(*ctx, *runsPtr, call, args); });
     }
 }
