@@ -104,33 +104,6 @@ namespace editor
             return nullptr;
         }
 
-        JsonValue StateJson(const IPieInstancePage& pie)
-        {
-            JsonValue out = JsonValue::MakeObject();
-            out.Set(u8"pie", JsonValue::MakeString(String(pie.PieId())));
-            out.Set(u8"running", JsonValue::MakeBool(pie.IsRunning()));
-            out.Set(u8"starting", JsonValue::MakeBool(pie.IsStarting()));
-            out.Set(u8"scene", JsonValue::MakeString(String(pie.SceneName())));
-            out.Set(u8"runTime", JsonValue::MakeNumber(pie.RunTime()));
-            out.Set(u8"frames", JsonValue::MakeNumber(static_cast<f64>(pie.FrameCount())));
-            JsonValue script = JsonValue::MakeObject();
-            switch (pie.ScriptState())
-            {
-            case PieScriptState::None:
-                script.Set(u8"state", JsonValue::MakeString(u8"none"));
-                break;
-            case PieScriptState::Running:
-                script.Set(u8"state", JsonValue::MakeString(u8"running"));
-                break;
-            case PieScriptState::Faulted:
-                script.Set(u8"state", JsonValue::MakeString(u8"faulted"));
-                script.Set(u8"fault", JsonValue::MakeString(String(pie.ScriptFault())));
-                break;
-            }
-            out.Set(u8"script", Move(script));
-            return out;
-        }
-
         ToolOutcome Start(EditorContext& context, PendingPie& pending, const JsonValue& args)
         {
             if (pending.page != nullptr)
@@ -147,7 +120,7 @@ namespace editor
                 if (pie->IsRunning() && pie->FrameCount() > 0)
                 {
                     pending.page = nullptr;
-                    JsonValue out = StateJson(*pie);
+                    JsonValue out = PieStateJson(*pie);
                     out.Set(u8"alreadyRunning", JsonValue::MakeBool(false));
                     return out;
                 }
@@ -176,7 +149,7 @@ namespace editor
                     IPieInstancePage* pie = PieOf(primary);
                     if (pie->IsRunning())
                     {
-                        JsonValue out = StateJson(*pie);
+                        JsonValue out = PieStateJson(*pie);
                         out.Set(u8"alreadyRunning", JsonValue::MakeBool(true));
                         return out;
                     }
@@ -313,6 +286,33 @@ namespace editor
         }
     }
 
+    JsonValue PieStateJson(const IPieInstancePage& pie)
+    {
+        JsonValue out = JsonValue::MakeObject();
+        out.Set(u8"pie", JsonValue::MakeString(String(pie.PieId())));
+        out.Set(u8"running", JsonValue::MakeBool(pie.IsRunning()));
+        out.Set(u8"starting", JsonValue::MakeBool(pie.IsStarting()));
+        out.Set(u8"scene", JsonValue::MakeString(String(pie.SceneName())));
+        out.Set(u8"runTime", JsonValue::MakeNumber(pie.RunTime()));
+        out.Set(u8"frames", JsonValue::MakeNumber(static_cast<f64>(pie.FrameCount())));
+        JsonValue script = JsonValue::MakeObject();
+        switch (pie.ScriptState())
+        {
+        case PieScriptState::None:
+            script.Set(u8"state", JsonValue::MakeString(u8"none"));
+            break;
+        case PieScriptState::Running:
+            script.Set(u8"state", JsonValue::MakeString(u8"running"));
+            break;
+        case PieScriptState::Faulted:
+            script.Set(u8"state", JsonValue::MakeString(u8"faulted"));
+            script.Set(u8"fault", JsonValue::MakeString(String(pie.ScriptFault())));
+            break;
+        }
+        out.Set(u8"script", Move(script));
+        return out;
+    }
+
     Result<EditorPage*, String> ResolvePie(const EditorContext& context, const JsonValue& args)
     {
         const String asked = args.Get(u8"pie").AsString();
@@ -409,7 +409,7 @@ namespace editor
                 {
                     return Err(Move(resolved.Error()));
                 }
-                return StateJson(*PieOf(resolved.Value()));
+                return PieStateJson(*PieOf(resolved.Value()));
             });
 
         server.RegisterTool(
@@ -424,7 +424,7 @@ namespace editor
                 {
                     if (IPieInstancePage* pie = PieOf(open.Get()))
                     {
-                        items.Add(StateJson(*pie));
+                        items.Add(PieStateJson(*pie));
                     }
                 }
                 JsonValue out = JsonValue::MakeObject();
@@ -450,5 +450,7 @@ namespace editor
             ToolAnnotations::Creates(),
             [ctx, capturingPtr, keep = Move(capturing)](const JsonValue& args) -> ToolOutcome
             { return Screenshot(*ctx, *capturingPtr, args); });
+
+        RegisterPieRunTool(server, context);
     }
 }

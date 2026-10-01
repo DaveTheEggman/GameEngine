@@ -3,7 +3,8 @@
 // Editor::Scene - :pie_tools partition (agent-playtesting-and-asset-creation.md P3).
 //
 // The play-in-editor tools the editor's MCP host serves through the scene editor's tool
-// contribution: pie_start, pie_stop, pie_state, pie_list and pie_screenshot. PIE is not one game:
+// contribution: pie_start, pie_stop, pie_state, pie_list, pie_screenshot and pie_run (the
+// playtest, PieRunToolImpl.cpp). PIE is not one game:
 // every Game tab runs its own instance, so every call addresses ONE by its `pie` id (`game-page`
 // for the primary, `game-page-1`, ... for Play New Instance's), defaulting to the primary, and
 // every answer names the instance it is about. A tab is reached through the interface it
@@ -17,13 +18,14 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import editor.core;
+import :pie_page_interface;
 
 using namespace foundation::core;
 
 export namespace editor
 {
     /// The number of tools RegisterPieTools registers; a tripwire like kSceneLiveToolCount.
-    inline constexpr usize kPieToolCount = 5;
+    inline constexpr usize kPieToolCount = 6;
     /// The primary Game tab's PIE id.
     inline constexpr StringView kPrimaryPieId = u8"game-page";
 
@@ -33,4 +35,12 @@ export namespace editor
     /// agent to read, when no such tab is open. The page publishes IPieInstancePage.
     [[nodiscard]] Result<EditorPage*, String> ResolvePie(const EditorContext& context,
                                                          const foundation::json::JsonValue& args);
+}
+
+namespace editor
+{
+    // Inside the module: pie_run's registration (PieRunToolImpl.cpp), and the state pie_state
+    // answers with, which a finished run carries too.
+    void RegisterPieRunTool(foundation::mcp::McpServer& server, EditorContext& context);
+    [[nodiscard]] foundation::json::JsonValue PieStateJson(const IPieInstancePage& pie);
 }

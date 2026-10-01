@@ -12,6 +12,7 @@ import foundation.core;
 import foundation.json;
 import foundation.mcp;
 import foundation.input;
+import foundation.shell;
 import foundation.scene;
 import editor.core;
 import editor.scene;
@@ -406,4 +407,202 @@ TEST_CASE("pie-tools: entity_inspect reads a running game's entity by `pie`")
     rig.primary->Stop();
     got = Pump(rig.server, u8"entity_inspect", u8"{\"pie\":\"game-page\",\"entity\":\"Player\"}");
     CHECK(got.error.AsView().StartsWith(u8"PIE instance 'game-page' is not running a scene"));
+}
+
+// ---- pie_run (agent-playtesting-and-asset-creation.md P4, Sedulous aaf5ff78) ----
+
+namespace
+{
+    /// A stand-in game frame: the page's frame (its clock and its script), then the "game": the
+    /// player walks +x at one unit a second while D is held, and a requested capture lands.
+    void PlayFrame(HeadlessGamePage& page, f64 dt)
+    {
+        page.Frame(dt);
+        if (!page.running)
+        {
+            return;
+        }
+        const foundation::scene::EntityHandle player = page.level.FindEntityByName(u8"Player");
+        if (page.scripted.Get() != nullptr &&
+            page.scripted->Keyboard()->IsKeyDown(foundation::shell::KeyCode::D) &&
+            page.level.IsValid(player))
+        {
+            Transform t = page.level.GetLocalTransform(player);
+            t.position.x += static_cast<f32>(dt);
+            page.level.SetLocalTransform(player, t);
+        }
+        if (page.capture.state == ViewportCaptureState::Pending)
+        {
+            page.capture.state = ViewportCaptureState::Written;
+            page.capture.width = 640;
+            page.capture.height = 360;
+        }
+    }
+
+    HeadlessGamePage* RunningPie(PlayRig& rig, StringView id)
+    {
+        HeadlessGamePage* page = rig.Open(id);
+        page->running = true;
+        page->scene = String(u8"Level1");
+        (void)page->level.CreateEntity(u8"Player");
+        return page;
+    }
+
+    /// Pumps one call until it answers, a frame of the page between pumps.
+    Answer RunToEnd(PlayRig& rig, StringView args, HeadlessGamePage& page, f64 dt)
+    {
+        for (u32 pumps = 0; pumps < 1000; ++pumps)
+        {
+            Answer answer = Pump(rig.server, u8"pie_run", args);
+            if (answer.finished)
+            {
+                return answer;
+            }
+            PlayFrame(page, dt);
+        }
+        FAIL("the run never ended");
+        return Answer{};
+    }
+}
+
+TEST_CASE("pie-tools: a run plays its timeline, samples, shoots, and ends")
+{
+    PlayRig rig;
+    HeadlessGamePage* host = RunningPie(rig, u8"game-page");
+
+    // Refusals change nothing: no script is installed.
+    Answer got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"input\":[{\"at\":0,\"key\":\"Hyper\"}]}");
+    CHECK(got.error.AsView().StartsWith(u8"input[0]: no key 'Hyper'"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"input\":[{\"at\":2,\"key\":\"D\"}]}");
+    CHECK(got.error.AsView().StartsWith(u8"input[0]: `at` 2 is after the run's end"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"input\":[{\"at\":0,\"gamepad\":4,\"button\":\"South\"}]}");
+    CHECK(got.error.AsView().StartsWith(u8"input[0]: `gamepad` takes 0 to 3"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"probes\":[{\"entity\":\"Player\",\"fields\":[\"light.intensity\"]}]}");
+    CHECK(got.error.AsView().StartsWith(u8"entity 'Player' has no field 'light.intensity'"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"probes\":[{\"entity\":\"Ghost\"}]}");
+    CHECK(got.error.AsView().StartsWith(u8"no entity 'Ghost' in PIE instance 'game-page''s scene 'Level1'"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"probes\":[{\"script\":\"lives\"}]}");
+    CHECK(got.error.AsView().StartsWith(u8"the game script of PIE instance 'game-page' has no property 'lives'"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":0}");
+    CHECK(got.error.AsView().StartsWith(u8"`duration` takes run seconds"));
+    CHECK(host->scriptsBegun == 0u);
+
+    // Hold D for a second of a two second run, sampling the player and the score every half
+    // second, with a screenshot at one second.
+    const StringView args =
+        u8"{\"duration\":2,\"input\":[{\"at\":0,\"key\":\"D\"},{\"at\":1,\"key\":\"d\",\"down\":false}],"
+        u8"\"probes\":[{\"entity\":\"Player\",\"fields\":[\"position.x\"]},{\"script\":\"score\"}],"
+        u8"\"every\":0.5,\"screenshots\":[1],\"screenshotDir\":\"shots\"}";
+    got = Pump(rig.server, u8"pie_run", args);
+    CHECK_FALSE(got.finished);
+    CHECK(host->IsScripted());
+    CHECK(host->scriptsBegun == 1u);
+    host->score = 7.0;
+    got = RunToEnd(rig, args, *host, 0.05);
+    REQUIRE(got.ok);
+    const JsonValue& result = got.payload;
+    CHECK(result.Get(u8"endedBy").AsString() == StringView(u8"duration"));
+    CHECK(result.Get(u8"runTime").AsNumber() >= 2.0 - 1e-9);
+    CHECK(result.Get(u8"inputs").AsNumber() == doctest::Approx(2.0));
+    const JsonValue samples = result.Get(u8"samples");
+    // 0, 0.5, 1, 1.5, 2, each read on the frame that reached it; no extra final row.
+    REQUIRE(samples.Count() == 5);
+    f64 last = -1.0;
+    for (i64 i = 0; i < samples.Count(); ++i)
+    {
+        const f64 t = samples.At(i).Get(u8"t").AsNumber();
+        CHECK(t > last);
+        CHECK(t >= static_cast<f64>(i) * 0.5 - 1e-9); // a row is read once its time is reached
+        last = t;
+    }
+    // Walked while D was held (a second, give or take a frame), then stood.
+    const f64 x = samples.At(4).Get(u8"values").Get(u8"Player.position.x").AsNumber();
+    CHECK(x == doctest::Approx(1.0).epsilon(0.1));
+    CHECK(samples.At(4).Get(u8"values").Get(u8"script.score").AsNumber() == doctest::Approx(7.0));
+    const JsonValue shots = result.Get(u8"screenshots");
+    REQUIRE(shots.Count() == 1);
+    CHECK(shots.At(0).Get(u8"at").AsNumber() == doctest::Approx(1.0));
+    CHECK(shots.At(0).Get(u8"path").AsString().AsView().StartsWith(u8"shots/game-page-"));
+    CHECK(shots.At(0).Get(u8"width").AsNumber() == doctest::Approx(640.0));
+    CHECK(result.Get(u8"until").IsNull());
+    CHECK(result.Get(u8"state").Get(u8"running").AsBool());
+
+    // The script ends: its release, then the viewport's input back.
+    CHECK(host->scriptEnding);
+    PlayFrame(*host, 0.05);
+    CHECK_FALSE(host->IsScripted());
+}
+
+TEST_CASE("pie-tools: until ends a run, and a stop ends it too")
+{
+    PlayRig rig;
+    HeadlessGamePage* host = RunningPie(rig, u8"game-page");
+
+    const StringView args = u8"{\"duration\":10,\"input\":[{\"at\":0,\"key\":\"d\"}],\"until\":"
+                            u8"{\"entity\":\"Player\",\"field\":\"position.x\",\"op\":\">=\",\"value\":1.5}}";
+    Answer got = RunToEnd(rig, args, *host, 0.1);
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"endedBy").AsString() == StringView(u8"until"));
+    const JsonValue hit = got.payload.Get(u8"until");
+    CHECK(hit.Get(u8"probe").AsString() == StringView(u8"Player.position.x"));
+    CHECK(hit.Get(u8"value").AsNumber() >= 1.5);
+    CHECK(got.payload.Get(u8"runTime").AsNumber() < 2.0);
+    CHECK(got.payload.Get(u8"samples").Count() == 0); // no probes, no rows
+
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"until\":{\"script\":\"score\",\"op\":\"~\",\"value\":1}}");
+    CHECK(got.error.AsView().StartsWith(u8"`until.op` takes"));
+    got = Pump(rig.server, u8"pie_run", u8"{\"duration\":1,\"until\":{\"script\":\"score\",\"op\":\"<\",\"value\":\"a\"}}");
+    CHECK(got.error.AsView().StartsWith(u8"`until` compares a boolean or a string with == or != only"));
+
+    // A stop mid-run answers what it had, and says so.
+    PlayFrame(*host, 0.1); // the ended script goes
+    const StringView longRun = u8"{\"duration\":30,\"input\":[{\"at\":0,\"key\":\"D\"}],"
+                               u8"\"probes\":[{\"entity\":\"Player\",\"fields\":[\"position.x\"]}]}";
+    CHECK_FALSE(Pump(rig.server, u8"pie_run", longRun).finished);
+    PlayFrame(*host, 0.1);
+    CHECK_FALSE(Pump(rig.server, u8"pie_run", longRun).finished);
+    host->Stop();
+    got = Pump(rig.server, u8"pie_run", longRun);
+    REQUIRE(got.finished);
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"endedBy").AsString() == StringView(u8"stopped"));
+    CHECK(got.payload.Get(u8"samples").Count() == 1);
+    CHECK_FALSE(got.payload.Get(u8"state").Get(u8"running").AsBool());
+}
+
+TEST_CASE("pie-tools: two instances run side by side, and only the scripted one moves")
+{
+    PlayRig rig;
+    HeadlessGamePage* host = RunningPie(rig, u8"game-page");
+    HeadlessGamePage* client = RunningPie(rig, u8"game-page-1");
+
+    // The host walks; the client runs a timeline with nothing in it, over the same seconds.
+    const StringView hostArgs = u8"{\"pie\":\"game-page\",\"duration\":1,\"input\":[{\"at\":0,\"key\":\"D\"}],"
+                                u8"\"probes\":[{\"entity\":\"Player\",\"fields\":[\"position.x\"]}]}";
+    const StringView clientArgs = u8"{\"pie\":\"game-page-1\",\"duration\":1,"
+                                  u8"\"probes\":[{\"entity\":\"Player\",\"fields\":[\"position.x\"]}]}";
+    Answer hostAnswer;
+    Answer clientAnswer;
+    for (u32 pumps = 0; pumps < 100 && (!hostAnswer.finished || !clientAnswer.finished); ++pumps)
+    {
+        if (!hostAnswer.finished)
+        {
+            hostAnswer = Pump(rig.server, u8"pie_run", hostArgs);
+        }
+        if (!clientAnswer.finished)
+        {
+            clientAnswer = Pump(rig.server, u8"pie_run", clientArgs);
+        }
+        PlayFrame(*host, 0.1);
+        PlayFrame(*client, 0.1);
+    }
+    REQUIRE(hostAnswer.ok);
+    REQUIRE(clientAnswer.ok);
+    CHECK(hostAnswer.payload.Get(u8"pie").AsString() == StringView(u8"game-page"));
+    CHECK(clientAnswer.payload.Get(u8"pie").AsString() == StringView(u8"game-page-1"));
+    const JsonValue hostSamples = hostAnswer.payload.Get(u8"samples");
+    const JsonValue clientSamples = clientAnswer.payload.Get(u8"samples");
+    CHECK(hostSamples.At(hostSamples.Count() - 1).Get(u8"values").Get(u8"Player.position.x").AsNumber() > 0.8);
+    CHECK(clientSamples.At(clientSamples.Count() - 1).Get(u8"values").Get(u8"Player.position.x").AsNumber() ==
+          doctest::Approx(0.0));
 }
