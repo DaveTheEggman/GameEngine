@@ -93,6 +93,11 @@ export namespace editor
         }
     };
 
+    // ExportPreset's reflection: every field a preset editor sets, each with a `label` (the
+    // engine.project setting convention), the sizes with their `range`; the MCP preset tools build
+    // their arguments, checks and answers from it. Call before reading TypeOf<ExportPreset>().
+    void RegisterExportPresetReflection();
+
     // ADL hook so Serialize(ar, Array<ExportPreset>&) resolves each element to the member above.
     // Frames each element as its own object node (the generic Array<T> helper does not), so the
     // per-element keys stay separated on read. Declared before ExportPresetSet so it is visible at

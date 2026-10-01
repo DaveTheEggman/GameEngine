@@ -17,6 +17,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h"
 #include "Core/Log/Log.h"
 
 module editor.project;
@@ -44,6 +45,62 @@ namespace vfs = foundation::vfs;
 
 namespace editor
 {
+    REFLECT_VALUE(ExportPreset, "rtti::editor::editor")
+    {
+        using engine::project::kSettingLabelAttribute;
+        const auto label = [&builder](StringView text) { builder.PropAttribute(kSettingLabelAttribute, String(text)); };
+        const Float4 renderSize{0.0f, 16384.0f, 1.0f, 0.0f};
+        const Float4 windowSize{1.0f, 16384.0f, 1.0f, 0.0f};
+        RegisterCoreTypes(); // FitMode
+        RegisterArrayType<String>(); // additionalFiles
+        builder.Property<&ExportPreset::name>("name");
+        label(u8"Name");
+        builder.Property<&ExportPreset::platform>("platform");
+        label(u8"Platform");
+        builder.Property<&ExportPreset::config>("config");
+        label(u8"Config");
+        builder.Property<&ExportPreset::templateId>("templateId");
+        label(u8"Template");
+        builder.Property<&ExportPreset::playerName>("playerName");
+        label(u8"Player name");
+        builder.Property<&ExportPreset::outputSubdir>("outputSubdir");
+        label(u8"Output subdir");
+        builder.Property<&ExportPreset::additionalFiles>("additionalFiles");
+        label(u8"Extra files");
+        builder.Property<&ExportPreset::stageSymbols>("stageSymbols");
+        label(u8"Stage debug symbols");
+        builder.Property<&ExportPreset::pruneToReachable>("pruneToReachable");
+        label(u8"Prune to reachable content");
+        builder.Property<&ExportPreset::overridesRender>("overridesRender");
+        label(u8"Own render size");
+        builder.Property<&ExportPreset::renderWidth>("renderWidth");
+        label(u8"Render width");
+        builder.PropAttribute("range", renderSize);
+        builder.Property<&ExportPreset::renderHeight>("renderHeight");
+        label(u8"Render height");
+        builder.PropAttribute("range", renderSize);
+        builder.Property<&ExportPreset::renderFit>("renderFit");
+        label(u8"Render fit");
+        builder.Property<&ExportPreset::overridesWindow>("overridesWindow");
+        label(u8"Own window");
+        builder.Property<&ExportPreset::windowWidth>("windowWidth");
+        label(u8"Window width");
+        builder.PropAttribute("range", windowSize);
+        builder.Property<&ExportPreset::windowHeight>("windowHeight");
+        label(u8"Window height");
+        builder.PropAttribute("range", windowSize);
+        builder.Property<&ExportPreset::windowMode>("windowMode");
+        label(u8"Window mode");
+        builder.Property<&ExportPreset::windowResizable>("windowResizable");
+        label(u8"Window resizable");
+    }
+
+    void RegisterExportPresetReflection()
+    {
+        (void)engine::project::ProjectSettings::StaticType(); // WindowMode's enumerators
+        RttiRegisterValue_ExportPreset();
+    }
+
     namespace
     {
         // The cooked-blob formats a target platform's runtime needs: web = WGSL, Windows = SPIR-V

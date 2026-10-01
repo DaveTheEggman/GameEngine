@@ -435,6 +435,39 @@ TEST_CASE("export: a preset's display overrides what the dist manifest carries")
     NukeTree(dir.AsView());
 }
 
+// Sedulous 4f483f5e (reflected here, not a hand list): every field a preset editor sets is
+// described by ExportPreset's reflection, labelled, the sizes with their ranges.
+TEST_CASE("export: a preset describes its fields through reflection")
+{
+    editor::RegisterExportPresetReflection();
+    const TypeInfo& type = TypeOf<editor::ExportPreset>();
+    usize labelled = 0;
+    for (const PropertyInfo& property : Properties(type))
+    {
+        CAPTURE(property.name);
+        CHECK(engine::project::SettingAttribute(property, engine::project::kSettingLabelAttribute) != nullptr);
+        ++labelled;
+    }
+    CHECK(labelled == 18u);
+    const PropertyInfo* files = FindProperty(type, "additionalFiles");
+    REQUIRE(files != nullptr);
+    CHECK(IsContainer(*files->type));
+    const PropertyInfo* mode = FindProperty(type, "windowMode");
+    REQUIRE(mode != nullptr);
+    CHECK(EnumeratorCount(*mode->type) == 3u);
+    const PropertyInfo* fit = FindProperty(type, "renderFit");
+    REQUIRE(fit != nullptr);
+    CHECK(EnumeratorCount(*fit->type) == 4u);
+    CHECK(FindAttribute(*FindProperty(type, "windowWidth"), u8"range") != nullptr);
+
+    // Reading a field through it reads the preset.
+    editor::ExportPreset preset;
+    preset.platform = String(u8"Linux64");
+    const PropertyInfo* platform = FindProperty(type, "platform");
+    REQUIRE(platform != nullptr);
+    CHECK(*static_cast<const String*>(platform->address(Instance(&preset, &type))) == StringView(u8"Linux64"));
+}
+
 TEST_CASE("export: preset set round-trips through export_presets.xml")
 {
     const String dir = PathJoin(StringView(reinterpret_cast<const utf8char*>(
