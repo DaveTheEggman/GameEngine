@@ -3,10 +3,9 @@
 
 // Editor::App - :settings_dialog partition.
 //
-// ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the fields a
-// user meaningfully changes from inside the editor: project name, the default scene (picked
-// through the guid-authoritative AssetPickerDialog, filtered to scenes), and the startup game
-// script path. The engine version stamp is shown read-only (every save re-stamps it to the
+// ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the settings
+// ProjectSettings' reflection describes (its name, native module and asset settings, each asset
+// slot filtered to the type the setting names) and the MSAA level. The engine version stamp is shown read-only (every save re-stamps it to the
 // running engine; the launcher/project-manager owns migration).
 //
 // [Save] writes the fields back into EditorProject::Settings() and persists the manifest;
@@ -24,6 +23,7 @@ import foundation.core;
 import foundation.content;
 import foundation.ui;
 import engine.render; // the canonical MSAA level table (kMsaaLevels + index<->samples helpers)
+import engine.project; // ProjectSettings' reflected settings
 import editor.core;
 import :resource_ref_editor;
 
@@ -52,46 +52,11 @@ export namespace editor::app
             column->Direction = ui::Orientation::Vertical;
             column->Spacing = 8;
 
-            m_nameEdit = AddTextRow(*column, u8"Name",
-                                    project != nullptr ? project->Settings().name.AsView()
-                                                       : StringView(u8""));
-
-            // Native game module (game-native-code.md N2): a project-relative path to the
-            // built module (e.g. Native/libMyGame.so); empty = scripts only. Free text -
-            // the module is built outside the editor, so there is nothing to pick from.
-            m_nativeModuleEdit =
-                AddTextRow(*column, u8"Native module",
-                           project != nullptr ? project->Settings().nativeModule.AsView()
-                                              : StringView(u8""));
-
-            // The asset settings: each a slot that picks, takes a dropped asset of its type and
-            // clears, seeded from the manifest (editor-lists-and-asset-slots.md P1).
-            const auto* settings =
-                project != nullptr ? &project->Settings() : nullptr;
-            // The default scene the player and play-in-editor open.
-            AddAssetRow(*column, u8"Default scene", m_sceneId, u8"SceneDocument", u8"(none)",
-                        settings != nullptr ? settings->defaultSceneId : Guid{});
-            // The cooked ScriptClass the player (and the Game tab) binds at startup.
-            AddAssetRow(*column, u8"Startup script", m_scriptId, u8"ScriptClassAsset", u8"(none)",
-                        settings != nullptr ? settings->startupScriptId : Guid{});
-            // The cooked map the player (and the Game tab) binds at startup.
-            AddAssetRow(*column, u8"Default input map", m_inputMapId, u8"InputMapAsset",
-                        u8"(none)", settings != nullptr ? settings->defaultInputMapId : Guid{});
-            // The cooked mixer applied at startup; nil = the built-in neutral four-bus layout.
-            AddAssetRow(*column, u8"Default bus layout", m_busLayoutId, u8"AudioBusLayoutAsset",
-                        u8"(built-in)",
-                        settings != nullptr ? settings->defaultBusLayoutId : Guid{});
-            // The cooked UITheme the game UI defaults to; nil = the built-in GameTheme.
-            AddAssetRow(*column, u8"Default UI theme", m_uiThemeId, u8"UIThemeAsset",
-                        u8"(built-in)", settings != nullptr ? settings->defaultUiThemeId : Guid{});
-            // The cooked UIDocument shown as the boot splash while the default scene streams;
-            // nil = the built-in default (status + progress ids).
-            AddAssetRow(*column, u8"Loading screen", m_loadingDocId, u8"UIDocumentAsset",
-                        u8"(built-in)", settings != nullptr ? settings->loadingDocumentId : Guid{});
-            // The cooked font the game UI falls back to when a document names none (nil renders
-            // no game UI text in a real project until this is set).
-            AddAssetRow(*column, u8"Default UI font", m_uiFontId, u8"FontAsset", u8"(built-in)",
-                        settings != nullptr ? settings->defaultUiFontId : Guid{});
+            // The settings as the type describes them (ProjectSettings' reflection): a text row
+            // per string setting, and per asset setting a slot that picks, takes a dropped asset
+            // of its type and clears, seeded from the manifest (editor-lists-and-asset-slots.md
+            // P1). MSAA, a choice from the render subsystem's levels, follows.
+            BuildSettingRows(*column, project);
 
             // Scene-pass MSAA: Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
             // player and play-in-editor apply it; the render subsystem capability-clamps at runtime
@@ -147,24 +112,33 @@ export namespace editor::app
 
         ui::EditText* AddTextRow(ui::FlexLayout& column, StringView label, StringView value);
 
+        /// One row per reflected setting a row edits: strings as text, asset settings as slots.
+        void BuildSettingRows(ui::FlexLayout& column, editor::EditorProject* project);
+
         /// An asset setting's row: a slot bound to `id` (the value Save applies). Edit and
         /// reveal are left off: this is a modal dialog.
         void AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id, StringView typeName,
-                         StringView emptyText, const Guid& current);
+                         StringView emptyText);
 
         void Apply();
 
+        /// A string setting's row and the reflected property Save writes it to.
+        struct TextSetting
+        {
+            const PropertyInfo* property = nullptr;
+            ui::EditText* edit = nullptr;
+        };
+        /// An asset setting: the reflected property and the value its slot holds.
+        struct AssetSetting
+        {
+            const PropertyInfo* property = nullptr;
+            Guid id;
+        };
+
         editor::EditorContext* m_context;
-        Guid m_inputMapId{};
-        Guid m_busLayoutId{};
-        Guid m_uiThemeId{};
-        Guid m_loadingDocId{};
-        Guid m_uiFontId{};
+        Array<TextSetting> m_texts;
+        Array<AssetSetting> m_assets; // sized before the rows bind to it: never reallocates after
         Array<RefPtr<ResourceRefEditor>> m_assetRows; // the rows' editors; their views sit in rows
-        ui::EditText* m_nameEdit = nullptr;
-        ui::EditText* m_nativeModuleEdit = nullptr; // project-relative path; empty = none
-        Guid m_scriptId{};
-        Guid m_sceneId;
         RefPtr<ui::ComboBox> m_msaaCombo; // scene-pass MSAA: Off/2x/4x -> renderMsaaSamples 1/2/4
     };
 

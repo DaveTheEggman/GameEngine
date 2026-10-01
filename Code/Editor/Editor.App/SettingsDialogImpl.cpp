@@ -3,10 +3,9 @@
 
 // Editor::App - :settings_dialog partition.
 //
-// ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the fields a
-// user meaningfully changes from inside the editor: project name, the default scene (picked
-// through the guid-authoritative AssetPickerDialog, filtered to scenes), and the startup game
-// script path. The engine version stamp is shown read-only (every save re-stamps it to the
+// ProjectSettingsDialog: a modal editor for the project manifest (Project.xml) - the settings
+// ProjectSettings' reflection describes (its name, native module and asset settings, each asset
+// slot filtered to the type the setting names) and the MSAA level. The engine version stamp is shown read-only (every save re-stamps it to the
 // running engine; the launcher/project-manager owns migration).
 //
 // [Save] writes the fields back into EditorProject::Settings() and persists the manifest;
@@ -24,6 +23,7 @@ import foundation.core;
 import foundation.content;
 import foundation.ui;
 import engine.render; // MsaaSamplesForIndex (the canonical MSAA level mapping)
+import engine.project; // ProjectSettings' reflected settings
 import editor.core;
 import :resource_ref_editor;
 
@@ -67,12 +67,57 @@ namespace editor::app
         return raw;
     }
 
+    void ProjectSettingsDialog::BuildSettingRows(ui::FlexLayout& column,
+                                                 editor::EditorProject* project)
+    {
+        namespace proj = engine::project;
+        const TypeInfo& type = proj::ProjectSettings::StaticType();
+        const Instance settings(project != nullptr ? &project->Settings() : nullptr, &type);
+        // The asset settings first, all of them, so the slots bind to entries that stay put.
+        for (const PropertyInfo& property : Properties(type))
+        {
+            if (proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute) != nullptr)
+            {
+                AssetSetting entry;
+                entry.property = &property;
+                if (project != nullptr)
+                {
+                    entry.id = *static_cast<const Guid*>(property.address(settings));
+                }
+                m_assets.PushBack(entry);
+            }
+        }
+        usize asset = 0;
+        for (const PropertyInfo& property : Properties(type))
+        {
+            const String* label = proj::SettingAttribute(property, proj::kSettingLabelAttribute);
+            if (label == nullptr)
+            {
+                continue;
+            }
+            if (const String* assetType =
+                    proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute))
+            {
+                const String* emptyText =
+                    proj::SettingAttribute(property, proj::kSettingEmptyTextAttribute);
+                AddAssetRow(column, label->AsView(), m_assets[asset++].id, assetType->AsView(),
+                            emptyText != nullptr ? emptyText->AsView() : StringView(u8"(none)"));
+            }
+            else if (property.type == &TypeOf<String>())
+            {
+                const StringView value =
+                    project != nullptr
+                        ? static_cast<const String*>(property.address(settings))->AsView()
+                        : StringView(u8"");
+                m_texts.PushBack(TextSetting{&property, AddTextRow(column, label->AsView(), value)});
+            }
+        }
+    }
+
     void ProjectSettingsDialog::AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id,
-                                            StringView typeName, StringView emptyText,
-                                            const Guid& current)
+                                            StringView typeName, StringView emptyText)
     {
         ui::FlexLayout* row = AddRow(column, label);
-        id = current;
         const StringView types[] = {typeName};
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), label, emptyText, StringView{},
                                                  Span<const StringView>{types, 1});
@@ -96,30 +141,25 @@ namespace editor::app
             Close(ui::DialogResult::Cancel);
             return;
         }
-        project->Settings().name = String(m_nameEdit->Text());
-        project->Settings().nativeModule = String(m_nativeModuleEdit->Text());
-        project->Settings().startupScriptId = m_scriptId;
-        project->Settings().startupScript =
-            String(); // the source-DB path mirror (display / v<6 fallback)
-        if (content::Instance* script =
-                !m_scriptId.IsNil() ? project->SourceDb().GetInstance(m_scriptId) : nullptr)
+        const Instance settings(&project->Settings(),
+                                &engine::project::ProjectSettings::StaticType());
+        for (const TextSetting& text : m_texts)
         {
-            project->Settings().startupScript = script->Path();
+            *static_cast<String*>(text.property->address(settings)) = String(text.edit->Text());
         }
-        project->Settings().defaultSceneId = m_sceneId;
-        project->Settings().defaultInputMapId = m_inputMapId;
-        project->Settings().defaultBusLayoutId = m_busLayoutId;
-        project->Settings().defaultUiThemeId = m_uiThemeId;
-        project->Settings().loadingDocumentId = m_loadingDocId;
-        project->Settings().defaultUiFontId = m_uiFontId;
+        for (const AssetSetting& asset : m_assets)
+        {
+            *static_cast<Guid*>(asset.property->address(settings)) = asset.id;
+        }
         const i32 msaaIdx = (m_msaaCombo.Get() != nullptr) ? m_msaaCombo->SelectedIndex() : 0;
         project->Settings().renderMsaaSamples = engine::render::MsaaSamplesForIndex(msaaIdx);
-        project->Settings().defaultScene = String();
-        if (content::Instance* scene =
-                !m_sceneId.IsNil() ? project->SourceDb().GetInstance(m_sceneId) : nullptr)
-        {
-            project->Settings().defaultScene = scene->Path();
-        }
+        // The source-DB path mirrors beside the guids (display / v<6 fallback).
+        project->Settings().RefreshPathMirrors(
+            [project](const Guid& id)
+            {
+                content::Instance* instance = project->SourceDb().GetInstance(id);
+                return instance != nullptr ? instance->Path() : String();
+            });
         if (project->SaveSettings().IsOk())
         {
             m_context->SetStatus(u8"Project settings saved.");
