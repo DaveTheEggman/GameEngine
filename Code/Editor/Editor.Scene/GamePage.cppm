@@ -297,6 +297,16 @@ export namespace editor
             m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
             m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
                                             { self->CycleResolution(); });
+            // The script debugger beside the viewport: off by default (it takes room the game
+            // wants); opened here, or by a breakpoint or step that pauses the run.
+            m_debuggerToggle = m_toolbar->AddToggle(u8"Debugger");
+            m_debuggerToggle->OnCheckedChanged.Add(
+                [self](ui::toolkit::ToolbarToggle*, bool shown)
+                {
+                    ui::View* panel = self->m_debuggerPanel.RootView();
+                    panel->Visibility = shown ? ui::Visibility::Visible : ui::Visibility::Gone;
+                    panel->Invalidate(); // the stage gives the viewport the room back
+                });
             m_statusLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
             {
@@ -327,6 +337,7 @@ export namespace editor
                 lp.Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(300));
                 lp.Height = foundation::ui::SizeSpec::Match();
                 stage->AddView(m_debuggerPanel.RootView(), lp);
+                m_debuggerPanel.RootView()->Visibility = ui::Visibility::Gone; // until shown
             }
             {
                 foundation::ui::LayoutStyle lp;
@@ -503,6 +514,7 @@ export namespace editor
         ui::toolkit::ToolbarButton* m_playButton = nullptr;
         ui::toolkit::ToolbarButton* m_stopButton = nullptr;
         ui::toolkit::ToolbarToggle* m_pauseToggle = nullptr;
+        ui::toolkit::ToolbarToggle* m_debuggerToggle = nullptr; // shows the script debugger
         ui::toolkit::ToolbarButton* m_restartButton = nullptr;
         ui::toolkit::ToolbarButton* m_resolutionButton = nullptr;
         u32 m_resolutionMode = 0;

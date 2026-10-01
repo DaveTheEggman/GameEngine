@@ -1045,6 +1045,11 @@ namespace editor
                     m_scene->SetSimulationEnabled(false);
                     m_simPausedByDebugger = true;
                 }
+                // A paused run shows why: the panel opens if it was hidden.
+                if (m_debuggerToggle != nullptr && !m_debuggerToggle->IsChecked())
+                {
+                    m_debuggerToggle->SetIsChecked(true);
+                }
                 m_debuggerPanel.Refresh();
                 // Publish the paused location (innermost frame) - the ScriptPage editing
                 // that file shows it as the ExecutionLine marker.
