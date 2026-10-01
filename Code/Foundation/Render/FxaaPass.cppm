@@ -99,8 +99,13 @@ export namespace foundation::render
             }
             const u32 slot =
                 (viewIndex % kMaxViews) * m_framesInFlight + (frameIndex % m_framesInFlight);
+            // The source is the tonemap's intermediate in the target's format: an sRGB target
+            // decodes to linear on sampling and a float one holds linear values (the tonemap
+            // encodes once, where the target is shown), so FXAA's luma is told which it reads.
+            const bool linearInput = rhi::IsSrgb(ldrFormat) || rhi::IsFloat(ldrFormat);
             const f32 push[10] = {texelSize.x, texelSize.y,     uvScale.x, uvScale.y, uvOffset.x,
-                                  uvOffset.y,  subpixelQuality, 0.166f,    0.0312f,   0.0f};
+                                  uvOffset.y,  subpixelQuality, 0.166f,    0.0312f,
+                                  linearInput ? 1.0f : 0.0f};
 
             const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
             graph.AddRenderPass(

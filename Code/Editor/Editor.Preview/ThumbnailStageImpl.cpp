@@ -38,8 +38,9 @@ namespace editor
         constexpr u32 kRenderSize = kTileSize * ThumbnailStage::kSupersample;
 
         // Exact integer box downscale (kSupersample x kSupersample average per output texel)
-        // over RGBA16Float source rows. The tonemap pass already applied the sRGB OETF, so the
-        // values quantize to bytes directly - encoding again would double-gamma the image.
+        // over RGBA16Float source rows. A float target holds LINEAR values (the tonemap encodes
+        // for display once, wherever the target is shown), so the average is taken in linear
+        // light and the result sRGB encoded to bytes; alpha is coverage and stays linear.
         void Downscale(const u8* src, u32 srcRowBytes, image::Image& out)
         {
             constexpr u32 kFactor = ThumbnailStage::kSupersample;
@@ -67,8 +68,9 @@ namespace editor
                     u8* texel = dst + (static_cast<usize>(y) * kTileSize + x) * 4u;
                     for (u32 c = 0; c < 4; ++c)
                     {
-                        texel[c] = static_cast<u8>(
-                            Clamp(sum[c] * kInvSamples, 0.0f, 1.0f) * 255.0f + 0.5f);
+                        const f32 value = Clamp(sum[c] * kInvSamples, 0.0f, 1.0f);
+                        texel[c] = static_cast<u8>((c == 3 ? value : LinearToSrgb(value)) * 255.0f +
+                                                   0.5f);
                     }
                 }
             }

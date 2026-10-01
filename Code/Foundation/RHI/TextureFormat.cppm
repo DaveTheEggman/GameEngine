@@ -150,6 +150,25 @@ export namespace foundation::rhi
         return f >= TextureFormat::BC1RGBAUnorm && f <= TextureFormat::ASTC8x8UnormSrgb;
     }
 
+    /// True for floating-point color formats: they store linear values as written, and whatever
+    /// shows them encodes for display.
+    [[nodiscard]] constexpr bool IsFloat(TextureFormat f)
+    {
+        switch (f)
+        {
+        case TextureFormat::R16Float:
+        case TextureFormat::R32Float:
+        case TextureFormat::RG16Float:
+        case TextureFormat::RG11B10Float:
+        case TextureFormat::RG32Float:
+        case TextureFormat::RGBA16Float:
+        case TextureFormat::RGBA32Float:
+            return true;
+        default:
+            return false;
+        }
+    }
+
     /// True for sRGB variants.
     [[nodiscard]] constexpr bool IsSrgb(TextureFormat f)
     {

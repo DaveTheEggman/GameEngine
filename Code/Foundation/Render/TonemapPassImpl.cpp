@@ -55,9 +55,9 @@ namespace foundation::render
         rhi::PushConstantRange pc{};
         pc.stages = rhi::ShaderStage::Fragment;
         pc.offset = 0;
-        pc.size = sizeof(f32) * 16; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength +
+        pc.size = sizeof(f32) * 20; // exposure + bloom + uvScale.xy + uvOffset.xy + aoStrength +
                                     // debugShowAo + operator + flipSceneY + autoExposure/key/min/max
-                                    // + gradeIntensity + lutSize
+                                    // + gradeIntensity + lutSize + encodeOutput + 3 scalar pads
         rhi::PipelineLayoutDesc pld{};
         pld.bindGroupLayouts = Span<rhi::BindGroupLayout* const>{layouts, 1};
         pld.pushConstantRanges = Span<const rhi::PushConstantRange>{&pc, 1};
@@ -105,13 +105,18 @@ namespace foundation::render
         // valid texture - the shader gates on the flags, never the binding).
         const bool autoOn = autoExposure.view != nullptr && autoExposure.enabled;
         const bool gradeOn = grading.view != nullptr && grading.lutSize >= 2.0f;
-        const f32 push[16] = {
+        // Encode for display ONCE: an sRGB target encodes on write and a float target is linear
+        // (encoded wherever it is shown), so only a plain UNORM target takes the display
+        // encoding as the shader writes it. Writing it to an sRGB swapchain encoded it twice.
+        const bool encodeOutput = !rhi::IsSrgb(ldrFormat) && !rhi::IsFloat(ldrFormat);
+        const f32 push[20] = {
             exposure,          bloomIntensity, uvScale.x,  uvScale.y,
             uvOffset.x,        uvOffset.y,     aoStrength, debugShowAo ? 1.0f : 0.0f,
             agx ? 1.0f : 0.0f, flipSceneY ? 1.0f : 0.0f,
             autoOn ? 1.0f : 0.0f, autoExposure.key, autoExposure.minExposure,
             autoExposure.maxExposure,
-            gradeOn ? grading.intensity : 0.0f, gradeOn ? grading.lutSize : 0.0f};
+            gradeOn ? grading.intensity : 0.0f, gradeOn ? grading.lutSize : 0.0f,
+            encodeOutput ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         rhi::TextureView* autoView = autoOn ? autoExposure.view : nullptr;

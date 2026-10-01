@@ -112,8 +112,8 @@ TEST_CASE("screenshot: rows unpack from the aligned pitch, and BGRA swizzles to 
     CHECK(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA16Float)); // the viewports' target
     CHECK_FALSE(ScreenshotCapture::CanCapture(rhi::TextureFormat::RGBA32Float));
 
-    // A 16-bit float row: display-encoded values quantise straight to bytes, clamped; the pitch
-    // holds 8-byte texels.
+    // A 16-bit float row: linear values, clamped and sRGB encoded to bytes (alpha stays linear);
+    // the pitch holds 8-byte texels.
     const u16 halves[2][4] = {{0x3C00, 0x3800, 0x0000, 0x3C00},  // 1.0, 0.5, 0.0, 1.0
                               {0x4400, 0xBC00, 0x3555, 0x3C00}}; // 4.0 -> 1, -1 -> 0, 1/3, 1.0
     u8 halfRow[pitch];
@@ -126,12 +126,12 @@ TEST_CASE("screenshot: rows unpack from the aligned pitch, and BGRA swizzles to 
     ScreenshotCapture::UnpackRows(halfRow, pitch, 2, 1, rhi::TextureFormat::RGBA16Float,
                                   Span<u8>{fromHalf, sizeof fromHalf});
     CHECK(fromHalf[0] == 255);
-    CHECK(fromHalf[1] == 128); // 0.5 * 255 + 0.5 rounds to 128
+    CHECK(fromHalf[1] == 188); // linear 0.5 is sRGB 0.735
     CHECK(fromHalf[2] == 0);
     CHECK(fromHalf[3] == 255);
     CHECK(fromHalf[4] == 255); // clamped high
     CHECK(fromHalf[5] == 0);   // clamped low
-    CHECK(fromHalf[6] == 85);  // 1/3
+    CHECK(fromHalf[6] == 156); // linear 1/3 is sRGB 0.612
     CHECK(fromHalf[7] == 255);
     CHECK(ScreenshotCapture::IsBgra(rhi::TextureFormat::BGRA8Unorm));
     CHECK_FALSE(ScreenshotCapture::IsBgra(rhi::TextureFormat::RGBA8UnormSrgb));
@@ -221,10 +221,12 @@ namespace
         REQUIRE(loaded.Format() == image::PixelFormat::RGBA8);
         const u8* p = loaded.PixelData().Data() + (5 * w + 5) * 4;
         INFO(doctest::String(name) << ": " << int(p[0]) << "," << int(p[1]) << "," << int(p[2]) << "," << int(p[3]));
-        // 0.2 / 0.6 / 1.0 in unorm (an sRGB-encoded surface stores encoded bytes, but these
-        // probes are linear formats, so the bytes are the plain unorm values).
-        CHECK(p[0] >= 49); CHECK(p[0] <= 53);
-        CHECK(p[1] >= 151); CHECK(p[1] <= 155);
+        // 0.2 / 0.6 / 1.0: a UNORM probe stores the plain values; the float target holds
+        // linear values, which the capture sRGB encodes (0.2 is 124, 0.6 is 203).
+        const int wantRed = format == rhi::TextureFormat::RGBA16Float ? 124 : 51;
+        const int wantGreen = format == rhi::TextureFormat::RGBA16Float ? 203 : 153;
+        CHECK(Abs(int(p[0]) - wantRed) <= 2);
+        CHECK(Abs(int(p[1]) - wantGreen) <= 2);
         CHECK(p[2] == 255);
         CHECK(p[3] == 255);
 

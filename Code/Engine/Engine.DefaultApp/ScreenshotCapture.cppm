@@ -125,8 +125,8 @@ export namespace engine::runtime
         [[nodiscard]] StringView Path() const noexcept { return m_path.AsView(); }
 
         /// Whether a surface format can be written as an 8-bit PNG: the 8-bit RGBA/BGRA surfaces
-        /// straight through, and RGBA16Float - the viewports' display-encoded LDR target, whose
-        /// values the tonemap already put in [0, 1] - quantised to bytes.
+        /// straight through, and RGBA16Float - the viewports' LINEAR target (the tonemap and the
+        /// UI both write linear there) - encoded to sRGB bytes.
         [[nodiscard]] static bool CanCapture(rhi::TextureFormat format) noexcept
         {
             switch (format)
@@ -212,8 +212,8 @@ export namespace engine::runtime
         }
 
         /// Copies the aligned rows the GPU wrote into a tight RGBA8 image: BGRA swizzled, a
-        /// 16-bit float texel clamped to [0, 1] and quantised (its values are display-encoded
-        /// already - encoding again would double-gamma the image).
+        /// 16-bit float texel clamped to [0, 1] and sRGB encoded, as the editor encodes it for
+        /// the screen (the float target holds linear values; alpha is coverage and stays linear).
         static void UnpackRows(const u8* mapped, u32 bytesPerRow, u32 width, u32 height,
                                rhi::TextureFormat format, Span<u8> outRgba)
         {
@@ -234,7 +234,13 @@ export namespace engine::runtime
                         {
                             u16 bits;
                             MemCopy(&bits, s + c * 2u, sizeof(bits));
-                            d[c] = image::HalfToUnorm8(bits);
+                            if (c == 3)
+                            {
+                                d[c] = image::HalfToUnorm8(bits); // coverage: linear
+                                continue;
+                            }
+                            const f32 linear = Clamp(image::HalfToFloat(bits), 0.0f, 1.0f);
+                            d[c] = static_cast<u8>(LinearToSrgb(linear) * 255.0f + 0.5f);
                         }
                         continue;
                     }
