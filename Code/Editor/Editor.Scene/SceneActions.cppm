@@ -291,11 +291,16 @@ export namespace editor
             d.enabled = [](EditorPage* page) { return !detail::PrimaryOf(page).IsNil(); };
             d.execute = [ctx](EditorPage* page)
             {
-                Array<byte> blob =
-                    detail::EditablePage(page)->EditContext().CopyEntity(detail::PrimaryOf(page));
+                SceneEditContext& edit = detail::EditablePage(page)->EditContext();
+                const Guid primary = detail::PrimaryOf(page);
+                Array<byte> blob = edit.CopyEntity(primary);
                 if (!blob.IsEmpty())
                 {
-                    ctx->SetClipboard(u8"entities", Move(blob));
+                    const scene::EntityHandle handle = edit.Scene().FindEntity(primary);
+                    const StringView name =
+                        handle.IsAssigned() ? edit.Scene().GetEntityName(handle) : StringView{};
+                    ctx->CopyToEditorClipboard(u8"entities", Move(blob),
+                                               Format(u8"entity '{}'", name).AsView());
                 }
             };
             (void)actions.Register(Move(d));

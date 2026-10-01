@@ -1136,12 +1136,14 @@ namespace editor
             auto copyBtn = MakeRef<ui::IconButton>(MemoryAllocator(), icons.copy.Get(), 18.0f);
             copyBtn->TooltipText = String(u8"Copy component");
             copyBtn->OnClick.Add(
-                [edit, editor, id, type](ui::ButtonBase*)
+                [edit, editor, id, type, copiedName = Format(u8"component '{}'", category)](
+                    ui::ButtonBase*)
                 {
                     Array<byte> blob = edit->CopyComponent(id, type);
                     if (!blob.IsEmpty())
                     {
-                        editor->SetClipboard(u8"component", Move(blob));
+                        editor->CopyToEditorClipboard(u8"component", Move(blob),
+                                                      copiedName.AsView());
                     }
                 });
             actions->AddView(copyBtn.Get());

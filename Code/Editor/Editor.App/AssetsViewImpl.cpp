@@ -1104,23 +1104,20 @@ namespace editor::app
         menu->AddItem(u8"Copy GUID",
                       [self, id]()
                       {
-                          if (ui::IClipboard* clipboard =
-                                  self->Context ? self->Context->Clipboard() : nullptr)
-                          {
-                              utf8char text[37];
-                              id.ToChars(text);
-                              (void)clipboard->SetText(StringView(text, 36));
-                          }
+                          utf8char text[37];
+                          id.ToChars(text);
+                          (void)self->m_context->CopyText(
+                              self->Context ? self->Context->Clipboard() : nullptr,
+                              StringView(text, 36), u8"GUID");
                       });
         menu->AddItem(u8"Copy Path",
                       [self, id]()
                       {
-                          ui::IClipboard* clipboard =
-                              self->Context ? self->Context->Clipboard() : nullptr;
-                          content::Instance* inst = self->Resolve(id);
-                          if (clipboard != nullptr && inst != nullptr)
+                          if (content::Instance* inst = self->Resolve(id))
                           {
-                              (void)clipboard->SetText(inst->Path().AsView());
+                              (void)self->m_context->CopyText(
+                                  self->Context ? self->Context->Clipboard() : nullptr,
+                                  inst->Path().AsView(), u8"path");
                           }
                       });
         menu->AddItem(m_context->IsFavorite(id) ? StringView(u8"Unpin favorite")

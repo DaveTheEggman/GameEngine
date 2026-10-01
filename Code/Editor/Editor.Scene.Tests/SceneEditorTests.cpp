@@ -264,7 +264,51 @@ TEST_CASE("hierarchy: Copy ID puts the entity's persistent guid on the text clip
     CHECK(clipboard.stored == Format(u8"{}", entity)); // the guid text, as the scene file spells it
     CHECK(clipboard.stored.Size() == 36u);
     CHECK_FALSE(hierarchyRef->CopyEntityId(Guid{})); // nil is never an id to copy
+
+    // With the editor beside it, the copy says what it copied (Sedulous 714bfd5f).
+    EditorContext editor{DefaultAllocator()};
+    String notice;
+    NoticeKind noticeKind = NoticeKind::Info;
+    editor.OnNotice = [&](NoticeKind kind, StringView message)
+    {
+        noticeKind = kind;
+        notice = String(message);
+    };
+    hierarchyRef->SetEditorContext(&editor);
+    REQUIRE(hierarchyRef->CopyEntityId(entity));
+    CHECK(noticeKind == NoticeKind::Success);
+    CHECK(notice == u8"Copied entity ID");
     root->RemoveView(hierarchyRef.Get());
+}
+
+TEST_CASE("editor-context: a copy the user asks for says what it copied, or that it could not")
+{
+    EditorContext editor{DefaultAllocator()};
+    String notice;
+    NoticeKind noticeKind = NoticeKind::Info;
+    editor.OnNotice = [&](NoticeKind kind, StringView message)
+    {
+        noticeKind = kind;
+        notice = String(message);
+    };
+    TestClipboard clipboard;
+    CHECK(editor.CopyText(&clipboard, u8"Content/Hero.xasset", u8"path"));
+    CHECK(clipboard.stored == u8"Content/Hero.xasset");
+    CHECK(noticeKind == NoticeKind::Success);
+    CHECK(notice == u8"Copied path");
+
+    // No clipboard (a headless view): a warning, not a silent no-op.
+    CHECK_FALSE(editor.CopyText(nullptr, u8"x", u8"GUID"));
+    CHECK(noticeKind == NoticeKind::Warning);
+    CHECK(notice == u8"Could not copy GUID to the clipboard");
+
+    // The typed editor clipboard: the slot holds the blob, and the toast names it.
+    Array<byte> blob;
+    blob.PushBack(byte{7});
+    editor.CopyToEditorClipboard(u8"component", Move(blob), u8"component 'Light'");
+    CHECK(editor.ClipboardKind() == u8"component");
+    CHECK(editor.ClipboardData(u8"component").Size() == 1u);
+    CHECK(notice == u8"Copied component 'Light'");
 }
 
 TEST_CASE("hierarchy: collapse state survives snapshot rebuilds")

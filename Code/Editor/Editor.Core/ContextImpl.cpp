@@ -16,6 +16,7 @@ module;
 module editor.core;
 
 import foundation.core;
+import foundation.ui;
 import foundation.resource;
 import pipeline.importer;
 import foundation.content;
@@ -181,6 +182,24 @@ namespace editor
     {
         m_clipboardKind = String(kind);
         m_clipboard = Move(data);
+    }
+
+    void EditorContext::CopyToEditorClipboard(StringView kind, Array<byte> data, StringView what)
+    {
+        SetClipboard(kind, Move(data));
+        Notify(NoticeKind::Success, Format(u8"Copied {}", what).AsView());
+    }
+
+    bool EditorContext::CopyText(foundation::ui::IClipboard* clipboard, StringView text,
+                                 StringView what)
+    {
+        if (clipboard == nullptr || !clipboard->SetText(text).IsOk())
+        {
+            Notify(NoticeKind::Warning, Format(u8"Could not copy {} to the clipboard", what).AsView());
+            return false;
+        }
+        Notify(NoticeKind::Success, Format(u8"Copied {}", what).AsView());
+        return true;
     }
 
     Span<const byte> EditorContext::ClipboardData(StringView kind) const noexcept

@@ -47,6 +47,10 @@ namespace editor
             return false;
         }
         const String text = Format(u8"{}", id);
+        if (m_editor != nullptr)
+        {
+            return m_editor->CopyText(clipboard, text.AsView(), u8"entity ID"); // with its toast
+        }
         return clipboard->SetText(text.AsView()).IsOk();
     }
 

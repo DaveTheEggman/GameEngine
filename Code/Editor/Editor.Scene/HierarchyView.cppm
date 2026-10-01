@@ -343,7 +343,7 @@ export namespace editor
         EditorActionRegistry* m_actions = nullptr; // borrowed; the menus' actions
 
         EditorPage* m_subject = nullptr;           // borrowed; the page they run over          // borrowed (the page owns it)
-        EditorContext* m_editor = nullptr; // borrowed; clipboard home (optional)
+        EditorContext* m_editor = nullptr; // borrowed; clipboard home and copy toasts (optional)
         RefPtr<ui::toolkit::DraggableTreeView> m_tree;
         RefPtr<ui::EditText> m_filterEdit;
         UniquePtr<Adapter> m_adapter;
