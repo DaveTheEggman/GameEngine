@@ -584,8 +584,8 @@ TEST_CASE("inline-style: SetStyle_String_OverwriteFreesPrevious")
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     view->SetStyle(StyleProperty::FontFamily, StringView{u8"Roboto"});
     view->SetStyle(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
-    view->SetStyle(StyleProperty::FontFamily, StringView{u8"AttackOfMonster"});
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"LilitaOne"});
 
     CHECK(view->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView{u8"AttackOfMonster"});
+          StringView{u8"LilitaOne"});
 }

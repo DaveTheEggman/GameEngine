@@ -1068,14 +1068,15 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         LoadFontSize(u8"Roboto", fontPath.AsView(), 16.0f);
         LoadFontSize(u8"Roboto", fontPath.AsView(), 24.0f);
 
-        // Decorative families for the pause-menu FontFamily demo (copied from Sedulous assets). GetFont
-        // falls back to Roboto if a family is missing, so the demo still renders if these fail to load.
-        const String monsterPath = DataPath(u8"Assets/fonts/attack-of-monster/Attack Of Monster.ttf");
+        // Decorative families for the pause-menu FontFamily demo (freely licensed: Lilita One OFL).
+        // GetFont falls back to Roboto if a family is missing, so the demo still renders if these
+        // fail to load.
+        const String titlePath = DataPath(u8"Assets/fonts/lilita-one/LilitaOne-Regular.ttf");
         const String junglePath = DataPath(u8"Assets/fonts/jungle-adventurer/JungleAdventurer.ttf");
         const f32 decorativeSizes[] = {14.0f, 18.0f, 24.0f, 32.0f};
         for (f32 s : decorativeSizes)
         {
-            LoadFontSize(u8"AttackOfMonster", monsterPath.AsView(), s);
+            LoadFontSize(u8"LilitaOne", titlePath.AsView(), s);
             LoadFontSize(u8"JungleAdventurer", junglePath.AsView(), s);
         }
     }
@@ -1631,12 +1632,12 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     }
 
     // Inline style demo on the title: override TextColor + FontSize + FontFamily without touching the
-    // theme. The inline FontFamily "AttackOfMonster" wins over the local sheet's "JungleAdventurer".
+    // theme. The inline FontFamily "LilitaOne" wins over the local sheet's "JungleAdventurer".
     if (ui::Label* title = pauseRoot->FindByName<ui::Label>(u8"title"))
     {
         title->SetStyle(ui::StyleProperty::TextColor, Rgb(255, 220, 100));
         title->SetStyle(ui::StyleProperty::FontSize, 32.0f);
-        title->SetStyle(ui::StyleProperty::FontFamily, StringView(u8"AttackOfMonster"));
+        title->SetStyle(ui::StyleProperty::FontFamily, StringView(u8"LilitaOne"));
     }
 
     // LocalStyleSheet demo: scope a theming change to the pause subtree. Every Label gets a size + soft

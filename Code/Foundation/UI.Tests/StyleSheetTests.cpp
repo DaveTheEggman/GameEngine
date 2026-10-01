@@ -92,10 +92,10 @@ TEST_CASE("stylesheet: StringValue_OverwriteFreesPrevious")
     StyleRule rule;
     rule.Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
     rule.Set(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
-    rule.Set(StyleProperty::FontFamily, StringView{u8"AttackOfMonster"});
+    rule.Set(StyleProperty::FontFamily, StringView{u8"LilitaOne"});
 
     CHECK(rule.GetValue(StyleProperty::FontFamily).Value().AsString().Value() ==
-          StringView{u8"AttackOfMonster"});
+          StringView{u8"LilitaOne"});
     CHECK(rule.PropertyCount() == 1u);
 }
 

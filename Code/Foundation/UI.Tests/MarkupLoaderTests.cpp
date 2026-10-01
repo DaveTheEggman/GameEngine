@@ -380,10 +380,10 @@ TEST_CASE("markup: Button_FontFamily")
 {
     EnsureInit();
     auto view =
-        MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Button text=\"Go\" font-family=\"AttackOfMonster\"/>");
+        MarkupLoader::LoadFromString(DefaultAllocator(), u8"<Button text=\"Go\" font-family=\"LilitaOne\"/>");
     Button* btn = Cast<Button>(view.Get());
     REQUIRE(btn != nullptr);
-    CHECK(btn->FontFamily.Value() == u8"AttackOfMonster");
+    CHECK(btn->FontFamily.Value() == u8"LilitaOne");
 }
 
 // === style="..." inline-style attribute ===

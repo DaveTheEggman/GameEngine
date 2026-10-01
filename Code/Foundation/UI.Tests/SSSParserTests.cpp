@@ -437,13 +437,13 @@ TEST_CASE("sss: FloatProperty")
 
 TEST_CASE("sss: FontFamily_QuotedString")
 {
-    Fixture f(LoadSSS(u8"View { font-family: \"Attack Of Monster\"; }"));
+    Fixture f(LoadSSS(u8"View { font-family: \"Lilita One\"; }"));
     core::RefPtr<TestView> view = f.AddView();
     const StyleValue v =
         view->ResolveStyle(StyleProperty::FontFamily); // hold alive: AsString borrows its String
     core::Optional<StringView> s = v.AsString();
     REQUIRE(s.HasValue());
-    CHECK(s.Value() == StringView(u8"Attack Of Monster"));
+    CHECK(s.Value() == StringView(u8"Lilita One"));
 }
 
 // === Cascade + inheritance ===
