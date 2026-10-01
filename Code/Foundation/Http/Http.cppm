@@ -51,6 +51,9 @@ export namespace foundation::http
         String target; // origin-form target, verbatim ("/mcp", "/events?since=5")
         Array<HttpHeader> headers;
         Array<byte> body;
+        /// The server's number for this request, unique for the server's life and never 0; the
+        /// same every time a request answered not yet is handed back to the handler.
+        u64 sequence = 0;
 
         [[nodiscard]] StringView Header(StringView name) const
         {
@@ -227,6 +230,12 @@ export namespace foundation::http
         {
             m_streamHandler = Move(handler);
         }
+        /// Told of a request answered not yet that will never be answered: its peer left while
+        /// it waited, or the server stopped. A handler keeping state for it lets go.
+        void SetAbandonHandler(Function<void(const HttpRequest&)> handler)
+        {
+            m_abandonHandler = Move(handler);
+        }
 
         /// One pump: accept + read + dispatch + write. Returns the number of requests
         /// answered this call (0 = nothing happened; callers may sleep briefly on 0). A
@@ -254,6 +263,8 @@ export namespace foundation::http
         /// (or handed to a stream) and the connection is finished with; false when the
         /// handler answered not yet and the request stays pending.
         bool Dispatch(Connection& connection);
+        /// A pending connection that will not be answered: the abandon handler is told.
+        void NotifyAbandoned(const Connection& connection);
         static void WriteResponse(foundation::net::TcpSocket& socket, const HttpResponse& r);
 
         HttpServerConfig m_config;
@@ -263,6 +274,8 @@ export namespace foundation::http
         Array<RefPtr<SseStream>> m_streams; // server-side refs; swept when closed
         Function<Optional<HttpResponse>(const HttpRequest&)> m_handler;
         Function<void(const HttpRequest&, RefPtr<SseStream>)> m_streamHandler;
+        Function<void(const HttpRequest&)> m_abandonHandler;
+        u64 m_nextSequence = 0;
     };
 
     // ---- client --------------------------------------------------------------------------

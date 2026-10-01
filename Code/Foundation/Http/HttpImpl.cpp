@@ -478,6 +478,10 @@ namespace foundation::http
 
     void HttpServer::Stop()
     {
+        for (const UniquePtr<Connection>& connection : m_connections)
+        {
+            NotifyAbandoned(*connection);
+        }
         m_connections.Clear();
         for (RefPtr<SseStream>& stream : m_streams)
         {
@@ -582,6 +586,14 @@ namespace foundation::http
         return true;
     }
 
+    void HttpServer::NotifyAbandoned(const Connection& connection)
+    {
+        if (connection.pending && m_abandonHandler)
+        {
+            m_abandonHandler(connection.request);
+        }
+    }
+
     usize HttpServer::PendingRequestCount() const noexcept
     {
         usize pending = 0;
@@ -630,6 +642,7 @@ namespace foundation::http
                 // handler is asked again.
                 if (connection.socket.Receive(Span<byte>(buffer, sizeof(buffer))) < 0)
                 {
+                    NotifyAbandoned(connection);
                     done = true; // the peer left while waiting - nobody to answer
                 }
                 else if (Dispatch(connection))
@@ -654,6 +667,7 @@ namespace foundation::http
                             connection.request.target = connection.parser.Target();
                             connection.request.headers = connection.parser.Headers();
                             connection.request.body = Move(connection.parser.Body());
+                            connection.request.sequence = ++m_nextSequence;
                             connection.pending = true;
                             if (Dispatch(connection))
                             {

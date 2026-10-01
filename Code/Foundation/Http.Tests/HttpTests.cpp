@@ -248,10 +248,14 @@ TEST_CASE("http: loopback - a request answered not yet is re-dispatched every pu
 
     u32 calls = 0;
     u32 answerOnCall = 3;
+    Array<u64> sequences; // the request's number on each dispatch
+    Array<u64> abandoned;
+    server.SetAbandonHandler([&](const HttpRequest& request) { abandoned.PushBack(request.sequence); });
     server.SetHandler(
         [&](const HttpRequest& request) -> Optional<HttpResponse>
         {
             ++calls;
+            sequences.PushBack(request.sequence);
             if (calls < answerOnCall)
             {
                 return {}; // not yet
@@ -295,6 +299,13 @@ TEST_CASE("http: loopback - a request answered not yet is re-dispatched every pu
     CHECK(sawPending);
     CHECK(answered == 1);
     CHECK(server.PendingRequestCount() == 0);
+    // The request kept its number across its re-dispatches (Sedulous d509904a); answered, it
+    // was not abandoned.
+    REQUIRE(sequences.Size() == 3u);
+    CHECK(sequences[0] != 0u);
+    CHECK(sequences[1] == sequences[0]);
+    CHECK(sequences[2] == sequences[0]);
+    CHECK(abandoned.IsEmpty());
 
     // A peer that sends a request and leaves while the handler keeps saying not yet is dropped:
     // the pending count returns to zero without the handler ever answering.
@@ -321,6 +332,33 @@ TEST_CASE("http: loopback - a request answered not yet is re-dispatched every pu
     }
     CHECK(dropped);
     CHECK(calls >= 1);
+    // The handler is told the departed request will never be answered, by its own number,
+    // a new one.
+    REQUIRE(abandoned.Size() == 1u);
+    CHECK(abandoned[0] == sequences[sequences.Size() - 1]);
+    CHECK(abandoned[0] > sequences[0]);
+
+    // A request still waiting when the server stops is abandoned too.
+    bool stoppedDone = false;
+    Thread waiting(
+        [&]
+        {
+            HttpRequest get;
+            get.method = String(u8"GET");
+            get.target = String(u8"/stop");
+            (void)HttpFetch(u8"127.0.0.1", port, get);
+            stoppedDone = true;
+        });
+    for (u32 i = 0; i < 5000 && server.PendingRequestCount() == 0; ++i)
+    {
+        (void)server.Pump();
+        SleepMilliseconds(1);
+    }
+    REQUIRE(server.PendingRequestCount() == 1u);
+    server.Stop();
+    waiting.Join();
+    CHECK(stoppedDone);
+    CHECK(abandoned.Size() == 2u);
 }
 
 TEST_CASE("http: loopback - a Server-Sent Events stream delivers events as they are written")
