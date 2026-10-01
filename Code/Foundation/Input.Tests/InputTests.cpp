@@ -911,3 +911,39 @@ TEST_CASE("input reflection: the InputMap container tree is traversable via refl
     REQUIRE(aName != nullptr);
     CHECK(GetProperty(*aName, actionInst).Get<String>() == StringView(u8"Jump"));
 }
+
+// Sedulous a577cb16 and a700e581: every code an input map stores as a number has a reflected
+// name, so type_info names it and a scripted playtest parses it - every case below Count, held
+// to the enum so a code added without a name fails here.
+TEST_CASE("input reflection: every input code reflects its cases")
+{
+    using namespace foundation::input;
+    namespace shell = foundation::shell;
+    RegisterInputTypeReflection();
+
+    const auto everyCaseNamed = [](const TypeInfo& type, u32 count)
+    {
+        CAPTURE(type.name);
+        REQUIRE(IsEnum(type));
+        for (u32 value = 0; value < count; ++value)
+        {
+            CAPTURE(value);
+            CHECK(EnumValueName(type, static_cast<i64>(value)) != nullptr);
+        }
+        CHECK(EnumeratorCount(type) == count);
+    };
+    everyCaseNamed(TypeOf<shell::KeyCode>(), static_cast<u32>(shell::KeyCode::Count));
+    everyCaseNamed(TypeOf<shell::MouseButton>(), static_cast<u32>(shell::MouseButton::Count));
+    everyCaseNamed(TypeOf<shell::GamepadButton>(), static_cast<u32>(shell::GamepadButton::Count));
+    everyCaseNamed(TypeOf<shell::GamepadAxis>(), static_cast<u32>(shell::GamepadAxis::Count));
+    everyCaseNamed(TypeOf<MouseAxisCode>(), 3u);
+    everyCaseNamed(TypeOf<StickCode>(), 2u);
+
+    // The names are the cases': a tool reads "Space" for a stored code.
+    i64 space = 0;
+    REQUIRE(EnumValueByName(TypeOf<shell::KeyCode>(), "Space", space));
+    CHECK(space == static_cast<i64>(shell::KeyCode::Space));
+    CHECK(StringView(reinterpret_cast<const utf8char*>(EnumValueName(
+              TypeOf<shell::GamepadButton>(), static_cast<i64>(shell::GamepadButton::South)))) ==
+          u8"South");
+}

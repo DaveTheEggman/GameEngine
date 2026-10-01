@@ -28,6 +28,10 @@ namespace core = foundation::core;
 
 export namespace foundation::shell
 {
+    /// Reflects the input code enums (KeyCode, MouseButton, GamepadButton, GamepadAxis) so tools
+    /// name their cases; idempotent. foundation.input's RegisterInputTypeReflection calls it.
+    void RegisterShellInputReflection();
+
     enum class WindowSystem : core::u8
     {
         Unknown,

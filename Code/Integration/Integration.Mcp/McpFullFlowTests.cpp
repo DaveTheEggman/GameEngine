@@ -496,6 +496,17 @@ TEST_CASE("integration.mcp: asset_creators and asset_create make what File > New
               .AsView()
               .ContainsIgnoreCase(u8"no creator labelled"));
 
+    // Sedulous a700e581: every code an input map stores as a number names its cases in
+    // type_info, so an agent editing bindings reads them.
+    for (StringView code : {StringView(u8"KeyCode"), StringView(u8"MouseButton"),
+                            StringView(u8"GamepadButton"), StringView(u8"GamepadAxis"),
+                            StringView(u8"MouseAxisCode"), StringView(u8"StickCode")})
+    {
+        CAPTURE(String(code).CStr());
+        JsonValue info = FfCall(server, u8"type_info", FfStr(JsonValue::MakeObject(), u8"type", code));
+        CHECK(info.Get(u8"enum").Count() >= 2);
+    }
+
     owner.project.Reset();
     session.project = nullptr;
     (void)RemoveDirectoryRecursive(u8"mcp_create_project");

@@ -17,6 +17,7 @@ module;
 module foundation.input;
 
 import foundation.core;
+import foundation.shell; // RegisterShellInputReflection
 
 using namespace foundation::core;
 
@@ -34,6 +35,21 @@ namespace foundation::input
         builder.Value("Composite2D", BindingSource::Composite2D);
         builder.Value("TouchButton", BindingSource::TouchButton);
         builder.Value("TouchStick", BindingSource::TouchStick);
+    }
+
+    // The input map's own codes beside the shell's (Sedulous a700e581): what a binding's `code`
+    // means for a MouseAxis and a GamepadStick binding.
+    REFLECT_ENUM(MouseAxisCode, "rtti::input")
+    {
+        builder.Value("DeltaX", MouseAxisCode::DeltaX);
+        builder.Value("DeltaY", MouseAxisCode::DeltaY);
+        builder.Value("Wheel", MouseAxisCode::Wheel);
+    }
+
+    REFLECT_ENUM(StickCode, "rtti::input")
+    {
+        builder.Value("Left", StickCode::Left);
+        builder.Value("Right", StickCode::Right);
     }
 
     REFLECT_ENUM(ActionKind, "rtti::input")
@@ -129,7 +145,12 @@ namespace foundation::input
     {
         static const bool once = []()
         {
+            foundation::shell::RegisterShellInputReflection(); // the key/button/axis codes
             RttiRegisterEnum_BindingSource();
+            RttiRegisterEnum_MouseAxisCode();
+            RttiRegisterEnum_StickCode();
+            GlobalTypeRegistry().Register(TypeOf<MouseAxisCode>()); // type_info finds them by name
+            GlobalTypeRegistry().Register(TypeOf<StickCode>());
             RttiRegisterEnum_ActionKind();
             RttiRegisterEnum_InteractionKind();
             RttiRegisterValue_Binding();
