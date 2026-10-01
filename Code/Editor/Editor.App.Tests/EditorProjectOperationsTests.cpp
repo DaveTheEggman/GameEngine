@@ -16,6 +16,7 @@ import foundation.content;
 import pipeline.core;
 import pipeline.importer;
 import editor.core;
+import foundation.mcp;
 import editor.mcp;
 import editor.app;
 
@@ -141,13 +142,15 @@ namespace
     editor::mcp::OperationStep<T> Drive(Bench& bench, Step step, u32& waited)
     {
         waited = 0;
+        foundation::mcp::ToolCall call; // one call, re-entered after each pump
         for (u32 i = 0; i < 5000; ++i)
         {
-            editor::mcp::OperationStep<T> result = step();
+            editor::mcp::OperationStep<T> result = step(call);
             if (!result.HasValue() || result.Value().HasValue())
             {
                 return result;
             }
+            call.isReentry = true;
             ++waited;
             bench.Pump();
         }
@@ -162,7 +165,7 @@ TEST_CASE("editor-operations: a cook rides the cook service - not finished until
     app::EditorProjectOperations ops(bench.Seams());
     u32 waited = 0;
     editor::mcp::OperationStep<editor::mcp::CookOutcome> first =
-        Drive<editor::mcp::CookOutcome>(bench, [&ops]() { return ops.Cook(false); }, waited);
+        Drive<editor::mcp::CookOutcome>(bench, [&ops](foundation::mcp::ToolCall& call) { return ops.Cook(call, false); }, waited);
     REQUIRE(first.HasValue());
     REQUIRE(first.Value().HasValue());
     CHECK(waited >= 1u); // the first entry only requested; the worker answered later
@@ -171,7 +174,7 @@ TEST_CASE("editor-operations: a cook rides the cook service - not finished until
 
     // The state resets: a second cook starts a new wait rather than answering from the old.
     editor::mcp::OperationStep<editor::mcp::CookOutcome> second =
-        Drive<editor::mcp::CookOutcome>(bench, [&ops]() { return ops.Cook(true); }, waited);
+        Drive<editor::mcp::CookOutcome>(bench, [&ops](foundation::mcp::ToolCall& call) { return ops.Cook(call, true); }, waited);
     REQUIRE(second.HasValue());
     REQUIRE(second.Value().HasValue());
     CHECK(waited >= 1u);
@@ -200,7 +203,7 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
 
     u32 waited = 0;
     editor::mcp::OperationStep<editor::mcp::ImportOutcome> step =
-        Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+        Drive<editor::mcp::ImportOutcome>(bench, [&](foundation::mcp::ToolCall& call) { return ops.Import(call, request); }, waited);
     REQUIRE(step.HasValue());
     REQUIRE(step.Value().HasValue());
     const editor::mcp::ImportOutcome& outcome = step.Value().Value();
@@ -223,7 +226,7 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
     // An inline importer (no worker prepare) places at once and still flushes on the job.
     TwoPhaseImporter inlineImporter(/*worker=*/false);
     request.importer = &inlineImporter;
-    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&](foundation::mcp::ToolCall& call) { return ops.Import(call, request); }, waited);
     REQUIRE(step.HasValue());
     REQUIRE(step.Value().HasValue());
     CHECK(inlineImporter.prepares == 0u);
@@ -232,14 +235,72 @@ TEST_CASE("editor-operations: an import runs the two-phase path - worker prepare
     // A placement failure is the tool's error, and the state is clean for the next call.
     TwoPhaseImporter failing(/*worker=*/false, /*failPlacement=*/true);
     request.importer = &failing;
-    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&](foundation::mcp::ToolCall& call) { return ops.Import(call, request); }, waited);
     REQUIRE_FALSE(step.HasValue());
     CHECK(step.Error().AsView().StartsWith(u8"import of 'anything.two' failed"));
     CHECK(afterImports == 2u); // a failed import has no after
     request.importer = &inlineImporter;
-    step = Drive<editor::mcp::ImportOutcome>(bench, [&]() { return ops.Import(request); }, waited);
+    step = Drive<editor::mcp::ImportOutcome>(bench, [&](foundation::mcp::ToolCall& call) { return ops.Import(call, request); }, waited);
     REQUIRE(step.HasValue());
     REQUIRE(step.Value().HasValue());
+}
+
+// Sedulous 76880c06: each import's progress is its call's own, so two agents' imports run side by
+// side, each to its own answer; a call whose caller left ends, its job keeping what it
+// shares until it is done.
+TEST_CASE("editor-operations: two imports run side by side, each on its own call")
+{
+    Bench bench(u8"mcp_ops_two_imports");
+    app::EditorProjectOperations ops(bench.Seams());
+    TwoPhaseImporter importer(/*worker=*/true);
+    editor::mcp::ImportRequest request;
+    request.source = String(u8"anything.two");
+    request.importer = &importer;
+
+    foundation::mcp::ToolCall first;
+    foundation::mcp::ToolCall second;
+    Optional<editor::mcp::ImportOutcome> firstDone;
+    Optional<editor::mcp::ImportOutcome> secondDone;
+    for (u32 i = 0; i < 5000 && !(firstDone.HasValue() && secondDone.HasValue()); ++i)
+    {
+        if (!firstDone.HasValue())
+        {
+            editor::mcp::OperationStep<editor::mcp::ImportOutcome> step = ops.Import(first, request);
+            REQUIRE(step.HasValue());
+            firstDone = Move(step.Value());
+            first.isReentry = true;
+        }
+        if (!secondDone.HasValue())
+        {
+            editor::mcp::OperationStep<editor::mcp::ImportOutcome> step = ops.Import(second, request);
+            REQUIRE(step.HasValue());
+            secondDone = Move(step.Value());
+            second.isReentry = true;
+        }
+        bench.Pump();
+    }
+    REQUIRE(firstDone.HasValue());
+    REQUIRE(secondDone.HasValue());
+    // Each call ran its own prepare, placement and flush (the one source lands on one asset).
+    CHECK(importer.prepares == 2u);
+    CHECK(importer.imports == 2u);
+    CHECK(firstDone.Value().deferredWrites == 1u);
+    CHECK(secondDone.Value().deferredWrites == 1u);
+    content::Instance* instance = bench.project->SourceDb().GetInstance(secondDone.Value().guid);
+    REQUIRE(instance != nullptr);
+    CHECK(instance->ReadData(u8"bulk").Get() != nullptr);
+
+    // A call whose caller leaves mid-import ends: its state goes, the job finishes on its own.
+    {
+        foundation::mcp::ToolCall left;
+        editor::mcp::OperationStep<editor::mcp::ImportOutcome> step = ops.Import(left, request);
+        REQUIRE(step.HasValue());
+        CHECK_FALSE(step.Value().HasValue()); // preparing on the worker
+    }
+    for (u32 i = 0; i < 50; ++i)
+    {
+        bench.Pump(); // the job lands with no call to read it, harmlessly
+    }
 }
 
 TEST_CASE("editor-operations: an export cooks first, then runs the export job, and the job's "
@@ -256,7 +317,7 @@ TEST_CASE("editor-operations: an export cooks first, then runs the export job, a
 
     u32 waited = 0;
     editor::mcp::OperationStep<editor::mcp::ExportOutcome> step =
-        Drive<editor::mcp::ExportOutcome>(bench, [&]() { return ops.Export(request); }, waited);
+        Drive<editor::mcp::ExportOutcome>(bench, [&](foundation::mcp::ToolCall& call) { return ops.Export(call, request); }, waited);
     // No template is installed here, so the job fails - after the cook landed and the job ran.
     REQUIRE_FALSE(step.HasValue());
     CHECK(step.Error().AsView().StartsWith(u8"export of preset '"));
@@ -294,21 +355,24 @@ TEST_CASE("editor-operations: a creation waits for the cook gate, then creates a
     request.name = String(u8"Exact");
 
     // Held: not finished, nothing written.
-    editor::mcp::OperationStep<editor::mcp::CreateOutcome> step = ops.Create(request);
+    foundation::mcp::ToolCall held;
+    editor::mcp::OperationStep<editor::mcp::CreateOutcome> step = ops.Create(held, request);
     REQUIRE(step.HasValue());
     CHECK_FALSE(step.Value().HasValue());
     CHECK(effects == 0u);
 
     // Released: created under the exact name in the creator's group, with the effects.
     locked = false;
-    step = ops.Create(request);
+    held.isReentry = true;
+    step = ops.Create(held, request);
     REQUIRE(step.HasValue());
     REQUIRE(step.Value().HasValue());
     CHECK(step.Value().Value().path == u8"Settings/Exact");
     CHECK(effects == 1u);
 
     // The same exact name again is refused, and no effect runs.
-    step = ops.Create(request);
+    foundation::mcp::ToolCall again;
+    step = ops.Create(again, request);
     REQUIRE_FALSE(step.HasValue());
     CHECK(step.Error().AsView().ContainsIgnoreCase(u8"already exists"));
     CHECK(effects == 1u);

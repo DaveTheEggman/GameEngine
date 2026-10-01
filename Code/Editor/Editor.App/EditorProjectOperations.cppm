@@ -20,6 +20,7 @@ import foundation.content;
 import pipeline.core;
 import pipeline.importer;
 import editor.core;
+import foundation.mcp;
 import editor.mcp;
 
 using namespace foundation::core;
@@ -59,21 +60,25 @@ export namespace editor::app
         {
         }
 
-        [[nodiscard]] editor::mcp::OperationStep<editor::mcp::CookOutcome> Cook(bool force) override;
+        // Each call's progress is its own, kept in the call's state, so two agents' imports (or
+        // cooks, or exports) run side by side; a job still running when its call ends (its caller
+        // left) keeps its own reference to what it shares.
+        [[nodiscard]] editor::mcp::OperationStep<editor::mcp::CookOutcome>
+        Cook(foundation::mcp::ToolCall& call, bool force) override;
         [[nodiscard]] editor::mcp::OperationStep<editor::mcp::ImportOutcome>
-        Import(const editor::mcp::ImportRequest& request) override;
+        Import(foundation::mcp::ToolCall& call, const editor::mcp::ImportRequest& request) override;
         [[nodiscard]] editor::mcp::OperationStep<editor::mcp::ExportOutcome>
-        Export(const editor::mcp::ExportRequest& request) override;
+        Export(foundation::mcp::ToolCall& call, const editor::mcp::ExportRequest& request) override;
         /// On the main thread, never while a cook or an export reads the databases (it waits,
         /// as an import's placement does); then the host's effects through onCreated.
         [[nodiscard]] editor::mcp::OperationStep<editor::mcp::CreateOutcome>
-        Create(const editor::mcp::CreateRequest& request) override;
+        Create(foundation::mcp::ToolCall& call, const editor::mcp::CreateRequest& request) override;
 
     private:
         /// A cook requested and awaited: finished once the service's revision has moved past
         /// the one seen at the request and the service is idle again (a request that arrived
         /// mid-cook is remembered by the service and lands one cook later).
-        struct CookWait
+        struct CookWait final : foundation::mcp::ToolCallState
         {
             bool active = false;
             u64 sinceRevision = 0;
@@ -91,7 +96,7 @@ export namespace editor::app
             bool jobDone = false; ///< set on the main thread by the job's completion
             Status jobStatus;
         };
-        struct ImportJob
+        struct ImportJob final : foundation::mcp::ToolCallState
         {
             enum class Phase : u8
             {
@@ -118,7 +123,7 @@ export namespace editor::app
             bool jobDone = false;
             Status jobStatus;
         };
-        struct ExportJob
+        struct ExportJob final : foundation::mcp::ToolCallState
         {
             enum class Phase : u8
             {
@@ -137,13 +142,26 @@ export namespace editor::app
         [[nodiscard]] Result<bool, String> PollCook(CookWait& wait);
         [[nodiscard]] editor::mcp::CookOutcome SummaryOutcome() const;
         [[nodiscard]] bool TimedOut(u64 startedTicks) const;
-        void SubmitImportFlush(const editor::mcp::ImportRequest& request);
-        void SubmitExportJob();
+        /// A creation waiting on the cook gate: when it first waited.
+        struct CreateWait final : foundation::mcp::ToolCallState
+        {
+            u64 startedTicks = 0;
+        };
+
+        /// The call's state of type T, made on its first entry.
+        template <typename T>
+        [[nodiscard]] T& CallState(foundation::mcp::ToolCall& call)
+        {
+            if (call.state.Get() == nullptr)
+            {
+                call.state = MakeUnique<T>(*m_seams.allocator);
+            }
+            return *call.State<T>();
+        }
+
+        void SubmitImportFlush(ImportJob& job, const editor::mcp::ImportRequest& request);
+        void SubmitExportJob(ExportJob& job);
 
         EditorProjectOperationsSeams m_seams;
-        CookWait m_cook;
-        ImportJob m_import;
-        ExportJob m_export;
-        u64 m_createStarted = 0; ///< when a creation first waited on the cook gate; 0 = none
     };
 }

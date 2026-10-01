@@ -300,7 +300,7 @@ namespace
         bool sawCollision = false;
         bool sawPrefab = false;
 
-        editor::mcp::OperationStep<editor::mcp::CookOutcome> Cook(bool force) override
+        editor::mcp::OperationStep<editor::mcp::CookOutcome> Cook(foundation::mcp::ToolCall&, bool force) override
         {
             ++cookEntries;
             if (refuseCook)
@@ -317,12 +317,12 @@ namespace
             return Optional<editor::mcp::CookOutcome>(outcome);
         }
         editor::mcp::OperationStep<editor::mcp::CreateOutcome>
-        Create(const editor::mcp::CreateRequest&) override
+        Create(foundation::mcp::ToolCall&, const editor::mcp::CreateRequest&) override
         {
             return Err(String(u8"this host creates nothing"));
         }
         editor::mcp::OperationStep<editor::mcp::ImportOutcome>
-        Import(const editor::mcp::ImportRequest& request) override
+        Import(foundation::mcp::ToolCall&, const editor::mcp::ImportRequest& request) override
         {
             ++importEntries;
             sawToggles.Clear();
@@ -346,7 +346,7 @@ namespace
             return Optional<editor::mcp::ImportOutcome>(Move(outcome));
         }
         editor::mcp::OperationStep<editor::mcp::ExportOutcome>
-        Export(const editor::mcp::ExportRequest& request) override
+        Export(foundation::mcp::ToolCall&, const editor::mcp::ExportRequest& request) override
         {
             ++exportEntries;
             if (exportEntries < answerOnEntry)

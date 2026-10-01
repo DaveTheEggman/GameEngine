@@ -14,6 +14,7 @@ import foundation.vfs;
 import pipeline.core;
 import pipeline.importer;
 import editor.core;
+import foundation.mcp;
 import editor.mcp;
 
 using namespace foundation::core;
@@ -68,17 +69,19 @@ namespace editor::app
         return outcome;
     }
 
-    OperationStep<CookOutcome> EditorProjectOperations::Cook(bool force)
+    OperationStep<CookOutcome> EditorProjectOperations::Cook(foundation::mcp::ToolCall& call,
+                                                             bool force)
     {
         if (!m_seams.cook->IsReady())
         {
             return Err(String(u8"the editor has no cook service for the open project"));
         }
-        if (!m_cook.active)
+        CookWait& wait = CallState<CookWait>(call);
+        if (!wait.active)
         {
-            BeginCook(m_cook, force);
+            BeginCook(wait, force);
         }
-        Result<bool, String> polled = PollCook(m_cook);
+        Result<bool, String> polled = PollCook(wait);
         if (!polled.HasValue())
         {
             return Err(Move(polled.Error()));
@@ -90,9 +93,10 @@ namespace editor::app
         return Optional<CookOutcome>(SummaryOutcome());
     }
 
-    void EditorProjectOperations::SubmitImportFlush(const editor::mcp::ImportRequest& request)
+    void EditorProjectOperations::SubmitImportFlush(ImportJob& job,
+                                                    const editor::mcp::ImportRequest& request)
     {
-        RefPtr<ImportShared> shared = m_import.shared;
+        RefPtr<ImportShared> shared = job.shared;
         shared->jobDone = false;
         const String source = request.source;
         m_seams.jobs->Submit(
@@ -127,19 +131,16 @@ namespace editor::app
     }
 
     OperationStep<ImportOutcome> EditorProjectOperations::Import(
-        const editor::mcp::ImportRequest& request)
+        foundation::mcp::ToolCall& call, const editor::mcp::ImportRequest& request)
     {
-        ImportJob& job = m_import;
-        const auto fail = [&job](String message) -> OperationStep<ImportOutcome>
-        {
-            job = ImportJob{};
-            return Err(Move(message));
-        };
+        ImportJob& job = CallState<ImportJob>(call);
+        // A failure or an answer ends the call, and its job state with it.
+        const auto fail = [](String message) -> OperationStep<ImportOutcome>
+        { return Err(Move(message)); };
         // Every write has landed: the import is whole, so what follows an import runs now.
         const auto finish = [this, &job, &request]() -> OperationStep<ImportOutcome>
         {
             ImportOutcome outcome = Move(job.outcome);
-            job = ImportJob{};
             if (m_seams.onImported)
             {
                 if (content::Instance* primary =
@@ -253,7 +254,7 @@ namespace editor::app
             }
             // Phase 3, the bulk stream writes, on the worker.
             job.phase = ImportJob::Phase::Flushing;
-            SubmitImportFlush(request);
+            SubmitImportFlush(job, request);
             return Optional<ImportOutcome>{};
         }
         // Flushing.
@@ -277,9 +278,9 @@ namespace editor::app
         return finish();
     }
 
-    void EditorProjectOperations::SubmitExportJob()
+    void EditorProjectOperations::SubmitExportJob(ExportJob& job)
     {
-        RefPtr<ExportShared> shared = m_export.shared;
+        RefPtr<ExportShared> shared = job.shared;
         shared->jobDone = false;
         editor::EditorProject* project = m_seams.project;
         pipeline::BuilderRegistry* builders = m_seams.builders;
@@ -319,14 +320,12 @@ namespace editor::app
     }
 
     OperationStep<ExportOutcome> EditorProjectOperations::Export(
-        const editor::mcp::ExportRequest& request)
+        foundation::mcp::ToolCall& call, const editor::mcp::ExportRequest& request)
     {
-        ExportJob& job = m_export;
-        const auto fail = [&job](String message) -> OperationStep<ExportOutcome>
-        {
-            job = ExportJob{};
-            return Err(Move(message));
-        };
+        ExportJob& job = CallState<ExportJob>(call);
+        // A failure or an answer ends the call, and its job state with it.
+        const auto fail = [](String message) -> OperationStep<ExportOutcome>
+        { return Err(Move(message)); };
         if (job.phase == ExportJob::Phase::Idle)
         {
             if (!m_seams.cook->IsReady())
@@ -376,7 +375,7 @@ namespace editor::app
                 shared.reachableValid = true;
             }
             job.phase = ExportJob::Phase::Running;
-            SubmitExportJob();
+            SubmitExportJob(job);
             return Optional<ExportOutcome>{};
         }
         // Running.
@@ -398,22 +397,22 @@ namespace editor::app
         }
         ExportOutcome outcome;
         outcome.result = Move(job.shared->result);
-        job = ExportJob{};
         return Optional<ExportOutcome>(Move(outcome));
     }
 
     OperationStep<editor::mcp::CreateOutcome>
-    EditorProjectOperations::Create(const editor::mcp::CreateRequest& request)
+    EditorProjectOperations::Create(foundation::mcp::ToolCall& call,
+                                    const editor::mcp::CreateRequest& request)
     {
         if (m_seams.cook->MutationLocked())
         {
-            if (m_createStarted == 0)
+            CreateWait& wait = CallState<CreateWait>(call);
+            if (wait.startedTicks == 0)
             {
-                m_createStarted = GetTicks();
+                wait.startedTicks = GetTicks();
             }
-            if (TimedOut(m_createStarted))
+            if (TimedOut(wait.startedTicks))
             {
-                m_createStarted = 0;
                 return Err(Format(u8"create of a {}: the databases stayed locked by a cook or "
                                   u8"export for {} s",
                                   request.creator->label.AsView(),
@@ -421,7 +420,6 @@ namespace editor::app
             }
             return Optional<editor::mcp::CreateOutcome>{};
         }
-        m_createStarted = 0;
         Result<content::Instance*, String> created =
             editor::mcp::RunAssetCreation(*m_seams.project, request);
         if (!created.HasValue())

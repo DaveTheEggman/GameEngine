@@ -24,6 +24,7 @@ import foundation.core;
 import foundation.content;
 import pipeline.core; // AssetCreator (asset_create)
 import pipeline.importer;
+import foundation.mcp; // ToolCall: each call's progress is its own
 import editor.project;
 
 using namespace foundation::core;
@@ -107,20 +108,27 @@ export namespace editor::mcp
         String path;
     };
 
+    /// Every operation takes its tool call: a host that answers over several pumps keeps the
+    /// call's progress in the call's state, so two agents' operations run side by side and one
+    /// whose caller left ends with its call. A host that answers at once ignores it.
     class IProjectOperations
     {
     public:
         virtual ~IProjectOperations() = default;
         /// The incremental cook over the open project (`force` = rebuild all).
-        [[nodiscard]] virtual OperationStep<CookOutcome> Cook(bool force) = 0;
+        [[nodiscard]] virtual OperationStep<CookOutcome> Cook(foundation::mcp::ToolCall& call,
+                                                              bool force) = 0;
         /// One OS file into the open project's source database (does not cook).
-        [[nodiscard]] virtual OperationStep<ImportOutcome> Import(const ImportRequest& request) = 0;
+        [[nodiscard]] virtual OperationStep<ImportOutcome> Import(foundation::mcp::ToolCall& call,
+                                                                  const ImportRequest& request) = 0;
         /// A shippable dist of the open project through the one export entry point.
-        [[nodiscard]] virtual OperationStep<ExportOutcome> Export(const ExportRequest& request) = 0;
+        [[nodiscard]] virtual OperationStep<ExportOutcome> Export(foundation::mcp::ToolCall& call,
+                                                                  const ExportRequest& request) = 0;
         /// One new asset from a creator (RunAssetCreation), and whatever the host does after a
         /// creation: the editor's cook request and default scene; nothing on the stdio host,
         /// whose agent cooks next.
-        [[nodiscard]] virtual OperationStep<CreateOutcome> Create(const CreateRequest& request) = 0;
+        [[nodiscard]] virtual OperationStep<CreateOutcome> Create(foundation::mcp::ToolCall& call,
+                                                                  const CreateRequest& request) = 0;
     };
 
     /// asset_create's work, the same on every host: the group resolved (made when missing), a

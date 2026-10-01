@@ -143,7 +143,7 @@ export namespace editor::mcp
                 .Boolean(u8"rebuild", u8"force a full re-cook first (default incremental)")
                 .Build(),
                 foundation::mcp::ToolAnnotations::Rebuilds(),
-            [s, ops](const JsonValue& args) -> ToolOutcome
+            [s, ops](foundation::mcp::ToolCall& call, const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
@@ -185,7 +185,7 @@ export namespace editor::mcp
                 request.outRoot = !outArg.IsEmpty() ? outArg
                                                     : PathJoin(s->project->Directory(), u8"Dist");
                 request.rebuild = args.Get(u8"rebuild").AsBool();
-                OperationStep<ExportOutcome> step = ops->Export(request);
+                OperationStep<ExportOutcome> step = ops->Export(call, request);
                 if (!step.HasValue())
                 {
                     return Err(Move(step.Error()));

@@ -79,7 +79,7 @@ export namespace editor::mcp
                                 u8"(default: the creator's defaultGroup)")
                 .Build(),
             foundation::mcp::ToolAnnotations::Creates(),
-            [s, registry, ops](const JsonValue& args) -> ToolOutcome
+            [s, registry, ops](foundation::mcp::ToolCall& call, const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
@@ -113,7 +113,7 @@ export namespace editor::mcp
                 }
                 request.groupPath = args.Get(u8"group").AsString();
                 request.name = args.Get(u8"name").AsString();
-                OperationStep<CreateOutcome> step = ops->Create(request);
+                OperationStep<CreateOutcome> step = ops->Create(call, request);
                 if (!step.HasValue())
                 {
                     return Err(Move(step.Error()));

@@ -325,7 +325,7 @@ export namespace editor::mcp
                 .Property(u8"options", detail::ImportOptionsSchema())
                 .Build(),
                 foundation::mcp::ToolAnnotations::Creates(),
-            [s, imp, ops](const JsonValue& args) -> ToolOutcome
+            [s, imp, ops](foundation::mcp::ToolCall& call, const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
@@ -424,7 +424,7 @@ export namespace editor::mcp
                         *found->value = value.AsBool();
                     }
                 }
-                OperationStep<ImportOutcome> step = ops->Import(request);
+                OperationStep<ImportOutcome> step = ops->Import(call, request);
                 if (!step.HasValue())
                 {
                     return Err(Move(step.Error()));
@@ -466,13 +466,13 @@ export namespace editor::mcp
                 .Boolean(u8"force", u8"re-cook every buildable asset regardless of cleanliness")
                 .Build(),
                 foundation::mcp::ToolAnnotations::Rebuilds(),
-            [s, ops](const JsonValue& args) -> ToolOutcome
+            [s, ops](foundation::mcp::ToolCall& call, const JsonValue& args) -> ToolOutcome
             {
                 if (!s->project)
                 {
                     return Err(String(u8"no project is open (call project_open first)"));
                 }
-                OperationStep<CookOutcome> step = ops->Cook(args.Get(u8"force").AsBool());
+                OperationStep<CookOutcome> step = ops->Cook(call, args.Get(u8"force").AsBool());
                 if (!step.HasValue())
                 {
                     return Err(Move(step.Error()));
@@ -511,7 +511,7 @@ export namespace editor::mcp
         {
         }
 
-        [[nodiscard]] OperationStep<CookOutcome> Cook(bool force) override
+        [[nodiscard]] OperationStep<CookOutcome> Cook(foundation::mcp::ToolCall&, bool force) override
         {
             editor::EditorProject& project = *m_session->project;
             const String sourcesRoot = project.SourcesRoot();
@@ -539,7 +539,8 @@ export namespace editor::mcp
         /// creates only what its importer makes.
         Function<void(content::Instance&, const pipeline::ImportOptions*)> onImported;
 
-        [[nodiscard]] OperationStep<ImportOutcome> Import(const ImportRequest& request) override
+        [[nodiscard]] OperationStep<ImportOutcome> Import(foundation::mcp::ToolCall&,
+                                                          const ImportRequest& request) override
         {
             editor::EditorProject& project = *m_session->project;
             content::Group* group = detail::ResolveGroupPath(project.SourceDb().RootGroup(),
@@ -588,14 +589,16 @@ export namespace editor::mcp
             return Optional<ImportOutcome>(Move(outcome));
         }
 
-        [[nodiscard]] OperationStep<ExportOutcome> Export(const ExportRequest& request) override
+        [[nodiscard]] OperationStep<ExportOutcome> Export(foundation::mcp::ToolCall&,
+                                                          const ExportRequest& request) override
         {
             return RunExportInline(*m_session, *m_builders, m_hostToolDir.AsView(),
                                    m_dataRoot.AsView(), request);
         }
 
         /// Creates at once; nothing follows it here: the agent cooks next.
-        [[nodiscard]] OperationStep<CreateOutcome> Create(const CreateRequest& request) override
+        [[nodiscard]] OperationStep<CreateOutcome> Create(foundation::mcp::ToolCall&,
+                                                          const CreateRequest& request) override
         {
             Result<content::Instance*, String> created =
                 RunAssetCreation(*m_session->project, request);

@@ -49,8 +49,8 @@ instance), default the primary. `pie_start` cooks, opens and runs the primary (o
 `newInstance` another tab, a host and a client say) and answers once the first frame has
 rendered; `pie_state` reports whether it runs, its scene, `runTime` (seconds of frames since
 the start, unscaled, so it keeps going while the game pauses its scene at time scale 0, as
-behind a menu), the frames rendered and the startup script (`running`, or `faulted` with the reason);
-`pie_list` shows every instance, the ones the user started too; `pie_stop` stops one (or
+behind a menu), the frames rendered and the startup script (`running`, or `faulted` with the
+reason); `pie_list` shows every instance, the ones the user started too; `pie_stop` stops one (or
 `all`), its tab staying open and the others running. `pie_screenshot` writes what an
 instance's tab renders, the game through its own camera with its UI, as `viewport_screenshot`
 does for a scene page.
@@ -78,10 +78,11 @@ at real frame rates: a time lands within a frame of where it was asked, so compa
 tolerances, and start from `pie_start` for a run you mean to repeat. One `pie_run` per instance
 at a time (a second is refused while the first plays); instances run side by side. Over HTTP
 each call is its own, even two identical ones from two agents: two `newInstance` starts open two
-tabs (they come to front in turn, since a hidden tab renders no first frame), two screenshots of one tab each get their file, and a call whose connection closes ends
-there (an unfinished `pie_run` lets go of the tab's input). `entity_inspect` with `pie` (and an `entity` by guid,
-name or path) reads a running game's entity outside a run, each running behaviour's
-properties under `live` beside what is authored.
+tabs (they come to front in turn, since a hidden tab renders no first frame), two screenshots of
+one tab each get their file, two `asset_import`s or `project_export`s run side by side, and a
+call whose connection closes ends there (an unfinished `pie_run` lets go of the tab's input).
+`entity_inspect` with `pie` (and an `entity` by guid, name or path) reads a running game's
+entity outside a run, each running behaviour's properties under `live` beside what is authored.
 
 ## First moves in a session
 
@@ -161,7 +162,8 @@ never trust memorized signatures. A member with `readOnly: true` (a network iden
   type-checked - a misspelled method compiles and fails at runtime. Cross-check with
   `script_api`.
 - `scene_validate` warnings mean component records of a type the engine does not know, or
-  prefab instances whose prefab is not in the project - they would be SKIPPED on load. Treat warnings as breakage to fix, not noise.
+  prefab instances whose prefab is not in the project - they would be SKIPPED on load. Treat
+  warnings as breakage to fix, not noise.
 - `asset_uses` reports DIRECT users only; re-run on a user to walk the chain. An empty
   result plus empty `projectSettingsUses` is the "safe to touch" signal.
 - `log_read` is incremental - always pass the previous `lastSequence`; a non-zero
