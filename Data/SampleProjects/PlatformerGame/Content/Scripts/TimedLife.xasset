@@ -1,0 +1,13 @@
+<root>
+	<string name="guid">b2e92f6d-3187-426f-907f-0525229e160a</string>
+	<string name="typeNamespace">rtti::pipeline::script</string>
+	<string name="typeName">ScriptClassAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">1265517353284495090</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">TimedLife.as</string>
+		<string name="language">angelscript</string>
+	</object>
+</root>

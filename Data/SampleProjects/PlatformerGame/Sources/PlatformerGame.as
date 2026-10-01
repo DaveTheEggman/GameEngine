@@ -1,0 +1,471 @@
+// PlatformerGame - the run's orchestrator (the reserved class Game): the title screen, the
+// levels in order with an intro and a clear banner each, the pause menu, the fades between
+// them, and the HUD.
+//
+// The flow is one state machine on the run's REAL clock (run::realDeltaTime), because the
+// game sits at time scale 0 on every screen but play: the title, an intro, a pause, a clear.
+//
+// A level's coins announce themselves ("CoinRegistered") and report pickups
+// ("CoinCollected"), the player reports falls ("PlayerDied"), and the goal flag ends the level
+// ("GoalReached"). In a run the scene bus IS the run bus, so all of them reach this class.
+
+Guid kHudDoc = Guid("628098f1-29ea-4b5e-bdea-e6a828da27f5");
+Guid kTitleDoc = Guid("56b50198-2bcf-4b62-8f30-8d13a4f5cce0");
+Guid kIntroDoc = Guid("490f0994-d42b-488d-b9f7-25199105819a");
+Guid kPauseDoc = Guid("a5fbc391-7746-4948-80a3-4e04ce330d93");
+Guid kClearDoc = Guid("3f75887a-3307-46a8-9a26-cb67ff50b552");
+Guid kVictoryDoc = Guid("02f01d46-4ab6-4d5e-99b1-f805ee089785");
+Guid kFadeDoc = Guid("34ea193f-3d13-409c-bc2b-9727c0b6df87");
+Guid kSettingsDoc = Guid("b2d2fa8d-33c1-458a-a509-af220c6b2141");
+
+Guid kLevel1 = Guid("6dd1ae0e-fbe8-4c9b-8c9e-d10b727f4d84");
+Guid kLevel2 = Guid("96aab32b-3151-41a9-ac2e-5d16ba80ee06");
+Guid kLevel3 = Guid("07b014f6-9147-43ff-aa83-bdeb6d846ceb");
+
+// Music: CodeManu's Platformer Game Music Pack (CC-BY 3.0) and Juhani Junkala's Chiptune
+// Adventures (CC0); see CREDITS.md.
+Guid kMenuMusic = Guid("a20b5995-a5a4-4fe5-ae2a-a7116075100c");
+Guid kLevel1Music = Guid("8d11b3f5-6a2b-404d-8b28-e29582d02a36");
+Guid kLevel2Music = Guid("72646687-10e4-464f-af68-c9585bca1f82");
+Guid kLevel3Music = Guid("ddb09ad4-a77d-489e-8feb-4166d4a88200");
+Guid kButtonSound = Guid("3202be18-f708-429a-9e20-c8f22e6dade4");
+Guid kClearJingle = Guid("c66fcc06-6184-4d2e-b03d-9c7ce7e82269");
+Guid kVictoryJingle = Guid("ae009c62-c064-4d20-905e-c188865664ca");
+const float kMusicVolume = 0.55f;
+
+const int kLevelCount = 3;
+const float kFadeSeconds = 0.45f;
+const float kClearSeconds = 3.0f;
+
+Guid levelScene(int index)
+{
+    if (index == 1)
+    {
+        return kLevel2;
+    }
+    if (index == 2)
+    {
+        return kLevel3;
+    }
+    return kLevel1;
+}
+
+Guid levelMusic(int index)
+{
+    if (index == 1)
+    {
+        return kLevel2Music;
+    }
+    if (index == 2)
+    {
+        return kLevel3Music;
+    }
+    return kLevel1Music;
+}
+
+string levelName(int index)
+{
+    if (index == 1)
+    {
+        return "Crab Crossing";
+    }
+    if (index == 2)
+    {
+        return "Sky Climb";
+    }
+    return "Grassy Hills";
+}
+
+enum Phase
+{
+    Title,
+    Settings,
+    FadingOut,
+    FadingIn,
+    Intro,
+    Playing,
+    Paused,
+    Cleared,
+    Victory
+}
+
+class Game
+{
+    private Phase m_phase = Phase::Title;
+    /// Real seconds in the current phase.
+    private float m_timer = 0.0f;
+    /// Where a fade out lands: the title, or level m_nextLevel.
+    private bool m_toTitle = false;
+    private int m_nextLevel = 0;
+    /// The phase a fade in reveals.
+    private Phase m_afterFade = Phase::Intro;
+    private View@ m_fade;
+    /// The track playing: 0 none, 1 the menu's, 2 + n level n's. A track asked for again keeps
+    /// playing rather than restarting.
+    private int m_track = 0;
+
+    // ---- this level ----
+    private int m_level = 0;
+    private int m_coins = 0;
+    private int m_coinTotal = 0;
+    private int m_falls = 0;
+    private float m_time = 0.0f;
+
+    // ---- the whole game, levels cleared so far ----
+    private int m_allCoins = 0;
+    private int m_allCoinTotal = 0;
+    private int m_allFalls = 0;
+    private float m_allTime = 0.0f;
+
+    void launch()
+    {
+        // The default scene is the title's backdrop, frozen behind the menu.
+        run::setTimeScale(0.0f);
+        showTitle();
+    }
+
+    void update(float dt)
+    {
+        float real = run::realDeltaTime();
+        m_timer += real;
+        switch (m_phase)
+        {
+        case Phase::FadingOut:
+            if (m_timer >= kFadeSeconds)
+            {
+                arrive();
+            }
+            break;
+        case Phase::FadingIn:
+            if (m_timer >= kFadeSeconds)
+            {
+                ui::pop(); // the fade layer, on top since the fade began
+                enter(m_afterFade);
+            }
+            break;
+        case Phase::Intro:
+            // On the RELEASE: the press lands while the level is still frozen, so the player
+            // never sees it and does not jump the moment play starts.
+            if (Input::wasReleased("Jump"))
+            {
+                ui::pop(); // the intro banner
+                run::setTimeScale(1.0f);
+                enter(Phase::Playing);
+            }
+            break;
+        case Phase::Playing:
+            m_time += dt;
+            ui::findLabel("hud-time").setText(clock(m_time));
+            if (Input::wasPressed("Pause"))
+            {
+                pause();
+            }
+            break;
+        case Phase::Settings:
+            if (Input::wasPressed("Pause"))
+            {
+                onSettingsBack();
+            }
+            break;
+        case Phase::Paused:
+            if (Input::wasPressed("Pause"))
+            {
+                onResume();
+            }
+            break;
+        case Phase::Cleared:
+            {
+                int left = int(kClearSeconds - m_timer + 0.999f); // whole seconds left, rounded up
+                string next = (m_level + 1 < kLevelCount) ? "Next level in " : "Results in ";
+                ui::findLabel("clear-next").setText(next + left);
+                if (m_timer >= kClearSeconds)
+                {
+                    if (m_level + 1 < kLevelCount)
+                    {
+                        fadeToLevel(m_level + 1);
+                    }
+                    else
+                    {
+                        showVictory();
+                    }
+                }
+            }
+            break;
+        default:
+            break;
+        }
+    }
+
+    void exit()
+    {
+        ui::clear();
+    }
+
+    // ---- run events ----
+    void onCoinRegistered(int count)
+    {
+        m_coinTotal += count;
+        refreshHud();
+    }
+
+    void onCoinCollected(int value)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_coins += value;
+        refreshHud();
+    }
+
+    void onPlayerDied(int deaths)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_falls += 1;
+        refreshHud();
+    }
+
+    void onGoalReached(int unused)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        // Time runs on under the banner: the confetti flies and the player stands and watches.
+        m_allCoins += m_coins;
+        m_allCoinTotal += m_coinTotal;
+        m_allFalls += m_falls;
+        m_allTime += m_time;
+        Audio::playOneShot(kClearJingle);
+        Screen@ s = ui::push(kClearDoc);
+        s.findLabel("clear-summary").setText("Coins " + m_coins + " / " + m_coinTotal + "    Falls " + m_falls
+            + "    Time " + clock(m_time));
+        enter(Phase::Cleared);
+    }
+
+    // ---- buttons ----
+    void onPlay()
+    {
+        click();
+        m_allCoins = 0;
+        m_allCoinTotal = 0;
+        m_allFalls = 0;
+        m_allTime = 0.0f;
+        fadeToLevel(0);
+    }
+
+    /// The volumes, on the audio buses the player saves when it exits, so a change made
+    /// here is there next time without the game storing anything itself.
+    void onSettings()
+    {
+        click();
+        Screen@ s = ui::push(kSettingsDoc);
+        bindVolume(s, "master", AudioBus::Master, Action(this.onMasterChanged));
+        bindVolume(s, "music", AudioBus::Music, Action(this.onMusicChanged));
+        bindVolume(s, "effects", AudioBus::Effects, Action(this.onEffectsChanged));
+        s.findButton("settings-back-btn").onClick(Action(this.onSettingsBack));
+        enter(Phase::Settings);
+    }
+
+    void onSettingsBack()
+    {
+        click();
+        ui::pop(); // the settings screen; the title is under it
+        enter(Phase::Title);
+    }
+
+    void onMasterChanged()
+    {
+        volumeChanged("master", AudioBus::Master);
+    }
+
+    void onMusicChanged()
+    {
+        volumeChanged("music", AudioBus::Music);
+    }
+
+    void onEffectsChanged()
+    {
+        volumeChanged("effects", AudioBus::Effects);
+        click(); // hear the level being set; the music is heard anyway
+    }
+
+    void onQuit()
+    {
+        click();
+        run::requestExit(0);
+    }
+
+    void onResume()
+    {
+        click();
+        ui::pop(); // the pause menu
+        run::setTimeScale(1.0f);
+        enter(Phase::Playing);
+    }
+
+    void onRestart()
+    {
+        click();
+        fadeToLevel(m_level);
+    }
+
+    void onQuitToTitle()
+    {
+        click();
+        fadeToTitle();
+    }
+
+    // ---- the flow ----
+    private void enter(Phase phase)
+    {
+        m_phase = phase;
+        m_timer = 0.0f;
+    }
+
+    /// A volume row: its slider at the bus's level, its readout, and the handler.
+    private void bindVolume(Screen@ s, string row, AudioBus bus, Action@ handler)
+    {
+        Slider@ slider = s.findSlider(row + "-slider");
+        slider.setValue(Audio::busVolume(bus));
+        showVolume(row, slider.value);
+        slider.onChanged(handler);
+    }
+
+    private void volumeChanged(string row, AudioBus bus)
+    {
+        float level = ui::findSlider(row + "-slider").value;
+        Audio::setBusVolume(bus, level);
+        showVolume(row, level);
+    }
+
+    private void showVolume(string row, float level)
+    {
+        ui::findLabel(row + "-value").setText("" + int(level * 100.0f + 0.5f) + "%");
+    }
+
+    private void showTitle()
+    {
+        music(1);
+        ui::clear();
+        Screen@ s = ui::push(kTitleDoc);
+        s.findButton("play-btn").onClick(Action(this.onPlay));
+        s.findButton("settings-btn").onClick(Action(this.onSettings));
+        s.findButton("quit-btn").onClick(Action(this.onQuit));
+        enter(Phase::Title);
+    }
+
+    private void pause()
+    {
+        run::setTimeScale(0.0f);
+        Screen@ s = ui::push(kPauseDoc);
+        s.findButton("resume-btn").onClick(Action(this.onResume));
+        s.findButton("restart-btn").onClick(Action(this.onRestart));
+        s.findButton("title-btn").onClick(Action(this.onQuitToTitle));
+        enter(Phase::Paused);
+    }
+
+    private void showVictory()
+    {
+        ui::pop(); // the clear banner
+        Audio::playOneShot(kVictoryJingle);
+        Screen@ s = ui::push(kVictoryDoc);
+        s.findLabel("victory-summary").setText("Coins " + m_allCoins + " / " + m_allCoinTotal + "    Falls "
+            + m_allFalls + "    Time " + clock(m_allTime));
+        s.findButton("victory-title-btn").onClick(Action(this.onQuitToTitle));
+        enter(Phase::Victory);
+    }
+
+    private void fadeToLevel(int index)
+    {
+        m_toTitle = false;
+        m_nextLevel = index;
+        fadeOut();
+    }
+
+    private void fadeToTitle()
+    {
+        m_toTitle = true;
+        fadeOut();
+    }
+
+    /// Black over everything, then arrive() swaps what is under it.
+    private void fadeOut()
+    {
+        if (m_phase == Phase::FadingOut || m_phase == Phase::FadingIn)
+        {
+            return;
+        }
+        Screen@ s = ui::push(kFadeDoc);
+        @m_fade = s.find("fade");
+        m_fade.fadeTo(1.0f, kFadeSeconds);
+        enter(Phase::FadingOut);
+    }
+
+    /// Under the black: the new scene and its screens, then the black fades away.
+    private void arrive()
+    {
+        ui::clear();
+        run::setTimeScale(0.0f);
+        if (m_toTitle)
+        {
+            run::loadScene(kLevel1);
+            showTitle();
+            m_afterFade = Phase::Title;
+        }
+        else
+        {
+            m_level = m_nextLevel;
+            m_coins = 0;
+            m_coinTotal = 0; // the new level's coins register again
+            m_falls = 0;
+            m_time = 0.0f;
+            run::loadScene(levelScene(m_level));
+            music(2 + m_level);
+            ui::push(kHudDoc);
+            refreshHud();
+            Screen@ intro = ui::push(kIntroDoc);
+            intro.findLabel("intro-number").setText("Level " + (m_level + 1));
+            intro.findLabel("intro-name").setText(levelName(m_level));
+            m_afterFade = Phase::Intro;
+        }
+        Screen@ s = ui::push(kFadeDoc);
+        @m_fade = s.find("fade");
+        m_fade.setOpacity(1.0f);
+        m_fade.fadeTo(0.0f, kFadeSeconds);
+        enter(Phase::FadingIn);
+    }
+
+    private void music(int track)
+    {
+        if (track == m_track)
+        {
+            return;
+        }
+        m_track = track;
+        Audio::playMusic((track == 1) ? kMenuMusic : levelMusic(track - 2), 1.0f, kMusicVolume);
+    }
+
+    private void click()
+    {
+        Audio::playOneShot(kButtonSound);
+    }
+
+    private void refreshHud()
+    {
+        ui::findLabel("hud-coins").setText("Coins " + m_coins + " / " + m_coinTotal);
+        ui::findLabel("hud-falls").setText("Falls " + m_falls);
+        ui::findLabel("hud-time").setText(clock(m_time));
+        ui::findLabel("hud-level").setText("Level " + (m_level + 1) + "  " + levelName(m_level));
+    }
+
+    private string clock(float seconds)
+    {
+        int whole = int(seconds);
+        int s = whole % 60;
+        return "" + (whole / 60) + ":" + (s < 10 ? "0" : "") + s;
+    }
+}

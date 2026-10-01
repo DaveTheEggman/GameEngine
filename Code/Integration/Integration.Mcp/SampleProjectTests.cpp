@@ -157,70 +157,96 @@ namespace
     }
 }
 
+namespace
+{
+    struct SampleExpectations
+    {
+        usize read = 0;       // instances that read back, at least
+        f64 cooked = 0.0;     // assets a forced cook builds, at least
+        usize overrides = 0;  // scene-stored script overrides, each naming a declared property
+    };
+
+    // A tracked sample reads at the current data versions, cooks with no failure through the
+    // tools an agent uses, and every script override its scenes store names a property its
+    // cooked class declares. On a scratch copy, so opening never writes into the tracked tree.
+    void CheckSampleProject(StringView sample, StringView scratchDir, const SampleExpectations& expect)
+    {
+        pipeline::RegisterPipelineTypes(); // every asset/product/resource type (idempotent)
+        engine::RegisterAllSceneComponentReflection();
+        engine::RegisterAllScriptFacades(); // idempotent; a case must not lean on another's
+        // The readers log WHY they refuse; put that on the console so a red run names the record.
+        ConsoleSink console;
+        GlobalLogger().AddSink(&console);
+
+        const String dataRoot = foundation::vfs::FindDataRoot();
+        REQUIRE_FALSE(dataRoot.IsEmpty());
+        const String source = PathJoin(dataRoot.AsView(), Format(u8"SampleProjects/{}", sample).AsView());
+        REQUIRE(DirectoryExists(source.AsView()));
+
+        const std::filesystem::path scratch(std::string(reinterpret_cast<const char*>(scratchDir.Data()),
+                                                        scratchDir.Size()));
+        std::error_code ec;
+        std::filesystem::remove_all(scratch, ec);
+        std::filesystem::copy(std::filesystem::path(reinterpret_cast<const char*>(source.CStr())),
+                              scratch, std::filesystem::copy_options::recursive, ec);
+        REQUIRE_FALSE(ec);
+        {
+            UniquePtr<editor::EditorProject> project =
+                editor::EditorProject::Open(DefaultAllocator(), scratchDir);
+            REQUIRE(static_cast<bool>(project));
+            const usize read = ReadAllInstances(*project->SourceDb().RootGroup());
+            CHECK(read >= expect.read);
+        }
+
+        // And it COOKS, through the same tools an agent uses: the driver builds items in parallel
+        // on job workers, which is where the per-build registrations (core types, markup, script
+        // facades) used to race - a double free that aborted Tools.Cook on PaperKid.
+        {
+            pipeline::BuilderRegistry builders{DefaultAllocator()};
+            pipeline::RegisterAllBuilders(builders);
+            pipeline::ImporterRegistry importers{DefaultAllocator()};
+            pipeline::RegisterAllImporters(importers);
+            foundation::mcp::McpServer server;
+            editor::mcp::ProjectSession session;
+            editor::mcp::ProjectOwner owner;
+            editor::mcp::RegisterProjectOpenTools(server, session, owner);
+            editor::mcp::RegisterProjectInfoTool(server, session);
+            editor::mcp::RegisterAssetTools(server, session);
+            editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+            editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
+            JsonValue open = JsonValue::MakeObject();
+            open.Set(u8"directory", JsonValue::MakeString(String(scratchDir)));
+            (void)Call(server, u8"project_open", Move(open));
+            JsonValue args = JsonValue::MakeObject();
+            args.Set(u8"force", JsonValue::MakeBool(true));
+            const JsonValue cooked = Call(server, u8"asset_cook", Move(args));
+            CHECK(cooked.Get(u8"cooked").AsNumber() >= expect.cooked);
+            CHECK(cooked.Get(u8"failed").AsNumber() == doctest::Approx(0.0));
+        }
+
+        // Every script override a scene stores names a property its cooked class declares (taken
+        // from Sedulous 80272182: it fails on the old FNV basis, naming the follow camera's target).
+        {
+            UniquePtr<editor::EditorProject> project =
+                editor::EditorProject::Open(DefaultAllocator(), scratchDir);
+            REQUIRE(static_cast<bool>(project));
+            const usize overrides = CheckOverrides(*project, *project->SourceDb().RootGroup());
+            CHECK(overrides >= expect.overrides);
+        }
+        std::filesystem::remove_all(scratch, ec);
+        GlobalLogger().RemoveSink(&console);
+    }
+}
+
 TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versions")
 {
-    pipeline::RegisterPipelineTypes(); // every asset/product/resource type (idempotent)
-    engine::RegisterAllSceneComponentReflection();
-    engine::RegisterAllScriptFacades(); // idempotent; this case must not lean on another's
-    // The readers log WHY they refuse; put that on the console so a red run names the record.
-    ConsoleSink console;
-    GlobalLogger().AddSink(&console);
+    // font, input map, bus layout, 6 meshes, 2 scenes + 1 prefab, 5 scripts, 6 UI documents
+    CheckSampleProject(u8"PaperKid", u8"scratch_paperkid_versions", {23u, 20.0, 3u});
+}
 
-    const String dataRoot = foundation::vfs::FindDataRoot();
-    REQUIRE_FALSE(dataRoot.IsEmpty());
-    const String source = PathJoin(dataRoot.AsView(), u8"SampleProjects/PaperKid");
-    REQUIRE(DirectoryExists(source.AsView()));
-
-    const std::filesystem::path scratch = "scratch_paperkid_versions";
-    std::error_code ec;
-    std::filesystem::remove_all(scratch, ec);
-    std::filesystem::copy(std::filesystem::path(reinterpret_cast<const char*>(source.CStr())),
-                          scratch, std::filesystem::copy_options::recursive, ec);
-    REQUIRE_FALSE(ec);
-    {
-        UniquePtr<editor::EditorProject> project =
-            editor::EditorProject::Open(DefaultAllocator(), u8"scratch_paperkid_versions");
-        REQUIRE(static_cast<bool>(project));
-        const usize read = ReadAllInstances(*project->SourceDb().RootGroup());
-        // font, input map, bus layout, 6 meshes, 2 scenes + 1 prefab, 5 scripts, 6 UI documents
-        CHECK(read >= 23u);
-    }
-
-    // And it COOKS, through the same tools an agent uses: the driver builds items in parallel
-    // on job workers, which is where the per-build registrations (core types, markup, script
-    // facades) used to race - a double free that aborted Tools.Cook on this very project.
-    {
-        pipeline::BuilderRegistry builders{DefaultAllocator()};
-        pipeline::RegisterAllBuilders(builders);
-        pipeline::ImporterRegistry importers{DefaultAllocator()};
-        pipeline::RegisterAllImporters(importers);
-        foundation::mcp::McpServer server;
-        editor::mcp::ProjectSession session;
-        editor::mcp::ProjectOwner owner;
-        editor::mcp::RegisterProjectOpenTools(server, session, owner);
-        editor::mcp::RegisterProjectInfoTool(server, session);
-        editor::mcp::RegisterAssetTools(server, session);
-        editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-        editor::mcp::RegisterAssetWriteTools(server, session, importers, operations);
-        JsonValue open = JsonValue::MakeObject();
-        open.Set(u8"directory", JsonValue::MakeString(u8"scratch_paperkid_versions"));
-        (void)Call(server, u8"project_open", Move(open));
-        JsonValue args = JsonValue::MakeObject();
-        args.Set(u8"force", JsonValue::MakeBool(true));
-        const JsonValue cooked = Call(server, u8"asset_cook", Move(args));
-        CHECK(cooked.Get(u8"cooked").AsNumber() >= 20.0);
-        CHECK(cooked.Get(u8"failed").AsNumber() == doctest::Approx(0.0));
-    }
-
-    // Every script override a scene stores names a property its cooked class declares (taken
-    // from Sedulous 80272182: it fails on the old FNV basis, naming the follow camera's target).
-    {
-        UniquePtr<editor::EditorProject> project =
-            editor::EditorProject::Open(DefaultAllocator(), u8"scratch_paperkid_versions");
-        REQUIRE(static_cast<bool>(project));
-        const usize overrides = CheckOverrides(*project, *project->SourceDb().RootGroup());
-        CHECK(overrides >= 3u);
-    }
-    std::filesystem::remove_all(scratch, ec);
-    GlobalLogger().RemoveSink(&console);
+TEST_CASE("sample project: Sky Hopper (PlatformerGame) reads, cooks and its overrides match")
+{
+    // 13 models with their parts, 12 clips of audio, 2 fonts, 5 effects + prefabs, 3 levels,
+    // 8 scripts, 9 screens and a theme, the input map
+    CheckSampleProject(u8"PlatformerGame", u8"scratch_platformer_versions", {150u, 100.0, 20u});
 }
