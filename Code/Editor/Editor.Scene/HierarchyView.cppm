@@ -61,14 +61,17 @@ export namespace editor
 
         explicit SceneHierarchyView(SceneEditContext& edit) : m_edit(&edit)
         {
+            // Inset like the other page trees, so a selected row's highlight stops short of the
+            // panel's edges.
             auto column = MakeRef<ui::FlexLayout>(MemoryAllocator());
             column->Direction = ui::Orientation::Vertical;
+            column->Spacing = 4.0f;
+            column->Padding = ui::Thickness{6, 4};
 
             // Header: [+] create root entity | filter box.
             auto header = MakeRef<ui::FlexLayout>(MemoryAllocator());
             header->Direction = ui::Orientation::Horizontal;
             header->Spacing = 4.0f;
-            header->Padding = ui::Thickness{4, 3};
             auto addButton = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"+"));
             {
                 SceneEditContext* editPtr = m_edit;

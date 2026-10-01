@@ -604,6 +604,40 @@ TEST_CASE("control: Expander_CollapsedMeasure")
     CHECK(collapsedH == doctest::Approx(expander->HeaderHeight.Value()).epsilon(0.02));
 }
 
+// A themed border and padding inset the BODY (sides and bottom) and leave the band full width: the
+// section reads as one outlined box (Sedulous 766bf314). Unstyled, the body stays flush.
+TEST_CASE("control: Expander_BorderedInsetsItsBodyNotItsBand")
+{
+    UIContext ctx{core::DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    ctx.AddRootView(root.Get());
+
+    auto expander = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Section"));
+    auto content = core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 50.0f);
+    expander->SetContent(content.Get());
+    root->AddView(expander.Get());
+    SSSParser::ApplyInlineStyle(expander.Get(), u8"border-width: 1; padding: 0 6 6 6;");
+
+    expander->Measure(BoxConstraints::Loose(400, 400));
+    const f32 band = expander->HeaderBandHeight();
+    const f32 spacing = expander->ContentSpacing.Value();
+    CHECK(expander->MeasuredSize.y == doctest::Approx(band + spacing + 50.0f + 7.0f)); // bottom inset
+    expander->Layout(0, 0, 400, expander->MeasuredSize.y);
+    CHECK(content->Bounds.x == doctest::Approx(7.0f)); // padding plus border on the left
+    CHECK(content->Bounds.width == doctest::Approx(400.0f - 14.0f));
+    CHECK(content->Bounds.y == doctest::Approx(band + spacing));
+
+    auto plain = core::MakeRef<Expander>(core::DefaultAllocator(), StringView(u8"Plain"));
+    auto body = core::MakeRef<TestView>(core::DefaultAllocator(), 100.0f, 50.0f);
+    plain->SetContent(body.Get());
+    root->AddView(plain.Get());
+    plain->Measure(BoxConstraints::Loose(400, 400));
+    plain->Layout(0, 0, 400, plain->MeasuredSize.y);
+    CHECK(body->Bounds.x == doctest::Approx(0.0f));
+    CHECK(body->Bounds.width == doctest::Approx(400.0f));
+}
+
 TEST_CASE("control: Expander_HeaderBandGrowsForOversizedActions")
 {
     // Actions taller than HeaderHeight must not overflow the fixed band (and clip when

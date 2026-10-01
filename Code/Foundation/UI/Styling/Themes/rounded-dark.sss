@@ -88,7 +88,7 @@ CheckBox::box {
 CheckBox::box:checked {
     background: rounded-rect($primary-accent, radius=3, border=lighten($border, 35%), border-width=1);
 }
-CheckBox { spacing: 6; }
+CheckBox { spacing: 6; font-size: 12; }  /* compact chrome, as buttons: without it the View 16 default wins */
 
 /* === RadioButton - circular === */
 RadioButton::box {
@@ -134,7 +134,11 @@ Separator { border-color: $border; }
 /* === Expander === */
 Expander { font-size: 14; }  /* header text (property-grid category headers) */
 Expander::header { background: rounded-rect($surface-bright, radius=6); }
+/* Open, the band tops the section, whose border closes the box below it: only its top corners
+ * round (radius order: top-left top-right bottom-right bottom-left). */
+Expander::header:checked { background: rounded-rect($surface-bright, radius=6 6 0 0); }
 Expander::header:hover { background: rounded-rect(lighten($surface-bright, 10%), radius=6); }
+Expander::header:hover:checked { background: rounded-rect(lighten($surface-bright, 10%), radius=6 6 0 0); }
 Expander::chevron { text-color: lighten($text-dim, 15%); }
 
 /* === TabView - rounded tabs === */

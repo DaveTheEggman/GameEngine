@@ -234,11 +234,12 @@ export namespace foundation::ui
             f32 contentH = 0;
             if (m_content != nullptr && m_content->Visibility != Visibility::Gone)
             {
-                const BoxConstraints inner = constraints.Deflate(Padding).Loosen();
+                const Thickness inset = BodyInset();
+                const BoxConstraints inner = constraints.Deflate(inset).Loosen();
                 const Thickness margin = m_content->Layout().Margin;
                 m_content->Measure(inner.Deflate(margin));
-                contentH =
-                    ContentSpacing.Value() + m_content->MeasuredSize.y + margin.TotalVertical();
+                contentH = ContentSpacing.Value() + m_content->MeasuredSize.y +
+                           margin.TotalVertical() + inset.Bottom;
             }
             // Bounded fill (P2c): default width under an unbounded parent.
             MeasuredSize = Float2{constraints.ConstrainWidth(constraints.BoundedMaxWidth(200.0f)),
@@ -253,12 +254,49 @@ export namespace foundation::ui
             m_header->Layout(0, 0, width, bandH);
             if (m_content != nullptr && m_content->Visibility != Visibility::Gone)
             {
+                const Thickness inset = BodyInset();
                 const Thickness margin = m_content->Layout().Margin;
                 const f32 contentTop = bandH + ContentSpacing.Value();
-                m_content->Layout(margin.Left, contentTop + margin.Top,
-                                  Max(0.0f, width - margin.TotalHorizontal()),
-                                  Max(0.0f, height - contentTop - margin.TotalVertical()));
+                m_content->Layout(
+                    inset.Left + margin.Left, contentTop + margin.Top,
+                    Max(0.0f, width - inset.Left - inset.Right - margin.TotalHorizontal()),
+                    Max(0.0f, height - contentTop - inset.Bottom - margin.TotalVertical()));
             }
+        }
+
+        /// A themed border-width and border-color outline the whole section, band and body,
+        /// drawn OVER the children so the band never covers it, stroked inside the bounds so a
+        /// neighbour never draws over it, and rounded at the theme's corner-radius like the band
+        /// it encloses (square in a flat theme).
+        void OnDraw(UIDrawContext& ctx) override
+        {
+            DrawChildren(ctx);
+            const f32 borderWidth = ResolveStyleFloat(StyleProperty::BorderWidth, 0.0f);
+            if (borderWidth <= 0.0f)
+            {
+                return;
+            }
+            const Color color = ResolveStyleColor(
+                StyleProperty::BorderColor, Color{80.0f / 255.0f, 80.0f / 255.0f, 90.0f / 255.0f, 1.0f});
+            const f32 half = borderWidth * 0.5f;
+            const Rectangle outline{half, half, Width() - borderWidth, Height() - borderWidth};
+            const f32 radius = ResolveStyleFloat(StyleProperty::CornerRadius, 0.0f);
+            if (radius > 0.0f)
+            {
+                ctx.VG().StrokeRoundedRect(outline, Max(0.0f, radius - half), color, borderWidth);
+            }
+            else
+            {
+                ctx.VG().StrokeRect(outline, color, borderWidth);
+            }
+        }
+
+        /// The body's inset: the padding plus the border on the sides and the bottom. The top is
+        /// the band's, which spans the full width.
+        [[nodiscard]] Thickness BodyInset()
+        {
+            const Thickness chrome = ResolveBoxMetrics().Chrome();
+            return Thickness{chrome.Left, 0.0f, chrome.Right, chrome.Bottom};
         }
 
     private:
@@ -302,6 +340,12 @@ export namespace foundation::ui
         if (!m_owner->IsEffectivelyEnabled())
         {
             bandState |= ControlState::Disabled;
+        }
+        // Expanded reads as Checked, as the chevron already does: a theme can shape the band that
+        // tops an open section (its bottom meeting the body) apart from a closed one.
+        if (m_owner->IsExpanded())
+        {
+            bandState |= ControlState::Checked;
         }
         if (Drawable* header =
                 m_owner->ResolvePartDrawable(u8"header", StyleProperty::Background, bandState))
