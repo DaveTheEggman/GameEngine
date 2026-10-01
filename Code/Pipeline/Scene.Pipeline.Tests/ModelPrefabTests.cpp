@@ -346,3 +346,36 @@ TEST_CASE("model-prefab: an import generates by its options, and only for a mode
                                             prefab, generatedScene));
     RemoveTreeMP(dir);
 }
+
+// Sedulous a0941c27: the animator starts on the model's idle, found among the manifest's sibling
+// clips by name, not on whichever clip sorts first (a kit's "Death" or "Bite_Front").
+TEST_CASE("model-prefab: the animator starts on the model's idle")
+{
+    pipeline::RegisterModelManifestAsset();
+    const StringView dir = u8"scratch_model_resting_clip_db";
+    RemoveTreeMP(dir);
+    (void)CreateDirectory(dir);
+    foundation::vfs::NativeFileSystem mount(dir, DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+    foundation::content::Group* group = db.RootGroup()->CreateGroup(u8"Hero");
+    foundation::content::Instance* manifest =
+        group->CreateInstance(u8"Hero", pipeline::ModelManifestAsset::StaticType());
+    REQUIRE(manifest != nullptr);
+    pipeline::ModelManifestAsset asset;
+    const StringView names[] = {u8"Death", u8"Idle_Gun", u8"idle"};
+    for (StringView name : names)
+    {
+        // Any type stands in for a clip: the name is what is read.
+        foundation::content::Instance* clip =
+            group->CreateInstance(name, pipeline::ModelManifestAsset::StaticType());
+        REQUIRE(clip != nullptr);
+        asset.manifest.animationGuids.PushBack(clip->Id());
+    }
+    CHECK(pipeline::RestingClip(*manifest, asset.manifest) == 2u); // the exact name, any case
+    asset.manifest.animationGuids.RemoveAt(2);
+    CHECK(pipeline::RestingClip(*manifest, asset.manifest) == 1u); // else one containing it
+    asset.manifest.animationGuids.RemoveAt(1);
+    CHECK(pipeline::RestingClip(*manifest, asset.manifest) == 0u); // else the first
+    RemoveTreeMP(dir);
+}

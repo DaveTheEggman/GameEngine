@@ -53,6 +53,36 @@ export namespace pipeline
         bool regenerated = false; // an existing prefab was refreshed (re-import)
     };
 
+    /// The clip a model's animator starts on: its idle when it has one (a clip named Idle, any
+    /// case, else one whose name contains it), else its first. The clips are the manifest's
+    /// siblings; their names are the importer's, from the source's animation names. A kit
+    /// exported in name order starts on 'Death' or 'Bite_Front' otherwise.
+    [[nodiscard]] inline usize RestingClip(foundation::content::Instance& manifestInstance,
+                                           const foundation::model::ModelManifestSource& manifest)
+    {
+        usize containing = manifest.animationGuids.Size();
+        for (usize i = 0; i < manifest.animationGuids.Size(); ++i)
+        {
+            for (foundation::content::Instance* sibling : manifestInstance.OwningGroup().Instances())
+            {
+                if (sibling->Id() != manifest.animationGuids[i])
+                {
+                    continue;
+                }
+                const StringView name = sibling->Name();
+                if (name.Size() == 4 && name.ContainsIgnoreCase(u8"idle"))
+                {
+                    return i;
+                }
+                if (containing == manifest.animationGuids.Size() && name.ContainsIgnoreCase(u8"idle"))
+                {
+                    containing = i;
+                }
+            }
+        }
+        return containing < manifest.animationGuids.Size() ? containing : 0;
+    }
+
     /// Build the model's node hierarchy into `scene` (one entity per node with mesh/material/
     /// collider/skeletal-anim components, plus a STATIC compound RigidBody on the root when the
     /// model carries collision), returning its root. Shared by the prefab + scene generators.
@@ -170,7 +200,7 @@ export namespace pipeline
         {
             engine::animation::SkeletalAnimationComponent& ac = anims->Add(root);
             ac.skeleton.SetId(manifest.skeletonGuid);
-            ac.clip.SetId(manifest.animationGuids[0]);
+            ac.clip.SetId(manifest.animationGuids[RestingClip(manifestInstance, manifest)]);
             for (scene::EntityHandle e : skinnedEntities)
             {
                 ac.meshEntities.PushBack(scene.GetEntityId(e));
