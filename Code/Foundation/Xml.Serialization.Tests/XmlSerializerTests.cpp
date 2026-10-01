@@ -402,3 +402,75 @@ TEST_CASE("xml.serialize: RawRemainder captures an unknown payload and re-inject
         CHECK(v == 42u);
     }
 }
+
+namespace
+{
+    // A settings shape that grew: extras and scale were appended after files were saved
+    // without them.
+    struct GrownSettings
+    {
+        i32 size = 0;
+        String name;
+        Array<Guid> extras;
+        f32 scale = 1.0f;
+        void Serialize(ISerializer& ar)
+        {
+            foundation::core::Serialize(ar, "size", size);
+            foundation::core::Serialize(ar, "name", name);
+            SerializeAppended(ar, "extras", extras);
+            SerializeAppended(ar, "scale", scale);
+        }
+    };
+}
+
+TEST_CASE("xml.serialize: an appended field reads its default from an older payload")
+{
+    // Sedulous 39147576: a payload saved before the field (no key) reads with the field at its
+    // default, and one saved after it reads the value; the rest of the object either way.
+    GrownSettings saved;
+    saved.size = 7;
+    saved.name = String(u8"level");
+    Guid extra;
+    REQUIRE(Guid::TryParse(u8"0f1e2d3c-4b5a-6978-8796-a5b4c3d2e1f0", extra));
+    saved.extras.PushBack(extra);
+    saved.scale = 2.5f;
+    String text;
+    {
+        XmlSerializer writer(foundation::core::DefaultAllocator());
+        saved.Serialize(writer);
+        writer.GetOutput(text);
+    }
+
+    // Saved after: every value comes back.
+    {
+        XmlDocument doc(foundation::core::DefaultAllocator());
+        REQUIRE(doc.Parse(text.AsView()) == XmlResult::Ok);
+        XmlSerializer reader(doc);
+        GrownSettings loaded;
+        loaded.Serialize(reader);
+        CHECK(reader.IsOk());
+        CHECK(loaded.size == 7);
+        CHECK(loaded.name == StringView(u8"level"));
+        REQUIRE(loaded.extras.Size() == 1u);
+        CHECK(loaded.extras[0] == extra);
+        CHECK(loaded.scale == doctest::Approx(2.5f));
+    }
+
+    // Saved before: the appended keys were never written.
+    {
+        XmlDocument doc(foundation::core::DefaultAllocator());
+        REQUIRE(doc.Parse(u8"<root><i32 name=\"size\">7</i32><string name=\"name\">level</string></root>") ==
+                XmlResult::Ok);
+        XmlSerializer reader(doc);
+        GrownSettings loaded;
+        loaded.Serialize(reader);
+        String place;
+        reader.DescribeFailure(place);
+        CAPTURE(reinterpret_cast<const char*>(place.CStr()));
+        CHECK(reader.IsOk());
+        CHECK(loaded.size == 7); // the rest still reads
+        CHECK(loaded.name == StringView(u8"level"));
+        CHECK(loaded.extras.IsEmpty()); // the appended ones keep their defaults
+        CHECK(loaded.scale == doctest::Approx(1.0f));
+    }
+}

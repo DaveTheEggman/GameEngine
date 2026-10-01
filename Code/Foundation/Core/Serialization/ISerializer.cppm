@@ -80,6 +80,14 @@ export namespace foundation::core
         // Names the next value within the current object. Ignored by unkeyed
         // formats; keyed/text formats associate it with the value that follows.
         virtual void Key(const char* name) noexcept = 0;
+        // Reading: whether the current object has a value under `name` still to be read, so an
+        // appended field (SerializeAppended) can tell a payload from before it. A positional
+        // format cannot tell, and says yes, reading on as it always does.
+        [[nodiscard]] virtual bool HasKey(const char* name) const
+        {
+            (void)name;
+            return true;
+        }
 
         // Structured scopes. BeginArray moves the element count (written on
         // write, read on read).

@@ -71,6 +71,30 @@ export namespace foundation::xml
 
         void Key(const char* name) noexcept override { m_pendingKey = name; }
 
+        // Whether the current scope still has an element under `name`, searched forward from the
+        // cursor as a keyed read searches, and NOT consumed. Writing, every key is there.
+        [[nodiscard]] bool HasKey(const char* name) const override
+        {
+            if (IsWriting())
+            {
+                return true;
+            }
+            if (m_readStack.IsEmpty())
+            {
+                return false;
+            }
+            const StringView wanted(reinterpret_cast<const utf8char*>(name));
+            for (XmlNode* c = m_readStack[m_readStack.Size() - 1].cursor; c != nullptr; c = c->NextSibling())
+            {
+                if (c->NodeType() == XmlNodeType::Element &&
+                    static_cast<XmlElement*>(c)->GetAttribute(u8"name") == wanted)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         void BeginObject() override
         {
             if (IsWriting())
