@@ -370,3 +370,31 @@ TEST_CASE("ui.viewport: a capturing viewport keeps its keys from the host's focu
     keys->ProcessKeyDown(ui::KeyCode::Tab, ui::KeyModifiers::None, false);
     CHECK(focus->FocusedView() == other.Get());
 }
+
+TEST_CASE("ui.viewport: content of its own resolution maps the pointer into that resolution")
+{
+    // Sedulous 8533be73: a game drawing its own fitted image (320x180 letterboxed) in a panel-sized
+    // texture: the surface fits the pointer into the game's resolution, not the texture's.
+    rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::shell::NullInputManager input;
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    auto view = MakeRef<ViewportView>(DefaultAllocator());
+    view->Initialize(&device, nullptr, &input, /*windowId*/ 0);
+    REQUIRE(view->Surface() != nullptr);
+    root->AddView(view.Get());
+    view->Layout(0.0f, 0.0f, 640.0f, 480.0f);
+
+    view->SyncInputRegion();
+    CHECK(view->Surface()->Fit().contentSize.x == doctest::Approx(640.0f)); // the texture's own
+
+    view->SetContentResolution(320, 180, FitMode::Letterbox);
+    view->SyncInputRegion();
+    const ContentFit& fit = view->Surface()->Fit();
+    CHECK(fit.contentSize.x == doctest::Approx(320.0f));
+    CHECK(fit.contentSize.y == doctest::Approx(180.0f));
+    CHECK(fit.mode == FitMode::Letterbox);
+
+    view->SetContentResolution(0, 0, FitMode::Letterbox); // back to the texture
+    view->SyncInputRegion();
+    CHECK(view->Surface()->Fit().contentSize.x == doctest::Approx(640.0f));
+}

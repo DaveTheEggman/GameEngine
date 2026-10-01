@@ -260,6 +260,17 @@ export namespace foundation::ui::viewport
         }
         [[nodiscard]] bool CapturesKeys() const noexcept { return m_capturesKeys; }
 
+        /// The resolution the content draws at INSIDE the texture, fitted by `fit`, when it draws
+        /// its own fitted image (a game at its render resolution, letterboxed in a panel-sized
+        /// texture): the input surface then maps the pointer into that resolution. Nought is the
+        /// texture's own.
+        void SetContentResolution(u32 width, u32 height, FitMode fit) noexcept
+        {
+            m_contentWidth = width;
+            m_contentHeight = height;
+            m_contentFit = fit;
+        }
+
         void OnKeyDown(KeyEventArgs& e) override
         {
             if (ContentHasKeys() && !IsChord(e.Modifiers))
@@ -320,9 +331,20 @@ export namespace foundation::ui::viewport
             const Float2 tl = LocalToScreen(Float2{0.0f, 0.0f});
             m_surface->SetRegion(
                 Rectangle{tl.x * dpi, tl.y * dpi, Width() * dpi, Height() * dpi});
-            m_surface->SetContentSize(
-                Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
-            m_surface->SetFitMode(m_fitMode);
+            if (m_contentWidth > 0 && m_contentHeight > 0)
+            {
+                // The content draws at a resolution of its own inside the texture: the pointer
+                // maps into THAT, through the content's own fit.
+                m_surface->SetContentSize(
+                    Float2{static_cast<f32>(m_contentWidth), static_cast<f32>(m_contentHeight)});
+                m_surface->SetFitMode(m_contentFit);
+            }
+            else
+            {
+                m_surface->SetContentSize(
+                    Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
+                m_surface->SetFitMode(m_fitMode);
+            }
             // Window pixel size (the root view spans the client area, in physical pixels): the
             // touch transform converts normalized finger coords through it.
             m_surface->SetWindowSize(Float2{root->Width() * dpi, root->Height() * dpi});
@@ -592,6 +614,9 @@ export namespace foundation::ui::viewport
 
         UniquePtr<shell::InputSurface> m_surface;
         bool m_capturesKeys = false;
+        u32 m_contentWidth = 0; // the content's own resolution inside the texture (0 = the texture's)
+        u32 m_contentHeight = 0;
+        FitMode m_contentFit = FitMode::Letterbox;
     };
 
     RTTI_DEFINE_OBJECT(ViewportView, "rtti::ui::viewport")
