@@ -594,6 +594,64 @@ namespace
     };
 }
 
+TEST_CASE("ui.subsystem: a pad steps a focused slider, and moves past it along the other axis")
+{
+    // Sedulous 8c8c0bd4: a pad's directions reach the focused control as the arrow keys do, so
+    // right steps a slider instead of moving off it, and down still moves to the next control: a
+    // settings menu of volume sliders works from a pad.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm{DefaultAllocator()};
+    scenes->RegisterManager(&sm);
+    {
+        const scene::SceneModule uiModule{u8"ui", &AddUISceneManagers, nullptr};
+        const scene::SceneModule* modules[] = {&uiModule};
+        scenes->SetComposition(scene::SceneComposition::Build(modules));
+    }
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    NavFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    scene::Scene* scene = sm.CreateScene(u8"settings");
+    scene::EntityHandle e = scene->CreateEntity(u8"menu");
+    UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+    canvas.document =
+        MakeDocument(u8"<Flex direction=\"vertical\" spacing=\"4\">"
+                     u8"<Slider id=\"volume\" min=\"0\" max=\"100\" value=\"50\" step=\"10\" "
+                     u8"width=\"200\" height=\"24\"/>"
+                     u8"<Button id=\"back\" text=\"Back\" width=\"200\" height=\"36\"/>"
+                     u8"</Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(root);
+    Slider* volume = Cast<ViewGroup>(canvas.root.Get())->FindByName<Slider>(u8"volume");
+    REQUIRE(volume != nullptr);
+    FocusManager* focus = ui->Context().GetFocusManager();
+    focus->SetFocus(volume);
+
+    const auto press = [&](foundation::shell::GamepadButton button)
+    {
+        devices.pad.down[static_cast<u32>(button)] = true;
+        ctx.BeginFrame(1.0f / 60.0f);
+        devices.pad.down[static_cast<u32>(button)] = false;
+        ctx.BeginFrame(1.0f / 60.0f);
+    };
+    press(foundation::shell::GamepadButton::DPadRight);
+    CHECK(volume->Value.Value() == doctest::Approx(60.0f)); // right steps the slider
+    CHECK(focus->FocusedView() == volume);                  // and stays on it
+    press(foundation::shell::GamepadButton::DPadDown);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"back"); // down moves on
+    CHECK(volume->Value.Value() == doctest::Approx(60.0f));
+
+    input->SetSourceProvider(nullptr);
+    ctx.Shutdown();
+}
+
 TEST_CASE("ui.subsystem: only a pointer in use hovers, and a pad's focus shows")
 {
     // Sedulous 51756d2a and 773b2379: on the Steam Deck the hidden cursor rested over a menu's

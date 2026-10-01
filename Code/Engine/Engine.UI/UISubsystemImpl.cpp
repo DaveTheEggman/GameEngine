@@ -1275,8 +1275,9 @@ namespace engine::ui
         // click (gamepad navigation onto/off an EditText).
         m_bridge.SyncTextInput();
 
-        // ---- gamepad focus navigation: dpad/left stick move focus
-        // through the framework's geometric MoveFocus; South = Submit (synthesized
+        // ---- gamepad focus navigation: dpad/left stick arrive as the arrow keys, so the focused
+        // control sees them first (a slider steps) and an unhandled one moves focus through the
+        // framework's geometric search; South = Submit (synthesized
         // Return - the existing dispatch-first activation path), East = Cancel
         // (synthesized Escape). Hold-repeat: 0.4s initial, 0.12s after. The pad is
         // deliberately NOT a consumption class - gameplay pad actions keep working
@@ -1293,8 +1294,9 @@ namespace engine::ui
                 pad->IsButtonDown(foundation::shell::GamepadButton::DPadLeft) || stickX < -kThreshold,
                 pad->IsButtonDown(foundation::shell::GamepadButton::DPadRight) || stickX > kThreshold,
             };
-            const FocusDirection directions[4] = {FocusDirection::Up, FocusDirection::Down,
-                                                  FocusDirection::Left, FocusDirection::Right};
+            // As the arrow keys, through the same dispatch: the focused control sees the direction
+            // first (a slider steps), and only an unhandled one moves focus.
+            const KeyCode arrows[4] = {KeyCode::Up, KeyCode::Down, KeyCode::Left, KeyCode::Right};
             FocusManager* focus = m_context.GetFocusManager();
             // A connected pad is how the player navigates, so focus shows; any pad input takes over
             // from the pointer.
@@ -1338,7 +1340,8 @@ namespace engine::ui
                 } // nothing focused yet, so land somewhere first
                 else
                 {
-                    (void)focus->MoveFocus(directions[i]);
+                    inputManager.ProcessKeyDown(arrows[i], KeyModifiers::None, false, m_context.TotalTime());
+                    inputManager.ProcessKeyUp(arrows[i], KeyModifiers::None, m_context.TotalTime());
                 }
             }
             // Confirm and back act on the RELEASE. On the press, a button that resumes play would
