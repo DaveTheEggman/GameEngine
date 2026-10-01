@@ -754,7 +754,7 @@ namespace editor
         // resolution as it draws.
         if (m_app != nullptr && m_app->UI() != nullptr)
         {
-            m_app->UI()->SetScreenDesign(m_renderWidth, m_renderHeight, m_renderFit);
+            m_app->UI()->SetScreenResolution(m_renderWidth, m_renderHeight, m_renderFit);
         }
         render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
                                m_viewport->ColorFormat(), w, h, frame.frameIndex);

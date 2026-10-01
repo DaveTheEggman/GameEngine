@@ -343,7 +343,7 @@ namespace engine::runtime
         m_renderFit = fit;
         if (m_ui != nullptr)
         {
-            m_ui->SetScreenDesign(m_renderWidth, m_renderHeight, fit);
+            m_ui->SetScreenResolution(m_renderWidth, m_renderHeight, fit);
         }
         if (m_input == nullptr)
         {

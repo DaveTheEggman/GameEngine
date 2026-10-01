@@ -1516,13 +1516,13 @@ namespace engine::ui
         const bool stencil = view.depthStencilFormat != rhi::TextureFormat::Undefined &&
                              view.depthStencilFormat == m_render->canvasStencilFormat;
         m_screenTargetSize = Float2{static_cast<f32>(view.width), static_cast<f32>(view.height)};
-        if (HasScreenDesign())
+        if (HasScreenResolution())
         {
-            // Laid out at the design size, drawn crisp at the target's resolution into the
+            // Laid out at the screen resolution, drawn crisp at the target's resolution into the
             // rectangle the game's image was fitted to.
             const ContentFit fit = ScreenFit();
             const Rectangle dst = fit.DstRect();
-            const f32 scale = fit.Scale().y; // design units per target pixel, down the height
+            const f32 scale = fit.Scale().y; // layout units per target pixel, down the height
             m_screenRoot->DpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
             DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, static_cast<i32>(dst.x),
                            static_cast<i32>(dst.y), static_cast<u32>(Max(dst.width, 1.0f)),
@@ -1533,13 +1533,13 @@ namespace engine::ui
                        static_cast<i32>(view.frameIndex), stencil);
     }
 
-    void UISubsystem::SetScreenDesign(u32 width, u32 height, FitMode fit)
+    void UISubsystem::SetScreenResolution(u32 width, u32 height, FitMode fit)
     {
-        m_screenDesign = (width > 0 && height > 0)
+        m_screenResolution = (width > 0 && height > 0)
                              ? Float2{static_cast<f32>(width), static_cast<f32>(height)}
                              : Float2{0.0f, 0.0f};
-        m_screenDesignFit = fit;
-        if (!HasScreenDesign() && m_screenRoot.Get() != nullptr)
+        m_screenFitMode = fit;
+        if (!HasScreenResolution() && m_screenRoot.Get() != nullptr)
         {
             m_screenRoot->DpiScale = 1.0f;
         }
@@ -1547,13 +1547,13 @@ namespace engine::ui
 
     ContentFit UISubsystem::ScreenFit() const noexcept
     {
-        return ContentFit{Rectangle{0.0f, 0.0f, m_screenTargetSize.x, m_screenTargetSize.y}, m_screenDesign,
-                          m_screenDesignFit};
+        return ContentFit{Rectangle{0.0f, 0.0f, m_screenTargetSize.x, m_screenTargetSize.y}, m_screenResolution,
+                          m_screenFitMode};
     }
 
     Float2 UISubsystem::ScreenLayoutPoint(Float2 point) const noexcept
     {
-        if (!HasScreenDesign())
+        if (!HasScreenResolution())
         {
             return point;
         }
@@ -1563,7 +1563,7 @@ namespace engine::ui
 
     Float2 UISubsystem::ScreenPointerPoint(Float2 point) const noexcept
     {
-        if (!HasScreenDesign())
+        if (!HasScreenResolution())
         {
             return point;
         }

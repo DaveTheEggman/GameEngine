@@ -682,7 +682,7 @@ TEST_CASE("ui.subsystem: other fonts beside the default, each a family a label p
     ctx.Shutdown();
 }
 
-TEST_CASE("ui.subsystem: the screen tier takes the game's render resolution as its design")
+TEST_CASE("ui.subsystem: the screen tier lays out at the game's render resolution")
 {
     // Sedulous f9b1feb7: with a render resolution, the screen tier lays out at it and draws at
     // the target's resolution (a scale on the root, set as it draws); nought goes back to the
@@ -691,12 +691,12 @@ TEST_CASE("ui.subsystem: the screen tier takes the game's render resolution as i
     ctx.AddSubsystem<engine::scene::SceneSubsystem>();
     auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
     ctx.Startup();
-    CHECK_FALSE(ui->HasScreenDesign());
-    ui->SetScreenDesign(320, 180, FitMode::Letterbox);
-    CHECK(ui->HasScreenDesign());
+    CHECK_FALSE(ui->HasScreenResolution());
+    ui->SetScreenResolution(320, 180, FitMode::Letterbox);
+    CHECK(ui->HasScreenResolution());
     ui->ScreenRoot()->DpiScale = 4.0f; // as a fitted draw into a 1280x720 window sets it
-    ui->SetScreenDesign(0, 180, FitMode::Letterbox);
-    CHECK_FALSE(ui->HasScreenDesign());
+    ui->SetScreenResolution(0, 180, FitMode::Letterbox);
+    CHECK_FALSE(ui->HasScreenResolution());
     CHECK(ui->ScreenRoot()->DpiScale == doctest::Approx(1.0f));
     ctx.Shutdown();
 }

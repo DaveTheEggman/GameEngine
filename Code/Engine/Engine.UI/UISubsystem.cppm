@@ -394,8 +394,8 @@ export namespace engine::ui
         /// draws, at the target's own resolution, into the rectangle `fit` puts that size in, so
         /// its text stays crisp at any window size. The pointer then arrives in render space, as
         /// the game's does. Nought on either axis goes back to the target's own size.
-        void SetScreenDesign(u32 width, u32 height, FitMode fit);
-        [[nodiscard]] bool HasScreenDesign() const noexcept { return m_screenDesign.x > 0.0f && m_screenDesign.y > 0.0f; }
+        void SetScreenResolution(u32 width, u32 height, FitMode fit);
+        [[nodiscard]] bool HasScreenResolution() const noexcept { return m_screenResolution.x > 0.0f && m_screenResolution.y > 0.0f; }
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
@@ -613,10 +613,10 @@ export namespace engine::ui
         // The cooked-font service over the default font and the extra ones, or the TTF fallback
         // when no default is bound.
         void RebuildFontService();
-        // The design size fitted into the last target the screen tier drew into.
+        // The screen resolution fitted into the last target the screen tier drew into.
         [[nodiscard]] ContentFit ScreenFit() const noexcept;
         // A render-space point in the screen tier's layout units: offset by the part of the
-        // design a crop leaves out, and nothing else.
+        // resolution a crop leaves out, and nothing else.
         [[nodiscard]] Float2 ScreenLayoutPoint(Float2 point) const noexcept;
         // The same point in the pixels the screen tier's input takes (layout units times its scale).
         [[nodiscard]] Float2 ScreenPointerPoint(Float2 point) const noexcept;
@@ -650,8 +650,8 @@ export namespace engine::ui
         RefPtr<RootView> m_screenRoot;
         // The game's render resolution and how it fits its target, when it has one: the screen
         // tier lays out at that size and draws fitted where the game's image is.
-        Float2 m_screenDesign{0.0f, 0.0f};
-        FitMode m_screenDesignFit = FitMode::Letterbox;
+        Float2 m_screenResolution{0.0f, 0.0f};
+        FitMode m_screenFitMode = FitMode::Letterbox;
         Float2 m_screenTargetSize{0.0f, 0.0f}; // the target the screen tier last drew into
         foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)
         RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
