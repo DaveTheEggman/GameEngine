@@ -386,6 +386,10 @@ export namespace engine::ui
         /// defaultUiFontId (player + editor), exactly like SetDefaultTheme. The product is
         /// BORROWED (the ResourceManager's cache keeps it alive).
         void SetDefaultFont(const foundation::fonts::Font* font);
+        /// The project's other UI fonts, each its own family beside the default, which a label
+        /// picks by `font-family` (a title face over the body text). Held like the default. They
+        /// need a default font bound: the TTF fallback serves only its built-in face.
+        void SetExtraFonts(Span<const foundation::fonts::Font* const> fonts);
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
@@ -600,6 +604,9 @@ export namespace engine::ui
         // Nothing is focused and a navigation input came: the top screen's default focus, or
         // failing a screen the first focusable anywhere. False when there is nothing to focus.
         bool LandFocus();
+        // The cooked-font service over the default font and the extra ones, or the TTF fallback
+        // when no default is bound.
+        void RebuildFontService();
         // RenderTexture canvas roots are STANDALONE context roots owned by their
         // component - this registry (strong refs, mark-sweep like the canvas hosts) is
         // how a vanished component (despawn/removal; managers have no destroy hook)
@@ -634,6 +641,11 @@ export namespace engine::ui
         UniquePtr<foundation::fonts::TrueTypeFontService> m_fonts;
         UniquePtr<foundation::fonts::ResourceFontService>
             m_resourceFonts; // the cooked-font service when a default font product is bound
+        // The bound default font and the project's other UI fonts. Strong, as the service holds
+        // them: a re-cook replaces the manager's product, and a rebuild after it must not reach
+        // a freed one.
+        RefPtr<foundation::fonts::Font> m_defaultFont;
+        Array<RefPtr<foundation::fonts::Font>> m_extraFonts;
         Array<SceneUI> m_sceneUIs;
         engine::input::InputSubsystem* m_input = nullptr;
         foundation::render::ISceneRenderer* m_sceneRenderer = nullptr; // overlay registration seam

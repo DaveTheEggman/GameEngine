@@ -1904,19 +1904,52 @@ namespace engine::ui
 
     void UISubsystem::SetDefaultFont(const foundation::fonts::Font* font)
     {
-        if (font == nullptr || font->EntryCount() == 0)
+        m_defaultFont = (font != nullptr && font->EntryCount() > 0)
+                            ? RefPtr<foundation::fonts::Font>(const_cast<foundation::fonts::Font*>(font))
+                            : RefPtr<foundation::fonts::Font>();
+        RebuildFontService();
+    }
+
+    void UISubsystem::SetExtraFonts(Span<const foundation::fonts::Font* const> fonts)
+    {
+        m_extraFonts.Clear();
+        for (const foundation::fonts::Font* font : fonts)
+        {
+            if (font != nullptr && font->EntryCount() > 0)
+            {
+                m_extraFonts.PushBack(RefPtr<foundation::fonts::Font>(const_cast<foundation::fonts::Font*>(font)));
+            }
+        }
+        RebuildFontService();
+    }
+
+    void UISubsystem::RebuildFontService()
+    {
+        if (m_defaultFont.Get() == nullptr)
         {
             // Restore the TTF fallback service (dev path / no cooked font).
-            m_resourceFonts = nullptr;
+            if (!m_extraFonts.IsEmpty())
+            {
+                LOG_WARNING(u8"UI", u8"{} extra UI font(s) wait for a default font to be bound",
+                            static_cast<u64>(m_extraFonts.Size()));
+            }
             m_context.SetFontService(m_fonts.Get());
+            m_resourceFonts = nullptr;
             return;
         }
-        m_resourceFonts = MakeUnique<foundation::fonts::ResourceFontService>(m_allocator,
-                                                                             m_allocator);
-        m_resourceFonts->AddFont(font);
-        m_context.SetFontService(m_resourceFonts.Get());
-        LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s))",
-                          font->Family(), static_cast<u64>(font->EntryCount()));
+        UniquePtr<foundation::fonts::ResourceFontService> service =
+            MakeUnique<foundation::fonts::ResourceFontService>(m_allocator, m_allocator);
+        service->AddFont(m_defaultFont.Get());
+        service->SetDefaultFamily(m_defaultFont->Family());
+        for (const RefPtr<foundation::fonts::Font>& font : m_extraFonts)
+        {
+            service->AddFont(font.Get());
+        }
+        m_context.SetFontService(service.Get());
+        m_resourceFonts = Move(service);
+        LOG_INFO(u8"UI", u8"default font bound: '{}' ({} baked size(s)), and {} more famil{}",
+                 m_defaultFont->Family(), static_cast<u64>(m_defaultFont->EntryCount()),
+                 static_cast<u64>(m_extraFonts.Size()), m_extraFonts.Size() == 1 ? u8"y" : u8"ies");
     }
 
     void UISubsystem::SetDefaultTheme(const UITheme* theme)

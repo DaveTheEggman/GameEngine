@@ -24,6 +24,8 @@ import foundation.rhi;
 import foundation.rhi.null;
 import foundation.input;
 import engine.input;
+import foundation.fonts;          // IFontService (the extra font families test)
+import foundation.fonts.resource; // Font products
 
 using namespace foundation::core;
 using namespace engine::ui;
@@ -620,6 +622,62 @@ TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activa
     ui->RemoveScreenOverlay(overlay.Get());
     ctx.BeginFrame(1.0f / 60.0f);
     CHECK(ui->Context().ActiveInputRoot() == root); // back to the scene tier
+
+    ctx.Shutdown();
+}
+
+namespace
+{
+    // A cooked font product of one family with one (empty) size: enough for the service to
+    // resolve (family, size) to an entry, which is all the binding test asks.
+    RefPtr<foundation::fonts::Font> MakeFontProduct(StringView family)
+    {
+        RefPtr<foundation::fonts::Font> font = MakeRef<foundation::fonts::Font>(DefaultAllocator());
+        font->SetFamily(family);
+        foundation::fonts::Font::Entry entry;
+        entry.pixelHeight = 24.0f;
+        font->AddEntry(Move(entry));
+        return font;
+    }
+}
+
+TEST_CASE("ui.subsystem: other fonts beside the default, each a family a label picks")
+{
+    // Sedulous 39147576: the project's uiFontIds load beside the default font, each its own
+    // family, and the default family stays the default font's whatever order they bind in.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    foundation::fonts::IFontService* fallback = ui->Context().FontService();
+
+    RefPtr<foundation::fonts::Font> body = MakeFontProduct(u8"Body");
+    RefPtr<foundation::fonts::Font> title = MakeFontProduct(u8"Title");
+    const foundation::fonts::Font* extras[] = {title.Get()};
+
+    // Extras before a default wait for it: the fallback service stays.
+    ui->SetExtraFonts(Span<const foundation::fonts::Font* const>(extras, 1));
+    CHECK(ui->Context().FontService() == fallback);
+
+    ui->SetDefaultFont(body.Get());
+    foundation::fonts::IFontService* service = ui->Context().FontService();
+    REQUIRE(service != fallback);
+    CHECK(service->DefaultFontFamily() == StringView(u8"Body"));
+    foundation::fonts::CachedFont* bodyFont = service->GetFont(u8"Body", 24.0f);
+    foundation::fonts::CachedFont* titleFont = service->GetFont(u8"Title", 24.0f);
+    REQUIRE(bodyFont != nullptr);
+    REQUIRE(titleFont != nullptr);
+    CHECK(titleFont != bodyFont);       // a label naming the title family gets the title face
+    CHECK(service->GetFont(24.0f) == bodyFont); // no family named: the default's
+
+    // None left: the default alone serves every family.
+    ui->SetExtraFonts({});
+    CHECK(ui->Context().FontService()->GetFont(u8"Title", 24.0f) ==
+          ui->Context().FontService()->GetFont(u8"Body", 24.0f));
+
+    // No default: the fallback again.
+    ui->SetDefaultFont(nullptr);
+    CHECK(ui->Context().FontService() == fallback);
 
     ctx.Shutdown();
 }
