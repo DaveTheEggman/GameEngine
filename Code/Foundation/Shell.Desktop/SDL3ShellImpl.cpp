@@ -245,6 +245,42 @@ namespace foundation::shell
         m_height = h;
     }
 
+    namespace
+    {
+        // Exclusive takes the display mode closest to the window's size; desktop fullscreen is
+        // SDL's fullscreen with no mode, the display left as it is. Loud and windowed when the
+        // display refuses.
+        void ApplyFullscreen(SDL_Window* window, const WindowSettings& settings)
+        {
+            if (settings.fullscreen == WindowFullscreen::None)
+            {
+                return;
+            }
+            if (settings.fullscreen == WindowFullscreen::Exclusive)
+            {
+                SDL_DisplayMode mode{};
+                if (SDL_GetClosestFullscreenDisplayMode(SDL_GetPrimaryDisplay(), static_cast<int>(settings.width),
+                                                        static_cast<int>(settings.height), 0.0f, true, &mode))
+                {
+                    (void)SDL_SetWindowFullscreenMode(window, &mode);
+                }
+                else
+                {
+                    LOG_WARNING(u8"Shell", u8"no fullscreen mode near {}x{}; the desktop's is used", settings.width,
+                                settings.height);
+                }
+            }
+            else
+            {
+                (void)SDL_SetWindowFullscreenMode(window, nullptr);
+            }
+            if (!SDL_SetWindowFullscreen(window, true))
+            {
+                LOG_WARNING(u8"Shell", u8"fullscreen refused; the window stays windowed");
+            }
+        }
+    }
+
     core::Result<IWindow*> SDL3WindowManager::CreateWindow(const WindowSettings& settings)
     {
         const core::String title = core::String(settings.title);
@@ -263,6 +299,7 @@ namespace foundation::shell
             SDL_SetWindowPosition(window, static_cast<int>(settings.x),
                                   static_cast<int>(settings.y));
         }
+        ApplyFullscreen(window, settings);
 
         auto wrapped = core::MakeUnique<SDL3Window>(*m_allocator, window);
         IWindow* borrowed = wrapped.Get();

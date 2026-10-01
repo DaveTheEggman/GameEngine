@@ -57,6 +57,14 @@ export namespace foundation::shell
         void* window = nullptr;
     };
 
+    /// How a window takes the screen.
+    enum class WindowFullscreen : core::u8
+    {
+        None,      // a window of its own size
+        Exclusive, // exclusive fullscreen, the display switched to the mode closest to the size
+        Desktop,   // a borderless window over the whole display, at the display's own mode
+    };
+
     struct WindowSettings
     {
         core::StringView title = u8"Shell";
@@ -74,6 +82,8 @@ export namespace foundation::shell
         // overlays are typically created borderless.
         bool resizable = true;
         bool borderless = false;
+        // Windowed, exclusive or desktop fullscreen. A backend without fullscreen ignores it.
+        WindowFullscreen fullscreen = WindowFullscreen::None;
     };
 
     class IWindow
