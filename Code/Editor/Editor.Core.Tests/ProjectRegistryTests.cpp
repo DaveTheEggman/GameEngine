@@ -364,3 +364,38 @@ TEST_CASE("editor.settings: a store with EVERY section round-trips (registry sur
     REQUIRE(ui != nullptr);
     CHECK(ui->uiScale == doctest::Approx(1.2f));
 }
+
+// Sedulous c5100e94: the Game tab's preview resolutions seed the common sizes once, a user's
+// removal stays removed, and the list round-trips through the store; the per-project choice
+// rides the project store.
+TEST_CASE("editor.settings: the preview resolutions seed once and round-trip")
+{
+    RegisterEditorSettingsTypes();
+    CHECK(GamePreviewSettings::From(nullptr) == nullptr); // no store, nothing
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
+    GamePreviewSettings* previews = GamePreviewSettings::From(&store);
+    REQUIRE(previews != nullptr);
+    CHECK(previews->seeded);
+    REQUIRE(previews->presets.Size() == 6u);
+    CHECK(previews->presets[3].name == StringView(u8"Steam Deck"));
+    CHECK(previews->presets[3].width == 1280u);
+    CHECK(previews->presets[3].height == 800u);
+
+    previews->presets.Clear();
+    previews->presets.PushBack(GamePreviewResolution{String(u8"Handheld"), 960, 544});
+    CHECK(GamePreviewSettings::From(&store)->presets.Size() == 1u); // not seeded again
+    store.Section<GamePageSettings>().resolutionKey = String(u8"preset:Handheld");
+
+    MemoryStream buffer;
+    REQUIRE(store.Save(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    (void)buffer.Seek(0, SeekOrigin::Begin);
+    foundation::settings::Settings loaded(foundation::core::DefaultAllocator());
+    REQUIRE(loaded.Load(buffer, foundation::xml::XmlSerializerFactory()).IsOk());
+    const GamePreviewSettings* back = GamePreviewSettings::From(&loaded);
+    REQUIRE(back->presets.Size() == 1u);
+    CHECK(back->presets[0].name == StringView(u8"Handheld"));
+    CHECK(back->presets[0].width == 960u);
+    CHECK(back->presets[0].height == 544u);
+    REQUIRE(loaded.Find<GamePageSettings>() != nullptr);
+    CHECK(loaded.Find<GamePageSettings>()->resolutionKey == StringView(u8"preset:Handheld"));
+}

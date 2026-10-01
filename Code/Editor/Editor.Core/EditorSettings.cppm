@@ -185,6 +185,90 @@ export namespace editor
         }
     };
 
+    /// One resolution the Game tab offers to preview at.
+    struct GamePreviewResolution
+    {
+        String name; // "Steam Deck"
+        u32 width = 1920;
+        u32 height = 1080;
+
+        void Serialize(ISerializer& ar)
+        {
+            foundation::core::Serialize(ar, "name", name);
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+        }
+    };
+    inline void Serialize(ISerializer& ar, GamePreviewResolution& r)
+    {
+        ar.BeginObject();
+        r.Serialize(ar);
+        ar.EndObject();
+    }
+
+    /// The user's preview resolutions, a section of the per-user store: sizes to test a game at
+    /// on this machine, offered by the Game tab after the project's own resolution and its export
+    /// presets'. They say nothing about the game, which is why they are not the project's.
+    class GamePreviewSettings final : public ISerializable
+    {
+        RTTI_OBJECT(GamePreviewSettings, ISerializable)
+    public:
+        Array<GamePreviewResolution> presets;
+        bool seeded = false; // the defaults went in once; a user who removes them keeps them removed
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "presets", presets);
+            foundation::core::Serialize(ar, "seeded", seeded);
+        }
+
+        /// Seeds the common sizes the first time. True when it did, so the caller saves.
+        bool SeedDefaults()
+        {
+            if (seeded)
+            {
+                return false;
+            }
+            seeded = true;
+            const auto add = [this](StringView name, u32 width, u32 height)
+            { presets.PushBack(GamePreviewResolution{String(name), width, height}); };
+            add(u8"HD", 1280, 720);
+            add(u8"Full HD", 1920, 1080);
+            add(u8"QHD", 2560, 1440);
+            add(u8"Steam Deck", 1280, 800);
+            add(u8"Phone portrait", 1080, 2400);
+            add(u8"Phone landscape", 2400, 1080);
+            return true;
+        }
+
+        /// The store's section, seeded on first use (and marked changed then, so it saves). Null
+        /// with no store: headless and in tests.
+        [[nodiscard]] static GamePreviewSettings* From(settings::Settings* store)
+        {
+            if (store == nullptr)
+            {
+                return nullptr;
+            }
+            GamePreviewSettings& section = store->Section<GamePreviewSettings>();
+            if (section.SeedDefaults())
+            {
+                store->MarkChanged<GamePreviewSettings>();
+            }
+            return &section;
+        }
+    };
+
+    /// The Game tab's state per project, a section of the project's editor store.
+    class GamePageSettings final : public ISerializable
+    {
+        RTTI_OBJECT(GamePageSettings, ISerializable)
+    public:
+        /// The chosen resolution's key: "project", "export:<preset>", "preset:<name>" or "panel".
+        String resolutionKey;
+
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "resolutionKey", resolutionKey); }
+    };
+
     /// The registry's overrides into the section: every registered action with one is written
     /// (added or updated); an entry for an id the registry does not know is kept. Returns how
     /// many entries the section holds after.
@@ -399,6 +483,10 @@ export namespace editor
         RegisterSerializable<EditorMcpSettings>();
         GlobalTypeRegistry().Register(EditorShortcutSettings::StaticType(), TypeDomain(u8"Editor"));
         RegisterSerializable<EditorShortcutSettings>();
+        GlobalTypeRegistry().Register(GamePreviewSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<GamePreviewSettings>();
+        GlobalTypeRegistry().Register(GamePageSettings::StaticType(), TypeDomain(u8"Editor"));
+        RegisterSerializable<GamePageSettings>();
     }
 
     // Load the editor settings store from `root` (XML). NotFound when the file is absent (first run =>
@@ -446,4 +534,6 @@ export namespace editor
     RTTI_DEFINE_OBJECT_VERSIONED(EditorUiSettings, "rtti::editor::editor", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorMcpSettings, "rtti::editor::editor", 1)
     RTTI_DEFINE_OBJECT_VERSIONED(EditorShortcutSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(GamePreviewSettings, "rtti::editor::editor", 1)
+    RTTI_DEFINE_OBJECT_VERSIONED(GamePageSettings, "rtti::editor::editor", 1)
 }
