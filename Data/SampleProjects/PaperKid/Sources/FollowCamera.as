@@ -77,12 +77,14 @@ class FollowCamera
             return;
         }
 
-        // Engine forward is -Z: FromYawPitchRoll gives forward = (-sin(yaw)cos(pitch), -sin(pitch),
-        // -cos(yaw)cos(pitch)). To aim forward along `dir`, BOTH atan2 args are negated (yaw = 0 must
-        // face -Z, not +Z) - without the negation the camera faces exactly away from the target.
+        // Engine forward is -Z: FromYawPitchRoll is XNA's q = qY * qX, so the forward it gives is
+        // (-sin(yaw)cos(pitch), sin(pitch), -cos(yaw)cos(pitch)). To aim forward along `dir`, BOTH
+        // atan2 args are negated (yaw = 0 must face -Z, not +Z) - without the negation the camera
+        // faces exactly away from the target.
         float yaw = Math::RadiansToDegrees(Math::Atan2(-dir.x, -dir.z));
-        // dir.y < 0 (target below the raised camera) -> positive pitch = look down.
-        float pitch = Math::RadiansToDegrees(-Math::Asin(dir.y / len));
+        // A POSITIVE pitch looks UP, so the pitch takes dir.y's own sign: a target below the
+        // raised camera is a negative pitch, looking down.
+        float pitch = Math::RadiansToDegrees(Math::Asin(dir.y / len));
         self.setRotationEuler(pitch, yaw, 0.0f);
     }
 
