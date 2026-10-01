@@ -171,6 +171,11 @@ export namespace engine::spline
         /// The closest point on the curve to a world position.
         [[nodiscard]] SplineHit closestPoint(foundation::script::Entity entity, f32 x, f32 y,
                                              f32 z) const;
+        /// The same by a Float3 (Sedulous's ClosestPoint).
+        [[nodiscard]] SplineHit closestPoint(foundation::script::Entity entity, Float3 world) const
+        {
+            return closestPoint(entity, world.x, world.y, world.z);
+        }
 
         [[nodiscard]] static SceneSplines of(foundation::script::Scene sceneHandle)
         {

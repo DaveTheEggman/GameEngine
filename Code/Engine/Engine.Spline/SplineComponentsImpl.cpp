@@ -236,7 +236,11 @@ namespace engine::spline
         builder.Method<&SceneSplines::sampleAt>("sampleAt", {"entity", "t"});
         builder.Method<&SceneSplines::sampleAtDistance>("sampleAtDistance",
                                                         {"entity", "distance"});
-        builder.Method<&SceneSplines::closestPoint>("closestPoint", {"entity", "x", "y", "z"});
+        builder.Method<static_cast<SplineHit (SceneSplines::*)(foundation::script::Entity, f32, f32, f32)
+                                      const>(&SceneSplines::closestPoint)>("closestPoint",
+                                                                           {"entity", "x", "y", "z"});
+        builder.Method<static_cast<SplineHit (SceneSplines::*)(foundation::script::Entity, Float3) const>(
+            &SceneSplines::closestPoint)>("closestPoint", {"entity", "world"});
         builder.Method<&SceneSplines::of>("of", {"scene"});
     }
 

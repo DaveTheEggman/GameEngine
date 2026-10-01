@@ -127,6 +127,11 @@ TEST_CASE("spline facade: world-space queries through SceneSplines")
     CHECK(Length(mid.tangent - Float3{1, 0, 0}) < 0.01f);
 
     const engine::spline::SplineHit nearest = splines.closestPoint(scriptEntity, 3.0f, 9.0f, 0.0f);
+    // The Float3 form (Sedulous's ClosestPoint) answers the same.
+    const engine::spline::SplineHit byFloat3 =
+        splines.closestPoint(scriptEntity, Float3{3.0f, 9.0f, 0.0f});
+    CHECK(byFloat3.valid == nearest.valid);
+    CHECK(byFloat3.t == doctest::Approx(nearest.t));
     CHECK(nearest.valid);
     CHECK(Length(nearest.position - Float3{3, 5, 0}) < 0.05f);
 
