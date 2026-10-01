@@ -114,13 +114,26 @@ namespace foundation::script
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
+    REFLECT_VALUE(ScenePrefabs, "rtti::script")
+    {
+        // spawn - an ARITY FAMILY: (prefab, position), + rotation, + parent.
+        builder.Method<static_cast<Entity (ScenePrefabs::*)(Guid, Float3) const>(&ScenePrefabs::spawn)>(
+            "spawn", {"prefab", "position"});
+        builder.Method<static_cast<Entity (ScenePrefabs::*)(Guid, Float3, Quaternion) const>(
+            &ScenePrefabs::spawn)>("spawn", {"prefab", "position", "rotation"});
+        builder.Method<static_cast<Entity (ScenePrefabs::*)(Guid, Float3, Quaternion, Entity) const>(
+            &ScenePrefabs::spawn)>("spawn", {"prefab", "position", "rotation", "parent"});
+        builder.Method<&ScenePrefabs::of>("of", {"scene"});
+        builder.Constructor(); // some backends only materialize constructible foreign classes
+    }
+
     core::Span<const core::StringView> BehaviorFacadeNames()
     {
         // Kept in sync with RegisterScriptFacadeReflection below.
         static const core::StringView names[] = {
-            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"SceneEvents",
+            u8"Entity", u8"Log", u8"Time", u8"Random", u8"Scene", u8"SceneEvents", u8"ScenePrefabs",
         };
-        return core::Span<const core::StringView>{names, 6};
+        return core::Span<const core::StringView>{names, 7};
     }
 
     namespace
@@ -215,6 +228,8 @@ namespace foundation::script
             GlobalTypeRegistry().Register(TypeOf<Scene>());
             RttiRegisterValue_SceneEvents(); // the scene.events handle (mirrors Scene)
             GlobalTypeRegistry().Register(TypeOf<SceneEvents>());
+            RttiRegisterValue_ScenePrefabs(); // ScenePrefabs.of(scene) (Sedulous's scene.Prefabs)
+            GlobalTypeRegistry().Register(TypeOf<ScenePrefabs>());
             return true;
         }();
         (void)once;

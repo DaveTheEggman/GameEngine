@@ -401,6 +401,28 @@ export namespace foundation::script
         void emit(String name, Variant payload) const;
     };
 
+    /// The scene's prefab spawning (Sedulous's `scene.Prefabs`): `ScenePrefabs.of(scene)`. An
+    /// authored prefab instantiated by asset id, its root at `position` (and `rotation`) under
+    /// `parent` (none: a scene root), in the parent's space. Invalid Entity when the scene has no
+    /// spawn system or content source, or the prefab is nil / unknown - never a partial spawn. A
+    /// value type; a null scene makes every call a safe no-op.
+    struct ScenePrefabs
+    {
+        scene::Scene* scene = nullptr;
+
+        [[nodiscard]] Entity spawn(Guid prefab, Float3 position) const;
+        [[nodiscard]] Entity spawn(Guid prefab, Float3 position, Quaternion rotation) const;
+        [[nodiscard]] Entity spawn(Guid prefab, Float3 position, Quaternion rotation,
+                                   Entity parent) const;
+
+        [[nodiscard]] static ScenePrefabs of(Scene sceneHandle)
+        {
+            ScenePrefabs prefabs;
+            prefabs.scene = sceneHandle.scene;
+            return prefabs;
+        }
+    };
+
     /// Wrap a (scene, handle) pair into an Entity value (invalid handle -> invalid Entity).
     [[nodiscard]] inline Entity WrapEntity(scene::Scene* scene, scene::EntityHandle handle)
     {
@@ -469,6 +491,32 @@ export namespace foundation::script
             return Entity{};
         }
         return WrapEntity(scene, spawner->Spawn(prefab, Float3{x, y, z}));
+    }
+
+    inline Entity ScenePrefabs::spawn(Guid prefab, Float3 position) const
+    {
+        return spawn(prefab, position, Quaternion::Identity, Entity{});
+    }
+    inline Entity ScenePrefabs::spawn(Guid prefab, Float3 position, Quaternion rotation) const
+    {
+        return spawn(prefab, position, rotation, Entity{});
+    }
+    inline Entity ScenePrefabs::spawn(Guid prefab, Float3 position, Quaternion rotation,
+                                      Entity parent) const
+    {
+        if (scene == nullptr || prefab.IsNil())
+        {
+            return Entity{};
+        }
+        scene::PrefabSpawnSystem* spawner = scene->GetSystem<scene::PrefabSpawnSystem>();
+        if (spawner == nullptr)
+        {
+            return Entity{};
+        }
+        // A parent from another scene (or a stale one) reads as none: the spawn lands at a root.
+        const scene::EntityHandle under =
+            (parent.scene == scene && parent.Live()) ? parent.Handle() : scene::EntityHandle::Invalid();
+        return WrapEntity(scene, spawner->Spawn(prefab, position, rotation, under));
     }
 
     inline Entity Scene::find(String name) const

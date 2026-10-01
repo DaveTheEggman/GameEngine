@@ -4621,3 +4621,86 @@ TEST_CASE("script.scene: a Luau behaviour walks, reorders and reparents its chil
         u8"    if walked then me:setName(\"walked\") end\n"
         u8"end\n");
 }
+
+// ScenePrefabs.of(scene) (Sedulous's scene.Prefabs): a prefab by asset id at a Float3, turned by a
+// Quaternion, under a parent. Both backends spawn the same Turret the same way.
+namespace
+{
+    void CheckScenePrefabsScript(StringView language, StringView className, StringView prefix,
+                                 StringView suffix)
+    {
+        ScriptedScene bed;
+        PrefabSource prefabs(bed);
+        String source(prefix);
+        source.Append(prefabs.Canonical().AsView());
+        source.Append(suffix);
+        RefPtr<ScriptClass> spawner = MakeClassLang(language, className, source.AsView(), {u8"onStart"});
+        const scene::EntityHandle holder = bed.AddScripted(spawner, u8"holder");
+
+        bed.Start();
+        bed.Frame();
+
+        ScriptComponent* comp = bed.components->Get(holder);
+        REQUIRE(comp != nullptr);
+        CHECK_FALSE(comp->behaviors[0].faulted);
+        // One at a root by position alone (Spawned counts roots), one under the holder, turned;
+        // an unknown id spawns nothing.
+        CHECK(PrefabSource::Spawned(bed.scene) == 1u);
+        const scene::EntityHandle child = bed.scene.FindChildByName(holder, u8"Turret");
+        REQUIRE(child.IsAssigned());
+        const Transform placed = bed.scene.GetLocalTransform(child);
+        CHECK(Near(placed.position.y, 2.0f));
+        CHECK(Abs(placed.rotation.y) > 0.5f);
+        CHECK(bed.scene.GetEntityName(holder) == StringView(u8"spawned"));
+    }
+}
+
+TEST_CASE("script.scene: ScenePrefabs spawns by asset id at a position, turned, under a parent "
+          "(AngelScript)")
+{
+    CheckScenePrefabsScript(
+        u8"angelscript", u8"Spawner",
+        u8"class Spawner {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Spawner(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        Guid id = Guid(\"",
+        u8"\");\n"
+        u8"        ScenePrefabs prefabs = ScenePrefabs::of(self.scene);\n"
+        u8"        Entity@ atRoot = prefabs.spawn(id, Float3(5, 0, 0));\n"
+        u8"        self.setRotationEuler(0, 90, 0);\n"
+        u8"        Entity@ under = prefabs.spawn(id, Float3(0, 2, 0), self.rotation(), self);\n"
+        u8"        Entity@ none = prefabs.spawn(Guid(\"not-a-guid\"), Float3(0, 0, 0));\n"
+        u8"        self.setRotationEuler(0, 0, 0);\n"
+        u8"        if (atRoot.isValid() && under.isValid() && !none.isValid()\n"
+        u8"            && !atRoot.parent().isValid() && under.parent().name() == \"holder\") {\n"
+        u8"            self.setName(\"spawned\");\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n");
+}
+
+TEST_CASE("script.scene: ScenePrefabs spawns by asset id at a position, turned, under a parent "
+          "(Luau)")
+{
+    CheckScenePrefabsScript(
+        u8"luau", u8"Spawner",
+        u8"Spawner = {}\n"
+        u8"Spawner.__index = Spawner\n"
+        u8"function Spawner.new(entity) return setmetatable({ entity = entity }, Spawner) end\n"
+        u8"function Spawner:onStart()\n"
+        u8"    local me = self.entity\n"
+        u8"    local id = Guid.new(\"",
+        u8"\")\n"
+        u8"    local prefabs = ScenePrefabs.of(me.scene)\n"
+        u8"    local atRoot = prefabs:spawn(id, Float3.new(5, 0, 0))\n"
+        u8"    me:setRotationEuler(0, 90, 0)\n"
+        u8"    local under = prefabs:spawn(id, Float3.new(0, 2, 0), me:rotation(), me)\n"
+        u8"    local none = prefabs:spawn(Guid.new(\"not-a-guid\"), Float3.new(0, 0, 0))\n"
+        u8"    me:setRotationEuler(0, 0, 0)\n"
+        u8"    if atRoot:isValid() and under:isValid() and not none:isValid()\n"
+        u8"        and not atRoot:parent():isValid() and under:parent():name() == \"holder\" then\n"
+        u8"        me:setName(\"spawned\")\n"
+        u8"    end\n"
+        u8"end\n");
+}
