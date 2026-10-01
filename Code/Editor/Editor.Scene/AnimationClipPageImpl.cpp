@@ -477,9 +477,54 @@ namespace editor
         {
             source.eventTimes.PushBack(0.0f);
         }
-        for (usize e = 0; e < source.eventTimes.Size(); ++e)
+        // The events are a section list: the header's add icon places one at the playhead, and
+        // each event is a section of its own with its remove icon (their order means nothing:
+        // an event's time places it).
+        auto events = MakeRef<app::ContainerListEditor>(Allocator(), StringView(u8"Events"),
+                                                        StringView(u8"Events"));
+        events->ElementsAsSections = true;
+        for (const String& name : source.eventNames)
         {
-            const String cat = Format(u8"Event {}", e);
+            events->slotNames.PushBack(name);
+        }
+        events->OnAdd = [self]()
+        {
+            self->QueueStructural(u8"add-event",
+                                  Function<void()>{[self]()
+                                                   {
+                                                       animation::AnimationClipSource& s =
+                                                           self->m_asset->source;
+                                                       s.eventTimes.PushBack(self->m_time);
+                                                       s.eventNames.PushBack(String(u8"event"));
+                                                   }});
+        };
+        g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(events.Get()));
+        const usize eventCount = source.eventTimes.Size();
+        for (usize e = 0; e < eventCount; ++e)
+        {
+            const String cat = EventSection(e);
+            g.SetCategoryHeaderActions(
+                cat.AsView(),
+                app::ContainerListEditor::ElementActions(
+                    Allocator(), e, eventCount, Function<void(usize, bool)>{},
+                    [self](usize i)
+                    {
+                        self->QueueStructural(
+                            u8"del-event",
+                            Function<void()>{[self, i]()
+                                             {
+                                                 animation::AnimationClipSource& s =
+                                                     self->m_asset->source;
+                                                 if (i < s.eventTimes.Size())
+                                                 {
+                                                     s.eventTimes.RemoveAt(i);
+                                                 }
+                                                 if (i < s.eventNames.Size())
+                                                 {
+                                                     s.eventNames.RemoveAt(i);
+                                                 }
+                                             }});
+                    }));
             g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
                 MakeRef<ui::toolkit::FloatEditor>(
                     Allocator(), u8"Time (s)", static_cast<f64>(source.eventTimes[e]), 0.0,
@@ -501,51 +546,12 @@ namespace editor
                                                }},
                     cat.AsView())
                     .Get()));
-            const usize eventIdx = e;
-            g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-                MakeRef<ui::toolkit::ButtonEditor>(
-                    Allocator(), u8"Remove Event",
-                    Function<void()>{[self, eventIdx]()
-                                     {
-                                         self->QueueStructural(
-                                             u8"del-event",
-                                             Function<void()>{
-                                                 [self, eventIdx]()
-                                                 {
-                                                     animation::AnimationClipSource& s =
-                                                         self->m_asset->source;
-                                                     if (eventIdx < s.eventTimes.Size())
-                                                     {
-                                                         s.eventTimes.RemoveAt(eventIdx);
-                                                     }
-                                                     if (eventIdx < s.eventNames.Size())
-                                                     {
-                                                         s.eventNames.RemoveAt(eventIdx);
-                                                     }
-                                                 }});
-                                     }},
-                    cat.AsView())
-                    .Get()));
         }
-        g.AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
-            MakeRef<ui::toolkit::ButtonEditor>(
-                Allocator(), u8"+ Add Event",
-                Function<void()>{[self]()
-                                 {
-                                     self->QueueStructural(
-                                         u8"add-event",
-                                         Function<void()>{[self]()
-                                                          {
-                                                              animation::AnimationClipSource& s =
-                                                                  self->m_asset->source;
-                                                              s.eventTimes.PushBack(
-                                                                  self->m_time); // at the playhead
-                                                              s.eventNames.PushBack(
-                                                                  String(u8"event"));
-                                                          }});
-                                 }},
-                StringView(u8"Events"))
-                .Get()));
+    }
+
+    String AnimationClipEditorPage::EventSection(usize index)
+    {
+        return Format(u8"Event {}", index + 1);
     }
 
     void AnimationClipEditorPage::QueueStructural(StringView undoKey, Function<void()> mutate)

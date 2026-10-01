@@ -194,14 +194,6 @@ namespace editor
                                                         Move(setter), cat)
                            .Get()));
         }
-        void RowButton(ui::toolkit::PropertyGrid& g, StringView name, StringView cat,
-                       Function<void()> action)
-        {
-            Add(g,
-                RefPtr<ui::toolkit::PropertyEditor>(
-                    MakeRef<ui::toolkit::ButtonEditor>(g.MemoryAllocator(), name, Move(action), cat)
-                        .Get()));
-        }
 
         // ---- composite value-type rows ----------------------------------------------------------
 
@@ -795,7 +787,23 @@ namespace editor
         // Assemble the three panes: [tree | center] then that | inspector.
         auto leftSplit = MakeRef<ui::toolkit::SplitView>(Allocator());
         leftSplit->SetSplitRatio(0.22f);
-        leftSplit->SetPanes(m_tree.Get(), centerColumn.Get());
+        // The systems tree under its list header (title + add icon).
+        auto treeColumn = MakeRef<ui::FlexLayout>(Allocator());
+        treeColumn->Direction = ui::Orientation::Vertical;
+        treeColumn->Spacing = 4.0f;
+        treeColumn->Padding = ui::Thickness{6, 4};
+        {
+            ParticleEffectEditorPage* self = this;
+            auto header = MakeRef<app::ListHeader>(Allocator(), StringView(u8"Systems"),
+                                                   StringView(u8"Add system"),
+                                                   [self]() { self->AddSystem(); });
+            treeColumn->AddView(header.Get(), app::ListHeader::RowStyle());
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.Width = ui::SizeSpec::Match();
+            treeColumn->AddView(m_tree.Get(), grow);
+        }
+        leftSplit->SetPanes(treeColumn.Get(), centerColumn.Get());
         auto rightSplit = MakeRef<ui::toolkit::SplitView>(Allocator());
         rightSplit->SetSplitRatio(0.72f);
         rightSplit->SetPanes(leftSplit.Get(), inspectorColumn.Get());
@@ -1240,16 +1248,7 @@ namespace editor
         switch (node.kind)
         {
         case ParticleNodeKind::Effect:
-            menu->AddItem(
-                u8"Add System",
-                [self]()
-                {
-                    self->QueueStructural(
-                        u8"add-system",
-                        Function<void()>{[self]() { self->m_asset->Effect().AddSystem(2000); }},
-                        ParticleNodeRef{ParticleNodeKind::System,
-                                        self->m_asset->Effect().SystemCount(), -1});
-                });
+            menu->AddItem(u8"Add System", [self]() { self->AddSystem(); });
             break;
         case ParticleNodeKind::System:
         {
@@ -1259,16 +1258,8 @@ namespace editor
             menu->AddSeparator();
             if (self->m_asset->Effect().SystemCount() > 1)
             {
-                menu->AddItem(
-                    u8"Delete System",
-                    [self, sysIndex]()
-                    {
-                        self->QueueStructural(
-                            u8"del-system",
-                            Function<void()>{[self, sysIndex]()
-                                             { self->m_asset->Effect().RemoveSystem(sysIndex); }},
-                            ParticleNodeRef{ParticleNodeKind::Effect, -1, -1});
-                    });
+                menu->AddItem(u8"Delete System",
+                              [self, sysIndex]() { self->DeleteSystem(sysIndex); });
             }
             break;
         }
@@ -1458,15 +1449,30 @@ namespace editor
 
     void ParticleEffectEditorPage::BuildEffectInspector()
     {
-        RowButton(*m_grid, u8"Add System", u8"Effect",
-                  [this]()
-                  {
-                      this->QueueStructural(
-                          u8"add-system",
-                          Function<void()>{[this]() { this->m_asset->Effect().AddSystem(2000); }},
-                          ParticleNodeRef{ParticleNodeKind::System,
-                                          this->m_asset->Effect().SystemCount(), -1});
-                  });
+        // Adding a system is the tree header's add icon and the effect's context menu.
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
+            MakeRef<ui::toolkit::StringEditor>(
+                Allocator(), u8"Systems", Format(u8"{}", m_asset->Effect().SystemCount()).AsView(),
+                Function<void(StringView)>{}, StringView(u8"Effect"))
+                .Get()));
+    }
+
+    void ParticleEffectEditorPage::AddSystem()
+    {
+        ParticleEffectEditorPage* self = this;
+        QueueStructural(u8"add-system",
+                        Function<void()>{[self]() { self->m_asset->Effect().AddSystem(2000); }},
+                        ParticleNodeRef{ParticleNodeKind::System, m_asset->Effect().SystemCount(),
+                                        -1});
+    }
+
+    void ParticleEffectEditorPage::DeleteSystem(i32 sysIndex)
+    {
+        ParticleEffectEditorPage* self = this;
+        QueueStructural(u8"del-system",
+                        Function<void()>{[self, sysIndex]()
+                                         { self->m_asset->Effect().RemoveSystem(sysIndex); }},
+                        ParticleNodeRef{ParticleNodeKind::Effect, -1, -1});
     }
 
     void ParticleEffectEditorPage::BuildSystemInspector(particles::ParticleSystem& sys)
@@ -1487,9 +1493,19 @@ namespace editor
         const bool textured = billboardFamily || rm == particles::ParticleRenderMode::Trail;
         const bool meshMode = rm == particles::ParticleRenderMode::Mesh;
 
-        // --- General ---
+        // --- General --- (its header carries the system's delete icon while another remains)
         {
             const StringView cat = u8"General";
+            if (m_asset->Effect().SystemCount() > 1)
+            {
+                ParticleEffectEditorPage* self = this;
+                auto remove =
+                    MakeRef<ui::IconButton>(Allocator(), app::EditorIcons::Get().remove.Get());
+                remove->TooltipText = String(u8"Delete system");
+                remove->OnClick.Add([self, sysIndex](ui::ButtonBase*)
+                                    { self->DeleteSystem(sysIndex); });
+                g.SetCategoryHeaderActions(cat, RefPtr<ui::View>(remove.Get()));
+            }
             // System name (String field -> StringEditor).
             Add(g, RefPtr<ui::toolkit::PropertyEditor>(
                        MakeRef<ui::toolkit::StringEditor>(

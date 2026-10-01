@@ -282,47 +282,31 @@ namespace editor
                     }
                 });
         }
-        auto addBus = MakeRef<ui::Button>(Allocator(), StringView(u8"+ Add Bus"));
         {
             AudioBusLayoutEditorPage* self = this;
-            addBus->OnClick.Add(
-                [self](ui::ButtonBase*)
+            m_tree->InternalTreeView()->OnItemRightClick.Add(
+                [self](i32 nodeId, f32 x, f32 y)
                 {
-                    self->QueueStructural(
-                        u8"add-bus",
-                        Function<void()>{
-                            [self]()
-                            {
-                                for (usize i = 0; i < pipeline::kAudioCustomBusSlotCount; ++i)
-                                {
-                                    if (self->m_asset->custom[i].name.IsEmpty())
-                                    {
-                                        self->m_asset->custom[i].name = Format(u8"Bus{}", i + 1);
-                                        self->m_asset->custom[i].parent = String(u8"Master");
-                                        self->m_asset->custom[i].bus =
-                                            pipeline::AudioBusLayoutAsset::Bus{};
-                                        return;
-                                    }
-                                }
-                                LOG_WARNING(u8"Editor",
-                                                     u8"bus layout: all {} custom slots in use",
-                                                     pipeline::kAudioCustomBusSlotCount);
-                            }});
+                    const Float2 at =
+                        self->m_tree->InternalTreeView()->InternalListView()->LocalToScreen(
+                            Float2{x, y});
+                    self->ShowNodeContextMenu(nodeId, at.x, at.y);
                 });
         }
+        AudioBusLayoutEditorPage* page = this;
+        auto header = MakeRef<app::ListHeader>(Allocator(), StringView(u8"Buses"),
+                                               StringView(u8"Add bus"),
+                                               [page]() { page->AddBus(); });
         auto leftColumn = MakeRef<ui::FlexLayout>(Allocator());
         leftColumn->Direction = ui::Orientation::Vertical;
         leftColumn->Spacing = 4.0f;
         leftColumn->Padding = ui::Thickness{6, 4};
         {
+            leftColumn->AddView(header.Get(), app::ListHeader::RowStyle());
             ui::LayoutStyle grow;
             grow.FlexGrow = 1.0f;
             grow.Width = ui::SizeSpec::Match();
             leftColumn->AddView(m_tree.Get(), grow);
-            ui::LayoutStyle lp;
-            lp.Width = ui::SizeSpec::Match();
-            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(26.0f));
-            leftColumn->AddView(addBus.Get(), lp);
         }
 
         // Right: the selected bus's inspector.
@@ -623,44 +607,82 @@ namespace editor
                            u8"Bus")
                            .Get()));
 
-            AddRow(*m_grid,
-                   RefPtr<ui::toolkit::PropertyEditor>(
-                       MakeRef<ui::toolkit::ButtonEditor>(
-                           Allocator(), u8"Remove Bus",
-                           Function<void()>{
-                               [self, slotIndex]()
-                               {
-                                   self->QueueStructural(
-                                       u8"bus-remove",
-                                       Function<void()>{
-                                           [self, slotIndex]()
-                                           {
-                                               pipeline::AudioBusLayoutAsset::CustomBusSlot& s =
-                                                   self->m_asset
-                                                       ->custom[static_cast<usize>(slotIndex)];
-                                               // Orphans re-parent to Master (the cook fallback,
-                                               // made explicit).
-                                               for (usize i = 0;
-                                                    i < pipeline::kAudioCustomBusSlotCount; ++i)
-                                               {
-                                                   if (self->m_asset->custom[i].parent.AsView() ==
-                                                       s.name.AsView())
-                                                   {
-                                                       self->m_asset->custom[i].parent =
-                                                           String(u8"Master");
-                                                   }
-                                               }
-                                               s.name = String{};
-                                               s.parent = String{};
-                                               s.bus = pipeline::AudioBusLayoutAsset::Bus{};
-                                               self->m_selectedNode = 0;
-                                           }});
-                               }},
-                           u8"Bus")
-                           .Get()));
+            auto remove =
+                MakeRef<ui::IconButton>(Allocator(), app::EditorIcons::Get().remove.Get());
+            remove->TooltipText = String(u8"Remove bus");
+            remove->OnClick.Add([self, slotIndex](ui::ButtonBase*) { self->RemoveBus(slotIndex); });
+            m_grid->SetCategoryHeaderActions(u8"Bus", RefPtr<ui::View>(remove.Get()));
         }
 
         BusRows(*m_grid, *bus, page);
+    }
+
+    void AudioBusLayoutEditorPage::AddBus()
+    {
+        AudioBusLayoutEditorPage* self = this;
+        QueueStructural(u8"add-bus",
+                        Function<void()>{
+                            [self]()
+                            {
+                                for (usize i = 0; i < pipeline::kAudioCustomBusSlotCount; ++i)
+                                {
+                                    if (self->m_asset->custom[i].name.IsEmpty())
+                                    {
+                                        self->m_asset->custom[i].name = Format(u8"Bus{}", i + 1);
+                                        self->m_asset->custom[i].parent = String(u8"Master");
+                                        self->m_asset->custom[i].bus =
+                                            pipeline::AudioBusLayoutAsset::Bus{};
+                                        return;
+                                    }
+                                }
+                                LOG_WARNING(u8"Editor", u8"bus layout: all {} custom slots in use",
+                                            pipeline::kAudioCustomBusSlotCount);
+                            }});
+    }
+
+    void AudioBusLayoutEditorPage::RemoveBus(i32 slotIndex)
+    {
+        AudioBusLayoutEditorPage* self = this;
+        QueueStructural(
+            u8"bus-remove",
+            Function<void()>{[self, slotIndex]()
+                             {
+                                 pipeline::AudioBusLayoutAsset::CustomBusSlot& s =
+                                     self->m_asset->custom[static_cast<usize>(slotIndex)];
+                                 // Orphans re-parent to Master (the cook fallback, made explicit).
+                                 for (usize i = 0; i < pipeline::kAudioCustomBusSlotCount; ++i)
+                                 {
+                                     if (self->m_asset->custom[i].parent.AsView() == s.name.AsView())
+                                     {
+                                         self->m_asset->custom[i].parent = String(u8"Master");
+                                     }
+                                 }
+                                 s.name = String{};
+                                 s.parent = String{};
+                                 s.bus = pipeline::AudioBusLayoutAsset::Bus{};
+                                 self->m_selectedNode = 0;
+                             }});
+    }
+
+    void AudioBusLayoutEditorPage::ShowNodeContextMenu(i32 nodeId, f32 screenX, f32 screenY)
+    {
+        ui::UIContext* ctx = Ctx();
+        if (ctx == nullptr || m_asset.Get() == nullptr || nodeId < 0 ||
+            nodeId >= static_cast<i32>(m_nodes.Size()))
+        {
+            return;
+        }
+        // A bus's context menu: add a bus, and remove a custom one. The fixed buses stay.
+        const BusNode& node = m_nodes[static_cast<usize>(nodeId)];
+        auto menu = MakeRef<ui::ContextMenu>(Allocator());
+        AudioBusLayoutEditorPage* self = this;
+        menu->AddItem(u8"Add Bus", [self]() { self->AddBus(); });
+        if (!node.fixed)
+        {
+            const i32 slotIndex = node.slotIndex;
+            menu->AddItem(u8"Remove Bus", [self, slotIndex]() { self->RemoveBus(slotIndex); });
+        }
+        menu->Show(ctx, screenX, screenY);
     }
 
     void AudioBusLayoutEditorPage::QueueStructural(StringView undoKey, Function<void()> mutate)

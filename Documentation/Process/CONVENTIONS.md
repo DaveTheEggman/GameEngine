@@ -135,6 +135,11 @@ violating them fails review even if the feature works.
   and removed once the data has moved. Never a silent pile.
 - sRGB decode lives in the SHADER (vg.vs), never CPU-side; `ToColor` is a plain
   /255. Never decode twice.
+- An editable list in the editor is a `ContainerListEditor`, or a `ListHeader`
+  over a navigation list or tree; an asset reference is an `AssetPickerSlot`
+  (through `ResourceRefEditor` or the list widget) with its accepted types set,
+  so it takes a drop. No full-width text button rows for add, remove or
+  reorder (editor-lists-and-asset-slots.md D7).
 
 ## Specs
 

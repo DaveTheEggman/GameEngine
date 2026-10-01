@@ -247,6 +247,9 @@ export namespace editor
     {
         RTTI_OBJECT(SceneInspectorView, ui::ViewGroup)
     public:
+        /// A script behavior's section in the grid: "Behavior N - <class>".
+        [[nodiscard]] static String ScriptBehaviorSection(usize index, StringView scriptName);
+
         SceneInspectorView(EditorContext& editor, SceneEditContext& edit)
             : m_editor(&editor), m_edit(&edit)
         {
@@ -499,7 +502,10 @@ export namespace editor
 
         void BuildScriptBehaviors(const Guid& id, StringView category);
 
-        void BuildScriptBehaviorRows(const Guid& id, StringView category, usize index);
+        // A behavior's section: its rows, with its move and remove icons in the header.
+        void BuildScriptBehaviorRows(const Guid& id, usize index, usize count);
+        // The live ScriptComponent of `id`, or null (re-resolved: component pools move).
+        [[nodiscard]] engine::script::ScriptComponent* LiveScript(const Guid& id);
 
         // A property row's read/write hooks, so ONE set of row builders serves both the entity
         // behavior tier (override lives on a ScriptComponent behavior) and the scene-script/Level

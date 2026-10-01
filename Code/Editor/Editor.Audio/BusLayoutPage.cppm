@@ -7,7 +7,7 @@
 // left (the four fixed buses - Master with Effects/Music/UI under it - plus the used custom-bus
 // slots parented by name) and a per-bus inspector on the right (volume/mute + the lowpass/
 // highpass/delay/reverb effect fields; custom buses also edit name + parent and can be removed).
-// "+ Add Bus" claims the first empty slot. Edits are coalesced whole-asset blob-snapshot undo
+// The list header's add icon claims the first empty slot. Edits are coalesced whole-asset blob-snapshot undo
 // commands; Save writes the asset + recooks (the cook validates parent cycles - the page's parent
 // dropdown already refuses choices that would cycle, via the pure AudioBusWouldCycle helper).
 
@@ -115,6 +115,10 @@ export namespace editor
         void RebuildTree();
         void RebuildInspector();
         void QueueStructural(StringView undoKey, Function<void()> mutate);
+        void AddBus();               // claims the first empty custom slot
+        void RemoveBus(i32 slotIndex); // its children re-parent to Master
+        // A bus's context menu: add a bus, and remove a custom one.
+        void ShowNodeContextMenu(i32 nodeId, f32 screenX, f32 screenY);
         [[nodiscard]] pipeline::AudioBusLayoutAsset::Bus* SelectedBus();
 
         [[nodiscard]] Array<byte> SnapshotAsset() const;

@@ -55,6 +55,9 @@ export namespace editor
     class AnimationClipEditorPage final : public app::UIEditorPage
     {
     public:
+        /// Event `index`'s section in the grid: "Event N".
+        [[nodiscard]] static String EventSection(usize index);
+
         AnimationClipEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                                 ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
 

@@ -183,7 +183,46 @@ namespace editor
                     Function<void(i32)>{[setIndex = Move(setIndex)](i32 v) { setIndex(v - 1); }},
                     cat);
         }
+
+        // A section header's remove icon.
+        RefPtr<ui::View> RemoveIcon(IAllocator& allocator, StringView tooltip,
+                                    Function<void()> action)
+        {
+            auto remove =
+                MakeRef<ui::IconButton>(allocator, app::EditorIcons::Get().remove.Get());
+            remove->TooltipText = String(tooltip);
+            remove->OnClick.Add([action = Move(action)](ui::ButtonBase*) { action(); });
+            return RefPtr<ui::View>(remove.Get());
+        }
     } // namespace
+
+    // A left panel row whose right click opens its context menu (Delete, when it has one).
+    class GraphListRow final : public ui::Button
+    {
+    public:
+        GraphListRow(StringView text, Function<void()> onDelete)
+            : ui::Button(text), m_onDelete(Move(onDelete))
+        {
+        }
+
+        void OnMouseDown(ui::MouseEventArgs& e) override
+        {
+            if (e.Button != ui::MouseButton::Right || !m_onDelete || Context == nullptr)
+            {
+                ui::Button::OnMouseDown(e);
+                return;
+            }
+            auto menu = MakeRef<ui::ContextMenu>(MemoryAllocator());
+            GraphListRow* self = this;
+            menu->AddItem(u8"Delete", [self]() { self->m_onDelete(); });
+            const Float2 at = LocalToScreen(Float2{e.X, e.Y});
+            menu->Show(Context, at.x, at.y);
+            e.Handled = true;
+        }
+
+    private:
+        Function<void()> m_onDelete;
+    };
 
     // ============================ Construction ==============================================
 
@@ -715,15 +754,15 @@ namespace editor
             return;
         }
         AnimationGraphEditorPage* self = this;
-        auto addRow = [&](StringView text, Function<void()> onClick, bool emphasized)
+        // A list row: a click selects it, and a right click offers Delete when `onDelete` is set.
+        auto addRow = [&](StringView text, Function<void()> onClick, bool emphasized,
+                          Function<void()> onDelete)
         {
-            auto button = MakeRef<ui::Button>(Allocator(), text);
+            auto button = MakeRef<GraphListRow>(Allocator(), text, Move(onDelete));
             if (emphasized)
             {
                 button->AddClass(u8"accent");
             }
-            ui::Button* raw = button.Get();
-            (void)raw;
             button->OnClick.Add(
                 [onClick = Move(onClick)](ui::ButtonBase*) mutable
                 {
@@ -737,18 +776,30 @@ namespace editor
             lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(24.0f));
             m_leftRows->AddView(button.Get(), lp);
         };
-        auto addHeader = [&](StringView text)
+        // A list's header: its title, and its add icon on the right.
+        auto addHeader = [&](StringView text, StringView addTooltip, Function<void()> onAdd)
         {
-            auto label = MakeRef<ui::Label>(Allocator());
-            label->FontSize.SetValue(Optional<f32>{12.0f});
-            label->SetText(text);
-            ui::LayoutStyle lp;
-            lp.Width = ui::SizeSpec::Match();
-            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
-            m_leftRows->AddView(label.Get(), lp);
+            auto header = MakeRef<app::ListHeader>(Allocator(), text, addTooltip, Move(onAdd));
+            m_leftRows->AddView(header.Get(), app::ListHeader::RowStyle());
         };
 
-        addHeader(u8"Layers");
+        addHeader(u8"Layers", u8"Add layer",
+                  [self]()
+                  {
+                      self->QueueStructural(
+                          u8"add-layer",
+                          Function<void()>{
+                              [self]()
+                              {
+                                  animation::GraphLayerData layer;
+                                  layer.name =
+                                      Format(u8"Layer {}", self->m_asset->source.layers.Size());
+                                  self->m_asset->source.layers.PushBack(Move(layer));
+                                  self->m_selectedLayer =
+                                      static_cast<i32>(self->m_asset->source.layers.Size()) - 1;
+                              }},
+                          GraphSel{GraphSelKind::Layer, 0, 0});
+                  });
         const animation::AnimationGraphSource& source = m_asset->source;
         for (usize l = 0; l < source.layers.Size(); ++l)
         {
@@ -776,29 +827,30 @@ namespace editor
                                                                  }});
                                         }
                                     }},
-                   layerIndex == m_selectedLayer);
+                   layerIndex == m_selectedLayer,
+                   source.layers.Size() > 1
+                       ? Function<void()>{[self, layerIndex]() { self->DeleteLayer(layerIndex); }}
+                       : Function<void()>{});
         }
-        addRow(u8"+ Add Layer",
-               Function<void()>{
-                   [self]()
-                   {
-                       self->QueueStructural(
-                           u8"add-layer",
-                           Function<void()>{
-                               [self]()
-                               {
-                                   animation::GraphLayerData layer;
-                                   layer.name =
-                                       Format(u8"Layer {}", self->m_asset->source.layers.Size());
-                                   self->m_asset->source.layers.PushBack(Move(layer));
-                                   self->m_selectedLayer =
-                                       static_cast<i32>(self->m_asset->source.layers.Size()) - 1;
-                               }},
-                           GraphSel{GraphSelKind::Layer, 0, 0});
-                   }},
-               false);
 
-        addHeader(u8"Parameters");
+        addHeader(u8"Parameters", u8"Add parameter",
+                  [self]()
+                  {
+                      self->QueueStructural(
+                          u8"add-param",
+                          Function<void()>{[self]()
+                                           {
+                                               animation::AnimationGraphSource& s =
+                                                   self->m_asset->source;
+                                               s.paramNames.PushBack(
+                                                   Format(u8"Param{}", s.paramNames.Size()));
+                                               s.paramTypes.PushBack(0); // Float
+                                               s.paramFloats.PushBack(0.0f);
+                                               s.paramInts.PushBack(0);
+                                               s.paramBools.PushBack(0);
+                                           }},
+                          GraphSel{GraphSelKind::Parameter, 0, -2 /*last*/});
+                  });
         for (usize p = 0; p < source.paramNames.Size(); ++p)
         {
             const i32 paramIndex = static_cast<i32>(p);
@@ -806,27 +858,53 @@ namespace editor
                    Function<void()>{
                        [self, paramIndex]()
                        { self->Select(GraphSel{GraphSelKind::Parameter, 0, paramIndex}); }},
-                   m_selected.kind == GraphSelKind::Parameter && m_selected.index == paramIndex);
+                   m_selected.kind == GraphSelKind::Parameter && m_selected.index == paramIndex,
+                   Function<void()>{[self, paramIndex]() { self->DeleteParam(paramIndex); }});
         }
-        addRow(u8"+ Add Parameter",
-               Function<void()>{[self]()
-                                {
-                                    self->QueueStructural(
-                                        u8"add-param",
-                                        Function<void()>{[self]()
-                                                         {
-                                                             animation::AnimationGraphSource& s =
-                                                                 self->m_asset->source;
-                                                             s.paramNames.PushBack(Format(
-                                                                 u8"Param{}", s.paramNames.Size()));
-                                                             s.paramTypes.PushBack(0); // Float
-                                                             s.paramFloats.PushBack(0.0f);
-                                                             s.paramInts.PushBack(0);
-                                                             s.paramBools.PushBack(0);
-                                                         }},
-                                        GraphSel{GraphSelKind::Parameter, 0, -2 /*last*/});
-                                }},
-               false);
+    }
+
+    void AnimationGraphEditorPage::DeleteLayer(i32 layerIndex)
+    {
+        AnimationGraphEditorPage* self = this;
+        QueueStructural(u8"del-layer",
+                        Function<void()>{[self, layerIndex]()
+                                         {
+                                             animation::AnimationGraphSource& s =
+                                                 self->m_asset->source;
+                                             const usize at = static_cast<usize>(layerIndex);
+                                             if (layerIndex >= 0 && at < s.layers.Size() &&
+                                                 s.layers.Size() > 1)
+                                             {
+                                                 s.layers.RemoveAt(at);
+                                                 self->m_asset->layerStatePositions.RemoveAt(at);
+                                                 self->m_asset->layerAnyStatePositions.RemoveAt(at);
+                                             }
+                                         }},
+                        GraphSel{GraphSelKind::Layer, 0, 0});
+    }
+
+    void AnimationGraphEditorPage::DeleteParam(i32 paramIndex)
+    {
+        AnimationGraphEditorPage* self = this;
+        QueueStructural(u8"del-param",
+                        Function<void()>{[self, paramIndex]()
+                                         { self->DeleteParameterInternal(paramIndex); }},
+                        GraphSel{});
+    }
+
+    animation::GraphTransitionData* AnimationGraphEditorPage::TransitionAt(i32 layer,
+                                                                           i32 transition) const
+    {
+        animation::AnimationGraphSource& source = m_asset->source;
+        if (layer < 0 || transition < 0 || static_cast<usize>(layer) >= source.layers.Size())
+        {
+            return nullptr;
+        }
+        Array<animation::GraphTransitionData>& transitions =
+            source.layers[static_cast<usize>(layer)].transitions;
+        return static_cast<usize>(transition) < transitions.Size()
+                   ? &transitions[static_cast<usize>(transition)]
+                   : nullptr;
     }
 
     // ============================ Context menus =============================================
@@ -1169,27 +1247,9 @@ namespace editor
         if (source.layers.Size() > 1)
         {
             const i32 layerIdx = layerIndex;
-            RowButton(g, u8"Delete Layer", cat,
-                      [self, layerIdx]()
-                      {
-                          self->QueueStructural(
-                              u8"del-layer",
-                              Function<void()>{
-                                  [self, layerIdx]()
-                                  {
-                                      animation::AnimationGraphSource& s = self->m_asset->source;
-                                      if (static_cast<usize>(layerIdx) < s.layers.Size() &&
-                                          s.layers.Size() > 1)
-                                      {
-                                          s.layers.RemoveAt(static_cast<usize>(layerIdx));
-                                          self->m_asset->layerStatePositions.RemoveAt(
-                                              static_cast<usize>(layerIdx));
-                                          self->m_asset->layerAnyStatePositions.RemoveAt(
-                                              static_cast<usize>(layerIdx));
-                                      }
-                                  }},
-                              GraphSel{GraphSelKind::Layer, 0, 0});
-                      });
+            g.SetCategoryHeaderActions(
+                cat, RemoveIcon(Allocator(), u8"Delete layer",
+                                [self, layerIdx]() { self->DeleteLayer(layerIdx); }));
         }
     }
 
@@ -1313,15 +1373,9 @@ namespace editor
         }
 
         const i32 paramIdx = paramIndex;
-        RowButton(g, u8"Delete Parameter", cat,
-                  [self, paramIdx]()
-                  {
-                      self->QueueStructural(
-                          u8"del-param",
-                          Function<void()>{[self, paramIdx]()
-                                           { self->DeleteParameterInternal(paramIdx); }},
-                          GraphSel{});
-                  });
+        g.SetCategoryHeaderActions(cat,
+                                   RemoveIcon(Allocator(), u8"Delete parameter",
+                                              [self, paramIdx]() { self->DeleteParam(paramIdx); }));
     }
 
     void AnimationGraphEditorPage::BuildStateInspector(i32 layerIndex, i32 stateIndex)
@@ -1437,10 +1491,75 @@ namespace editor
                              kindCat.AsView());
             }
 
-            // Entries: threshold/position + clip pick + remove; add appends.
-            for (usize e = 0; e < node.entryClips.Size(); ++e)
+            // The entries are a section list: the header's add icon, and each entry a section
+            // with its remove icon (an entry's threshold or position places it, so its order
+            // means nothing).
             {
-                const String entryCat = Format(u8"Entry {}", e);
+                const i32 li = layerIndex, si = stateIndex;
+                auto entries = MakeRef<app::ContainerListEditor>(
+                    Allocator(), StringView(u8"Entries"), kindCat.AsView());
+                entries->ElementsAsSections = true;
+                for (const Guid& clipId : node.entryClips)
+                {
+                    entries->slotNames.PushBack(String(m_context->AssetNameFor(clipId)));
+                }
+                entries->OnAdd = [self, li, si]()
+                {
+                    self->QueueStructural(u8"add-entry",
+                                          Function<void()>{[self, li, si]()
+                                                           {
+                                                               animation::GraphNodeData* n =
+                                                                   self->StateNode(li, si);
+                                                               if (n != nullptr)
+                                                               {
+                                                                   n->entryClips.PushBack(Guid{});
+                                                                   n->entryThresholds.PushBack(0.0f);
+                                                                   n->entryPositions.PushBack(
+                                                                       Float2{0.0f, 0.0f});
+                                                               }
+                                                           }},
+                                          GraphSel{GraphSelKind::State, li, si});
+                };
+                Add(g, RefPtr<ui::toolkit::PropertyEditor>(entries.Get()));
+            }
+            const usize entryCount = node.entryClips.Size();
+            for (usize e = 0; e < entryCount; ++e)
+            {
+                const String entryCat = Format(u8"Entry {}", e + 1);
+                {
+                    const i32 li = layerIndex, si = stateIndex;
+                    g.SetCategoryHeaderActions(
+                        entryCat.AsView(),
+                        app::ContainerListEditor::ElementActions(
+                            Allocator(), e, entryCount, Function<void(usize, bool)>{},
+                            [self, li, si](usize i)
+                            {
+                                self->QueueStructural(
+                                    u8"del-entry",
+                                    Function<void()>{[self, li, si, i]()
+                                                     {
+                                                         animation::GraphNodeData* n =
+                                                             self->StateNode(li, si);
+                                                         if (n == nullptr)
+                                                         {
+                                                             return;
+                                                         }
+                                                         if (i < n->entryClips.Size())
+                                                         {
+                                                             n->entryClips.RemoveAt(i);
+                                                         }
+                                                         if (i < n->entryThresholds.Size())
+                                                         {
+                                                             n->entryThresholds.RemoveAt(i);
+                                                         }
+                                                         if (i < n->entryPositions.Size())
+                                                         {
+                                                             n->entryPositions.RemoveAt(i);
+                                                         }
+                                                     }},
+                                    GraphSel{GraphSelKind::State, li, si});
+                            }));
+                }
                 if (node.kind == 1)
                 {
                     while (node.entryThresholds.Size() < node.entryClips.Size())
@@ -1493,70 +1612,6 @@ namespace editor
                         }
                     });
                 Add(g, RefPtr<ui::toolkit::PropertyEditor>(entryClip.Get()));
-                RowButton(g, u8"Remove Entry", entryCat.AsView(),
-                          [self, li, si, entryIdx]()
-                          {
-                              self->QueueStructural(
-                                  u8"del-entry",
-                                  Function<void()>{
-                                      [self, li, si, entryIdx]()
-                                      {
-                                          animation::AnimationGraphSource& s =
-                                              self->m_asset->source;
-                                          if (static_cast<usize>(li) >= s.layers.Size() ||
-                                              static_cast<usize>(si) >=
-                                                  s.layers[static_cast<usize>(li)].states.Size())
-                                          {
-                                              return;
-                                          }
-                                          animation::GraphNodeData& n =
-                                              s.layers[static_cast<usize>(li)]
-                                                  .states[static_cast<usize>(si)]
-                                                  .node;
-                                          if (entryIdx < n.entryClips.Size())
-                                          {
-                                              n.entryClips.RemoveAt(entryIdx);
-                                          }
-                                          if (entryIdx < n.entryThresholds.Size())
-                                          {
-                                              n.entryThresholds.RemoveAt(entryIdx);
-                                          }
-                                          if (entryIdx < n.entryPositions.Size())
-                                          {
-                                              n.entryPositions.RemoveAt(entryIdx);
-                                          }
-                                      }},
-                                  GraphSel{GraphSelKind::State, li, si});
-                          });
-            }
-            {
-                const i32 li = layerIndex, si = stateIndex;
-                RowButton(g, u8"+ Add Entry", kindCat.AsView(),
-                          [self, li, si]()
-                          {
-                              self->QueueStructural(
-                                  u8"add-entry",
-                                  Function<void()>{
-                                      [self, li, si]()
-                                      {
-                                          animation::AnimationGraphSource& s =
-                                              self->m_asset->source;
-                                          if (static_cast<usize>(li) >= s.layers.Size() ||
-                                              static_cast<usize>(si) >=
-                                                  s.layers[static_cast<usize>(li)].states.Size())
-                                          {
-                                              return;
-                                          }
-                                          animation::GraphNodeData& n =
-                                              s.layers[static_cast<usize>(li)]
-                                                  .states[static_cast<usize>(si)]
-                                                  .node;
-                                          n.entryClips.PushBack(Guid{});
-                                          n.entryThresholds.PushBack(0.0f);
-                                          n.entryPositions.PushBack(Float2{0.0f, 0.0f});
-                                      }},
-                                  GraphSel{GraphSelKind::State, li, si});
-                          });
             }
         }
     }
@@ -1605,11 +1660,59 @@ namespace editor
         RowFloat(g, u8"Exit Time", &transition.exitTime, cat, page, 0.0, 1.0, 0.01);
         RowInt(g, u8"Priority", &transition.priority, cat, page, -100, 100);
 
-        // Conditions.
-        for (usize c = 0; c < transition.conditions.Size(); ++c)
+        // The conditions are a section list, all of them required, so their order means
+        // nothing: the header's add icon, and each condition a section with its remove icon.
+        const i32 li = layerIndex, ti = transitionIndex;
+        auto conditions =
+            MakeRef<app::ContainerListEditor>(Allocator(), StringView(u8"Conditions"), cat);
+        conditions->ElementsAsSections = true;
+        for (const animation::GraphConditionData& condition : transition.conditions)
+        {
+            const bool named = condition.paramIndex >= 0 &&
+                               static_cast<usize>(condition.paramIndex) < source.paramNames.Size();
+            conditions->slotNames.PushBack(
+                named ? source.paramNames[static_cast<usize>(condition.paramIndex)]
+                      : String(u8"(none)"));
+        }
+        conditions->OnAdd = [self, li, ti]()
+        {
+            self->QueueStructural(u8"add-cond",
+                                  Function<void()>{[self, li, ti]()
+                                                   {
+                                                       if (animation::GraphTransitionData* t =
+                                                               self->TransitionAt(li, ti))
+                                                       {
+                                                           t->conditions.PushBack(
+                                                               animation::GraphConditionData{});
+                                                       }
+                                                   }},
+                                  GraphSel{GraphSelKind::Transition, li, ti});
+        };
+        Add(g, RefPtr<ui::toolkit::PropertyEditor>(conditions.Get()));
+        const usize conditionCount = transition.conditions.Size();
+        for (usize c = 0; c < conditionCount; ++c)
         {
             animation::GraphConditionData& condition = transition.conditions[c];
-            const String condCat = Format(u8"Condition {}", c);
+            const String condCat = Format(u8"Condition {}", c + 1);
+            g.SetCategoryHeaderActions(
+                condCat.AsView(),
+                app::ContainerListEditor::ElementActions(
+                    Allocator(), c, conditionCount, Function<void(usize, bool)>{},
+                    [self, li, ti](usize i)
+                    {
+                        self->QueueStructural(
+                            u8"del-cond",
+                            Function<void()>{[self, li, ti, i]()
+                                             {
+                                                 animation::GraphTransitionData* t =
+                                                     self->TransitionAt(li, ti);
+                                                 if (t != nullptr && i < t->conditions.Size())
+                                                 {
+                                                     t->conditions.RemoveAt(i);
+                                                 }
+                                             }},
+                            GraphSel{GraphSelKind::Transition, li, ti});
+                    }));
             RowParamPick(g, u8"Parameter", source, condition.paramIndex,
                          Function<void(i32)>{[&condition, page](i32 v)
                                              {
@@ -1626,59 +1729,6 @@ namespace editor
                                         }},
                     condCat.AsView());
             RowFloat(g, u8"Threshold", &condition.threshold, condCat.AsView(), page);
-            const i32 li = layerIndex, ti = transitionIndex;
-            const usize condIdx = c;
-            RowButton(g, u8"Remove Condition", condCat.AsView(),
-                      [self, li, ti, condIdx]()
-                      {
-                          self->QueueStructural(
-                              u8"del-cond",
-                              Function<void()>{
-                                  [self, li, ti, condIdx]()
-                                  {
-                                      animation::AnimationGraphSource& s = self->m_asset->source;
-                                      if (static_cast<usize>(li) >= s.layers.Size())
-                                      {
-                                          return;
-                                      }
-                                      Array<animation::GraphTransitionData>& transitions =
-                                          s.layers[static_cast<usize>(li)].transitions;
-                                      if (static_cast<usize>(ti) < transitions.Size() &&
-                                          condIdx <
-                                              transitions[static_cast<usize>(ti)].conditions.Size())
-                                      {
-                                          transitions[static_cast<usize>(ti)].conditions.RemoveAt(
-                                              condIdx);
-                                      }
-                                  }},
-                              GraphSel{GraphSelKind::Transition, li, ti});
-                      });
-        }
-        {
-            const i32 li = layerIndex, ti = transitionIndex;
-            RowButton(g, u8"+ Add Condition", cat,
-                      [self, li, ti]()
-                      {
-                          self->QueueStructural(
-                              u8"add-cond",
-                              Function<void()>{
-                                  [self, li, ti]()
-                                  {
-                                      animation::AnimationGraphSource& s = self->m_asset->source;
-                                      if (static_cast<usize>(li) >= s.layers.Size())
-                                      {
-                                          return;
-                                      }
-                                      Array<animation::GraphTransitionData>& transitions =
-                                          s.layers[static_cast<usize>(li)].transitions;
-                                      if (static_cast<usize>(ti) < transitions.Size())
-                                      {
-                                          transitions[static_cast<usize>(ti)].conditions.PushBack(
-                                              animation::GraphConditionData{});
-                                      }
-                                  }},
-                              GraphSel{GraphSelKind::Transition, li, ti});
-                      });
         }
     }
 

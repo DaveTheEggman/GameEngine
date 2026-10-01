@@ -281,32 +281,78 @@ namespace editor
                      [self]() { return self->m_asset->baseHeightId; },
                      [self](const Guid& g) { self->m_asset->baseHeightId = g; });
 
-        // PAINT palette: the unbounded layer list (add/remove; removal remaps the weight raster).
-        addLabel(Format(u8"Paint layers ({})", m_asset->paletteAlbedoIds.Size()).AsView(), 13.0f);
-        for (u32 i = 0; i < m_asset->paletteAlbedoIds.Size(); ++i)
+        // The paint layers are a section list: the header's add icon, and each layer a section
+        // with its maps, its tiling and its remove icon (removal remaps the weight raster). A
+        // layer's index is its weight channel, so the order is not the user's to change.
+        auto layers = MakeRef<ui::toolkit::PropertyGrid>(Allocator());
+        {
+            auto layerList = MakeRef<app::ContainerListEditor>(
+                Allocator(), StringView(u8"Paint layers"), StringView(u8"Paint layers"));
+            layerList->ElementsAsSections = true;
+            for (const Guid& albedo : m_asset->paletteAlbedoIds)
+            {
+                layerList->slotNames.PushBack(String(m_context->AssetNameFor(albedo)));
+            }
+            layerList->OnAdd = [self]() { self->AddLayer(); };
+            layers->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(layerList.Get()));
+        }
+        const u32 layerCount = static_cast<u32>(m_asset->paletteAlbedoIds.Size());
+        for (u32 i = 0; i < layerCount; ++i)
         {
             const u32 idx = i;
-            AddReference(Format(u8"Layer {} albedo", i).AsView(), u8"TextureAsset", u8"palette",
-                         [self, idx]()
-                         {
-                             return idx < self->m_asset->paletteAlbedoIds.Size()
-                                        ? self->m_asset->paletteAlbedoIds[idx]
-                                        : Guid{};
-                         },
-                         [self, idx](const Guid& g)
-                         {
-                             if (idx < self->m_asset->paletteAlbedoIds.Size())
-                             {
-                                 self->m_asset->paletteAlbedoIds[idx] = g;
-                             }
-                         });
-            AddMapReference(idx, u8"normal", PaletteMap::Normal, u8"paletteNormal");
-            AddMapReference(idx, u8"ORM", PaletteMap::Orm, u8"paletteOrm");
-            AddMapReference(idx, u8"height", PaletteMap::Height, u8"paletteHeight");
-            AddMapReference(idx, u8"mask", PaletteMap::Mask, u8"paletteMask");
-            addButton(u8"  Remove layer", [self, idx]() { self->RemoveLayer(idx); });
+            const String section = LayerSection(i);
+            const StringView cat = section.AsView();
+            layers->SetCategoryHeaderActions(
+                cat, app::ContainerListEditor::ElementActions(
+                         Allocator(), i, layerCount, core::Function<void(usize, bool)>{},
+                         [self](usize index) { self->RemoveLayer(static_cast<u32>(index)); }));
+            layers->AddProperty(MakeReference(
+                u8"Albedo", u8"TextureAsset", u8"palette", cat,
+                [self, idx]()
+                {
+                    return idx < self->m_asset->paletteAlbedoIds.Size()
+                               ? self->m_asset->paletteAlbedoIds[idx]
+                               : Guid{};
+                },
+                [self, idx](const Guid& g)
+                {
+                    if (idx < self->m_asset->paletteAlbedoIds.Size())
+                    {
+                        self->m_asset->paletteAlbedoIds[idx] = g;
+                    }
+                }));
+            layers->AddProperty(
+                MakeMapReference(idx, u8"Normal", PaletteMap::Normal, u8"paletteNormal", cat));
+            layers->AddProperty(MakeMapReference(idx, u8"ORM", PaletteMap::Orm, u8"paletteOrm", cat));
+            layers->AddProperty(
+                MakeMapReference(idx, u8"Height", PaletteMap::Height, u8"paletteHeight", cat));
+            layers->AddProperty(
+                MakeMapReference(idx, u8"Mask", PaletteMap::Mask, u8"paletteMask", cat));
+            if (i < m_asset->paletteTileScales.Size())
+            {
+                const String mergeKey = Format(u8"tile{}", i);
+                layers->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(
+                    MakeRef<ui::toolkit::FloatEditor>(
+                        Allocator(), StringView(u8"Tile"),
+                        static_cast<f64>(m_asset->paletteTileScales[i]), 0.1, 8192.0, 1.0, 2,
+                        core::Function<void(f64)>{
+                            [self, idx, mergeKey](f64 v)
+                            {
+                                if (idx < self->m_asset->paletteTileScales.Size())
+                                {
+                                    self->m_asset->paletteTileScales[idx] = static_cast<f32>(v);
+                                    self->CommitEdit(mergeKey.AsView());
+                                }
+                            }},
+                        cat)
+                        .Get()));
+            }
         }
-        addButton(u8"+ Add paint layer", [self]() { self->AddLayer(); });
+        {
+            ui::LayoutStyle layersStyle;
+            layersStyle.Width = ui::SizeSpec::Match();
+            m_fields->AddView(layers.Get(), layersStyle);
+        }
 
         // Scalars (cast shadows + per-layer tile scale) in a property grid.
         auto grid = MakeRef<ui::toolkit::PropertyGrid>(Allocator());
@@ -348,26 +394,6 @@ namespace editor
                 StringView(u8"Base"));
             grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
         }
-        for (u32 i = 0; i < m_asset->paletteTileScales.Size(); ++i)
-        {
-            const String label = Format(u8"Layer {} tile", i);
-            const String mergeKey = Format(u8"tile{}", i);
-            const u32 idx = i;
-            auto fe = MakeRef<ui::toolkit::FloatEditor>(
-                Allocator(), label.AsView(),
-                static_cast<f64>(m_asset->paletteTileScales[i]), 0.1, 8192.0, 1.0, 2,
-                core::Function<void(f64)>{[self, idx, mergeKey](f64 v)
-                                          {
-                                              if (idx < self->m_asset->paletteTileScales.Size())
-                                              {
-                                                  self->m_asset->paletteTileScales[idx] =
-                                                      static_cast<f32>(v);
-                                                  self->CommitEdit(mergeKey.AsView());
-                                              }
-                                          }},
-                StringView(u8"Paint layers"));
-            grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(fe.Get()));
-        }
         m_fields->AddView(grid.Get());
 
         // Stats (from the cooked product, if resolved)
@@ -386,15 +412,15 @@ namespace editor
         }
     }
 
-    void TerrainEditorPage::AddReference(StringView label, StringView assetTypeName,
-                                         StringView mergeKey, core::Function<Guid()> current,
-                                         core::Function<void(const Guid&)> apply)
+    RefPtr<ui::toolkit::PropertyEditor> TerrainEditorPage::MakeReference(
+        StringView label, StringView assetTypeName, StringView mergeKey, StringView category,
+        core::Function<Guid()> current, core::Function<void(const Guid&)> apply)
     {
         TerrainEditorPage* self = this;
         const StringView types[] = {assetTypeName};
         auto row = MakeRef<app::ResourceRefEditor>(Allocator(), label, StringView(u8"(none)"),
-                                                   StringView{}, Span<const StringView>{types, 1});
-        // The write rebuilds this pane, deferred, so the row outlives its own assignment.
+                                                   category, Span<const StringView>{types, 1});
+        // The write rebuilds this pane, deferred; the row outlives its own assignment either way.
         row->BindAsset(*m_context, Move(current),
                        [self, applyFn = Move(apply), key = String(mergeKey)](const Guid& picked)
                        {
@@ -404,7 +430,15 @@ namespace editor
                                self->m_terrainProxy ? self->m_terrainProxy.Get() : nullptr);
                            self->RebuildFieldsDeferred();
                        });
+        return RefPtr<ui::toolkit::PropertyEditor>(row.Get());
+    }
 
+    void TerrainEditorPage::AddReference(StringView label, StringView assetTypeName,
+                                         StringView mergeKey, core::Function<Guid()> current,
+                                         core::Function<void(const Guid&)> apply)
+    {
+        RefPtr<ui::toolkit::PropertyEditor> row =
+            MakeReference(label, assetTypeName, mergeKey, StringView{}, Move(current), Move(apply));
         auto line = MakeRef<ui::FlexLayout>(Allocator());
         line->Direction = ui::Orientation::Horizontal;
         line->Spacing = 6.0f;
@@ -423,13 +457,18 @@ namespace editor
         m_referenceRows.PushBack(Move(row));
     }
 
-    void TerrainEditorPage::AddMapReference(u32 index, StringView mapLabel, PaletteMap map,
-                                            StringView mergeKey)
+    RefPtr<ui::toolkit::PropertyEditor> TerrainEditorPage::MakeMapReference(
+        u32 index, StringView mapLabel, PaletteMap map, StringView mergeKey, StringView category)
     {
         TerrainEditorPage* self = this;
-        AddReference(Format(u8"Layer {} {}", index, mapLabel).AsView(), u8"TextureAsset", mergeKey,
-                     [self, index, map]() { return self->PaletteMapId(map, index); },
-                     [self, index, map](const Guid& g) { self->SetPaletteMap(map, index, g); });
+        return MakeReference(mapLabel, u8"TextureAsset", mergeKey, category,
+                             [self, index, map]() { return self->PaletteMapId(map, index); },
+                             [self, index, map](const Guid& g) { self->SetPaletteMap(map, index, g); });
+    }
+
+    String TerrainEditorPage::LayerSection(u32 index)
+    {
+        return Format(u8"Layer {}", index + 1);
     }
 
     void TerrainEditorPage::AddLayer()

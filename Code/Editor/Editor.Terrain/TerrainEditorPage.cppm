@@ -31,6 +31,7 @@ import foundation.resource;
 import foundation.scene; // EntityHandle
 import foundation.ui;
 import foundation.ui.runtime;
+import foundation.ui.toolkit; // PropertyEditor (the reference rows)
 import terrain.pipeline;          // pipeline::TerrainAsset (the authored fields)
 import foundation.terrain.resource; // TerrainResource (the cooked product for the preview + stats)
 import editor.core;
@@ -53,6 +54,9 @@ export namespace editor
     class TerrainEditorPage final : public app::UIEditorPage
     {
     public:
+        /// Paint layer `index`'s section in the layers grid: "Layer N".
+        [[nodiscard]] static String LayerSection(u32 index);
+
         TerrainEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                           ui::runtime::UIHost& uiHost, foundation::content::Instance& instance);
 
@@ -83,7 +87,13 @@ export namespace editor
         void SetPaletteMap(PaletteMap map, u32 index, const Guid& g); // set per-layer normal/ORM/height/mask
         [[nodiscard]] Guid PaletteMapId(PaletteMap map, u32 index) const;
         [[nodiscard]] Array<Guid>& PaletteMapIds(PaletteMap map) const; // the map's id array
-        void AddMapReference(u32 index, StringView mapLabel, PaletteMap map, StringView mergeKey);
+        // An asset row for a reference, in `category` (the pane's own rows have none).
+        [[nodiscard]] RefPtr<ui::toolkit::PropertyEditor> MakeReference(
+            StringView label, StringView assetTypeName, StringView mergeKey, StringView category,
+            Function<Guid()> current, Function<void(const Guid&)> apply);
+        [[nodiscard]] RefPtr<ui::toolkit::PropertyEditor> MakeMapReference(
+            u32 index, StringView mapLabel, PaletteMap map, StringView mergeKey,
+            StringView category);
         void RemapWeightsOnRemove(u32 removedIndex); // frees removed-layer slots; decrements above
         void CreateSplatmap(i32 size); // author + assign a new blank splatmap asset (composition)
 
@@ -137,7 +147,7 @@ export namespace editor
         const void* m_lastProduct = nullptr;                      // product identity - detects cook
 
         RefPtr<foundation::ui::FlexLayout> m_fields; // the right pane (rebuilt on structural edits)
-        Array<RefPtr<app::ResourceRefEditor>> m_referenceRows; // the fields pane's slot rows
+        Array<RefPtr<ui::toolkit::PropertyEditor>> m_referenceRows; // the pane's own slot rows
         RefPtr<foundation::ui::View> m_content;
         Array<byte> m_undoBaseline;
     };

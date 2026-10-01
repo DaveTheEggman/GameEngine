@@ -249,6 +249,9 @@ export namespace editor
 
         ui::Button* MakeButton(ui::FlexLayout& row, StringView label, f32 width,
                                Function<void()> onClick);
+        // An add or remove verb, as the icon every editor list uses.
+        ui::IconButton* MakeIcon(ui::FlexLayout& row, ui::SVGDrawable* icon, StringView tooltip,
+                                 Function<void()> onClick);
 
         [[nodiscard]] RefPtr<ui::FlexLayout> MakeRow(f32 indent, f32 height = 24.0f);
 

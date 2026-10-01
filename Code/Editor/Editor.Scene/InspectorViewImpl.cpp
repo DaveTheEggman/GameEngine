@@ -143,13 +143,32 @@ namespace editor
             return slot;
         };
 
-        // Header row: an empty corner over the name column, then a VERTICAL name per group column.
+        // Header row: the add icon in the corner over the name column (enabled while there is
+        // room), then a VERTICAL name per group column.
         {
             auto header = MakeRef<ui::FlexLayout>(MemoryAllocator());
             header->Direction = ui::Orientation::Horizontal;
             header->Spacing = 2.0f;
-            header->AddView(MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"")).Get(),
-                            fixedCell(kNameColW));
+            {
+                auto corner = MakeRef<ui::FlexLayout>(MemoryAllocator());
+                corner->Direction = ui::Orientation::Horizontal;
+                corner->JustifyContent = ui::Justify::End;
+                corner->AlignItems = ui::Align::Start;
+                auto add = MakeRef<ui::IconButton>(MemoryAllocator(),
+                                                   editor::app::EditorIcons::Get().add.Get());
+                add->TooltipText = String(u8"Add group");
+                add->IsEnabled = count < foundation::physics::kCollisionGroupCount;
+                add->OnClick.Add(
+                    [self](ui::ButtonBase*)
+                    {
+                        if (self->OnAddGroup)
+                        {
+                            self->OnAddGroup();
+                        }
+                    });
+                corner->AddView(add.Get());
+                header->AddView(corner.Get(), fixedCell(kNameColW));
+            }
             for (usize j = 0; j < count; ++j)
             {
                 auto slot = centeredSlot();
@@ -230,8 +249,8 @@ namespace editor
             // every higher index and silently re-group bodies). Keep at least one group.
             if (i + 1 == count && count > 1)
             {
-                auto del = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"x"));
-                del->FontSize.SetValue(Optional<f32>{12.0f});
+                auto del = MakeRef<ui::IconButton>(MemoryAllocator(),
+                                                   editor::app::EditorIcons::Get().remove.Get());
                 del->TooltipText = String(u8"Remove this group (the last one)");
                 del->OnClick.Add(
                     [self, i](ui::ButtonBase*)
@@ -248,24 +267,6 @@ namespace editor
             lp.Width = ui::SizeSpec::Match();
             lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
             column.AddView(row.Get(), lp);
-        }
-
-        if (count < foundation::physics::kCollisionGroupCount)
-        {
-            auto add = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"+ Add Group"));
-            add->FontSize.SetValue(Optional<f32>{12.0f});
-            add->OnClick.Add(
-                [self](ui::ButtonBase*)
-                {
-                    if (self->OnAddGroup)
-                    {
-                        self->OnAddGroup();
-                    }
-                });
-            ui::LayoutStyle lp;
-            lp.Width = ui::SizeSpec::Match();
-            lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(kRowH));
-            column.AddView(add.Get(), lp);
         }
     }
 
@@ -1867,22 +1868,45 @@ namespace editor
             return;
         }
 
+        // A section list: the component's section holds the list's header (the count and the add
+        // icon, which also takes a dropped script class), and each behavior is a section of its
+        // own below it, its move and remove icons in that section's header.
         SceneInspectorView* self = this;
-        for (usize i = 0; i < component->behaviors.Size(); ++i)
+        auto list =
+            MakeRef<ContainerListEditor>(MemoryAllocator(), StringView(u8"Behaviors"), category);
+        list->ElementsAsSections = true;
+        for (const engine::script::ScriptBehavior& behavior : component->behaviors)
         {
-            BuildScriptBehaviorRows(id, category, i);
+            list->slotNames.PushBack(String(AssetNameFor(behavior.script.id)));
         }
-
-        auto add = MakeRef<ui::toolkit::ButtonEditor>(
-            MemoryAllocator(), StringView(u8"+ Add Behavior"),
-            Function<void()>{[self, id]()
-                             {
-                                 self->MutateScriptComponent(
-                                     id, [](engine::script::ScriptComponent& c)
-                                     { c.behaviors.PushBack(engine::script::ScriptBehavior{}); });
-                             }},
-            category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(add.Get()));
+        list->OnAdd = [self, id]()
+        {
+            self->MutateScriptComponent(id, [](engine::script::ScriptComponent& c)
+                                        { c.behaviors.PushBack(engine::script::ScriptBehavior{}); });
+        };
+        Array<String> accepted;
+        accepted.PushBack(String(u8"ScriptClassAsset"));
+        list->SetAcceptedTypes(Move(accepted));
+        list->OnAppendDropped = [self, id](const Guid& picked)
+        {
+            self->MutateScriptComponent(id,
+                                        [picked](engine::script::ScriptComponent& c)
+                                        {
+                                            engine::script::ScriptBehavior behavior;
+                                            behavior.script.SetId(picked);
+                                            c.behaviors.PushBack(Move(behavior));
+                                        });
+        };
+        ContainerListEditor* rawList = list.Get();
+        list->OnRejectedDrop = [self, rawList](StringView assetName, StringView typeName)
+        {
+            self->m_editor->Notify(
+                editor::NoticeKind::Warning,
+                editor::app::AssetPickerSlot::RejectionText(assetName, typeName,
+                                                            rawList->AcceptedTypes(), u8"list")
+                    .AsView());
+        };
+        AddEditor(list.Get(), []() {});
 
         // Shape-change watcher (add/remove/reorder/pick/override toggle rebuilds).
         const u64 signature = ScriptBehaviorsSignature(*component);
@@ -1903,10 +1927,26 @@ namespace editor
                     self->m_forceRebuild = true;
                 }
             });
+
+        for (usize i = 0; i < component->behaviors.Size(); ++i)
+        {
+            BuildScriptBehaviorRows(id, i, component->behaviors.Size());
+        }
     }
 
-    void SceneInspectorView::BuildScriptBehaviorRows(const Guid& id, StringView category,
-                                                     usize index)
+    String SceneInspectorView::ScriptBehaviorSection(usize index, StringView scriptName)
+    {
+        return Format(u8"Behavior {} - {}", index + 1, scriptName);
+    }
+
+    engine::script::ScriptComponent* SceneInspectorView::LiveScript(const Guid& id)
+    {
+        const scene::EntityHandle e = m_edit->Resolve(id);
+        auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
+        return (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
+    }
+
+    void SceneInspectorView::BuildScriptBehaviorRows(const Guid& id, usize index, usize count)
     {
         const scene::EntityHandle e = m_edit->Resolve(id);
         auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
@@ -1918,6 +1958,41 @@ namespace editor
         }
         engine::script::ScriptBehavior& behavior = component->behaviors[index];
         SceneInspectorView* self = this;
+
+        // The behavior's section, its move and remove icons in the section header.
+        const String section = ScriptBehaviorSection(index, AssetNameFor(behavior.script.id));
+        const StringView category = section.AsView();
+        m_grid->SetCategoryHeaderActions(
+            category,
+            ContainerListEditor::ElementActions(
+                MemoryAllocator(), index, count,
+                [self, id](usize i, bool up)
+                {
+                    self->MutateScriptComponent(
+                        id,
+                        [i, up](engine::script::ScriptComponent& c)
+                        {
+                            const usize other = up ? i - 1 : i + 1;
+                            if (i < c.behaviors.Size() && (!up || i > 0) &&
+                                other < c.behaviors.Size())
+                            {
+                                engine::script::ScriptBehavior tmp = Move(c.behaviors[i]);
+                                c.behaviors[i] = Move(c.behaviors[other]);
+                                c.behaviors[other] = Move(tmp);
+                            }
+                        });
+                },
+                [self, id](usize i)
+                {
+                    self->MutateScriptComponent(id,
+                                                [i](engine::script::ScriptComponent& c)
+                                                {
+                                                    if (i < c.behaviors.Size())
+                                                    {
+                                                        c.behaviors.RemoveAt(i);
+                                                    }
+                                                });
+                }));
 
         // The behaviour's script class: the shared asset row (pick, drop and clear are one
         // assignment, one undo step).
@@ -1973,7 +2048,16 @@ namespace editor
                                          });
                                  }},
             category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(enabled.Get()));
+        ui::toolkit::BoolEditor* enabledRaw = enabled.Get();
+        AddEditor(enabledRaw,
+                  [self, id, index, enabledRaw]()
+                  {
+                      engine::script::ScriptComponent* c = self->LiveScript(id);
+                      if (c != nullptr && index < c->behaviors.Size())
+                      {
+                          enabledRaw->SetValue(c->behaviors[index].enabled);
+                      }
+                  });
 
         // Update interval (throttling): seconds between onUpdate; 0 = every tick.
         auto interval = MakeRef<ui::toolkit::FloatEditor>(
@@ -1994,45 +2078,16 @@ namespace editor
                                 }},
             category);
         interval->SetTooltip(StringView(u8"Seconds between onUpdate calls (0 = every frame)"));
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(interval.Get()));
-
-        // Reorder / remove.
-        auto up = MakeRef<ui::toolkit::ButtonEditor>(
-            MemoryAllocator(), StringView(u8"Move Up"),
-            Function<void()>{[self, id, index]()
-                             {
-                                 self->MutateScriptComponent(
-                                     id,
-                                     [index](engine::script::ScriptComponent& c)
-                                     {
-                                         if (index > 0 && index < c.behaviors.Size())
-                                         {
-                                             engine::script::ScriptBehavior tmp =
-                                                 Move(c.behaviors[index]);
-                                             c.behaviors[index] = Move(c.behaviors[index - 1]);
-                                             c.behaviors[index - 1] = Move(tmp);
-                                         }
-                                     });
-                             }},
-            category);
-        up->SetButtonEnabled(index > 0);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(up.Get()));
-        auto remove = MakeRef<ui::toolkit::ButtonEditor>(
-            MemoryAllocator(), StringView(u8"Remove Behavior"),
-            Function<void()>{[self, id, index]()
-                             {
-                                 self->MutateScriptComponent(
-                                     id,
-                                     [index](engine::script::ScriptComponent& c)
-                                     {
-                                         if (index < c.behaviors.Size())
-                                         {
-                                             c.behaviors.RemoveAt(index);
-                                         }
-                                     });
-                             }},
-            category);
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(remove.Get()));
+        ui::toolkit::FloatEditor* intervalRaw = interval.Get();
+        AddEditor(intervalRaw,
+                  [self, id, index, intervalRaw]()
+                  {
+                      engine::script::ScriptComponent* c = self->LiveScript(id);
+                      if (c != nullptr && index < c->behaviors.Size())
+                      {
+                          intervalRaw->SetValue(static_cast<f64>(c->behaviors[index].updateInterval));
+                      }
+                  });
 
         // Property rows from the cooked ScriptClass metadata (data-driven; no VM).
         foundation::script::ScriptClass* scriptClass = BehaviorClass(behavior);

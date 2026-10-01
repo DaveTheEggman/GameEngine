@@ -13,6 +13,7 @@
 import foundation.core;
 import foundation.scene;
 import engine.physics;
+import foundation.physics; // kCollisionGroupCount
 import editor.core;
 import editor.scene;
 import foundation.ui;
@@ -33,7 +34,7 @@ TEST_CASE("inspector: the collision-groups matrix rebuilds its grid when a group
 
     auto* grid = static_cast<foundation::ui::ViewGroup*>(editor->EditorView()); // a FlexLayout column
     REQUIRE(grid != nullptr);
-    const usize before = grid->ChildCount(); // one group row + the "+ Add Group" button
+    const usize before = grid->ChildCount(); // the header row + one group row
 
     // Add Group: mutate the data, then request the rebuild (inline here - no UIContext attached).
     editor->names.PushBack(String(u8"Group 1"));
@@ -47,6 +48,52 @@ TEST_CASE("inspector: the collision-groups matrix rebuilds its grid when a group
     editor->matrix.RemoveAt(1);
     editor->RequestRebuild();
     CHECK(grid->ChildCount() == before);
+}
+
+// editor-lists-and-asset-slots P2: the matrix's add and remove are the icons every editor list
+// uses - the add icon in the header's corner, enabled while there is room, and the remove icon
+// on the last group.
+TEST_CASE("inspector: the collision matrix adds from its header icon and removes with the icon")
+{
+    RefPtr<editor::CollisionMatrixEditor> editor =
+        MakeRef<editor::CollisionMatrixEditor>(DefaultAllocator(), u8"Collision Groups",
+                                               u8"Physics");
+    editor->names.PushBack(String(u8"Default"));
+    editor->names.PushBack(String(u8"Group 1"));
+    editor->matrix.PushBack(0xFFFFFFFFu);
+    editor->matrix.PushBack(0xFFFFFFFFu);
+    i32 adds = 0;
+    usize removed = 99;
+    editor->OnAddGroup = [&]() { ++adds; };
+    editor->OnRemoveGroup = [&](usize i) { removed = i; };
+
+    auto* grid = static_cast<foundation::ui::ViewGroup*>(editor->EditorView());
+    REQUIRE(grid != nullptr);
+    CHECK(grid->ChildCount() == 3u); // the header, two groups: no footer button
+    auto* header = Cast<foundation::ui::ViewGroup>(grid->GetChildAt(0));
+    auto* corner = Cast<foundation::ui::ViewGroup>(header->GetChildAt(0));
+    auto* add = Cast<foundation::ui::IconButton>(corner->GetChildAt(0));
+    REQUIRE(add != nullptr);
+    CHECK(add->IsEnabled);
+    add->FireClick();
+    CHECK(adds == 1);
+
+    auto* lastRow = Cast<foundation::ui::ViewGroup>(grid->GetChildAt(2));
+    auto* remove = Cast<foundation::ui::IconButton>(lastRow->GetChildAt(lastRow->ChildCount() - 1));
+    REQUIRE(remove != nullptr);
+    remove->FireClick();
+    CHECK(removed == 1u);
+
+    // Full: the add icon stays, disabled.
+    while (editor->names.Size() < foundation::physics::kCollisionGroupCount)
+    {
+        editor->names.PushBack(String(u8"g"));
+        editor->matrix.PushBack(0xFFFFFFFFu);
+    }
+    editor->RequestRebuild();
+    header = Cast<foundation::ui::ViewGroup>(grid->GetChildAt(0));
+    corner = Cast<foundation::ui::ViewGroup>(header->GetChildAt(0));
+    CHECK_FALSE(Cast<foundation::ui::IconButton>(corner->GetChildAt(0))->IsEnabled);
 }
 
 // === The REAL delete handler (BuildCollisionMatrixRow's OnRemoveGroup lambda) ===

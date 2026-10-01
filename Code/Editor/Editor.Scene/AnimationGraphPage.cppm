@@ -178,6 +178,11 @@ export namespace editor
         // graph plays through an AnimationGraphPlayer and the skeleton draws as a wireframe.
         // The preview rig's skeleton and skinned mesh (nil clears); the slots show them.
         void SetPreviewSkeleton(const Guid& id);
+        // Delete a layer (the last one stays) or a parameter: the row menus and section icons.
+        void DeleteLayer(i32 layerIndex);
+        void DeleteParam(i32 paramIndex);
+        // A transition, or null when the indices name none.
+        [[nodiscard]] animation::GraphTransitionData* TransitionAt(i32 layer, i32 transition) const;
         // A state's node, or null when the indices name none.
         [[nodiscard]] animation::GraphNodeData* StateNode(i32 layer, i32 state) const;
         // Persist / restore the preview rig (skeleton + skinned mesh) per graph (project settings).

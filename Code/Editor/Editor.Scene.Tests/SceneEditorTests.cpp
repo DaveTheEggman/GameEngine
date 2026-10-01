@@ -22,6 +22,7 @@ import editor.app; // ContainerListEditor (the generic reflected-list row)
 import editor.core;
 import editor.scene;
 import engine.animation;
+import engine.script; // ScriptComponent: the behaviours section list
 import engine.vegetation; // TerrainVegetationComponent: a reflected list of structs
 import foundation.shell;
 import foundation.settings;
@@ -823,4 +824,103 @@ TEST_CASE("inspector: the materials list takes drops, each one undo step; a wron
     commands.Undo();
     REQUIRE(materials().Size() == 1u);
     CHECK(materials()[0].id == materialId);
+}
+
+// editor-lists-and-asset-slots P2 (Sedulous 011b0db5): a script component's behaviours are a
+// section list. The add icon and a dropped script class append, a section's move icon reorders,
+// each one undo step, and after a move a section's rows edit the behaviour now in that place.
+TEST_CASE("inspector: behaviours are sections whose rows follow a move")
+{
+    scene::Scene scene{DefaultAllocator()};
+    auto* scripts = scene.AddSystem<engine::script::ScriptComponentManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    EditorContext editor{DefaultAllocator()};
+    auto inspectorRef =
+        foundation::core::MakeRef<SceneInspectorView>(DefaultAllocator(), editor, edit);
+    SceneInspectorView& inspector = *inspectorRef;
+    // A rebuild asked for by a refresher lands on the next refresh.
+    auto settle = [&]()
+    {
+        inspector.Refresh();
+        inspector.Refresh();
+    };
+
+    const Guid walker = edit.CreateEntity(u8"Walker");
+    {
+        engine::script::ScriptComponent& script = scripts->Add(scene.FindEntity(walker));
+        engine::script::ScriptBehavior first;
+        first.updateInterval = 1.0f;
+        script.behaviors.PushBack(Move(first));
+        engine::script::ScriptBehavior second;
+        second.updateInterval = 2.0f;
+        script.behaviors.PushBack(Move(second));
+    }
+    edit.EntitySelection().Set(walker);
+    settle();
+    auto live = [&]() -> engine::script::ScriptComponent&
+    { return *scripts->Get(scene.FindEntity(walker)); };
+    auto list = [&]()
+    {
+        return foundation::core::Cast<editor::app::ContainerListEditor>(
+            inspector.Grid()->GetProperty(u8"Behaviors"));
+    };
+    REQUIRE(list() != nullptr);
+    CHECK(list()->ElementsAsSections);
+    CHECK(list()->slotNames.Size() == 2u);
+
+    // The add icon: one behaviour, one undo step.
+    const usize before = commands.Size();
+    list()->OnAdd();
+    CHECK(live().behaviors.Size() == 3u);
+    CHECK(commands.Size() == before + 1);
+    commands.Undo();
+    CHECK(live().behaviors.Size() == 2u);
+    settle();
+
+    // A script class dropped on the list appends a behaviour running it; one undo reverts it.
+    const Guid classId{0x5555, 5};
+    auto dropped = MakeRef<editor::app::AssetDragData>(DefaultAllocator(), classId,
+                                                       StringView(u8"ScriptClassAsset"),
+                                                       StringView(u8"mover"));
+    REQUIRE(list() != nullptr);
+    foundation::ui::IDropTarget* zone = list()->EditorView()->AsDropTarget();
+    REQUIRE(zone != nullptr);
+    CHECK(zone->OnDrop(dropped.Get(), 0, 0) == foundation::ui::DragDropEffects::Link);
+    REQUIRE(live().behaviors.Size() == 3u);
+    CHECK(live().behaviors[2].script.id == classId);
+    commands.Undo();
+    CHECK(live().behaviors.Size() == 2u);
+    settle();
+
+    // The first section's move down swaps the two, one undo step.
+    const String section = SceneInspectorView::ScriptBehaviorSection(0, u8"(none)");
+    auto* actions = foundation::core::Cast<foundation::ui::ViewGroup>(
+        inspector.Grid()->GetCategoryHeaderActions(section.AsView()));
+    REQUIRE(actions != nullptr); // the section carries its element icons
+    REQUIRE(actions->ChildCount() == 3u);
+    foundation::core::Cast<foundation::ui::IconButton>(actions->GetChildAt(1))->FireClick();
+    CHECK(live().behaviors[0].updateInterval == 2.0f);
+    CHECK(live().behaviors[1].updateInterval == 1.0f);
+    commands.Undo();
+    CHECK(live().behaviors[0].updateInterval == 1.0f);
+    commands.Redo();
+    CHECK(live().behaviors[0].updateInterval == 2.0f);
+
+    // After the rebuild, the first section's rows are the behaviour now first.
+    settle();
+    foundation::ui::toolkit::FloatEditor* interval = nullptr;
+    for (usize i = 0; i < inspector.Grid()->PropertyCount(); ++i)
+    {
+        foundation::ui::toolkit::PropertyEditor* row = inspector.Grid()->PropertyAt(i);
+        if (row->Name() == u8"Update Interval" && row->Category() == section.AsView())
+        {
+            interval = foundation::core::Cast<foundation::ui::toolkit::FloatEditor>(row);
+        }
+    }
+    REQUIRE(interval != nullptr);
+    CHECK(interval->Value() == 2.0);
+    interval->Setter(5.0);
+    CHECK(live().behaviors[0].updateInterval == 5.0f);
+    CHECK(live().behaviors[1].updateInterval == 1.0f);
 }

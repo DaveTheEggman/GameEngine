@@ -115,6 +115,25 @@ namespace editor
         return button.Get();
     }
 
+    ui::IconButton* InputMapEditorPage::MakeIcon(ui::FlexLayout& row, ui::SVGDrawable* icon,
+                                                 StringView tooltip, Function<void()> onClick)
+    {
+        auto button = MakeRef<ui::IconButton>(Allocator(), icon);
+        button->TooltipText = String(tooltip);
+        button->OnClick.Add(
+            [fn = Move(onClick)](ui::ButtonBase*)
+            {
+                if (fn)
+                {
+                    fn();
+                }
+            });
+        ui::LayoutStyle lp;
+        lp.AlignSelf = ui::Align::Center;
+        row.AddView(button.Get(), lp);
+        return button.Get();
+    }
+
     RefPtr<ui::FlexLayout> InputMapEditorPage::MakeRow(f32 indent, f32 height)
     {
         auto row = MakeRef<ui::FlexLayout>(Allocator());
@@ -226,6 +245,27 @@ namespace editor
     {
         m_rows->RemoveAllViews();
         InputMapEditorPage* self = this;
+        app::EditorIcons& icons = app::EditorIcons::Get();
+
+        // The list's header: its title and the add icon.
+        {
+            auto top = MakeRow(0.0f, 24.0f);
+            String title(u8"Action sets (");
+            AppendValue(title, static_cast<i64>(m_map.sets.Size()));
+            title.Append(u8")");
+            AddLabel(*top, title.AsView(), 1.0f);
+            MakeIcon(*top, icons.add.Get(), u8"Add set",
+                     [self]()
+                     {
+                         self->Mutate(
+                             [](input::InputMap& m)
+                             {
+                                 input::ActionSet set;
+                                 set.name = String(u8"NewSet");
+                                 m.sets.PushBack(static_cast<input::ActionSet&&>(set));
+                             });
+                     });
+        }
 
         for (usize s = 0; s < m_map.sets.Size(); ++s)
         {
@@ -271,7 +311,7 @@ namespace editor
                                    }
                                });
                        });
-            MakeButton(*header, u8"+ Action", 70.0f,
+            MakeIcon(*header, icons.add.Get(), u8"Add action",
                        [self, s]()
                        {
                            self->Mutate(
@@ -286,7 +326,7 @@ namespace editor
                                    m.sets[s].actions.PushBack(static_cast<input::Action&&>(action));
                                });
                        });
-            MakeButton(*header, u8"x", 22.0f,
+            MakeIcon(*header, icons.remove.Get(), u8"Remove set",
                        [self, s]()
                        {
                            self->Mutate(
@@ -346,7 +386,7 @@ namespace editor
                                            (static_cast<u8>(act.interaction.kind) + 1u) % 4u);
                                    });
                            });
-                MakeButton(*row, u8"+ Binding", 74.0f,
+                MakeIcon(*row, icons.add.Get(), u8"Add binding",
                            [self, s, a]()
                            {
                                self->Mutate(
@@ -360,7 +400,7 @@ namespace editor
                                        act.bindings.PushBack(input_map_edit::FreshBinding(act.kind));
                                    });
                            });
-                MakeButton(*row, u8"x", 22.0f,
+                MakeIcon(*row, icons.remove.Get(), u8"Remove action",
                            [self, s, a]()
                            {
                                self->Mutate(
@@ -410,7 +450,7 @@ namespace editor
                                                        : StringView(u8"Listen");
                     MakeButton(*bindingRow, listenLabel, 54.0f,
                                [self, s, a, b]() { self->BeginListen(s, a, b); });
-                    MakeButton(*bindingRow, u8"x", 22.0f,
+                    MakeIcon(*bindingRow, icons.remove.Get(), u8"Remove binding",
                                [self, s, a, b]()
                                {
                                    self->Mutate(
@@ -479,19 +519,6 @@ namespace editor
                 }
             }
         }
-
-        auto footer = MakeRow(0.0f, 26.0f);
-        MakeButton(*footer, u8"+ Add Set", 90.0f,
-                   [self]()
-                   {
-                       self->Mutate(
-                           [](input::InputMap& m)
-                           {
-                               input::ActionSet set;
-                               set.name = String(u8"NewSet");
-                               m.sets.PushBack(static_cast<input::ActionSet&&>(set));
-                           });
-                   });
 
         RefreshStatus();
         m_content->Invalidate();
