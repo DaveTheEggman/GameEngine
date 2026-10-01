@@ -976,6 +976,22 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(reg.FindBy(GetHostPlatformName(), u8"Release") ==
           found); // resolves by (platform, config)
 
+    // A second bundle of the same platform under an identity of its own (the Steam Deck build):
+    // it sits beside the first rather than replacing it, its name and notes as given.
+    String deckId, deckDir;
+    REQUIRE(editor::CreateTemplate(binDir.AsView(), root.AsView(), editor::TemplateOutput::Install, &deckId,
+                                   &deckDir,
+                                   editor::TemplateIdentity{u8"steamdeck-release", u8"Steam Deck",
+                                                            u8"glibc 2.35"})
+                .IsOk());
+    CHECK(deckId == StringView(u8"steamdeck-release"));
+    reg.Refresh(root.AsView(), &rootFs, base.AsView(), &toolFs);
+    const editor::ExportTemplate* deck = reg.FindById(u8"steamdeck-release");
+    REQUIRE(deck != nullptr);
+    CHECK(deck->name == StringView(u8"Steam Deck"));
+    CHECK(deck->notes == StringView(u8"glibc 2.35"));
+    CHECK(reg.FindById(createdId.AsView()) != nullptr); // the first is still there
+
     NukeTree(base.AsView());
     NukeTree(root.AsView());
 }

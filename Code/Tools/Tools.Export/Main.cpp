@@ -11,7 +11,8 @@
 //   Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild] [--data-root <dir>]
 //   Tools.Export --template list
 //   Tools.Export --template import <templateDir>
-//   Tools.Export --template create <configDir> [--install | --out <folder>]
+//   Tools.Export --template create <configDir> [--install | --out <folder>] [--id <id>] [--name <name>]
+//                                  [--notes <text>]
 //
 // No export_presets.xml in the project => a host preset for the current platform is synthesized, so a
 // quick dev export works out of the box (the host template = the player next to this tool).
@@ -196,7 +197,8 @@ namespace
             "  Tools.Export <projectDir> [--out <dir>] [--preset <name> | --all] [--rebuild]\n"
             "  Tools.Export --template list\n"
             "  Tools.Export --template import <templateDir>\n"
-            "  Tools.Export --template create <configDir> [--install | --out <folder>]\n");
+            "  Tools.Export --template create <configDir> [--install | --out <folder>]\n"
+            "                                 [--id <id>] [--name <name>] [--notes <text>]\n");
         return 1;
     }
 
@@ -234,8 +236,10 @@ namespace
         return 0;
     }
 
-    // --template create <configDir> [--install | --out <folder>]. Default: install into the templates
-    // root (usable immediately). --out <folder> writes a self-contained bundle to that folder to zip.
+    // --template create <configDir> [--install | --out <folder>] [--id] [--name] [--notes]. Default:
+    // install into the templates root (usable immediately). --out <folder> writes a self-contained
+    // bundle to that folder to zip. --id/--name/--notes replace the canonical identity, so a second
+    // bundle for one platform (the Steam Deck build) sits beside the first.
     int TemplateCreate(int argc, char** argv)
     {
         // argv[3] = configDir; optional argv[4..] = --install | --out <folder>.
@@ -246,6 +250,7 @@ namespace
         const char* configDir = argv[3];
         bool install = true;
         const char* outFolder = nullptr;
+        editor::TemplateIdentity identity;
         for (int i = 4; i < argc; ++i)
         {
             if (std::strcmp(argv[i], "--install") == 0)
@@ -256,6 +261,18 @@ namespace
             {
                 install = false;
                 outFolder = argv[++i];
+            }
+            else if (std::strcmp(argv[i], "--id") == 0 && i + 1 < argc)
+            {
+                identity.id = Sv(argv[++i]);
+            }
+            else if (std::strcmp(argv[i], "--name") == 0 && i + 1 < argc)
+            {
+                identity.name = Sv(argv[++i]);
+            }
+            else if (std::strcmp(argv[i], "--notes") == 0 && i + 1 < argc)
+            {
+                identity.notes = Sv(argv[++i]);
             }
             else
             {
@@ -269,7 +286,7 @@ namespace
         const editor::TemplateOutput mode =
             install ? editor::TemplateOutput::Install : editor::TemplateOutput::ExportFolder;
         String createdId, createdDir;
-        if (!editor::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir)
+        if (!editor::CreateTemplate(Sv(configDir), destRoot.AsView(), mode, &createdId, &createdDir, identity)
                  .IsOk())
         {
             std::fprintf(stderr,

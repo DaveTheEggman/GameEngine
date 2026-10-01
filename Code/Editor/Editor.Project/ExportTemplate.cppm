@@ -341,6 +341,16 @@ export namespace editor
         ExportFolder, // directly into <destRoot> (a self-contained bundle to zip/distribute)
     };
 
+    // What a created template is called, when not the canonical id and name: a second bundle for
+    // one platform (the Steam Deck build beside the desktop Linux one) sits beside it rather than
+    // replacing it. Empty fields keep the canonical ones.
+    struct TemplateIdentity
+    {
+        StringView id;
+        StringView name;
+        StringView notes;
+    };
+
     // Synthesize + materialize a template from a "Bin/<Config>/<Platform>-<Compiler>" build dir.
     // Reuses SynthesizeHostTemplate to read the platform + the
     // build-emitted "<player>.runtime-libs", then stamps config + compiler (parsed from the dir path)
@@ -353,7 +363,8 @@ export namespace editor
     // NotFound if the player binary is missing from `configDir`.
     [[nodiscard]] inline Status CreateTemplate(StringView configDir, StringView destRoot,
                                                TemplateOutput mode, String* outId = nullptr,
-                                               String* outDir = nullptr)
+                                               String* outDir = nullptr,
+                                               const TemplateIdentity& identity = {})
     {
         vfs::NativeFileSystem configFs(configDir, foundation::core::DefaultAllocator());
 
@@ -412,6 +423,18 @@ export namespace editor
         tmpl.name += tmpl.config;
         tmpl.name += u8" ";
         tmpl.name += tmpl.engineVersion;
+        if (!identity.id.IsEmpty())
+        {
+            tmpl.id = String(identity.id);
+        }
+        if (!identity.name.IsEmpty())
+        {
+            tmpl.name = String(identity.name);
+        }
+        if (!identity.notes.IsEmpty())
+        {
+            tmpl.notes = String(identity.notes);
+        }
 
         // The player must exist in the source dir, or there's nothing to package.
         if (!configFs.Exists(tmpl.playerBinary.AsView()))
