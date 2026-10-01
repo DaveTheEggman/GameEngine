@@ -17,9 +17,20 @@ using namespace foundation::core;
 
 namespace engine::project
 {
+    REFLECT_ENUM(WindowMode, "rtti::engine::project")
+    {
+        builder.Value("Windowed", WindowMode::Windowed)
+            .Value("Fullscreen", WindowMode::Fullscreen)
+            .Value("Borderless", WindowMode::Borderless);
+    }
+
     REFLECT_MEMBERS(ProjectSettings, "rtti::engine::project")
     {
         builder.DataVersion(9);
+        // The enums the display settings take (their enumerators name the dialog's and the MCP
+        // tools' choices): FitMode is the core's.
+        RegisterCoreTypes();
+        RttiRegisterEnum_WindowMode();
         const auto asset = [&builder](StringView label, StringView type, StringView emptyText)
         {
             builder.PropAttribute(kSettingLabelAttribute, String(label))
@@ -59,5 +70,27 @@ namespace engine::project
         RegisterArrayType<Guid>(); // the list container (the dialog's list, the MCP tools)
         builder.Property<&ProjectSettings::uiFontIds>("uiFontIds");
         asset(u8"Other UI fonts", u8"FontAsset", u8"(none)");
+        // The display: the render resolution (0 x 0 is the output's size) and its fit, then the
+        // player's window. An export preset may override either per platform.
+        const Float4 renderSize{0.0f, 16384.0f, 1.0f, 0.0f};
+        const Float4 windowSize{1.0f, 16384.0f, 1.0f, 0.0f};
+        builder.Property<&ProjectSettings::renderWidth>("renderWidth")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Render width"))
+            .PropAttribute("range", renderSize);
+        builder.Property<&ProjectSettings::renderHeight>("renderHeight")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Render height"))
+            .PropAttribute("range", renderSize);
+        builder.Property<&ProjectSettings::renderFit>("renderFit")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Render fit"));
+        builder.Property<&ProjectSettings::windowWidth>("windowWidth")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Window width"))
+            .PropAttribute("range", windowSize);
+        builder.Property<&ProjectSettings::windowHeight>("windowHeight")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Window height"))
+            .PropAttribute("range", windowSize);
+        builder.Property<&ProjectSettings::windowMode>("windowMode")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Window mode"));
+        builder.Property<&ProjectSettings::windowResizable>("windowResizable")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Window resizable"));
     }
 }

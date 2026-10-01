@@ -424,3 +424,76 @@ TEST_CASE("project: the other UI fonts are an appended list every asset walk rea
     project.Reset();
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
 }
+
+// Sedulous 7d6e4460: the display settings (render resolution and fit, the player's window) are
+// appended, so a manifest saved before them opens with their defaults; set, they round-trip
+// and the dist copy carries them.
+TEST_CASE("project: the display settings are appended, with defaults an older manifest reads")
+{
+    const StringView dir = u8"scratch_project_display_test";
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+
+    // Saved before them: strip every display element from the manifest the create wrote.
+    {
+        Result<Array<byte>> bytes = ReadFile(PathJoin(dir, u8"Project.xml").AsView());
+        REQUIRE(bytes.HasValue());
+        std::string text(reinterpret_cast<const char*>(bytes.Value().Data()), bytes.Value().Size());
+        for (const char* key : {"renderWidth", "renderHeight", "renderFit", "windowWidth", "windowHeight",
+                                "windowMode", "windowResizable"})
+        {
+            const usize name = text.find(std::string("name=\"") + key + "\"");
+            REQUIRE(name != std::string::npos);
+            const usize start = text.rfind('<', name);
+            const usize close = text.find("</", name);
+            const usize end = text.find('>', close);
+            text.erase(start, end + 1 - start);
+        }
+        CHECK(text.find("renderWidth") == std::string::npos);
+        foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
+        REQUIRE(root.AsWritable()
+                    ->Save(u8"Project.xml", Span<const byte>(reinterpret_cast<const byte*>(text.data()), text.size()))
+                    .IsOk());
+    }
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+        REQUIRE(static_cast<bool>(project)); // an older manifest still opens
+        const engine::project::ProjectSettings& settings = project->Settings();
+        CHECK(settings.renderWidth == 0u);
+        CHECK(settings.renderHeight == 0u);
+        CHECK_FALSE(settings.HasRenderResolution()); // draws at its output's size
+        CHECK(settings.renderFit == FitMode::Letterbox);
+        CHECK(settings.windowWidth == 1280u);
+        CHECK(settings.windowHeight == 720u);
+        CHECK(settings.windowMode == engine::project::WindowMode::Windowed);
+        CHECK(settings.windowResizable);
+        project->Settings().renderWidth = 640;
+        project->Settings().renderHeight = 360;
+        project->Settings().renderFit = FitMode::IntegerScale;
+        project->Settings().windowMode = engine::project::WindowMode::Borderless;
+        project->Settings().windowResizable = false;
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    engine::project::ProjectSettings dist;
+    REQUIRE(engine::project::CopyProjectSettings(project->Settings(), dist).IsOk());
+    CHECK(dist.HasRenderResolution());
+    CHECK(dist.renderWidth == 640u);
+    CHECK(dist.renderHeight == 360u);
+    CHECK(dist.renderFit == FitMode::IntegerScale);
+    CHECK(dist.windowMode == engine::project::WindowMode::Borderless);
+    CHECK_FALSE(dist.windowResizable);
+
+    // Reflected for the dialog and the tools: the enums name their choices.
+    const PropertyInfo* fit = FindProperty(engine::project::ProjectSettings::StaticType(), "renderFit");
+    REQUIRE(fit != nullptr);
+    CHECK(EnumeratorCount(*fit->type) == 4u);
+    const PropertyInfo* mode = FindProperty(engine::project::ProjectSettings::StaticType(), "windowMode");
+    REQUIRE(mode != nullptr);
+    CHECK(EnumeratorCount(*mode->type) == 3u);
+
+    project.Reset();
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+}

@@ -61,6 +61,14 @@ export namespace engine::project
     inline constexpr const char* kSettingAssetTypeAttribute = "assetType";
     inline constexpr const char* kSettingEmptyTextAttribute = "emptyText";
 
+    /// How the player's window takes the screen.
+    enum class WindowMode : u8
+    {
+        Windowed,   // a normal window of the configured size
+        Fullscreen, // exclusive fullscreen at the configured size
+        Borderless, // a borderless window covering the whole display, at the display's own size
+    };
+
     // The shared, committed part of a project (Project.xml payload) - also the dist manifest
     // (player.xml), which is the same shape minus editor-only concerns.
     class ProjectSettings final : public ISerializable
@@ -92,6 +100,24 @@ export namespace engine::project
         Array<Guid> uiFontIds; // cooked fonts the game UI loads BESIDE the default one, each its
                                // own family a label picks by font-family (a title face beside
                                // the body text). Appended: a manifest saved before it reads none.
+
+        // The display (appended: a manifest saved before them reads these defaults).
+        // The resolution the game DRAWS at, fitted into whatever shows it (the player's window,
+        // the editor's Game tab) by renderFit. Nought on either axis draws at the output's own
+        // size, which is what a game that adapts to any size wants.
+        u32 renderWidth = 0;
+        u32 renderHeight = 0;
+        FitMode renderFit = FitMode::Letterbox; // how a fixed resolution fits another shape
+        // The player's window: its size (ignored by Borderless, which takes the display's), how
+        // it takes the screen, and whether the user may resize it. An export preset overrides
+        // these per platform.
+        u32 windowWidth = 1280;
+        u32 windowHeight = 720;
+        WindowMode windowMode = WindowMode::Windowed;
+        bool windowResizable = true;
+
+        /// Whether the game draws at a fixed resolution rather than at its output's size.
+        [[nodiscard]] bool HasRenderResolution() const noexcept { return renderWidth > 0 && renderHeight > 0; }
 
         /// Re-derives the human-readable path mirrors (defaultScene, startupScript) from their
         /// guids after a change: `pathOf` answers an asset's source-DB path, empty when unknown.
@@ -126,6 +152,13 @@ export namespace engine::project
             ar.GuidValue(loadingDocumentId);
             foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
             SerializeAppended(ar, "uiFontIds", uiFontIds);
+            SerializeAppended(ar, "renderWidth", renderWidth);
+            SerializeAppended(ar, "renderHeight", renderHeight);
+            SerializeAppended(ar, "renderFit", renderFit);
+            SerializeAppended(ar, "windowWidth", windowWidth);
+            SerializeAppended(ar, "windowHeight", windowHeight);
+            SerializeAppended(ar, "windowMode", windowMode);
+            SerializeAppended(ar, "windowResizable", windowResizable);
         }
     };
 
