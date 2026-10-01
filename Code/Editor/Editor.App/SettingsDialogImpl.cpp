@@ -130,7 +130,76 @@ namespace editor::app
                         : StringView(u8"");
                 m_texts.PushBack(TextSetting{&property, AddTextRow(column, label->AsView(), value)});
             }
+            else if (&property != FindProperty(type, "renderMsaaSamples")) // MSAA: its own row
+            {
+                AddValueRow(column, label->AsView(), property, settings);
+            }
         }
+    }
+
+    void ProjectSettingsDialog::AddValueRow(ui::FlexLayout& column, StringView label,
+                                            const PropertyInfo& property, const Instance& settings)
+    {
+        const void* address = settings.IsEmpty() ? nullptr : property.address(settings);
+        ValueSetting entry;
+        entry.property = &property;
+        ui::LayoutStyle grow;
+        grow.FlexGrow = 1.0f;
+        grow.AlignSelf = ui::Align::Center;
+        if (IsEnum(*property.type))
+        {
+            ui::FlexLayout* row = AddRow(column, label);
+            auto combo = MakeRef<ui::ComboBox>(MemoryAllocator());
+            const i64 current = address != nullptr ? ReadEnumValue(address, *property.type) : 0;
+            i32 selected = 0;
+            for (usize i = 0; i < EnumeratorCount(*property.type); ++i)
+            {
+                const EnumValue& value = EnumeratorAt(*property.type, i);
+                (void)combo->AddItem(StringView(reinterpret_cast<const utf8char*>(value.name)));
+                selected = value.value == current ? static_cast<i32>(i) : selected;
+            }
+            combo->SetSelectedIndex(selected);
+            entry.choice = combo.Get();
+            row->AddView(combo.Get(), grow);
+        }
+        else if (property.type == &TypeOf<bool>())
+        {
+            ui::FlexLayout* row = AddRow(column, label);
+            auto check = MakeRef<ui::CheckBox>(MemoryAllocator(), StringView(),
+                                               address != nullptr && *static_cast<const bool*>(address));
+            entry.flag = check.Get();
+            row->AddView(check.Get(), grow);
+        }
+        else if (property.type == &TypeOf<u32>())
+        {
+            ui::FlexLayout* row = AddRow(column, label);
+            auto field = MakeRef<ui::NumericField>(MemoryAllocator());
+            field->SetDecimalPlaces(0);
+            field->SetStep(1.0);
+            f64 least = 0.0;
+            f64 most = 4294967295.0;
+            if (const Attribute* range = FindAttribute(property, u8"range"))
+            {
+                if (const Float4* bounds = range->value.TryGet<Float4>())
+                {
+                    least = bounds->x;
+                    most = bounds->y;
+                }
+            }
+            field->SetMin(least);
+            field->SetMax(most);
+            field->SetValue(address != nullptr ? static_cast<f64>(*static_cast<const u32*>(address)) : least);
+            entry.number = field.Get();
+            ui::LayoutStyle fixed;
+            fixed.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(100));
+            fixed.AlignSelf = ui::Align::Center;
+            row->AddView(field.Get(), fixed);
+        }
+        else
+        {
+            return; // a kind no row edits
+        }
+        m_values.PushBack(entry);
     }
 
     void ProjectSettingsDialog::AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id,
@@ -281,6 +350,27 @@ namespace editor::app
         for (const AssetSetting& asset : m_assets)
         {
             *static_cast<Guid*>(asset.property->address(settings)) = asset.id;
+        }
+        for (const ValueSetting& value : m_values)
+        {
+            void* address = value.property->address(settings);
+            if (value.choice != nullptr)
+            {
+                const i32 index = value.choice->SelectedIndex();
+                if (index >= 0 && static_cast<usize>(index) < EnumeratorCount(*value.property->type))
+                {
+                    WriteEnumValue(address, *value.property->type,
+                                   EnumeratorAt(*value.property->type, static_cast<usize>(index)).value);
+                }
+            }
+            else if (value.flag != nullptr)
+            {
+                *static_cast<bool*>(address) = value.flag->IsChecked.Value();
+            }
+            else if (value.number != nullptr)
+            {
+                *static_cast<u32*>(address) = static_cast<u32>(value.number->Value());
+            }
         }
         for (const AssetListSetting& list : m_assetLists)
         {

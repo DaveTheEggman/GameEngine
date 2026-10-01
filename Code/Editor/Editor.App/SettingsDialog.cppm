@@ -56,9 +56,10 @@ export namespace editor::app
             column->Spacing = 8;
 
             // The settings as the type describes them (ProjectSettings' reflection): a text row
-            // per string setting, and per asset setting a slot that picks, takes a dropped asset
-            // of its type and clears, seeded from the manifest (editor-lists-and-asset-slots.md
-            // P1). MSAA, a choice from the render subsystem's levels, follows.
+            // per string setting, per asset setting a slot that picks, takes a dropped asset of
+            // its type and clears (editor-lists-and-asset-slots.md P1), a list of slots per asset
+            // list, and a field, check box or combo per number, flag or choice, seeded from the
+            // manifest. MSAA, a choice from the render subsystem's levels, follows.
             BuildSettingRows(*column, project);
 
             // Scene-pass MSAA: Off / 2x / 4x maps to renderMsaaSamples 1 / 2 / 4. The
@@ -123,6 +124,11 @@ export namespace editor::app
         void AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id, StringView typeName,
                          StringView emptyText);
 
+        /// A number, flag or choice setting's row: a numeric field (within the property's `range`),
+        /// a check box, or a combo of the enum's values; recorded in m_values for Save.
+        void AddValueRow(ui::FlexLayout& column, StringView label, const PropertyInfo& property,
+                         const Instance& settings);
+
         /// An asset list setting's row: a list of slots (add, pick, drop, reorder, remove) over
         /// `m_assetLists[index]`, rebuilt after every change.
         void AddAssetListRow(ui::FlexLayout& column, StringView label, usize index);
@@ -146,6 +152,15 @@ export namespace editor::app
             Guid id;
         };
 
+        /// A number, flag or choice setting: the reflected property and the control holding it.
+        struct ValueSetting
+        {
+            const PropertyInfo* property = nullptr;
+            ui::NumericField* number = nullptr;
+            ui::CheckBox* flag = nullptr;
+            ui::ComboBox* choice = nullptr;
+        };
+
         /// An asset list setting: the reflected property, the list as edited (nil entries are
         /// slots not yet picked; Save drops them), the cell its editor sits in, and the editor.
         struct AssetListSetting
@@ -162,6 +177,7 @@ export namespace editor::app
         Array<AssetSetting> m_assets; // sized before the rows bind to it: never reallocates after
         Array<RefPtr<ResourceRefEditor>> m_assetRows; // the rows' editors; their views sit in rows
         Array<AssetListSetting> m_assetLists; // sized before the rows build: indices stay put
+        Array<ValueSetting> m_values;
         RefPtr<ui::ComboBox> m_msaaCombo; // scene-pass MSAA: Off/2x/4x -> renderMsaaSamples 1/2/4
     };
 

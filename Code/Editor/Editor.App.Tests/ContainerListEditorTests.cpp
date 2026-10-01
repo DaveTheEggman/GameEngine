@@ -307,6 +307,84 @@ namespace
     }
 }
 
+namespace
+{
+    // Every view of type T under `view`, in tree order (through the visual children).
+    template <typename T>
+    void CollectViews(ui::View& view, Array<T*>& out)
+    {
+        if (T* typed = Cast<T>(&view))
+        {
+            out.PushBack(typed);
+        }
+        if (auto* group = Cast<ui::ViewGroup>(&view))
+        {
+            for (usize i = 0; i < group->VisualChildCount(); ++i)
+            {
+                if (ui::View* child = group->GetVisualChild(i))
+                {
+                    CollectViews(*child, out);
+                }
+            }
+        }
+    }
+}
+
+// Sedulous 7d6e4460: the display settings are rows the dialog builds from their reflection (a
+// field per size, a combo per enum, a check box per flag), and Save writes them back.
+TEST_CASE("resource-row: the settings dialog edits number, choice and flag settings")
+{
+    const StringView dir = u8"scratch_settings_dialog_values";
+    (void)RemoveDirectoryRecursive(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    EditorContext context{DefaultAllocator()};
+    context.SetProject(project.Get());
+    {
+        auto dialog = MakeRef<app::ProjectSettingsDialog>(DefaultAllocator(), context);
+        Array<ui::NumericField*> numbers;
+        Array<ui::ComboBox*> choices;
+        Array<ui::CheckBox*> flags;
+        Array<ui::Button*> buttons;
+        CollectViews(*dialog, numbers);
+        CollectViews(*dialog, choices);
+        CollectViews(*dialog, flags);
+        CollectViews(*dialog, buttons);
+        // Render width, height; window width, height. Render fit, window mode, then MSAA's own.
+        REQUIRE(numbers.Size() == 4u);
+        REQUIRE(choices.Size() == 3u);
+        REQUIRE(flags.Size() == 1u);
+        CHECK(numbers[2]->Value() == doctest::Approx(1280.0)); // seeded from the manifest
+        CHECK(choices[0]->SelectedIndex() == static_cast<i32>(FitMode::Letterbox));
+        CHECK(flags[0]->IsChecked.Value());
+
+        numbers[0]->SetValue(640.0);
+        numbers[1]->SetValue(360.0);
+        numbers[2]->SetValue(0.0); // a window takes at least one pixel: the range clamps
+        choices[0]->SetSelectedIndex(static_cast<i32>(FitMode::IntegerScale));
+        choices[1]->SetSelectedIndex(static_cast<i32>(engine::project::WindowMode::Fullscreen));
+        flags[0]->IsChecked.SetValue(false);
+        ui::Button* save = nullptr;
+        for (ui::Button* button : buttons)
+        {
+            save = button->Text.Value() == StringView(u8"Save") ? button : save;
+        }
+        REQUIRE(save != nullptr);
+        save->FireClick();
+    }
+    const engine::project::ProjectSettings& settings = project->Settings();
+    CHECK(settings.renderWidth == 640u);
+    CHECK(settings.renderHeight == 360u);
+    CHECK(settings.windowWidth == 1u);
+    CHECK(settings.renderFit == FitMode::IntegerScale);
+    CHECK(settings.windowMode == engine::project::WindowMode::Fullscreen);
+    CHECK_FALSE(settings.windowResizable);
+    context.SetProject(nullptr);
+    project.Reset();
+    (void)RemoveDirectoryRecursive(dir);
+}
+
 // Sedulous 39147576: an asset list setting (the other UI fonts) is a list row of slots, one per
 // entry the manifest holds, beside a slot per single asset setting.
 TEST_CASE("resource-row: the settings dialog lists an asset list setting as slots")
