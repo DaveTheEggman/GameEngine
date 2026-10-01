@@ -2314,18 +2314,21 @@ namespace foundation::render
                     }
                 }
 
-                // A scaled view's finished image, scaled (filtered) into its rectangle of the real
-                // target: the tone map's fullscreen pass as a plain copy. The first view to the
-                // target clears it, black, which is the bars a letterbox leaves.
+                // A scaled view's finished image (its shown part, for a crop) scaled, filtered, into
+                // its rectangle of the real target: the tone map's fullscreen pass as a plain copy.
+                // The first view to the target clears it, black, which is the bars a letterbox
+                // leaves.
                 if (scaled)
                 {
+                    const SceneSize& shown = v->Settings().scene;
                     m_tonemap->DeclareTonemap(m_graph, colorH, colorH, colorH, targetH, clearTarget,
                                               rhi::ClearColor::Black(), v->TargetFormat(),
                                               v->OutputViewportX(), v->OutputViewportY(),
                                               v->OutputViewportWidth(), v->OutputViewportHeight(),
-                                              m_frameIndex, viewIndex, 1.0f, 0.0f, Float2{1.0f, 1.0f},
-                                              Float2{0.0f, 0.0f}, 0.0f, false, false, false, {}, {},
-                                              /*copyOnly*/ true);
+                                              m_frameIndex, viewIndex, 1.0f, 0.0f,
+                                              Float2{shown.sourceWidth, shown.sourceHeight},
+                                              Float2{shown.sourceX, shown.sourceY}, 0.0f, false, false,
+                                              false, {}, {}, /*copyOnly*/ true);
                 }
             }
 

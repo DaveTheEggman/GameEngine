@@ -57,6 +57,46 @@ export namespace foundation::render
         u32 width = 0, height = 0;
     };
 
+    // The size a view's scene draws at when it is not the viewport's own, and which part of that
+    // image the viewport shows: all of it, or for a Crop fit the slice that fills the viewport.
+    // Unset (nought) draws at the viewport's size.
+    struct SceneSize
+    {
+        u32 width = 0;
+        u32 height = 0;
+        // The shown part of the scene image, as fractions of it.
+        f32 sourceX = 0.0f;
+        f32 sourceY = 0.0f;
+        f32 sourceWidth = 1.0f;
+        f32 sourceHeight = 1.0f;
+
+        SceneSize() = default;
+        SceneSize(u32 w, u32 h) : width(w), height(h) {}
+
+        [[nodiscard]] bool IsSet() const noexcept { return width > 0 && height > 0; }
+        // The whole image is not what shows.
+        [[nodiscard]] bool IsCropped() const noexcept
+        {
+            return sourceX != 0.0f || sourceY != 0.0f || sourceWidth != 1.0f || sourceHeight != 1.0f;
+        }
+
+        // A fit of a scene into a region: the scene size, and the slice of it the fit shows (the
+        // whole image, but for Crop).
+        [[nodiscard]] static SceneSize FromFit(const ContentFit& fit)
+        {
+            SceneSize size(static_cast<u32>(fit.contentSize.x), static_cast<u32>(fit.contentSize.y));
+            if (fit.contentSize.x > 0.0f && fit.contentSize.y > 0.0f)
+            {
+                const Rectangle source = fit.SrcRect();
+                size.sourceX = source.x / fit.contentSize.x;
+                size.sourceY = source.y / fit.contentSize.y;
+                size.sourceWidth = source.width / fit.contentSize.x;
+                size.sourceHeight = source.height / fit.contentSize.y;
+            }
+            return size;
+        }
+    };
+
     // An explicit camera for a RenderScene call, bypassing the scene's primary CameraComponent.
     struct CameraOverride
     {
@@ -278,10 +318,10 @@ export namespace foundation::render
         // shared per-scene DebugScene(scene) - so an editor viewport can draw grid/gizmos that appear
         // ONLY in it, not in a second view of the same scene (the camera-preview inset). Null keeps the
         // per-scene buffer (drawn in every view), which is what gameplay/player views want.
-        // A `sceneWidth` x `sceneHeight` other than the viewport's draws the scene at THAT size and
-        // scales the finished image into the viewport, clearing the target around it black: a game
-        // with a fixed render resolution fitted into a window of another shape. The projection
-        // takes that size's aspect. Nought draws at the viewport's own size.
+        // A `sceneSize` other than the viewport's draws the scene at THAT size and scales the
+        // finished image (its shown part, for a crop) into the viewport, clearing the target around
+        // it black: a game with a fixed render resolution fitted into a window of another shape.
+        // The projection takes that size's aspect. Unset draws at the viewport's own size.
         virtual void RenderScene(scene::Scene& scene, rhi::TextureView* target,
                                  rhi::TextureFormat targetFormat, u32 width, u32 height,
                                  ViewportRect viewport = {},
@@ -289,8 +329,8 @@ export namespace foundation::render
                                  const TargetState& targetState = {},
                                  const ViewPostOverride* postOverride = nullptr,
                                  const void* viewportKey = nullptr,
-                                 const ViewDebugView* debugView = nullptr, u32 sceneWidth = 0,
-                                 u32 sceneHeight = 0) = 0;
+                                 const ViewDebugView* debugView = nullptr,
+                                 const SceneSize& sceneSize = {}) = 0;
 
         // Compose every collected view into the frame's encoder.
         virtual void EndRendering() = 0;

@@ -40,9 +40,9 @@ export namespace foundation::render
         i32 viewportX = 0, viewportY = 0;
         u32 viewportWidth = 0, viewportHeight = 0;
         // The size the scene draws at, when it is not the viewport's: the whole scene chain runs
-        // at this size, and one last pass scales the finished image into the viewport. Nought
-        // draws at the viewport's own size.
-        u32 sceneWidth = 0, sceneHeight = 0;
+        // at this size, and one last pass scales the finished image (its shown part) into the
+        // viewport. Unset draws at the viewport's own size.
+        SceneSize scene{};
         // Target resource-state handling for the imported color target. `targetTexture` is the backing
         // texture the graph barriers (null => host-managed backbuffer; the graph touches no barrier).
         // `targetFinalState` is where the graph leaves it - RenderTarget for present, or ShaderRead /
@@ -93,16 +93,17 @@ export namespace foundation::render
             m_outputViewportW = m_viewportW;
             m_outputViewportH = m_viewportH;
             // A scene size of its own: the chain runs at it, the whole of it the view's.
-            m_scaled = settings.sceneWidth > 0 && settings.sceneHeight > 0 &&
-                       (settings.sceneWidth != m_viewportW || settings.sceneHeight != m_viewportH);
+            const SceneSize& size = settings.scene;
+            m_scaled = size.IsSet() &&
+                       (size.width != m_viewportW || size.height != m_viewportH || size.IsCropped());
             if (m_scaled)
             {
-                m_width = settings.sceneWidth;
-                m_height = settings.sceneHeight;
+                m_width = size.width;
+                m_height = size.height;
                 m_viewportX = 0;
                 m_viewportY = 0;
-                m_viewportW = settings.sceneWidth;
-                m_viewportH = settings.sceneHeight;
+                m_viewportW = size.width;
+                m_viewportH = size.height;
             }
             m_drawList.Clear();
         }

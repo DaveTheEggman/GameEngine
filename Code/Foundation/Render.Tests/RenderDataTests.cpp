@@ -161,6 +161,61 @@ TEST_CASE("RenderView::BuildDrawList frustum-culls a sphere entirely outside the
     CHECK(framedCulled->DrawList().Size() == 2);
 }
 
+// Sedulous ebbf7a3b / 4ed0922d: a scene size of its own runs the chain at it and remembers the
+// output rectangle; the viewport's own size is no scaling at all, unless a crop shows a slice.
+TEST_CASE("RenderView: a scene size splits the scene from the output")
+{
+    ExtractedScene scene{DefaultAllocator()};
+    RenderView view;
+    ViewSettings settings;
+    settings.viewportX = 160;
+    settings.viewportWidth = 960;
+    settings.viewportHeight = 540;
+    settings.scene = SceneSize(1280, 720);
+    view.Bind(scene, ViewCamera{}, settings, nullptr, foundation::rhi::TextureFormat::RGBA8Unorm, 1280, 540);
+    CHECK(view.IsScaled());
+    CHECK(view.Width() == 1280u); // the chain runs at the scene size
+    CHECK(view.Height() == 720u);
+    CHECK(view.ViewportX() == 0);
+    CHECK(view.ViewportWidth() == 1280u);
+    CHECK(view.ViewportHeight() == 720u);
+    CHECK(view.OutputWidth() == 1280u);
+    CHECK(view.OutputHeight() == 540u);
+    CHECK(view.OutputViewportX() == 160);
+    CHECK(view.OutputViewportWidth() == 960u);
+    CHECK(view.OutputViewportHeight() == 540u);
+
+    settings.scene = SceneSize(960, 540);
+    view.Bind(scene, ViewCamera{}, settings, nullptr, foundation::rhi::TextureFormat::RGBA8Unorm, 1280, 540);
+    CHECK_FALSE(view.IsScaled()); // the viewport's own size is not a scale
+    CHECK(view.Width() == 1280u);
+    CHECK(view.ViewportX() == 160);
+
+    settings.scene.sourceHeight = 0.75f; // the same size, but a crop's slice of it shows
+    view.Bind(scene, ViewCamera{}, settings, nullptr, foundation::rhi::TextureFormat::RGBA8Unorm, 1280, 540);
+    CHECK(view.IsScaled());
+}
+
+TEST_CASE("SceneSize: a fit gives the scene size and the slice it shows")
+{
+    const SceneSize letterbox =
+        SceneSize::FromFit(ContentFit{Rectangle{0, 0, 1920, 1080}, Float2{1280, 960}, FitMode::Letterbox});
+    CHECK(letterbox.width == 1280u);
+    CHECK(letterbox.height == 960u);
+    CHECK(letterbox.sourceX == doctest::Approx(0.0f));
+    CHECK(letterbox.sourceWidth == doctest::Approx(1.0f));
+    CHECK(letterbox.sourceHeight == doctest::Approx(1.0f));
+    CHECK_FALSE(letterbox.IsCropped());
+    // 4:3 cropped to fill 16:9: the full width, the middle three quarters of the height.
+    const SceneSize crop =
+        SceneSize::FromFit(ContentFit{Rectangle{0, 0, 1920, 1080}, Float2{1280, 960}, FitMode::Crop});
+    CHECK(crop.sourceX == doctest::Approx(0.0f));
+    CHECK(crop.sourceWidth == doctest::Approx(1.0f));
+    CHECK(crop.sourceHeight == doctest::Approx(0.75f));
+    CHECK(crop.sourceY == doctest::Approx(0.125f));
+    CHECK(crop.IsCropped());
+}
+
 TEST_CASE("RenderView::BuildDrawList sorts opaque front-to-back, transparent back-to-front")
 {
     // Three meshes in front of an identity camera at view-space depths 2, 5, 8.

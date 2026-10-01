@@ -346,7 +346,7 @@ namespace engine::render
                                       ViewportRect viewport, const CameraOverride* cameraOverride,
                                       const TargetState& targetState,
                                       const ViewPostOverride* postOverride, const void* viewportKey,
-                                      const ViewDebugView* debugView, u32 sceneWidth, u32 sceneHeight)
+                                      const ViewDebugView* debugView, const SceneSize& sceneSize)
     {
         if (m_frame.Get() == nullptr || target == nullptr)
         {
@@ -383,10 +383,10 @@ namespace engine::render
             // draws at: its own size, else the viewport, else the whole target.
             f32 aspectWidth = static_cast<f32>(width);
             f32 aspectHeight = static_cast<f32>(height);
-            if (sceneWidth > 0 && sceneHeight > 0)
+            if (sceneSize.IsSet())
             {
-                aspectWidth = static_cast<f32>(sceneWidth);
-                aspectHeight = static_cast<f32>(sceneHeight);
+                aspectWidth = static_cast<f32>(sceneSize.width);
+                aspectHeight = static_cast<f32>(sceneSize.height);
             }
             else if (viewport.width > 0 && viewport.height > 0)
             {
@@ -445,8 +445,7 @@ namespace engine::render
         settings.viewportY = viewport.y;
         settings.viewportWidth = viewport.width;
         settings.viewportHeight = viewport.height;
-        settings.sceneWidth = sceneWidth;
-        settings.sceneHeight = sceneHeight;
+        settings.scene = sceneSize;
         settings.targetTexture = targetState.texture;
         settings.targetCurrentState = targetState.currentState;
         settings.targetFinalState = targetState.finalState;

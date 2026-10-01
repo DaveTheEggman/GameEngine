@@ -292,8 +292,8 @@ export namespace engine::render
                          const TargetState& targetState = {},
                          const ViewPostOverride* postOverride = nullptr,
                          const void* viewportKey = nullptr,
-                         const ViewDebugView* debugView = nullptr, u32 sceneWidth = 0,
-                         u32 sceneHeight = 0) override;
+                         const ViewDebugView* debugView = nullptr,
+                         const SceneSize& sceneSize = {}) override;
 
         void EndRendering() override;
 

@@ -120,8 +120,7 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
         settings.viewportY = 0;
         settings.viewportWidth = kRectSize;
         settings.viewportHeight = kRectSize;
-        settings.sceneWidth = kScene;
-        settings.sceneHeight = kScene;
+        settings.scene = SceneSize(kScene, kScene);
         for (u32 i = 0; i < 2; ++i)
         {
             rhi::CommandEncoder* encoder = nullptr;
