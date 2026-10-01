@@ -40,6 +40,7 @@ import engine.physics;   // PhysicsSubsystem (Jolt worlds + interpolation)
 import foundation.input;               // the action model/runtime
 import engine.input;     // InputSubsystem + the Input facade
 import foundation.script;              // IScriptManager/Context (the game script)
+import foundation.script.resource;     // ScriptClass (the cooked game class StartGameScript takes)
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript; // the AngelScript backend (second backend; OPTION_ENABLE_ANGELSCRIPT)
 #endif
@@ -222,11 +223,10 @@ export namespace engine::runtime
         /// StartGameScript, cleared automatically on StopGameScript.
         void SetGameScriptErrorHandler(foundation::script::IScriptErrorHandler* handler) noexcept;
 
-        /// Compiles + launches the game script from source text - delegated to the run's GameInstance.
-        /// The CALLER resolves where the source lives (player: project file / pak entry; editor:
-        /// SourceDb). The exposeServices lambda binds the per-context script facades on the fallback
-        /// path (the normal path uses the ScriptSubsystem's configured shared context).
-        bool StartGameScript(core::StringView source, core::StringView name);
+        /// Compiles + launches the cooked game class - delegated to the run's GameInstance, with the
+        /// class's declared handlers so its on<Event> inbox hears the run bus (as Sedulous's
+        /// StartGameScript(ScriptClass)). The CALLER binds the class (the player: its content DB).
+        bool StartGameScript(const foundation::script::ScriptClass& scriptClass);
 
         /// exit() + release (idempotent; the update fault path also lands here). The run host tears
         /// down via the scene-stop observer once the run's scene stops.

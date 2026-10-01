@@ -29,6 +29,7 @@ import foundation.scene.resource; // LoadScene / ResolveSceneResources / Resolve
 import foundation.content;        // content::Instance (the cooked scene record)
 import foundation.resource;       // ResourceManager + AsyncBindScope (async level load, task #123)
 import foundation.script;
+import foundation.script.resource; // ScriptClass (the cooked Game class a run starts from)
 import engine.script;
 import foundation.script.facades; // RegisterExtraFacadeName (the run behavior-prelude hook)
 import foundation.net.manager; // NetworkManager + INetworkController + NetScriptBinding
@@ -343,6 +344,16 @@ export namespace engine::runtime
         /// with no handler list (raw-source tests) gets a Game with no inbox - the rest is unchanged.
         bool StartScript(core::StringView source, core::StringView name,
                          core::Span<const core::String> gameHandlers);
+
+        /// The cooked `Game` class - its source, its file identity and its declared handlers, so its
+        /// on<Event> inbox hears the run bus - as Sedulous's StartScript(ScriptClass). Every host
+        /// that starts a cooked game (the player, the editor's Game tab) starts it this way.
+        bool StartScript(const foundation::script::ScriptClass& scriptClass)
+        {
+            return StartScript(scriptClass.source.AsView(), scriptClass.sourceName.AsView(),
+                               core::Span<const core::String>(scriptClass.handlers.Data(),
+                                                              scriptClass.handlers.Size()));
+        }
 
         /// exit() the `Game` + release the game-script hold (idempotent; the update-fault path lands here).
         /// The run host tears down when nothing else pins it (the scene-stop observer drives that).

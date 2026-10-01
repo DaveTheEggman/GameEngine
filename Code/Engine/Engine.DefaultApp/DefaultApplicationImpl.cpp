@@ -676,9 +676,9 @@ namespace engine::runtime
         m_instance.SetScriptErrorHandler(handler);
     }
 
-    bool DefaultApplication::StartGameScript(core::StringView source, core::StringView name)
+    bool DefaultApplication::StartGameScript(const foundation::script::ScriptClass& scriptClass)
     {
-        return m_instance.StartScript(source, name);
+        return m_instance.StartScript(scriptClass);
     }
 
     void DefaultApplication::OnRenderWindow(IApplicationHost& host, FrameContext& frame)

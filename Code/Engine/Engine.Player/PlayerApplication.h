@@ -524,7 +524,7 @@ namespace engine::player
                 LOG_ERROR(u8"Player", u8"startup script asset not found");
                 return;
             }
-            (void)StartGameScript(proxy->source.AsView(), proxy->sourceName.AsView());
+            (void)StartGameScript(*proxy); // with its handlers: the game's on<Event> inbox
         }
 
         // ---- boot splash (task #123 step 4): a SCREEN overlay shown while the default scene streams

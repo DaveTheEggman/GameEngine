@@ -16,6 +16,7 @@ import foundation.resource;          // ResourceManager
 import foundation.vfs;               // NativeFileSystem
 import foundation.script;
 import foundation.script.facades; // RegisterScriptFacadeReflection (the Scene facade)
+import foundation.script.resource; // ScriptClass (the cooked Game class a run starts from)
 import foundation.script.angelscript;
 import foundation.script.luau;
 import foundation.net;         // NetSession queries (IsServer/PeerCount)
@@ -775,6 +776,40 @@ TEST_CASE("game-instance: the Game tier's on<Event> inbox harvests the run bus (
     gi.DrainRunEvents();
     CHECK(ctx->GetGlobal(u8"Pinged").Get<f64>() == doctest::Approx(42.0)); // unchanged
 
+    gi.StopScript();
+}
+
+// The cooked class carries its handlers: a game started from it (the player's and the Game tab's
+// way) hears the run bus without the caller spelling the list out. The player once started from
+// the source alone, so a shipped game never heard its coins or its flag.
+TEST_CASE("game-instance: a Game started from its cooked class hears the run bus through its handlers")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+
+    foundation::script::ScriptClass cooked;
+    cooked.language = String(u8"angelscript");
+    cooked.className = String(u8"Game");
+    cooked.sourceName = String(u8"game.as");
+    cooked.source = String(u8"double Reached = 0;\n"
+                           u8"class Game {\n"
+                           u8"  Game() {}\n"
+                           u8"  void launch() {}\n"
+                           u8"  void update(float dt) {}\n"
+                           u8"  void exit() {}\n"
+                           u8"  void onGoalReached(int x) { Reached = x + 1; }\n"
+                           u8"}\n");
+    cooked.handlers.PushBack(String(u8"onGoalReached"));
+
+    engine::runtime::GameInstance gi;
+    REQUIRE(gi.StartScript(cooked));
+    auto* ctx = gi.RunHost().Context();
+    REQUIRE(ctx != nullptr);
+    gi.RunEvents().Publish(StringHash(StringView(u8"GoalReached")), Variant::From<i32>(0));
+    gi.DrainRunEvents();
+    CHECK(ctx->GetGlobal(u8"Reached").Get<f64>() == doctest::Approx(1.0));
     gi.StopScript();
 }
 
