@@ -390,6 +390,12 @@ export namespace engine::ui
         /// picks by `font-family` (a title face over the body text). Held like the default. They
         /// need a default font bound: the TTF fallback serves only its built-in face.
         void SetExtraFonts(Span<const foundation::fonts::Font* const> fonts);
+        /// The screen tier at the game's render resolution: it lays out at `width` x `height` and
+        /// draws, at the target's own resolution, into the rectangle `fit` puts that size in, so
+        /// its text stays crisp at any window size. The pointer then arrives in render space, as
+        /// the game's does. Nought on either axis goes back to the target's own size.
+        void SetScreenDesign(u32 width, u32 height, FitMode fit);
+        [[nodiscard]] bool HasScreenDesign() const noexcept { return m_screenDesign.x > 0.0f && m_screenDesign.y > 0.0f; }
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
@@ -607,6 +613,13 @@ export namespace engine::ui
         // The cooked-font service over the default font and the extra ones, or the TTF fallback
         // when no default is bound.
         void RebuildFontService();
+        // The design size fitted into the last target the screen tier drew into.
+        [[nodiscard]] ContentFit ScreenFit() const noexcept;
+        // A render-space point in the screen tier's layout units: offset by the part of the
+        // design a crop leaves out, and nothing else.
+        [[nodiscard]] Float2 ScreenLayoutPoint(Float2 point) const noexcept;
+        // The same point in the pixels the screen tier's input takes (layout units times its scale).
+        [[nodiscard]] Float2 ScreenPointerPoint(Float2 point) const noexcept;
         // RenderTexture canvas roots are STANDALONE context roots owned by their
         // component - this registry (strong refs, mark-sweep like the canvas hosts) is
         // how a vanished component (despawn/removal; managers have no destroy hook)
@@ -635,6 +648,11 @@ export namespace engine::ui
         UIContext m_context{m_allocator};
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
         RefPtr<RootView> m_screenRoot;
+        // The game's render resolution and how it fits its target, when it has one: the screen
+        // tier lays out at that size and draws fitted where the game's image is.
+        Float2 m_screenDesign{0.0f, 0.0f};
+        FitMode m_screenDesignFit = FitMode::Letterbox;
+        Float2 m_screenTargetSize{0.0f, 0.0f}; // the target the screen tier last drew into
         foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)
         RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
         RefPtr<StyleSheet> m_theme;

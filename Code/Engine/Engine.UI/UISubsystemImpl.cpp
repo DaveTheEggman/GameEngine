@@ -1015,7 +1015,7 @@ namespace engine::ui
                 const Float2 point{mouse->X(), mouse->Y()};
                 if (m_screenRoot.Get() != nullptr)
                 {
-                    View* hit = m_screenRoot->HitTest(point);
+                    View* hit = m_screenRoot->HitTest(ScreenLayoutPoint(point));
                     if (hit != nullptr && hit != m_screenRoot.Get())
                     {
                         target = m_screenRoot.Get();
@@ -1068,8 +1068,10 @@ namespace engine::ui
                         {
                             continue;
                         }
+                        // The projection the scene was drawn with: the shape of its view.
                         foundation::render::ViewCamera camera;
-                        if (!engine::render::ExtractPrimaryCamera(*sceneUI.scene, camera))
+                        if (!engine::render::ExtractPrimaryCamera(*sceneUI.scene, camera, nullptr,
+                                                                  viewSize.x / viewSize.y))
                         {
                             continue;
                         }
@@ -1185,8 +1187,15 @@ namespace engine::ui
         {
             // Panel routing swaps in panel-local pixels: the active root IS the panel's
             // standalone root, so dispatch coordinates live in its texture space.
-            const f32 x = panelPointer ? panelPointerPx.x : mouse->X();
-            const f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
+            f32 x = panelPointer ? panelPointerPx.x : mouse->X();
+            f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
+            // The screen tier drawn fitted takes its pointer in its own pixels.
+            if (!panelPointer && m_context.ActiveInputRoot() == m_screenRoot.Get())
+            {
+                const Float2 screen = ScreenPointerPoint(Float2{x, y});
+                x = screen.x;
+                y = screen.y;
+            }
             inputManager.ProcessMouseMove(x, y);
             const foundation::shell::MouseButton shellButtons[3] = {
                 foundation::shell::MouseButton::Left, foundation::shell::MouseButton::Right,
@@ -1331,7 +1340,7 @@ namespace engine::ui
             const Float2 point{mouse->X(), mouse->Y()};
             if (m_screenRoot.Get() != nullptr)
             {
-                View* hit = m_screenRoot->HitTest(point);
+                View* hit = m_screenRoot->HitTest(ScreenLayoutPoint(point));
                 pointer = hit != nullptr && hit != m_screenRoot.Get();
             }
             for (usize i = 0; !pointer && i < m_sceneUIs.Size(); ++i)
@@ -1506,8 +1515,62 @@ namespace engine::ui
         }
         const bool stencil = view.depthStencilFormat != rhi::TextureFormat::Undefined &&
                              view.depthStencilFormat == m_render->canvasStencilFormat;
+        m_screenTargetSize = Float2{static_cast<f32>(view.width), static_cast<f32>(view.height)};
+        if (HasScreenDesign())
+        {
+            // Laid out at the design size, drawn crisp at the target's resolution into the
+            // rectangle the game's image was fitted to.
+            const ContentFit fit = ScreenFit();
+            const Rectangle dst = fit.DstRect();
+            const f32 scale = fit.Scale().y; // design units per target pixel, down the height
+            m_screenRoot->DpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
+            DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, static_cast<i32>(dst.x),
+                           static_cast<i32>(dst.y), static_cast<u32>(Max(dst.width, 1.0f)),
+                           static_cast<u32>(Max(dst.height, 1.0f)), static_cast<i32>(view.frameIndex), stencil);
+            return;
+        }
         DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, 0, 0, view.width, view.height,
                        static_cast<i32>(view.frameIndex), stencil);
+    }
+
+    void UISubsystem::SetScreenDesign(u32 width, u32 height, FitMode fit)
+    {
+        m_screenDesign = (width > 0 && height > 0)
+                             ? Float2{static_cast<f32>(width), static_cast<f32>(height)}
+                             : Float2{0.0f, 0.0f};
+        m_screenDesignFit = fit;
+        if (!HasScreenDesign() && m_screenRoot.Get() != nullptr)
+        {
+            m_screenRoot->DpiScale = 1.0f;
+        }
+    }
+
+    ContentFit UISubsystem::ScreenFit() const noexcept
+    {
+        return ContentFit{Rectangle{0.0f, 0.0f, m_screenTargetSize.x, m_screenTargetSize.y}, m_screenDesign,
+                          m_screenDesignFit};
+    }
+
+    Float2 UISubsystem::ScreenLayoutPoint(Float2 point) const noexcept
+    {
+        if (!HasScreenDesign())
+        {
+            return point;
+        }
+        const Rectangle source = ScreenFit().SrcRect();
+        return Float2{point.x - source.x, point.y - source.y};
+    }
+
+    Float2 UISubsystem::ScreenPointerPoint(Float2 point) const noexcept
+    {
+        if (!HasScreenDesign())
+        {
+            return point;
+        }
+        const Float2 layout = ScreenLayoutPoint(point);
+        const f32 scale = ScreenFit().Scale().y;
+        const f32 dpi = scale > 0.0f ? 1.0f / scale : 1.0f;
+        return Float2{layout.x * dpi, layout.y * dpi};
     }
 
     // Records one root into an ALREADY-ACTIVE render pass: layout at the CONTENT size
