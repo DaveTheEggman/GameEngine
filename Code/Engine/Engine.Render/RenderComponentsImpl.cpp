@@ -217,16 +217,118 @@ namespace engine::render
         }
     }
 
+    void DebugDraw::line(Float3 from, Float3 to, Color color) const { line(from, to, color, false); }
+    void DebugDraw::line(Float3 from, Float3 to, Color color, bool overlay) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawLine(from, to, color, overlay);
+        }
+    }
+    void DebugDraw::ray(Float3 origin, Float3 direction, Color color) const
+    {
+        ray(origin, direction, color, false);
+    }
+    void DebugDraw::ray(Float3 origin, Float3 direction, Color color, bool overlay) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawRay(origin, direction, color, overlay);
+        }
+    }
+    void DebugDraw::wireBox(Float3 min, Float3 max, Color color) const { wireBox(min, max, color, false); }
+    void DebugDraw::wireBox(Float3 min, Float3 max, Color color, bool overlay) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawWireBox(min, max, color, overlay);
+        }
+    }
+    void DebugDraw::wireSphere(Float3 center, f32 radius, Color color) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawWireSphere(center, radius, color);
+        }
+    }
+    void DebugDraw::cross(Float3 center, f32 size, Color color) const { cross(center, size, color, false); }
+    void DebugDraw::cross(Float3 center, f32 size, Color color, bool overlay) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawCross(center, size, color, overlay);
+        }
+    }
+    void DebugDraw::arrow(Float3 start, Float3 end, Color color) const { arrow(start, end, color, 0.1f); }
+    void DebugDraw::arrow(Float3 start, Float3 end, Color color, f32 headSize) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawArrow(start, end, color, headSize);
+        }
+    }
+    void DebugDraw::text(Float3 worldPosition, String label, Color color) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawText3D(worldPosition, label.AsView(), color);
+        }
+    }
+    void DebugDraw::screenText(f32 x, f32 y, String label, Color color) const
+    {
+        screenText(x, y, Move(label), color, 1.0f);
+    }
+    void DebugDraw::screenText(f32 x, f32 y, String label, Color color, f32 scale) const
+    {
+        if (debug::DebugDraw* d = SceneDebug(scene))
+        {
+            d->DrawScreenText(x, y, label.AsView(), color, scale);
+        }
+    }
+
     REFLECT_VALUE(DebugDraw, "rtti::engine::render")
     {
-        builder.Method<&DebugDraw::line>("line",
-                                         {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
-        builder.Method<&DebugDraw::ray>("ray", {"x", "y", "z", "dx", "dy", "dz", "r", "g", "b"});
-        builder.Method<&DebugDraw::arrow>("arrow",
-                                          {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
+        using Numbers9 = void (DebugDraw::*)(f32, f32, f32, f32, f32, f32, f32, f32, f32) const;
+        using Numbers7 = void (DebugDraw::*)(f32, f32, f32, f32, f32, f32, f32) const;
+        using Segment = void (DebugDraw::*)(Float3, Float3, Color) const;
+        using SegmentOverlay = void (DebugDraw::*)(Float3, Float3, Color, bool) const;
+        using Marker = void (DebugDraw::*)(Float3, f32, Color) const;
+        using MarkerOverlay = void (DebugDraw::*)(Float3, f32, Color, bool) const;
+        // Ours by the numbers (r, g, b; depth tested).
+        builder.Method<static_cast<Numbers9>(&DebugDraw::line)>(
+            "line", {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
+        builder.Method<static_cast<Numbers9>(&DebugDraw::ray)>(
+            "ray", {"x", "y", "z", "dx", "dy", "dz", "r", "g", "b"});
+        builder.Method<static_cast<Numbers9>(&DebugDraw::arrow)>(
+            "arrow", {"x0", "y0", "z0", "x1", "y1", "z1", "r", "g", "b"});
         builder.Method<&DebugDraw::sphere>("sphere", {"x", "y", "z", "radius", "r", "g", "b"});
-        builder.Method<&DebugDraw::cross>("cross", {"x", "y", "z", "size", "r", "g", "b"});
-        builder.Method<&DebugDraw::text>("text", {"x", "y", "z", "label", "r", "g", "b"});
+        builder.Method<static_cast<Numbers7>(&DebugDraw::cross)>(
+            "cross", {"x", "y", "z", "size", "r", "g", "b"});
+        builder.Method<static_cast<void (DebugDraw::*)(f32, f32, f32, String, f32, f32, f32) const>(
+            &DebugDraw::text)>("text", {"x", "y", "z", "label", "r", "g", "b"});
+        // Sedulous's by Float3 and Color, with overlay; each an arity family with ours.
+        builder.Method<static_cast<Segment>(&DebugDraw::line)>("line", {"from", "to", "color"});
+        builder.Method<static_cast<SegmentOverlay>(&DebugDraw::line)>("line",
+                                                                      {"from", "to", "color", "overlay"});
+        builder.Method<static_cast<Segment>(&DebugDraw::ray)>("ray", {"origin", "direction", "color"});
+        builder.Method<static_cast<SegmentOverlay>(&DebugDraw::ray)>(
+            "ray", {"origin", "direction", "color", "overlay"});
+        builder.Method<static_cast<Segment>(&DebugDraw::wireBox)>("wireBox", {"min", "max", "color"});
+        builder.Method<static_cast<SegmentOverlay>(&DebugDraw::wireBox)>(
+            "wireBox", {"min", "max", "color", "overlay"});
+        builder.Method<&DebugDraw::wireSphere>("wireSphere", {"center", "radius", "color"});
+        builder.Method<static_cast<Marker>(&DebugDraw::cross)>("cross", {"center", "size", "color"});
+        builder.Method<static_cast<MarkerOverlay>(&DebugDraw::cross)>(
+            "cross", {"center", "size", "color", "overlay"});
+        builder.Method<static_cast<Segment>(&DebugDraw::arrow)>("arrow", {"start", "end", "color"});
+        builder.Method<static_cast<void (DebugDraw::*)(Float3, Float3, Color, f32) const>(
+            &DebugDraw::arrow)>("arrow", {"start", "end", "color", "headSize"});
+        builder.Method<static_cast<void (DebugDraw::*)(Float3, String, Color) const>(&DebugDraw::text)>(
+            "text", {"worldPosition", "label", "color"});
+        builder.Method<static_cast<void (DebugDraw::*)(f32, f32, String, Color) const>(
+            &DebugDraw::screenText)>("screenText", {"x", "y", "label", "color"});
+        builder.Method<static_cast<void (DebugDraw::*)(f32, f32, String, Color, f32) const>(
+            &DebugDraw::screenText)>("screenText", {"x", "y", "label", "color", "scale"});
         builder.Method<&DebugDraw::of>("of", {"scene"});
         builder.Constructor();
     }

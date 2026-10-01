@@ -5008,3 +5008,54 @@ TEST_CASE("script.scene: ScenePhysics drives an entity's character, as Sedulous'
     CHECK(character->teleportTo.z == doctest::Approx(4.0f)); // the component's Float3 form, last
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"airborne"));
 }
+
+// DebugDraw in Sedulous's forms: points by Float3, a Color, overlay, a wire box, screen text. On the
+// real render service the depth-tested and the overlay draws land in their own lists.
+TEST_CASE("script.scene: DebugDraw draws by Float3 and Color, over the scene with overlay, and "
+          "on screen")
+{
+    engine::render::RegisterRenderScriptFacade();
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::vfs::NativeFileSystem dataFs(foundation::vfs::FindDataRoot(), DefaultAllocator());
+    engine::render::RenderSubsystem sub{DefaultAllocator(), device, 2, dataFs};
+    ScriptedScene bed;
+    bed.host.SetContextConfigurator(Function<void(IScriptContext&)>{
+        [&sub](IScriptContext& ctx) { sub.ExposeToScript(ctx); }});
+
+    RefPtr<ScriptClass> gizmo =
+        MakeClass(u8"Gizmo",
+                  u8"class Gizmo {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Gizmo(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() {\n"
+                  u8"        DebugDraw@ d = DebugDraw::of(self.scene);\n"
+                  u8"        Color red = Color(1, 0, 0, 1);\n"
+                  u8"        d.line(Float3(0, 0, 0), Float3(1, 2, 3), red);\n"
+                  u8"        d.line(Float3(0, 0, 0), Float3(4, 5, 6), red, true);\n"
+                  u8"        d.wireBox(Float3(-1, -1, -1), Float3(1, 1, 1), red);\n"
+                  u8"        d.wireSphere(Float3(0, 0, 0), 1.0f, red);\n"
+                  u8"        d.cross(Float3(0, 0, 0), 0.5f, red, true);\n"
+                  u8"        d.arrow(Float3(0, 0, 0), Float3(0, 1, 0), red, 0.2f);\n"
+                  u8"        d.ray(Float3(0, 0, 0), Float3(1, 0, 0), red);\n"
+                  u8"        d.text(Float3(0, 2, 0), \"here\", red);\n"
+                  u8"        d.screenText(10, 20, \"score\", red, 2.0f);\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const scene::EntityHandle e = bed.AddScripted(gizmo, u8"gizmo");
+    bed.Start();
+    bed.Frame();
+
+    ScriptComponent* comp = bed.components->Get(e);
+    REQUIRE(comp != nullptr);
+    CHECK_FALSE(comp->behaviors[0].faulted);
+    auto& drawn = sub.DebugScene(bed.scene);
+    // The first depth-tested line is the Float3 one, endpoints intact; the box, sphere, arrow
+    // and ray add more. The overlay line and cross went to the overlay list.
+    REQUIRE(drawn.LineVertices().Size() > 2u);
+    CHECK(drawn.LineVertices()[1].position.z == doctest::Approx(3.0f));
+    REQUIRE(drawn.OverlayLineVertices().Size() >= 2u);
+    CHECK(drawn.OverlayLineVertices()[1].position.z == doctest::Approx(6.0f));
+    CHECK(drawn.TextCommands3D().Size() == 1u);
+    CHECK(drawn.Commands2D().Size() >= 1u);
+}

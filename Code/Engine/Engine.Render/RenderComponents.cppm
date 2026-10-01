@@ -940,6 +940,24 @@ export namespace engine::render
         // A world-space text label anchored at (x,y,z).
         void text(f32 x, f32 y, f32 z, String label, f32 r, f32 g, f32 b) const;
 
+        // ---- as Sedulous's Debug facade: points by Float3, a Color, and `overlay` to draw over
+        // the scene instead of depth tested ----
+        void line(Float3 from, Float3 to, Color color) const;
+        void line(Float3 from, Float3 to, Color color, bool overlay) const;
+        void ray(Float3 origin, Float3 direction, Color color) const;
+        void ray(Float3 origin, Float3 direction, Color color, bool overlay) const;
+        void wireBox(Float3 min, Float3 max, Color color) const;
+        void wireBox(Float3 min, Float3 max, Color color, bool overlay) const;
+        void wireSphere(Float3 center, f32 radius, Color color) const;
+        void cross(Float3 center, f32 size, Color color) const;
+        void cross(Float3 center, f32 size, Color color, bool overlay) const;
+        void arrow(Float3 start, Float3 end, Color color) const;
+        void arrow(Float3 start, Float3 end, Color color, f32 headSize) const;
+        void text(Float3 worldPosition, String label, Color color) const;
+        // Text in screen pixels from the top left, at `scale`.
+        void screenText(f32 x, f32 y, String label, Color color) const;
+        void screenText(f32 x, f32 y, String label, Color color, f32 scale) const;
+
         [[nodiscard]] static DebugDraw of(foundation::script::Scene sceneHandle)
         {
             return DebugDraw{sceneHandle.scene};
