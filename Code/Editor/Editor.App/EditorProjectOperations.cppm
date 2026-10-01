@@ -50,6 +50,9 @@ export namespace editor::app
         Function<void(foundation::content::Instance& primary,
                       const pipeline::ImportOptions* options)>
             onImported;
+        /// An agent's delete, the browser's own (its page closed, the default scene and the
+        /// browser kept honest). Unset falls back to the database's delete.
+        Function<bool(const Guid&)> onDelete;
     };
 
     class EditorProjectOperations final : public editor::mcp::IProjectOperations
@@ -73,6 +76,10 @@ export namespace editor::app
         /// as an import's placement does); then the host's effects through onCreated.
         [[nodiscard]] editor::mcp::OperationStep<editor::mcp::CreateOutcome>
         Create(foundation::mcp::ToolCall& call, const editor::mcp::CreateRequest& request) override;
+        /// On the main thread, never while a cook or an export reads the databases (it waits, as
+        /// a creation does); then the browser's own delete through onDelete.
+        [[nodiscard]] editor::mcp::OperationStep<bool> Delete(foundation::mcp::ToolCall& call,
+                                                              const Guid& id) override;
 
     private:
         /// A cook requested and awaited: finished once the service's revision has moved past

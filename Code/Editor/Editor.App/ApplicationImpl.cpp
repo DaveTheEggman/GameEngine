@@ -2943,6 +2943,8 @@ namespace editor::app
         seams.onCreated = [this](const pipeline::AssetCreator& creator,
                                  foundation::content::Instance& instance)
         { AfterCreate(creator, instance); };
+        seams.onDelete = [this](const Guid& id)
+        { return m_assetsView.Get() != nullptr && m_assetsView->DeleteForAgent(id); };
         seams.onImported = [this](foundation::content::Instance& primary,
                                   const pipeline::ImportOptions* options)
         {

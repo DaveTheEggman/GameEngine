@@ -432,4 +432,29 @@ namespace editor::app
         }
         return Optional<editor::mcp::CreateOutcome>(editor::mcp::CreateOutcomeOf(*created.Value()));
     }
+
+    OperationStep<bool> EditorProjectOperations::Delete(foundation::mcp::ToolCall& call, const Guid& id)
+    {
+        if (m_seams.cook->MutationLocked())
+        {
+            CreateWait& wait = CallState<CreateWait>(call);
+            if (wait.startedTicks == 0)
+            {
+                wait.startedTicks = GetTicks();
+            }
+            if (TimedOut(wait.startedTicks))
+            {
+                return Err(Format(u8"delete of an asset: the databases stayed locked by a cook or export for {} s",
+                                  static_cast<i64>(m_seams.timeoutSeconds)));
+            }
+            return Optional<bool>{};
+        }
+        const bool deleted =
+            m_seams.onDelete ? m_seams.onDelete(id) : m_seams.project->SourceDb().DeleteInstance(id).IsOk();
+        if (!deleted)
+        {
+            return Err(String(u8"could not delete the asset (log_read says why)"));
+        }
+        return Optional<bool>(true);
+    }
 }

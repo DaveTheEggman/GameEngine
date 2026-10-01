@@ -334,3 +334,85 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     CHECK(healed.Get(u8"sound").AsBool() == true);
     CHECK(healed.Get(u8"danglingRefs").Count() == 0);
 }
+
+// Sedulous ac63071d: asset_delete, the Assets browser's Delete for an agent. Refused while
+// anything uses the asset (by asset_uses' own scan, the refusal naming the users), unless forced.
+TEST_CASE("integration.mcp: asset_delete - refused while used, unless forced")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_delete_project", ec);
+
+    McpServer server;
+    editor::mcp::ProjectSession session;
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::RegisterPipelineTypes();
+    pipeline::RegisterAllBuilders(builders);
+    engine::RegisterAllSceneComponentReflection();
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    editor::mcp::RegisterAssetDeleteTool(server, session, builders, operations);
+
+    (void)UsesCallOk(server, u8"project_create",
+                     UsesWith(UsesWith(UsesObj(), u8"directory", u8"mcp_delete_project"), u8"name", u8"Delete"));
+    (void)UsesCallOk(server, u8"project_open", UsesWith(UsesObj(), u8"directory", u8"mcp_delete_project"));
+    auto* root = session.project->SourceDb().RootGroup();
+
+    // A texture a material uses, and a scene the project settings name.
+    auto* tex = root->CreateInstance(u8"stone", pipeline::TextureAsset::StaticType());
+    REQUIRE(tex != nullptr);
+    {
+        pipeline::TextureAsset asset;
+        REQUIRE(tex->WriteObject(asset).IsOk());
+    }
+    const Guid texId = tex->Id();
+    auto* mat = root->CreateInstance(u8"wall", pipeline::MaterialAsset::StaticType());
+    REQUIRE(mat != nullptr);
+    {
+        pipeline::MaterialAsset asset;
+        asset.source.textureSlots.PushBack(String(u8"albedo"));
+        asset.source.textureIds.PushBack(texId);
+        REQUIRE(mat->WriteObject(asset).IsOk());
+    }
+    const Guid matId = mat->Id();
+    Guid sceneId;
+    {
+        scene::Scene authored(DefaultAllocator(), u8"level");
+        engine::AddAllSceneManagers(authored);
+        auto* inst = root->CreateInstance(u8"level", scene::SceneDocument::StaticType());
+        REQUIRE(inst != nullptr);
+        REQUIRE(scene::SaveScene(authored, *inst).IsOk());
+        sceneId = inst->Id();
+    }
+    session.project->Settings().defaultSceneId = sceneId;
+
+    // Used: refused, naming the users; nothing deleted.
+    const String texRefusal =
+        UsesCallErr(server, u8"asset_delete", UsesWith(UsesObj(), u8"guid", GuidText(texId).AsView()));
+    CHECK(texRefusal.AsView().StartsWith(u8"refused - 'stone' is still used by 'wall'"));
+    CHECK(session.project->SourceDb().GetInstance(texId) != nullptr);
+    const String sceneRefusal =
+        UsesCallErr(server, u8"asset_delete", UsesWith(UsesObj(), u8"guid", GuidText(sceneId).AsView()));
+    CHECK(sceneRefusal.AsView().ContainsIgnoreCase(u8"by the project settings: defaultSceneId"));
+
+    // Unused: deleted.
+    JsonValue deleted = UsesCallOk(server, u8"asset_delete", UsesWith(UsesObj(), u8"guid", GuidText(matId).AsView()));
+    CHECK(deleted.Get(u8"deleted").AsBool());
+    CHECK(deleted.Get(u8"name").AsString() == StringView(u8"wall"));
+    CHECK(session.project->SourceDb().GetInstance(matId) == nullptr);
+
+    // Forced: deleted though the settings still name it.
+    JsonValue forced = UsesWith(UsesObj(), u8"guid", GuidText(sceneId).AsView());
+    forced.Set(u8"force", JsonValue::MakeBool(true));
+    CHECK(UsesCallOk(server, u8"asset_delete", Move(forced)).Get(u8"deleted").AsBool());
+    CHECK(session.project->SourceDb().GetInstance(sceneId) == nullptr);
+
+    // Gone, or never there: refused with the reason.
+    CHECK(UsesCallErr(server, u8"asset_delete", UsesWith(UsesObj(), u8"guid", GuidText(matId).AsView()))
+              .AsView()
+              .StartsWith(u8"no asset with guid"));
+
+    owner.project.Reset();
+    session.project = nullptr;
+    std::filesystem::remove_all("mcp_delete_project", ec);
+}

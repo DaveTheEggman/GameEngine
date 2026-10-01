@@ -153,6 +153,37 @@ namespace editor::mcp::detail
             CollectUses(sub, childPath, target, db, builders, sourcesMount, out);
         }
     }
+
+    // Every source asset of `project` with a direct edge to `target`: what asset_uses reports, and
+    // what asset_delete refuses over.
+    inline Array<AssetUse> UsesOf(editor::EditorProject& project, pipeline::BuilderRegistry& builders,
+                                  const Guid& target)
+    {
+        content::ContentDatabase& db = project.SourceDb();
+        vfs::NativeFileSystem sourcesMount(project.SourcesRoot().AsView(), editor::EditorRootAllocator());
+        Array<AssetUse> uses;
+        CollectUses(db.RootGroup(), String(), target, db, builders, sourcesMount, uses);
+        return uses;
+    }
+
+    // The project settings naming `target`, each by the setting's name, as project_info and
+    // project_settings_set know it (a list setting once).
+    inline Array<String> SettingsUsesOf(const engine::project::ProjectSettings& settings, const Guid& target)
+    {
+        Array<String> names;
+        const PropertyInfo* last = nullptr;
+        engine::project::ForEachSettingAsset(settings,
+                                             [&](const PropertyInfo& property, const Guid& named)
+                                             {
+                                                 if (named == target && &property != last)
+                                                 {
+                                                     names.PushBack(String(StringView(
+                                                         reinterpret_cast<const utf8char*>(property.name))));
+                                                     last = &property;
+                                                 }
+                                             });
+        return names;
+    }
 }
 
 export namespace editor::mcp
@@ -203,9 +234,7 @@ export namespace editor::mcp
                                       guidText.AsView()));
                 }
 
-                vfs::NativeFileSystem sourcesMount(s->project->SourcesRoot().AsView(), editor::EditorRootAllocator());
-                Array<detail::AssetUse> uses;
-                detail::CollectUses(db.RootGroup(), String(), id, db, *bld, sourcesMount, uses);
+                const Array<detail::AssetUse> uses = detail::UsesOf(*s->project, *bld, id);
 
                 JsonValue usedBy = JsonValue::MakeArray();
                 for (const detail::AssetUse& use : uses)
@@ -230,18 +259,10 @@ export namespace editor::mcp
                 // The manifest's own references (a scene can be "in use" by the project itself),
                 // each by the setting's name, as project_info and project_settings_set know it.
                 JsonValue settingsUses = JsonValue::MakeArray();
-                const PropertyInfo* last = nullptr;
-                engine::project::ForEachSettingAsset(
-                    s->project->Settings(),
-                    [&](const PropertyInfo& property, const Guid& named)
-                    {
-                        if (named == id && &property != last) // a list names its setting once
-                        {
-                            settingsUses.Add(JsonValue::MakeString(
-                                String(StringView(reinterpret_cast<const utf8char*>(property.name)))));
-                            last = &property;
-                        }
-                    });
+                for (const String& name : detail::SettingsUsesOf(s->project->Settings(), id))
+                {
+                    settingsUses.Add(JsonValue::MakeString(name));
+                }
 
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"guid", detail::GuidToJson(target->Id()));

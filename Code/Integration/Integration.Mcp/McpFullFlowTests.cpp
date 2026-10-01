@@ -324,6 +324,10 @@ namespace
         {
             return Err(String(u8"this host creates nothing"));
         }
+        editor::mcp::OperationStep<bool> Delete(foundation::mcp::ToolCall&, const Guid&) override
+        {
+            return Err(String(u8"this host deletes nothing"));
+        }
         editor::mcp::OperationStep<editor::mcp::ImportOutcome>
         Import(foundation::mcp::ToolCall&, const editor::mcp::ImportRequest& request) override
         {

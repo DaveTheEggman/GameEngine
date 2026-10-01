@@ -22,6 +22,7 @@ export import :asset_data;
 export import :project_settings;
 export import :reflected_fields;
 export import :export_presets;
+export import :asset_delete;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
@@ -611,6 +612,16 @@ export namespace editor::mcp
             return Optional<CreateOutcome>(CreateOutcomeOf(*created.Value()));
         }
 
+        /// Deletes at once: no pages here, and the next cook sweeps the orphaned product.
+        [[nodiscard]] OperationStep<bool> Delete(foundation::mcp::ToolCall&, const Guid& id) override
+        {
+            if (!m_session->project->SourceDb().DeleteInstance(id).IsOk())
+            {
+                return Err(String(u8"could not delete the asset (log_read says why)"));
+            }
+            return Optional<bool>(true);
+        }
+
     private:
         ProjectSession* m_session;
         pipeline::BuilderRegistry* m_builders;
@@ -635,7 +646,7 @@ export namespace editor::mcp
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 29;
+    inline constexpr usize kEngineToolCount = 30;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -709,6 +720,7 @@ export namespace editor::mcp
         RegisterAssetCreateTools(server, session, creators, operations);
         RegisterAssetDataTools(server, session);
         RegisterAssetUsesTool(server, session, builders);
+        RegisterAssetDeleteTool(server, session, builders, operations);
         RegisterProjectHealthTool(server, session, builders);
         RegisterLogTools(server, logBuffer, paths.knownIssues);
         RegisterSceneTools(server, session);

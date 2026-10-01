@@ -129,6 +129,10 @@ export namespace editor::mcp
         /// whose agent cooks next.
         [[nodiscard]] virtual OperationStep<CreateOutcome> Create(foundation::mcp::ToolCall& call,
                                                                   const CreateRequest& request) = 0;
+        /// One source asset removed (asset_delete): its envelope and data files, never the
+        /// original file an import copied under Sources/. The host closes what has it open. The
+        /// step's value is set once the asset is gone.
+        [[nodiscard]] virtual OperationStep<bool> Delete(foundation::mcp::ToolCall& call, const Guid& id) = 0;
     };
 
     /// asset_create's work, the same on every host: the group resolved (made when missing), a

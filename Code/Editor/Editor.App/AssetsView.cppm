@@ -279,6 +279,10 @@ export namespace editor::app
         /// the listeners (a model's prefab), the cook of what it made, the browser. Null
         /// `options` is the importer's defaults.
         void AfterImport(content::Instance& primary, const pipeline::ImportOptions* options);
+        /// An agent's delete (asset_delete), the browser's own: the page closed, the asset deleted
+        /// and logged, the default scene and the browser kept honest. The CALLER has waited out
+        /// any cook. False when there was no such asset or the delete failed.
+        bool DeleteForAgent(const Guid& id);
 
         /// Full rebuild: group tree + list (project open/close, create/delete/import).
         void Rebuild();
@@ -746,6 +750,8 @@ export namespace editor::app
 
         // Runs from the mutation queue: close pages, delete, log, refresh.
         void DeleteInstances(const Array<Guid>& ids);
+        // One asset: its page closed first, then the instance deleted and logged.
+        bool DeleteOne(const Guid& id);
 
         // F2 = inline rename, Delete = confirmed delete - dispatched by ListView/GridView
         // before their own navigation keys.

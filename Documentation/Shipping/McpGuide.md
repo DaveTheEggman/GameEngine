@@ -130,7 +130,10 @@ checkboxes by label (`{"Generate collision": true}` gives an imported model's pr
 an unknown one is refused with the importer's list, and the result lists every toggle's value.
 An imported model gets its prefab, the `Prefab` asset beside its manifest, in both hosts (and
 a scene with `Generate scene`).
-`asset_list`/`asset_info` to inspect either database. What File > New makes comes from
+`asset_list`/`asset_info` to inspect either database. `asset_delete` removes a source asset as the
+Assets browser does (the next cook sweeps its product; the original file under Sources/ stays); it
+is refused while anything uses it - the refusal names the users, as `asset_uses` would - unless
+`force`. What File > New makes comes from
 `asset_create` (`asset_creators` lists them). A data asset's content (an input map's actions
 and bindings, a material, a physics material, a sound cue) is edited through its envelope:
 `asset_data_read` gives the XML, and `asset_data_write` takes the edited whole back, loading it

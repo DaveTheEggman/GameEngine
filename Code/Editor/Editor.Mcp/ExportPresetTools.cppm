@@ -177,7 +177,7 @@ export namespace editor::mcp
             u8"Checked in full before anything changes, then saved to export_presets.xml (a project "
             u8"with none starts from its synthesized host preset, which stays). Returns the presets "
             u8"as export_presets does.",
-            schema.Build(), foundation::mcp::ToolAnnotations::Adjusts(),
+            schema.Build(), foundation::mcp::ToolAnnotations::Overwrites(),
             [s, hostToolDir](const JsonValue& args) -> ToolResult
             {
                 if (s->project == nullptr)

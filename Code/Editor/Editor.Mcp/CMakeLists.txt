@@ -26,6 +26,7 @@ target_sources(Editor.Mcp
             ProjectSettingsTools.cppm
             ReflectedFields.cppm
             ExportPresetTools.cppm
+            AssetDelete.cppm
             SceneTools.cppm
             AssetUses.cppm
             ProjectHealth.cppm

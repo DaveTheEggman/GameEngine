@@ -1716,29 +1716,10 @@ namespace editor::app
         {
             return;
         }
-        content::ContentDatabase& db = m_context->Project()->SourceDb();
         usize deleted = 0;
         for (const Guid& id : ids)
         {
-            content::Instance* instance = db.GetInstance(id);
-            if (instance == nullptr)
-            {
-                continue;
-            }
-            const String path = instance->Path();
-            if (OnCloseInstancePage)
-            {
-                OnCloseInstancePage(id);
-            }
-            if (db.DeleteInstance(id).IsOk())
-            {
-                ++deleted;
-                LOG_INFO(u8"Assets", u8"deleted '{}'", path);
-            }
-            else
-            {
-                LOG_WARNING(u8"Assets", u8"delete FAILED for '{}'", path);
-            }
+            deleted += DeleteOne(id) ? 1u : 0u;
         }
         String message(u8"Deleted ");
         AppendCount(message, deleted);
@@ -1746,6 +1727,39 @@ namespace editor::app
         m_context->SetStatus(message.AsView());
         ClearDefaultSceneIfGone();
         Rebuild(); // the next cook's plan sweeps the orphaned products
+    }
+
+    bool AssetsView::DeleteForAgent(const Guid& id)
+    {
+        if (m_context->Project() == nullptr || !DeleteOne(id))
+        {
+            return false;
+        }
+        ClearDefaultSceneIfGone();
+        Rebuild();
+        return true;
+    }
+
+    bool AssetsView::DeleteOne(const Guid& id)
+    {
+        content::ContentDatabase& db = m_context->Project()->SourceDb();
+        content::Instance* instance = db.GetInstance(id);
+        if (instance == nullptr)
+        {
+            return false;
+        }
+        const String path = instance->Path();
+        if (OnCloseInstancePage)
+        {
+            OnCloseInstancePage(id);
+        }
+        if (!db.DeleteInstance(id).IsOk())
+        {
+            LOG_WARNING(u8"Assets", u8"delete FAILED for '{}'", path);
+            return false;
+        }
+        LOG_INFO(u8"Assets", u8"deleted '{}'", path);
+        return true;
     }
 
     void AssetsView::OnRowKeyDown(ui::SelectionModel* selection, i32 position, ui::KeyEventArgs& e)
