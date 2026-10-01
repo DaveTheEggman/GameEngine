@@ -754,7 +754,8 @@ namespace foundation::core::sys
         ::fcntl(fd, F_SETFL, flags | O_NONBLOCK);
     }
 
-    SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
+    SocketHandle TcpListen(std::uint16_t port, bool loopbackOnly, std::uint16_t* outBoundPort,
+                           std::uint32_t* outBoundIp) noexcept
     {
         const int fd = ::socket(AF_INET, SOCK_STREAM, 0);
         if (fd < 0)
@@ -766,7 +767,7 @@ namespace foundation::core::sys
         ::setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes));
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_addr.s_addr = htonl(loopbackOnly ? INADDR_LOOPBACK : INADDR_ANY);
         addr.sin_port = htons(port);
         if (::bind(fd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0)
         {
@@ -778,13 +779,16 @@ namespace foundation::core::sys
             ::close(fd);
             return kInvalidSocket;
         }
+        sockaddr_in bound{};
+        socklen_t len = sizeof(bound);
+        const bool named = ::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0;
         if (outBoundPort != nullptr)
         {
-            sockaddr_in bound{};
-            socklen_t len = sizeof(bound);
-            *outBoundPort = (::getsockname(fd, reinterpret_cast<sockaddr*>(&bound), &len) == 0)
-                                ? ntohs(bound.sin_port)
-                                : port;
+            *outBoundPort = named ? ntohs(bound.sin_port) : port;
+        }
+        if (outBoundIp != nullptr)
+        {
+            *outBoundIp = named ? ntohl(bound.sin_addr.s_addr) : 0u;
         }
         return static_cast<SocketHandle>(fd);
     }

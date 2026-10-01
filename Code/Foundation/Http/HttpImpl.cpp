@@ -467,7 +467,7 @@ namespace foundation::http
     {
         Stop();
         m_config = config;
-        m_listener = MakeUnique<net::TcpListener>(*m_allocator, config.port);
+        m_listener = MakeUnique<net::TcpListener>(*m_allocator, config.port, config.loopbackOnly);
         if (!m_listener->IsOpen())
         {
             m_listener = nullptr;
@@ -490,6 +490,11 @@ namespace foundation::http
     u16 HttpServer::BoundPort() const noexcept
     {
         return m_listener.Get() != nullptr ? m_listener->BoundPort() : 0;
+    }
+
+    u32 HttpServer::BoundIp() const noexcept
+    {
+        return m_listener.Get() != nullptr ? m_listener->BoundIp() : 0;
     }
 
     void HttpServer::WriteResponse(net::TcpSocket& socket, const HttpResponse& r)

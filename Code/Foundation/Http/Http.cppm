@@ -181,6 +181,10 @@ export namespace foundation::http
         u16 port = 0; // 0 = OS-assigned (read BoundPort after Start)
         usize maxBodyBytes = 16 * 1024 * 1024;
         usize maxConnections = 32; // accepted-but-unanswered connections beyond this are refused
+        /// Bind 127.0.0.1 alone, so nothing off this machine can connect. On by default: every
+        /// server here is a local tool's (the editor's MCP host), whose bearer token should not
+        /// be the only thing between it and the network.
+        bool loopbackOnly = true;
     };
 
     /// The pump-model HTTP server: Start binds the listener; each Pump() accepts pending
@@ -205,6 +209,8 @@ export namespace foundation::http
         void Stop();
         [[nodiscard]] bool IsRunning() const noexcept { return m_listener.Get() != nullptr; }
         [[nodiscard]] u16 BoundPort() const noexcept;
+        /// The bound IPv4 address in host order; 0 is every interface (or not running).
+        [[nodiscard]] u32 BoundIp() const noexcept;
 
         /// The request handler: a one-shot response, the EventStream() marker, or NOT YET
         /// (an empty Optional) - the request then stays pending on its connection and the

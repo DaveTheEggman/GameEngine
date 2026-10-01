@@ -200,8 +200,14 @@ namespace foundation::core::sys
     // All non-blocking. Consumers: HTTP client (foundation.http), a P5 WebSocket transport, and the
     // script debugger's remote transport. Not used by the UDP game networking.
     //
-    // Open a listening socket on `port` (0 = OS-assigned); *outBoundPort gets the actual port.
-    SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept;
+    // Open a listening socket on `port` (0 = OS-assigned); *outBoundPort gets the actual port and
+    // *outBoundIp the bound IPv4 address (host order; 0 = every interface). `loopbackOnly` binds
+    // 127.0.0.1 alone, so nothing off this machine can connect - what a local tool's server wants.
+    // Off Windows the port is reusable at once (SO_REUSEADDR: a restarted server does not wait out
+    // its previous run's TIME_WAIT); not on Windows, where that option lets a second socket take a
+    // live port and a closing one never blocks a bind.
+    SocketHandle TcpListen(std::uint16_t port, bool loopbackOnly, std::uint16_t* outBoundPort,
+                           std::uint32_t* outBoundIp) noexcept;
     // Accept one pending connection on `listener`. Returns kInvalidSocket when none is pending
     // (non-blocking). Fills the peer's (ip,port) host-order when non-null. The accepted socket is
     // non-blocking.

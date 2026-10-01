@@ -105,3 +105,59 @@ TEST_CASE("tcp: Connect takes a host NAME (localhost) and reaches the listener")
     net::TcpSocket none = net::TcpSocket::Connect(u8"no-such-host.invalid", 80);
     CHECK_FALSE(none.IsOpen());
 }
+
+namespace
+{
+    // A connected pair over localhost: the listener's accepted side and the client.
+    void ConnectPair(net::TcpListener& listener, net::TcpSocket& server, net::TcpSocket& client)
+    {
+        client = net::TcpSocket::Connect(u8"127.0.0.1", listener.BoundPort());
+        for (int i = 0; i < 300 && !(server.IsOpen() && client.ConnectStatus() == 1); ++i)
+        {
+            if (!server.IsOpen())
+            {
+                net::TcpSocket s = listener.Accept();
+                if (s.IsOpen())
+                {
+                    server = static_cast<net::TcpSocket&&>(s);
+                }
+            }
+            SleepMilliseconds(1);
+        }
+    }
+}
+
+TEST_CASE("tcp: a loopback listener binds only the local address; the default binds every interface")
+{
+    net::TcpListener local(0, /*loopbackOnly=*/true);
+    REQUIRE(local.IsOpen());
+    CHECK(local.BoundIp() == 0x7F000001u);
+    net::TcpSocket server;
+    net::TcpSocket client;
+    ConnectPair(local, server, client);
+    CHECK(server.IsOpen()); // a local client still connects
+
+    net::TcpListener everywhere(0);
+    REQUIRE(everywhere.IsOpen());
+    CHECK(everywhere.BoundIp() == 0u);
+}
+
+TEST_CASE("tcp: a restarted listener rebinds its port at once, while the old connection is in "
+          "TIME_WAIT")
+{
+    u16 port = 0;
+    {
+        net::TcpListener first(0, /*loopbackOnly=*/true);
+        REQUIRE(first.IsOpen());
+        port = first.BoundPort();
+        net::TcpSocket server;
+        net::TcpSocket client;
+        ConnectPair(first, server, client);
+        REQUIRE(server.IsOpen());
+        server = net::TcpSocket{}; // the server closes first: its side of the port is in TIME_WAIT
+        SleepMilliseconds(20);
+    }
+    net::TcpListener again(port, /*loopbackOnly=*/true);
+    CHECK(again.IsOpen());
+    CHECK(again.BoundPort() == port);
+}

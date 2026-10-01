@@ -486,9 +486,14 @@ export namespace foundation::core
     }
 
     // --- TCP (stream) sockets - the foundation.http / websocket / debugger transports wrap these ---
-    [[nodiscard]] inline SocketHandle TcpListen(u16 port, u16* outBoundPort = nullptr) noexcept
+    /// A listening socket on `port` (0 = OS-assigned). `loopbackOnly` binds 127.0.0.1 alone (a
+    /// local tool's server); otherwise every interface (a game server). *outBoundIp is the bound
+    /// IPv4 address in host order, 0 for every interface.
+    [[nodiscard]] inline SocketHandle TcpListen(u16 port, bool loopbackOnly = false,
+                                                u16* outBoundPort = nullptr,
+                                                u32* outBoundIp = nullptr) noexcept
     {
-        return sys::TcpListen(port, outBoundPort);
+        return sys::TcpListen(port, loopbackOnly, outBoundPort, outBoundIp);
     }
     [[nodiscard]] inline SocketHandle TcpAccept(SocketHandle listener, u32* fromIp = nullptr,
                                                 u16* fromPort = nullptr) noexcept

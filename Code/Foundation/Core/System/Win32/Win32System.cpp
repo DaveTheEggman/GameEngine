@@ -767,7 +767,8 @@ namespace foundation::core::sys
         ::ioctlsocket(s, FIONBIO, &nb);
     }
 
-    SocketHandle TcpListen(std::uint16_t port, std::uint16_t* outBoundPort) noexcept
+    SocketHandle TcpListen(std::uint16_t port, bool loopbackOnly, std::uint16_t* outBoundPort,
+                           std::uint32_t* outBoundIp) noexcept
     {
         const SOCKET s = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (s == INVALID_SOCKET)
@@ -775,11 +776,11 @@ namespace foundation::core::sys
             return kInvalidSocket;
         }
         SetNonBlocking(s);
-        const BOOL yes = TRUE;
-        ::setsockopt(s, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<const char*>(&yes), sizeof(yes));
+        // No SO_REUSEADDR here: on Windows it lets a second socket take a port that is live,
+        // and a port held in TIME_WAIT never blocks a bind anyway (see SystemBackend.h).
         sockaddr_in addr{};
         addr.sin_family = AF_INET;
-        addr.sin_addr.s_addr = htonl(INADDR_ANY);
+        addr.sin_addr.s_addr = htonl(loopbackOnly ? INADDR_LOOPBACK : INADDR_ANY);
         addr.sin_port = htons(port);
         if (::bind(s, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) == SOCKET_ERROR)
         {
@@ -791,13 +792,16 @@ namespace foundation::core::sys
             ::closesocket(s);
             return kInvalidSocket;
         }
+        sockaddr_in bound{};
+        int len = sizeof(bound);
+        const bool named = ::getsockname(s, reinterpret_cast<sockaddr*>(&bound), &len) == 0;
         if (outBoundPort != nullptr)
         {
-            sockaddr_in bound{};
-            int len = sizeof(bound);
-            *outBoundPort = (::getsockname(s, reinterpret_cast<sockaddr*>(&bound), &len) == 0)
-                                ? ntohs(bound.sin_port)
-                                : port;
+            *outBoundPort = named ? ntohs(bound.sin_port) : port;
+        }
+        if (outBoundIp != nullptr)
+        {
+            *outBoundIp = named ? ntohl(bound.sin_addr.s_addr) : 0u;
         }
         return static_cast<SocketHandle>(s);
     }

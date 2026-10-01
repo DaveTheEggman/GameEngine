@@ -103,13 +103,15 @@ export namespace foundation::net
     };
 
     // A TCP listening socket; Accept() returns pending client connections (non-blocking).
+    // `loopbackOnly` binds 127.0.0.1 alone, so nothing off this machine can connect (a local
+    // tool's server); the default is every interface (a game server).
     class TcpListener
     {
     public:
-        explicit TcpListener(u16 port = 0)
+        explicit TcpListener(u16 port = 0, bool loopbackOnly = false)
         {
             core::InitializeNetworking();
-            m_handle = core::TcpListen(port, &m_boundPort);
+            m_handle = core::TcpListen(port, loopbackOnly, &m_boundPort, &m_boundIp);
         }
         ~TcpListener()
         {
@@ -124,6 +126,8 @@ export namespace foundation::net
 
         [[nodiscard]] bool IsOpen() const noexcept { return m_handle != core::kInvalidSocket; }
         [[nodiscard]] u16 BoundPort() const noexcept { return m_boundPort; }
+        /// The bound IPv4 address in host order (0x7F000001 for loopback); 0 is every interface.
+        [[nodiscard]] u32 BoundIp() const noexcept { return m_boundIp; }
         // Accept one pending connection; the returned socket is !IsOpen() when none is pending.
         [[nodiscard]] TcpSocket Accept()
         {
@@ -139,6 +143,7 @@ export namespace foundation::net
     private:
         core::SocketHandle m_handle = core::kInvalidSocket;
         u16 m_boundPort = 0;
+        u32 m_boundIp = 0;
     };
 
 }

@@ -124,6 +124,7 @@ TEST_CASE("http: loopback - one-shot request/response, 404, and bad request")
     REQUIRE(server.Start(HttpServerConfig{}));
     const u16 port = server.BoundPort();
     REQUIRE(port != 0);
+    CHECK(server.BoundIp() == 0x7F000001u); // a local tool's server: loopback by default
     server.SetHandler(
         [](const HttpRequest& request) -> HttpResponse
         {
