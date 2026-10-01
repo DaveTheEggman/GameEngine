@@ -544,8 +544,10 @@ export namespace pipeline{
     public:
         virtual ~IScriptLanguageCook() = default;
 
-        /// The New-Asset starter source for `tier` (the tier's convention pre-filled).
-        [[nodiscard]] virtual StringView NewAssetTemplate(ScriptTier tier) const = 0;
+        /// The New-Asset starter source for `tier` (the tier's convention pre-filled). A
+        /// behaviour's class is `className` (a valid identifier: ClassNameFor makes one; empty is
+        /// "NewBehavior"); the level and game tiers keep their reserved class names and ignore it.
+        [[nodiscard]] virtual String NewAssetTemplate(ScriptTier tier, StringView className) const = 0;
 
         /// A cook-fingerprint contribution beyond the shared builder Version: a bytecode-emitting
         /// cook returns its COMPILER version here so a vendor bump recooks (bytecode is
@@ -896,9 +898,77 @@ export namespace pipeline{
 
     // ScriptClassAsset::StaticType() is defined WITH reflected properties in ScriptAssetImpl.cpp.
 
+    /// The placeholder a behaviour starter spells its class name with.
+    inline constexpr StringView kStarterClassName = u8"{ClassName}";
+
+    /// `starter` with every kStarterClassName replaced by `className` ("NewBehavior" when empty).
+    [[nodiscard]] inline String FillStarterClassName(StringView starter, StringView className)
+    {
+        const StringView name = className.IsEmpty() ? StringView(u8"NewBehavior") : className;
+        String out;
+        usize i = 0;
+        while (i < starter.Size())
+        {
+            if (i + kStarterClassName.Size() <= starter.Size() &&
+                starter.SubStr(i, kStarterClassName.Size()) == kStarterClassName)
+            {
+                out.Append(name);
+                i += kStarterClassName.Size();
+                continue;
+            }
+            out.PushBack(starter[i]);
+            ++i;
+        }
+        return out;
+    }
+
+    /// A behaviour's class name from its asset's name: the ASCII letters, digits and underscores,
+    /// a leading digit prefixed with an underscore; `fallback` when nothing is left. So a script
+    /// asset and the class it holds share a name ("Player Controller" holds PlayerController).
+    [[nodiscard]] inline String ClassNameFor(StringView assetName, StringView fallback)
+    {
+        String out;
+        for (const utf8char c : assetName)
+        {
+            const bool letter = (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z');
+            const bool digit = c >= u8'0' && c <= u8'9';
+            if (letter || digit || c == u8'_')
+            {
+                out.PushBack(c);
+            }
+        }
+        if (out.IsEmpty())
+        {
+            return String(fallback);
+        }
+        if (out[0] >= u8'0' && out[0] <= u8'9')
+        {
+            String prefixed(u8"_");
+            prefixed.Append(out.AsView());
+            return prefixed;
+        }
+        return out;
+    }
+
+    /// The stem a new script of `tier` is named by when the caller names none ("NewBehavior").
+    [[nodiscard]] inline StringView ScriptTierBaseName(ScriptTier tier) noexcept
+    {
+        switch (tier)
+        {
+        case ScriptTier::Level:
+            return u8"NewLevel";
+        case ScriptTier::Game:
+            return u8"NewGame";
+        case ScriptTier::Behavior:
+        default:
+            return u8"NewBehavior";
+        }
+    }
+
     /// A new script asset: the language cook's starter for `tier` written to the sources folder
-    /// as "<name>.<extension>", and a ScriptClassAsset linking it with its language. Null when
-    /// the language has no cook or a write is refused.
+    /// as "<name>.<extension>" (a behaviour's class named after the asset), and a
+    /// ScriptClassAsset linking it with its language. Null when the language has no cook or a
+    /// write is refused.
     [[nodiscard]] foundation::content::Instance* CreateScriptInstance(
         const AssetCreationContext& context, StringView languageId, StringView extension,
         ScriptTier tier, StringView baseName);

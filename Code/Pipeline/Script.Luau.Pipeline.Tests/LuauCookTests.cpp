@@ -81,12 +81,12 @@ TEST_CASE("luau.cook: registered + resolvable by language; the Behavior starter 
 {
     IScriptLanguageCook* cook = LuauCook();
     REQUIRE(cook != nullptr);
-    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior).IsEmpty());
+    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior, {}).IsEmpty());
 
     CookScriptErrorSink sink;
     ScriptClassSource out;
     REQUIRE(
-        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.luau", sink, out));
+        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior, {}), u8"NewBehavior.luau", sink, out));
     CHECK(out.language == u8"luau");
     CHECK(out.className == u8"NewBehavior");
     CHECK(out.sourceName == u8"NewBehavior.luau");
@@ -104,9 +104,9 @@ TEST_CASE("luau.cook: the Level + Game tier starters cook to their contract clas
     IScriptLanguageCook* cook = LuauCook();
     REQUIRE(cook != nullptr);
 
-    const StringView behavior = cook->NewAssetTemplate(ScriptTier::Behavior);
-    const StringView level = cook->NewAssetTemplate(ScriptTier::Level);
-    const StringView game = cook->NewAssetTemplate(ScriptTier::Game);
+    const String behavior = cook->NewAssetTemplate(ScriptTier::Behavior, {});
+    const String level = cook->NewAssetTemplate(ScriptTier::Level, {});
+    const String game = cook->NewAssetTemplate(ScriptTier::Game, {});
     CHECK_FALSE(level.IsEmpty());
     CHECK_FALSE(game.IsEmpty());
     CHECK(level != behavior);
@@ -194,7 +194,7 @@ TEST_CASE("luau.cook: the cook stores loadable bytecode in the pack (the player 
     CookScriptErrorSink sink;
     ScriptClassSource out;
     REQUIRE(
-        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.luau", sink, out));
+        cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior, {}), u8"NewBehavior.luau", sink, out));
     // Luau ships bytecode into the pack (source stays for dev-mode hot reload).
     REQUIRE_FALSE(out.bytecode.IsEmpty());
     CHECK_FALSE(out.source.IsEmpty());

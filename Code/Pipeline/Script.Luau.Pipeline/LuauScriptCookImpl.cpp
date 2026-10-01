@@ -213,17 +213,18 @@ namespace pipeline{
         class LuauScriptCook final : public IScriptLanguageCook
         {
         public:
-            [[nodiscard]] StringView NewAssetTemplate(ScriptTier tier) const override
+            [[nodiscard]] String NewAssetTemplate(ScriptTier tier,
+                                                  StringView className) const override
             {
                 switch (tier)
                 {
                 case ScriptTier::Level:
-                    return kLuauLevelStarter;
+                    return String(kLuauLevelStarter);
                 case ScriptTier::Game:
-                    return kLuauGameStarter;
+                    return String(kLuauGameStarter);
                 case ScriptTier::Behavior:
                 default:
-                    return kLuauBehaviorStarter;
+                    return FillStarterClassName(kLuauBehaviorStarter, className);
                 }
             }
 

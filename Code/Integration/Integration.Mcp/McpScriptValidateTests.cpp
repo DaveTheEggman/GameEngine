@@ -92,7 +92,7 @@ TEST_CASE("integration.mcp: script_validate - every enabled backend's starter co
         ++enabled;
 
         // The backend's own Behavior starter validates, and the harvest recognized it.
-        const StringView starter = cook->NewAssetTemplate(pipeline::ScriptTier::Behavior);
+        const String starter = cook->NewAssetTemplate(pipeline::ScriptTier::Behavior, {});
         JsonValue ok = SvOk(server, SvArgs(language, starter));
         CHECK(ok.Get(u8"valid").AsBool() == true);
         CHECK(ok.Get(u8"errors").Count() == 0);
@@ -214,7 +214,8 @@ TEST_CASE("integration.mcp: script_create - starter-seeded asset, unique names, 
                               reinterpret_cast<const utf8char*>(content.c_str())))));
         JsonValue validated = ScCall(server, u8"script_validate", Move(a), true);
         CHECK(validated.Get(u8"valid").AsBool() == true);
-        CHECK(validated.Get(u8"className").AsString() == StringView(u8"NewBehavior"));
+        // The class is named after the asset (Sedulous 89b70b54), not NewBehavior.
+        CHECK(validated.Get(u8"className").AsString() == StringView(u8"Mover"));
     }
 
     // A second create with the same name gets a UNIQUE name (never overwrites).

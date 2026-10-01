@@ -4,10 +4,10 @@
 // Editor::Mcp - :script_create partition
 //
 // script_create: seed a fresh script asset from the chosen
-// backend's own starter (the language cook's NewAssetTemplate - never hardcoded text), the
-// same recipe as the editor's New Asset menu: starter source written to
-// Sources/<name>.<ext>, plus a ScriptClassAsset envelope recording {fileName, language} in
-// the source database. The agent then edits the FILE (files-are-truth) and uses
+// backend's own starter (the language cook's NewAssetTemplate - never hardcoded text), through
+// the creation the editor's New Asset menu and asset_create run (pipeline::CreateScriptInstance):
+// starter source written to Sources/<name>.<ext>, a behaviour's class named after the asset,
+// plus a ScriptClassAsset envelope recording {fileName, language} in the source database. The agent then edits the FILE (files-are-truth) and uses
 // script_validate as the loop; asset_cook makes the class attachable.
 
 module;
@@ -21,6 +21,7 @@ import foundation.content;
 import foundation.vfs;
 import foundation.script;
 import foundation.mcp;
+import pipeline.core;
 import script.pipeline;
 import editor.project;
 import :session;
@@ -111,39 +112,30 @@ export namespace editor::mcp
                 const pipeline::ScriptTier tier =
                     detail::ParseScriptTier(args.Get(u8"tier").AsString().AsView());
 
-                content::Group* group = detail::ResolveGroupPath(
-                    s->project->SourceDb().RootGroup(), args.Get(u8"group").AsString().AsView());
-                const String name = group->UniqueInstanceName(requestedName.AsView());
-
+                // The same creation File > New and asset_create run: the starter written to
+                // Sources/, a behaviour's class named after the asset, the asset pointing at the
+                // file.
+                const String sourcesRoot = s->project->SourcesRoot();
+                pipeline::AssetCreationContext creation;
+                creation.root = s->project->SourceDb().RootGroup();
+                creation.picked = detail::ResolveGroupPath(creation.root,
+                                                           args.Get(u8"group").AsString().AsView());
+                creation.sourcesRoot = sourcesRoot.AsView();
+                creation.name = requestedName.AsView();
+                content::Instance* instance = pipeline::CreateScriptInstance(
+                    creation, language.AsView(), backend->fileExtensions[0].AsView(), tier,
+                    pipeline::ScriptTierBaseName(tier));
+                if (instance == nullptr)
+                {
+                    return Err(Format(u8"could not create '{}': the source file under '{}' or the "
+                                      u8"asset did not write (log_read says which)",
+                                      requestedName.AsView(), sourcesRoot.AsView()));
+                }
+                const String name(instance->Name());
                 String fileName(name.AsView());
                 fileName.PushBack(utf8char('.'));
                 fileName.Append(backend->fileExtensions[0].AsView());
-
-                const StringView starter = cook->NewAssetTemplate(tier);
-                const String path =
-                    PathJoin(s->project->SourcesRoot().AsView(), fileName.AsView());
-                if (!WriteFile(path.AsView(),
-                               Span<const byte>(reinterpret_cast<const byte*>(starter.Data()),
-                                                starter.Size()))
-                         .IsOk())
-                {
-                    return Err(Format(u8"could not write the source file '{}'", path.AsView()));
-                }
-
-                content::Instance* instance =
-                    group->CreateInstance(name.AsView(), pipeline::ScriptClassAsset::StaticType());
-                if (instance == nullptr)
-                {
-                    return Err(Format(u8"could not create the asset '{}'", name.AsView()));
-                }
-                pipeline::ScriptClassAsset asset;
-                asset.fileName = foundation::vfs::SourcePath(fileName.AsView());
-                asset.language = String(language);
-                if (!instance->WriteObject(asset).IsOk())
-                {
-                    return Err(Format(u8"could not write the asset envelope for '{}'",
-                                      name.AsView()));
-                }
+                const String path = PathJoin(sourcesRoot.AsView(), fileName.AsView());
 
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"guid", detail::GuidToJson(instance->Id()));

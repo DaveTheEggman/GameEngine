@@ -167,7 +167,10 @@ TEST_CASE("script.pipeline: B3 - the neutral builder resolves a per-language COO
     cooked = 0;
     struct FakeCook final : IScriptLanguageCook
     {
-        [[nodiscard]] StringView NewAssetTemplate(ScriptTier) const override { return u8"// fake\n"; }
+        [[nodiscard]] String NewAssetTemplate(ScriptTier, StringView) const override
+        {
+            return String(u8"// fake\n");
+        }
         [[nodiscard]] bool Cook(StringView source, StringView, CookScriptErrorSink&,
                                 ScriptClassSource& out) override
         {
@@ -302,4 +305,15 @@ TEST_CASE("script.pipeline: ScriptSourceDocument is the ScriptPage save->recook 
         REQUIRE(cooked != nullptr);
         CHECK(cooked->className == u8"Mover"); // unchanged - the failed cook never wrote
     }
+}
+
+// Sedulous 89b70b54: a behaviour's class takes its asset's name, as an identifier.
+TEST_CASE("script.pipeline: a class name from an asset name, and the starter that spells it")
+{
+    CHECK(ClassNameFor(u8"Player Controller", u8"NewBehavior") == u8"PlayerController");
+    CHECK(ClassNameFor(u8"2d-mover", u8"NewBehavior") == u8"_2dmover");
+    CHECK(ClassNameFor(u8"!!", u8"NewBehavior") == u8"NewBehavior");
+    CHECK(FillStarterClassName(u8"class {ClassName} { {ClassName}() {} }", u8"Mover") ==
+          u8"class Mover { Mover() {} }");
+    CHECK(FillStarterClassName(u8"class {ClassName}", {}) == u8"class NewBehavior");
 }

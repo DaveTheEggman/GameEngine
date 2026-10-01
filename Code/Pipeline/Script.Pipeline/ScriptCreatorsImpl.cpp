@@ -31,13 +31,22 @@ namespace pipeline
         {
             return nullptr;
         }
+        foundation::content::Group* target = context.Target();
+        if (target == nullptr)
+        {
+            return nullptr;
+        }
+        // The name first: a behaviour's class is named after the asset that holds it.
+        const String name = target->UniqueInstanceName(context.NameOr(baseName));
+        AssetCreationContext named = context;
+        named.name = name.AsView();
         String dottedExtension(u8".");
         dottedExtension.Append(extension);
         ScriptClassAsset asset;
         asset.language = String(languageId);
-        return CreateLinkedTextAsset(context, baseName, dottedExtension.AsView(),
-                                     cook->NewAssetTemplate(tier), ScriptClassAsset::StaticType(),
-                                     asset);
+        const String starter = cook->NewAssetTemplate(tier, ClassNameFor(name.AsView(), baseName).AsView());
+        return CreateLinkedTextAsset(named, baseName, dottedExtension.AsView(), starter.AsView(),
+                                     ScriptClassAsset::StaticType(), asset);
     }
 
     usize RegisterScriptCreators(AssetCreatorRegistry& registry)
@@ -49,9 +58,9 @@ namespace pipeline
             StringView baseName; // the unique-name stem
         };
         static const TierDesc kTiers[] = {
-            {ScriptTier::Behavior, u8"Behavior", u8"NewBehavior"},
-            {ScriptTier::Level, u8"Level", u8"NewLevel"},
-            {ScriptTier::Game, u8"Game", u8"NewGame"},
+            {ScriptTier::Behavior, u8"Behavior", ScriptTierBaseName(ScriptTier::Behavior)},
+            {ScriptTier::Level, u8"Level", ScriptTierBaseName(ScriptTier::Level)},
+            {ScriptTier::Game, u8"Game", ScriptTierBaseName(ScriptTier::Game)},
         };
         usize registered = 0;
         for (const foundation::script::ScriptBackendDesc& backend :

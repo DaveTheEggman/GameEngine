@@ -123,7 +123,8 @@ export namespace editor::mcp::detail
             {
                 const String* emptyText = engine::project::SettingAttribute(
                     *property, engine::project::kSettingEmptyTextAttribute);
-                schema.Str(key, Format(u8"{}: a {}'s guid; \"\" clears it ({})", label->AsView(),
+                schema.Str(key, Format(u8"{}: the guid of an asset of type {}; \"\" clears it ({})",
+                                       label->AsView(),
                                        assetType->AsView(),
                                        emptyText != nullptr ? emptyText->AsView() : StringView()));
             }
@@ -228,7 +229,9 @@ export namespace editor::mcp
                             }
                             if (asset->TypeName() != assetType->AsView())
                             {
-                                return Err(Format(u8"`{}` takes a {}; '{}' is a {}", key.AsView(),
+                                return Err(Format(u8"`{}` takes an asset of type {}; '{}' is of "
+                                                  u8"type {}",
+                                                  key.AsView(),
                                                   assetType->AsView(), asset->Name(),
                                                   asset->TypeName()));
                             }

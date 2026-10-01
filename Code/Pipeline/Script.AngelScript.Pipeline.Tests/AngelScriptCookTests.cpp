@@ -35,7 +35,7 @@ TEST_CASE("as.cook: registered + resolvable by language; supplies a starter temp
 {
     IScriptLanguageCook* cook = AngelScriptCook();
     REQUIRE(cook != nullptr);
-    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior).IsEmpty());
+    CHECK_FALSE(cook->NewAssetTemplate(ScriptTier::Behavior, {}).IsEmpty());
 }
 
 TEST_CASE("as.cook: the Level + Game tier starters cook to their contract classes")
@@ -43,9 +43,9 @@ TEST_CASE("as.cook: the Level + Game tier starters cook to their contract classe
     IScriptLanguageCook* cook = AngelScriptCook();
     REQUIRE(cook != nullptr);
 
-    const StringView behavior = cook->NewAssetTemplate(ScriptTier::Behavior);
-    const StringView level = cook->NewAssetTemplate(ScriptTier::Level);
-    const StringView game = cook->NewAssetTemplate(ScriptTier::Game);
+    const String behavior = cook->NewAssetTemplate(ScriptTier::Behavior, {});
+    const String level = cook->NewAssetTemplate(ScriptTier::Level, {});
+    const String game = cook->NewAssetTemplate(ScriptTier::Game, {});
     CHECK_FALSE(level.IsEmpty());
     CHECK_FALSE(game.IsEmpty());
     CHECK(level != behavior);
@@ -241,7 +241,7 @@ TEST_CASE("as.cook: the starter template itself compiles clean")
     REQUIRE(cook != nullptr);
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    CHECK(cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.as", sink, out));
+    CHECK(cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior, {}), u8"NewBehavior.as", sink, out));
     CHECK(out.className == u8"NewBehavior");
 }
 
@@ -260,7 +260,7 @@ TEST_CASE("as.cook: the New-Asset starter template compiles clean (its example c
     REQUIRE(cook != nullptr);
     CookScriptErrorSink sink;
     ScriptClassSource out;
-    const bool ok = cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior), u8"NewBehavior.as", sink, out);
+    const bool ok = cook->Cook(cook->NewAssetTemplate(ScriptTier::Behavior, {}), u8"NewBehavior.as", sink, out);
     REQUIRE(ok); // the starter MUST compile - it teaches the API by example
     CHECK(out.className == u8"NewBehavior");
 }

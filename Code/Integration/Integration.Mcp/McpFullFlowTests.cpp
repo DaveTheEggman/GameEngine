@@ -116,7 +116,7 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
         pipeline::IScriptLanguageCook* cook =
             pipeline::ScriptLanguageCookRegistry::Get().FindByLanguage(u8"luau");
         REQUIRE(cook != nullptr);
-        const StringView starter = cook->NewAssetTemplate(pipeline::ScriptTier::Behavior);
+        const String starter = cook->NewAssetTemplate(pipeline::ScriptTier::Behavior, {});
         std::ofstream file("Mover.luau", std::ios::binary);
         file.write(reinterpret_cast<const char*>(starter.Data()),
                    static_cast<std::streamsize>(starter.Size()));
@@ -745,7 +745,8 @@ TEST_CASE("integration.mcp: an agent sets the project's settings")
     const String wrongType = refused(FfStr(FfStr(JsonValue::MakeObject(), u8"defaultInputMapId",
                                                  sceneId.AsView()),
                                            u8"defaultSceneId", sceneId.AsView()));
-    CHECK(wrongType.AsView().StartsWith(u8"`defaultInputMapId` takes a InputMapAsset; 'Level1' is a"));
+    CHECK(wrongType.AsView().StartsWith(
+        u8"`defaultInputMapId` takes an asset of type InputMapAsset; 'Level1' is of type"));
     CHECK(refused(FfStr(JsonValue::MakeObject(), u8"defaultMap", mapId.AsView()))
               .AsView()
               .StartsWith(u8"no setting 'defaultMap'; the settings are: name, nativeModule, "));
