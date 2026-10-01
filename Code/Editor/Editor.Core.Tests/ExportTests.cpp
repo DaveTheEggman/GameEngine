@@ -992,6 +992,14 @@ TEST_CASE("export: CreateTemplate packages a Bin/<Config> dir and the registry t
     CHECK(deck->notes == StringView(u8"glibc 2.35"));
     CHECK(reg.FindById(createdId.AsView()) != nullptr); // the first is still there
 
+    // Reinstalling an id replaces its bundle whole: a sidecar the build no longer lists does not
+    // linger (the player's DXC, dropped from its runtime-libs).
+    SaveText(bundleFs, u8"stale.so", u8"old\n");
+    REQUIRE(bundleFs.Exists(u8"stale.so"));
+    REQUIRE(editor::CreateTemplate(binDir.AsView(), root.AsView(), editor::TemplateOutput::Install).IsOk());
+    CHECK_FALSE(bundleFs.Exists(u8"stale.so"));
+    CHECK(bundleFs.Exists(u8"libfoo.so"));
+
     NukeTree(base.AsView());
     NukeTree(root.AsView());
 }

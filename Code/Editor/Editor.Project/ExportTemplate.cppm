@@ -445,6 +445,13 @@ export namespace editor
         const String bundleDir = (mode == TemplateOutput::Install)
                                      ? PathJoin(destRoot, tmpl.id.AsView())
                                      : String(destRoot);
+        // Installing replaces a bundle of the same id whole: a file the new build no longer lists
+        // (a sidecar dropped since) must not linger and ship.
+        if (mode == TemplateOutput::Install && DirectoryExists(bundleDir.AsView()) &&
+            !RemoveDirectoryRecursive(bundleDir.AsView()))
+        {
+            return Status{ErrorCode::Internal};
+        }
         if (!CreateDirectories(bundleDir.AsView()))
         {
             return Status{ErrorCode::NotSupported};
