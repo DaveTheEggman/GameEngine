@@ -211,6 +211,9 @@ TEST_CASE("as.cook: a metadata'd field of an unsupported type FAILS the cook")
     // A Guid without the asset:<TypeName> tag is not a resolvable property type.
     CHECK_FALSE(cook->Cook(u8"class Bad { [42] Guid@ mystery; void onUpdate(double dt) {} }\n",
                            u8"bad.as", sink, out));
+    // The reason reaches the sink, so script_validate (and the asset cook) can say why.
+    REQUIRE(sink.errors.Size() == 1u);
+    CHECK(sink.errors[0].message.AsView().ContainsIgnoreCase(u8"'mystery' has unsupported type"));
 }
 
 // A reflected/resource property is a
@@ -230,6 +233,9 @@ TEST_CASE("as.cook: a reflected/resource property declared as a VALUE member FAI
                            u8"b2.as", sink, out));
     CHECK_FALSE(cook->Cook(u8"class B3 { [null] Entity target; void onUpdate(double dt){} }\n",
                            u8"b3.as", sink, out));
+    // Each refusal reached the sink with its fix.
+    REQUIRE(sink.errors.Size() == 3u);
+    CHECK(sink.errors[0].message.AsView().ContainsIgnoreCase(u8"declare it 'Guid@ mesh'"));
     // The idiomatic handle form cooks clean.
     CHECK(cook->Cook(u8"class Good { [\"asset:Mesh\"] Guid@ mesh; void onUpdate(double dt){} }\n",
                      u8"good.as", sink, out));

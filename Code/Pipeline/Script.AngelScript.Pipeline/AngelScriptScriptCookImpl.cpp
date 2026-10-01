@@ -347,11 +347,21 @@ namespace pipeline{
             forward->sink->OnError(error);
         }
 
+        // A cook problem past the compile (a property the runtime could not fill), reported
+        // with the compile errors so whoever asked for the cook (script_validate, the asset
+        // cook) reads why, and logged as before.
+        void ReportCookProblem(CookScriptErrorSink& sink, StringView assetName, const String& message)
+        {
+            LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", assetName, message);
+            sink.OnError(ScriptError{ScriptErrorKind::Compile, assetName, -1, message.AsView()});
+        }
+
         // Walks the behavior class's member fields and appends one ScriptPropertyDesc per
-        // field WITH metadata. Returns false (a cook error) when a metadata'd field has an
-        // unsupported type. Fields without metadata are simply not properties.
+        // field WITH metadata. Returns false (a cook error, reported to `sink`) when a metadata'd
+        // field has an unsupported type. Fields without metadata are simply not properties.
         [[nodiscard]] bool HarvestProperties(CScriptBuilder& builder, asIScriptEngine* engine,
                                              StringView className, StringView assetName,
+                                             CookScriptErrorSink& sink,
                                              Array<ScriptPropertyDesc>& out)
         {
             asIScriptModule* module = builder.GetModule();
@@ -394,11 +404,11 @@ namespace pipeline{
                 desc.hash = ScriptPropertyNameHash(desc.name.AsView());
                 if (!ResolvePropertyType(typeName, firstToken, desc.type, desc.assetType))
                 {
-                    LOG_ERROR(u8"Script",
-                                       u8"'{}': property '{}' has unsupported type '{}' "
-                                       u8"(valid: float, int, bool, string, Color, Float3, Entity, "
-                                       u8"or Guid tagged \"asset:<TypeName>\") - cook failed",
-                                       assetName, desc.name, typeName);
+                    ReportCookProblem(
+                        sink, assetName,
+                        Format(u8"property '{}' has unsupported type '{}' (valid: float, int, bool, "
+                               u8"string, Color, Float3, Entity, or Guid tagged \"asset:<TypeName>\")",
+                               desc.name, typeName));
                     return false;
                 }
                 // A reflected/resource property (Color, Float3, Entity, or an asset:Guid) is a
@@ -413,12 +423,12 @@ namespace pipeline{
                                           desc.type == ScriptPropertyType::Asset;
                 if (reflectedRef && (fieldTypeId & asTYPEID_OBJHANDLE) == 0)
                 {
-                    LOG_ERROR(
-                        u8"Script",
-                        u8"'{}': property '{}' must be a handle - declare it '{}@ {}' (a reflected or "
-                        u8"resource property is a reference type; a value member silently drops its "
-                        u8"value at runtime) - cook failed",
-                        assetName, desc.name, typeName, desc.name);
+                    ReportCookProblem(
+                        sink, assetName,
+                        Format(u8"property '{}' must be a handle - declare it '{}@ {}' (a reflected or "
+                               u8"resource property is a reference type; a value member silently drops "
+                               u8"its value at runtime)",
+                               desc.name, typeName, desc.name));
                     return false;
                 }
                 ParseDefault(desc.type, firstToken, desc.defaultValue);
@@ -540,7 +550,7 @@ namespace pipeline{
                 if (!out.className.IsEmpty())
                 {
                     ok = HarvestProperties(builder, engine, out.className.AsView(), assetName,
-                                           out.properties);
+                                           sink, out.properties);
                 }
 
                 // Bytecode into the pack: SaveByteCode the module CScriptBuilder just built (the
