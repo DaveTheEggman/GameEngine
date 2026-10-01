@@ -258,7 +258,7 @@ namespace pipeline{
                 if (IsQuoted(firstToken))
                 {
                     const String tag = Unquote(firstToken);
-                    const StringView prefix = u8"asset:";
+                    const StringView prefix = foundation::script::kScriptAssetTypePrefix;
                     if (tag.Size() > prefix.Size() &&
                         tag.AsView().SubStr(0, prefix.Size()) == prefix)
                     {

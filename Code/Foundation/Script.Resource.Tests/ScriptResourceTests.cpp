@@ -208,6 +208,31 @@ namespace
     }
 }
 
+// The one table of authored spellings reads both ways (taken from Sedulous's port, d4e76331):
+// every kind's spelling names that kind, every spelling parses back to it, and None has none.
+TEST_CASE("script.resource: the property type table reads both ways")
+{
+    for (const ScriptPropertyTypeEntry& entry : ScriptPropertyTypeNames())
+    {
+        CHECK(ScriptPropertyTypeName(entry.kind) == entry.name);
+        ScriptPropertyType parsed = ScriptPropertyType::None;
+        String assetType;
+        if (entry.kind == ScriptPropertyType::Asset)
+        {
+            const String authored = Format(u8"{}AudioClip", kScriptAssetTypePrefix);
+            CHECK(ParseScriptPropertyType(authored.AsView(), parsed, assetType));
+            CHECK(assetType == u8"AudioClip");
+        }
+        else
+        {
+            CHECK(ParseScriptPropertyType(entry.name, parsed, assetType));
+            CHECK(assetType.IsEmpty());
+        }
+        CHECK(parsed == entry.kind);
+    }
+    CHECK(ScriptPropertyTypeName(ScriptPropertyType::None).IsEmpty());
+}
+
 TEST_CASE("script.resource: cooked record -> factory -> runtime product, angelscript label "
           "(metadata parse, hash lookups, handler set)")
 {
