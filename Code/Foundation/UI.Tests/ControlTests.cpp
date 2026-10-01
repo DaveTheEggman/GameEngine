@@ -560,6 +560,36 @@ TEST_CASE("control: Slider_KeyboardControl")
     CHECK(slider->Value.Value() == 100);
 }
 
+TEST_CASE("control: Slider_TakesOnlyTheArrowsAlongItsAxis")
+{
+    // Sedulous 8c8c0bd4: a horizontal slider leaves up and down unhandled, so a menu of sliders
+    // still navigates; a vertical one is the other way round.
+    auto slider = core::MakeRef<Slider>(core::DefaultAllocator(), 0.0f, 100.0f, 50.0f);
+    slider->Step.SetValue(5.0f);
+    KeyEventArgs down;
+    down.Set(KeyCode::Down, KeyModifiers::None, false);
+    slider->OnKeyDown(down);
+    CHECK_FALSE(down.Handled); // horizontal: down is for focus
+    CHECK(slider->Value.Value() == 50);
+    KeyEventArgs up;
+    up.Set(KeyCode::Up, KeyModifiers::None, false);
+    slider->OnKeyDown(up);
+    CHECK_FALSE(up.Handled); // and so is up
+    CHECK(slider->Value.Value() == 50);
+
+    slider->Orientation.SetValue(Orientation::Vertical);
+    KeyEventArgs up2;
+    up2.Set(KeyCode::Up, KeyModifiers::None, false);
+    slider->OnKeyDown(up2);
+    CHECK(up2.Handled); // vertical: up steps
+    CHECK(slider->Value.Value() == 55);
+    KeyEventArgs right;
+    right.Set(KeyCode::Right, KeyModifiers::None, false);
+    slider->OnKeyDown(right);
+    CHECK_FALSE(right.Handled); // and right is for focus
+    CHECK(slider->Value.Value() == 55);
+}
+
 // === Expander ===
 
 TEST_CASE("control: Expander_DefaultExpanded")

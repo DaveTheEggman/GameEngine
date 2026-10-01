@@ -102,18 +102,26 @@ export namespace foundation::ui
             }
             const f32 range = Max.Value() - Min.Value();
             const f32 smallStep = Step.Value() > 0 ? Step.Value() : range * 0.05f;
-            switch (e.Key)
+            // Only the arrows along the slider's own axis: the other two are left unhandled, so in a
+            // menu of sliders and buttons they still move between them, keyboard and pad alike,
+            // instead of a horizontal slider swallowing up and down.
+            const bool horizontal = Orientation.Value() == ::foundation::ui::Orientation::Horizontal;
+            const KeyCode increase = horizontal ? KeyCode::Right : KeyCode::Up;
+            const KeyCode decrease = horizontal ? KeyCode::Left : KeyCode::Down;
+            if (e.Key == increase)
             {
-            case KeyCode::Right:
-            case KeyCode::Up:
                 Value.SetValue(Value.Value() + smallStep);
                 e.Handled = true;
-                break;
-            case KeyCode::Left:
-            case KeyCode::Down:
+                return;
+            }
+            if (e.Key == decrease)
+            {
                 Value.SetValue(Value.Value() - smallStep);
                 e.Handled = true;
-                break;
+                return;
+            }
+            switch (e.Key)
+            {
             case KeyCode::Home:
                 Value.SetValue(Min.Value());
                 e.Handled = true;
