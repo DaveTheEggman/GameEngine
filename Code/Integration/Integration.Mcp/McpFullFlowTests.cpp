@@ -25,6 +25,7 @@ import script.pipeline;
 import engine.composition;
 import editor.project;
 import editor.mcp;
+import engine.project; // the display settings (WindowMode)
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -843,6 +844,31 @@ TEST_CASE("integration.mcp: an agent sets the project's settings")
     REQUIRE(uses.Get(u8"projectSettingsUses").Count() == 1);
     CHECK(uses.Get(u8"projectSettingsUses").At(0).AsString() == StringView(u8"uiFontIds"));
     CHECK(FfCall(server, u8"project_settings_set", fonts({})).Get(u8"settings").Get(u8"uiFontIds").Count() == 0);
+
+    // The display (Sedulous 7d6e4460): counts within their range, choices by name, flags.
+    {
+        JsonValue info = FfCall(server, u8"project_info", JsonValue::MakeObject()).Get(u8"settings");
+        CHECK(info.Get(u8"renderWidth").AsNumber() == doctest::Approx(0.0));
+        CHECK(info.Get(u8"renderFit").AsString() == StringView(u8"Letterbox"));
+        CHECK(info.Get(u8"windowMode").AsString() == StringView(u8"Windowed"));
+        CHECK(info.Get(u8"windowResizable").AsBool());
+        JsonValue tooSmall = JsonValue::MakeObject();
+        tooSmall.Set(u8"windowWidth", JsonValue::MakeNumber(0));
+        CHECK(refused(Move(tooSmall)) == StringView(u8"`windowWidth` takes 1 to 16384"));
+        JsonValue display = JsonValue::MakeObject();
+        display.Set(u8"renderWidth", JsonValue::MakeNumber(640));
+        display.Set(u8"renderHeight", JsonValue::MakeNumber(360));
+        display.Set(u8"renderFit", JsonValue::MakeString(String(u8"IntegerScale")));
+        display.Set(u8"windowMode", JsonValue::MakeString(String(u8"Borderless")));
+        display.Set(u8"windowResizable", JsonValue::MakeBool(false));
+        JsonValue changedDisplay = FfCall(server, u8"project_settings_set", Move(display)).Get(u8"settings");
+        CHECK(changedDisplay.Get(u8"renderWidth").AsNumber() == doctest::Approx(640.0));
+        CHECK(changedDisplay.Get(u8"renderFit").AsString() == StringView(u8"IntegerScale"));
+        CHECK(changedDisplay.Get(u8"windowMode").AsString() == StringView(u8"Borderless"));
+        CHECK_FALSE(changedDisplay.Get(u8"windowResizable").AsBool());
+        CHECK(session.project->Settings().HasRenderResolution());
+        CHECK(session.project->Settings().windowMode == engine::project::WindowMode::Borderless);
+    }
 
     owner.project.Reset();
     session.project = nullptr;

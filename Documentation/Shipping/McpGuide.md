@@ -113,9 +113,11 @@ entity outside a run, each running behaviour's properties under `live` beside wh
 **Project**: `project_create` -> `project_open` -> `project_info`, which also reports the
 settings play reads (default scene, startup script, default input map, bus layout, UI theme,
 loading screen, UI font, MSAA, and `uiFontIds`, the other fonts the game UI loads beside the
-default, each a family a label picks with `font-family="<family>"`, a title face say).
+default, each a family a label picks with `font-family="<family>"`, a title face say, and the
+display: `renderWidth`/`renderHeight`, the resolution the game draws at, 0 for its output's size,
+`renderFit`, and the player's `windowWidth`, `windowHeight`, `windowMode` and `windowResizable`).
 `project_settings_set` changes them, by the names `project_info` reports: each asset setting must
-name an asset of its type, `""` clears it, `uiFontIds` takes the whole list, and nothing changes
+name an asset of its type, `""` clears it, `uiFontIds` takes the whole list, a choice takes one of its values by name, and nothing changes
 when any of it is refused. `project_health` is the
 one-call soundness sweep (dangling refs, broken sources, cook state); a dirty count alone
 is normal - clear it with `asset_cook`.

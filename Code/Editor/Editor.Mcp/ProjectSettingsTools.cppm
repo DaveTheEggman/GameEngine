@@ -45,14 +45,15 @@ export namespace editor::mcp::detail
     }
 
     /// The settings that are settings: the reflected properties with a label, of the kinds a
-    /// setting takes (a string, an asset's guid or a list of them, a count).
+    /// setting takes (a string, an asset's guid or a list of them, a count, a flag, a choice).
     inline Array<const PropertyInfo*> ProjectSettingProperties()
     {
         Array<const PropertyInfo*> out;
         for (const PropertyInfo& property : Properties(engine::project::ProjectSettings::StaticType()))
         {
             const bool kind = property.type == &TypeOf<String>() ||
-                              property.type == &TypeOf<u32>() ||
+                              property.type == &TypeOf<u32>() || property.type == &TypeOf<bool>() ||
+                              IsEnum(*property.type) ||
                               engine::project::IsAssetSetting(property) ||
                               engine::project::IsAssetListSetting(property);
             if (kind && engine::project::SettingAttribute(
@@ -67,6 +68,33 @@ export namespace editor::mcp::detail
     inline StringView PropertyName(const PropertyInfo& property)
     {
         return StringView(reinterpret_cast<const utf8char*>(property.name));
+    }
+
+    /// A count setting's bounds: its reflected `range` (min, max), else every u32.
+    inline void CountRange(const PropertyInfo& property, u32& least, u32& most)
+    {
+        least = 0;
+        most = 0xFFFFFFFFu;
+        if (const Attribute* range = FindAttribute(property, u8"range"))
+        {
+            if (const Float4* bounds = range->value.TryGet<Float4>())
+            {
+                least = static_cast<u32>(bounds->x);
+                most = static_cast<u32>(bounds->y);
+            }
+        }
+    }
+
+    /// A choice setting's values by name, comma separated (what a refusal and the schema list).
+    inline String EnumNames(const TypeInfo& type)
+    {
+        String names;
+        for (const EnumValue& value : Enumerators(type))
+        {
+            names += names.IsEmpty() ? u8"" : u8", ";
+            names += StringView(reinterpret_cast<const utf8char*>(value.name));
+        }
+        return names;
     }
 
     /// An asset a setting names as {guid, path}; the path is null when the guid names nothing.
@@ -108,6 +136,17 @@ export namespace editor::mcp::detail
             {
                 out.Set(key, JsonValue::MakeString(*static_cast<const String*>(address)));
             }
+            else if (property->type == &TypeOf<bool>())
+            {
+                out.Set(key, JsonValue::MakeBool(*static_cast<const bool*>(address)));
+            }
+            else if (IsEnum(*property->type))
+            {
+                const char* name = EnumValueName(*property->type, ReadEnumValue(address, *property->type));
+                out.Set(key, name != nullptr
+                                 ? JsonValue::MakeString(String(StringView(reinterpret_cast<const utf8char*>(name))))
+                                 : JsonValue::MakeNull());
+            }
             else
             {
                 out.Set(key, ValueNumber(GetProperty(*property, instance)));
@@ -147,9 +186,25 @@ export namespace editor::mcp::detail
             {
                 schema.Str(key, *label);
             }
+            else if (property->type == &TypeOf<bool>())
+            {
+                schema.Boolean(key, *label);
+            }
+            else if (IsEnum(*property->type))
+            {
+                Array<String> names;
+                for (const EnumValue& value : Enumerators(*property->type))
+                {
+                    names.PushBack(String(StringView(reinterpret_cast<const utf8char*>(value.name))));
+                }
+                schema.Enum(key, Move(names), *label);
+            }
             else
             {
-                schema.Integer(key, *label);
+                u32 least = 0;
+                u32 most = 0;
+                CountRange(*property, least, most);
+                schema.Integer(key, most == 0xFFFFFFFFu ? *label : Format(u8"{}: {} to {}", label->AsView(), least, most));
             }
         }
         return schema.Build();
@@ -170,7 +225,9 @@ export namespace editor::mcp
             u8"edits: only what is given changes. Every asset setting must name an asset of its "
             u8"type (the refusal says which), \"\" clears it; a list setting (uiFontIds, the fonts "
             u8"the game UI loads beside the default, each a family a label picks with font-family) "
-            u8"takes the whole list, [] for none; MSAA takes the render levels. Checked "
+            u8"takes the whole list, [] for none; a count takes its range (the display's sizes), a "
+            u8"choice one of its values by name (renderFit, windowMode), a flag true or false; MSAA "
+            u8"takes the render levels. Checked "
             u8"in full before anything changes, then saved to the manifest; the editor re-applies "
             u8"what depends on them (the game UI's font and theme). Returns the settings as "
             u8"project_info does.",
@@ -214,6 +271,8 @@ export namespace editor::mcp
                     const PropertyInfo* property = nullptr;
                     Guid id;
                     Array<Guid> ids; // a list setting's whole list
+                    bool flag = false;
+                    i64 choice = 0;
                     String text;
                     u32 number = 0;
                 };
@@ -295,11 +354,35 @@ export namespace editor::mcp
                     {
                         change.text = value.AsString();
                     }
+                    else if (property->type == &TypeOf<bool>())
+                    {
+                        if (!value.IsBool())
+                        {
+                            return Err(Format(u8"`{}` takes true or false", key.AsView()));
+                        }
+                        change.flag = value.AsBool();
+                    }
+                    else if (IsEnum(*property->type))
+                    {
+                        const String name = value.AsString();
+                        if (!EnumValueByName(*property->type, reinterpret_cast<const char*>(name.CStr()),
+                                             change.choice))
+                        {
+                            return Err(Format(u8"`{}` takes {}", key.AsView(),
+                                              detail::EnumNames(*property->type).AsView()));
+                        }
+                    }
                     else
                     {
-                        if (!value.IsNumber() || value.AsNumber() < 0.0)
+                        u32 least = 0;
+                        u32 most = 0;
+                        detail::CountRange(*property, least, most);
+                        if (!value.IsNumber() || value.AsNumber() < static_cast<f64>(least) ||
+                            value.AsNumber() > static_cast<f64>(most))
                         {
-                            return Err(Format(u8"`{}` takes a count from 0", key.AsView()));
+                            return Err(most == 0xFFFFFFFFu
+                                           ? Format(u8"`{}` takes a count from {}", key.AsView(), least)
+                                           : Format(u8"`{}` takes {} to {}", key.AsView(), least, most));
                         }
                         change.number = static_cast<u32>(value.AsInt());
                         // MSAA takes a level of the render subsystem's table.
@@ -336,6 +419,14 @@ export namespace editor::mcp
                     else if (change.property->type == &TypeOf<String>())
                     {
                         *static_cast<String*>(address) = change.text;
+                    }
+                    else if (change.property->type == &TypeOf<bool>())
+                    {
+                        *static_cast<bool*>(address) = change.flag;
+                    }
+                    else if (IsEnum(*change.property->type))
+                    {
+                        WriteEnumValue(address, *change.property->type, change.choice);
                     }
                     else
                     {
