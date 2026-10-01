@@ -611,6 +611,7 @@ namespace editor
         FollowInstanceScene();
         AdvanceScriptedInput();
         EnsureViewportBound();
+        TickResolution(dt);
         m_viewport->SyncInputRegion();
         // A running game owns the keys its focused viewport receives: the editor's arrow key
         // focus moves and single key bindings stay out of it.
@@ -1125,29 +1126,120 @@ namespace editor
         }
     }
 
-    void GameEditorPage::CycleResolution()
+    void GameEditorPage::CreateResolutionCombo()
     {
-        m_resolutionMode = (m_resolutionMode + 1u) % 3u;
-        switch (m_resolutionMode)
+        m_resolutionCombo = MakeRef<ui::ComboBox>(Allocator());
+        ui::LayoutStyle style;
+        style.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(220));
+        style.Height = ui::SizeSpec::Match();
+        m_toolbar->AddView(m_resolutionCombo.Get(), style);
+        GameEditorPage* self = this;
+        m_resolutionCombo->OnSelectionChanged.Add(
+            [self](ui::ComboBox*, i32 index)
+            {
+                if (self->m_resolutionRebuilding || index < 0 ||
+                    static_cast<usize>(index) >= self->m_resolutionChoices.Size())
+                {
+                    return;
+                }
+                self->m_resolutionKey = self->m_resolutionChoices[static_cast<usize>(index)].key;
+                self->SaveResolutionKey();
+                self->ApplyResolution();
+            });
+        LoadResolutionKey();
+        RefreshResolutionChoices(true);
+    }
+
+    void GameEditorPage::TickResolution(f32 dt)
+    {
+        m_resolutionRefresh -= dt;
+        if (m_resolutionRefresh > 0.0f)
         {
-        case 0u:
-            m_viewport->SetFixedResolution(0, 0);
-            m_viewport->SetFitMode(FitMode::Stretch);
-            m_resolutionButton->SetText(u8"Res: Auto");
-            break;
-        case 1u:
-            m_viewport->SetFixedResolution(1280, 800);
-            m_viewport->SetFitMode(FitMode::Letterbox);
-            m_resolutionButton->SetText(u8"Res: 1280x800");
-            break;
-        case 2u:
-            m_viewport->SetFixedResolution(1920, 1080);
-            m_viewport->SetFitMode(FitMode::Letterbox);
-            m_resolutionButton->SetText(u8"Res: 1920x1080");
-            break;
-        default:
-            break;
+            return;
         }
+        m_resolutionRefresh = 1.0f; // cheap, and a reopened dropdown is fresh within a second
+        RefreshResolutionChoices(false);
+    }
+
+    void GameEditorPage::RefreshResolutionChoices(bool force)
+    {
+        EditorProject* project = m_context->Project();
+        const engine::project::ProjectSettings* settings = project != nullptr ? &project->Settings() : nullptr;
+        ExportPresetSet presets;
+        bool hasPresets = false;
+        if (project != nullptr)
+        {
+            vfs::NativeFileSystem root(project->Directory(), Allocator());
+            hasPresets = LoadExportPresets(root, presets).IsOk();
+        }
+        Array<GameResolutionChoice> fresh = CollectGameResolutions(
+            settings, hasPresets ? &presets : nullptr, GamePreviewSettings::From(m_context->UserEditorSettings()));
+        const String signature =
+            GameResolutionSignature(Span<const GameResolutionChoice>(fresh.Data(), fresh.Size()),
+                                    settings != nullptr ? settings->renderFit : FitMode::Letterbox);
+        if (!force && signature == m_resolutionSignature)
+        {
+            return;
+        }
+        m_resolutionSignature = signature;
+        m_resolutionChoices = Move(fresh);
+
+        // The chosen entry survives a rebuild by its key; gone, the project's comes back.
+        const usize selected = FindGameResolution(
+            Span<const GameResolutionChoice>(m_resolutionChoices.Data(), m_resolutionChoices.Size()),
+            m_resolutionKey.AsView());
+        m_resolutionRebuilding = true;
+        m_resolutionCombo->ClearItems();
+        for (const GameResolutionChoice& choice : m_resolutionChoices)
+        {
+            (void)m_resolutionCombo->AddItem(choice.label.AsView());
+        }
+        m_resolutionCombo->SetSelectedIndex(static_cast<i32>(selected));
+        m_resolutionRebuilding = false;
+        m_resolutionKey = m_resolutionChoices[selected].key;
+        ApplyResolution();
+    }
+
+    void GameEditorPage::ApplyResolution()
+    {
+        const i32 index = m_resolutionCombo->SelectedIndex();
+        if (index < 0 || static_cast<usize>(index) >= m_resolutionChoices.Size())
+        {
+            return;
+        }
+        const GameResolutionChoice& choice = m_resolutionChoices[static_cast<usize>(index)];
+        m_viewport->SetFixedResolution(choice.width, choice.height);
+        EditorProject* project = m_context->Project();
+        m_viewport->SetFitMode(choice.width == 0  ? FitMode::Stretch
+                               : project != nullptr ? project->Settings().renderFit
+                                                    : FitMode::Letterbox);
+    }
+
+    void GameEditorPage::LoadResolutionKey()
+    {
+        m_resolutionKey = String(kProjectResolutionKey);
+        if (foundation::settings::Settings* store = m_context->ProjectEditorSettings())
+        {
+            if (const GamePageSettings* section = store->Find<GamePageSettings>())
+            {
+                if (!section->resolutionKey.IsEmpty())
+                {
+                    m_resolutionKey = section->resolutionKey;
+                }
+            }
+        }
+    }
+
+    void GameEditorPage::SaveResolutionKey()
+    {
+        foundation::settings::Settings* store = m_context->ProjectEditorSettings();
+        if (store == nullptr)
+        {
+            return;
+        }
+        store->Section<GamePageSettings>().resolutionKey = m_resolutionKey;
+        store->MarkChanged<GamePageSettings>();
+        m_context->RequestProjectEditorSettingsSave();
     }
 
     void GameEditorPage::RefreshToolbar()

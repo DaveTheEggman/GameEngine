@@ -67,6 +67,7 @@ target_sources(Editor.Scene
             EntityPickerDialog.cppm
             ScenePage.cppm
             GamePage.cppm
+            GameResolution.cppm
             MaterialPage.cppm
             MeshPage.cppm
             ParticleEffectPage.cppm

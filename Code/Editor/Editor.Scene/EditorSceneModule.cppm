@@ -30,6 +30,7 @@ export import :inspector;
 export import :entity_picker_dialog;
 export import :page;
 export import :game_page;
+export import :game_resolution;
 export import :material_page;
 export import :mesh_page;
 export import :particle_effect_page;

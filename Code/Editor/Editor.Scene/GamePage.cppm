@@ -48,6 +48,7 @@ import engine.audio;
 import engine.defaultapp;
 import engine.gameinstance; // GameInstance - this tab drives its OWN run (multi-instance PIE)
 import editor.core;
+import :game_resolution;
 import editor.app;
 import :scene_page_interface; // ViewportCapture
 import :viewport_capture;     // ViewportCaptureRecorder (pie_screenshot)
@@ -292,11 +293,6 @@ export namespace editor
                     self->Stop();
                     self->Play();
                 });
-            // Preview resolution: Auto (panel size) / Deck 1280x800 / 1080p - letterboxed,
-            // with mouse AND touch input mapping through the same fit.
-            m_resolutionButton = m_toolbar->AddButton(u8"Res: Auto");
-            m_resolutionButton->OnClick.Add([self](ui::toolkit::ToolbarButton*)
-                                            { self->CycleResolution(); });
             // The script debugger beside the viewport: off by default (it takes room the game
             // wants); opened here, or by a breakpoint or step that pauses the run.
             m_debuggerToggle = m_toolbar->AddToggle(u8"Debugger");
@@ -309,6 +305,9 @@ export namespace editor
                 });
             m_statusLabel = MakeRef<foundation::ui::Label>(Allocator(), StringView(u8""));
             m_statusLabel->FontSize.SetValue(13.0f);
+            // The resolution the game draws at, the project's by default (mouse and touch map
+            // through the same fit).
+            CreateResolutionCombo();
             {
                 foundation::ui::LayoutStyle lp;
                 lp.Height = foundation::ui::SizeSpec::Match();
@@ -475,7 +474,16 @@ export namespace editor
         // toggles during a run take effect without a restart).
         void SyncBreakpointsToDebugger();
 
-        void CycleResolution();
+        // The resolution dropdown (:game_resolution): built once, its choices refreshed when
+        // what they come from changes (looked at once a second), the choice kept per project.
+        void CreateResolutionCombo();
+        void TickResolution(f32 dt);
+        void RefreshResolutionChoices(bool force);
+        // The chosen size, fitted by the project's render fit; the panel's own size stretches,
+        // there being nothing to fit.
+        void ApplyResolution();
+        void LoadResolutionKey();
+        void SaveResolutionKey();
 
         void RefreshToolbar();
 
@@ -516,8 +524,12 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_pauseToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_debuggerToggle = nullptr; // shows the script debugger
         ui::toolkit::ToolbarButton* m_restartButton = nullptr;
-        ui::toolkit::ToolbarButton* m_resolutionButton = nullptr;
-        u32 m_resolutionMode = 0;
+        RefPtr<ui::ComboBox> m_resolutionCombo;
+        Array<GameResolutionChoice> m_resolutionChoices;
+        String m_resolutionSignature; // what the choices were built from
+        String m_resolutionKey;       // the chosen entry, kept across rebuilds, saved per project
+        f32 m_resolutionRefresh = 0.0f;
+        bool m_resolutionRebuilding = false; // the rebuild's own selection is not a user's
         GameScriptErrorSink m_scriptErrors;
         DebuggerPanel m_debuggerPanel;      // the debugger UI (contract-only)
         GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)
