@@ -131,15 +131,20 @@ TEST_CASE("ui-facade: findLabel resolves through the stack's root (the only root
     // construction. This pins that a pushed screen is findable with nothing but the stack wired.
     engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
 
-    const Status status = ctx->Load(u8"string t;\n"
+    // A screen finds by name as ui does, with find (Sedulous 59680505).
+    const Status status = ctx->Load(u8"string t; bool onTop; bool missing;\n"
                                     u8"void main() {\n"
                                     u8"  ui::push(Guid(17, 34));\n"
                                     u8"  ui::findLabel(\"status\").setText(\"Loading\");\n"
                                     u8"  t = ui::findLabel(\"status\").text;\n"
+                                    u8"  onTop = ui::top().find(\"status\").isValid();\n"
+                                    u8"  missing = ui::top().find(\"nope\").isValid();\n"
                                     u8"}\n",
                                     u8"main");
     REQUIRE(status.IsOk());
     CHECK(ctx->GetGlobal(u8"t").template Get<String>() == StringView(u8"Loading"));
+    CHECK(ctx->GetGlobal(u8"onTop").template Get<bool>());
+    CHECK_FALSE(ctx->GetGlobal(u8"missing").template Get<bool>());
     CHECK(bed.stack.Count() == 1);
 }
 #endif // OPTION_HAS_ANGELSCRIPT

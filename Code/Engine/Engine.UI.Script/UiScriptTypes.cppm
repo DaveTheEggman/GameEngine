@@ -50,7 +50,7 @@ export namespace engine::uiscript
     /* paused (time scale 0); zero seconds, or a view in no tree yet, is a set. */                      \
     void fadeTo(f32 target, f32 seconds);
 
-    /// A bare view - identity + visibility/enabled. What findByName / childAt return.
+    /// A bare view - identity + visibility/enabled. What find / childAt return.
     struct View
     {
         UI_SCRIPT_COMMON_HANDLE_MEMBERS
@@ -100,7 +100,7 @@ export namespace engine::uiscript
         UI_SCRIPT_COMMON_HANDLE_MEMBERS
         [[nodiscard]] i32 childCount() const;
         [[nodiscard]] View childAt(i32 index) const;
-        [[nodiscard]] View findByName(String name) const;
+        [[nodiscard]] View find(String name) const;
         [[nodiscard]] Label findLabel(String name) const;
         [[nodiscard]] Button findButton(String name) const;
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
@@ -116,7 +116,7 @@ export namespace engine::uiscript
         UI_SCRIPT_COMMON_HANDLE_MEMBERS
         [[nodiscard]] i32 childCount() const;
         [[nodiscard]] View childAt(i32 index) const;
-        [[nodiscard]] View findByName(String name) const;
+        [[nodiscard]] View find(String name) const;
         [[nodiscard]] Label findLabel(String name) const;
         [[nodiscard]] Button findButton(String name) const;
         [[nodiscard]] ProgressBar findProgressBar(String name) const;

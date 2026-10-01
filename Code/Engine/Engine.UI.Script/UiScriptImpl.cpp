@@ -252,7 +252,7 @@ namespace engine::uiscript
         }                                                                                               \
         return Wrap<View>(g->GetChildAt(static_cast<usize>(index)));                                    \
     }                                                                                                   \
-    View H::findByName(String name) const { return FindAs<ui::View, View>(view, name.AsView()); }       \
+    View H::find(String name) const { return FindAs<ui::View, View>(view, name.AsView()); }             \
     Label H::findLabel(String name) const { return FindAs<ui::Label, Label>(view, name.AsView()); }     \
     Button H::findButton(String name) const                                                             \
     {                                                                                                   \
@@ -315,7 +315,7 @@ namespace engine::uiscript
         return (b != nullptr && b->stack != nullptr) ? static_cast<i32>(b->stack->Count()) : 0;
     }
 
-    View Ui::find(String name) { return root().findByName(Move(name)); }
+    View Ui::find(String name) { return root().find(Move(name)); }
     Label Ui::findLabel(String name) { return root().findLabel(Move(name)); }
     Button Ui::findButton(String name) { return root().findButton(Move(name)); }
     ProgressBar Ui::findProgressBar(String name) { return root().findProgressBar(Move(name)); }
@@ -460,7 +460,7 @@ namespace engine::uiscript
         builder.Method<&ViewGroup::setOpacity>("setOpacity", {"value"});
         builder.Method<&ViewGroup::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&ViewGroup::childAt>("childAt", {"index"});
-        builder.Method<&ViewGroup::findByName>("findByName", {"name"});
+        builder.Method<&ViewGroup::find>("find", {"name"});
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
         builder.Method<&ViewGroup::findButton>("findButton", {"name"});
         builder.Method<&ViewGroup::findProgressBar>("findProgressBar", {"name"});
@@ -482,7 +482,7 @@ namespace engine::uiscript
         builder.Method<&Screen::setOpacity>("setOpacity", {"value"});
         builder.Method<&Screen::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&Screen::childAt>("childAt", {"index"});
-        builder.Method<&Screen::findByName>("findByName", {"name"});
+        builder.Method<&Screen::find>("find", {"name"});
         builder.Method<&Screen::findLabel>("findLabel", {"name"});
         builder.Method<&Screen::findButton>("findButton", {"name"});
         builder.Method<&Screen::findProgressBar>("findProgressBar", {"name"});

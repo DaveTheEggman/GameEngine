@@ -152,7 +152,7 @@ rebind system). MenuList/Bar first (PaperKid); the rest later.
 generation-guard question; ops on a detached view are safe no-ops):
 - `View`: `Visibility` (enum, also reflected), `IsEnabled`, `Name`.
 - `Label`: `text`. `Button`/`ButtonBase`: `text`. `ProgressBar`: `value`. `TextBox`: `text`.
-- `ViewGroup`: `childCount`, `childAt(i) -> View`, `findByName(name) -> View`, and the TYPED finders:
+- `ViewGroup`: `childCount`, `childAt(i) -> View`, `find(name) -> View`, and the TYPED finders:
   `findLabel(name) -> Label`, `findButton -> Button`, `findProgressBar -> ProgressBar`,
   `findTextBox -> TextBox`, `findGroup -> ViewGroup`, `findScreen -> UIScreen`. Each returns null on a
   missing name OR a type mismatch (loud-null, not a silent wrong-type op).
