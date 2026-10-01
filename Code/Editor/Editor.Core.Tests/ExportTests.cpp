@@ -357,6 +357,84 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     NukeTree(distDir);
 }
 
+// Sedulous 7d6e4460: a preset may carry its own render size or window for its platform; the
+// dist's player.xml ships the effective values, and a preset file saved before the overrides
+// reads none.
+TEST_CASE("export: a preset's display overrides what the dist manifest carries")
+{
+    const String dir = PathJoin(StringView(reinterpret_cast<const utf8char*>(
+                                    std::filesystem::temp_directory_path().string().c_str())),
+                                u8"scratch_preset_display_test");
+    NukeTree(dir.AsView());
+    REQUIRE(CreateDirectory(dir.AsView()));
+    foundation::vfs::NativeFileSystem root(dir.AsView(), foundation::core::DefaultAllocator());
+    const auto writeDist = [&root]()
+    {
+        engine::project::ProjectSettings project; // the project's own display: the defaults
+        project.renderWidth = 1920;
+        project.renderHeight = 1080;
+        REQUIRE(engine::project::SaveProjectSettings(*root.AsWritable(), project, engine::project::kDistManifestFile)
+                    .IsOk());
+    };
+    const auto readDist = [&root](engine::project::ProjectSettings& dist)
+    {
+        REQUIRE(engine::project::LoadProjectSettings(root, dist, engine::project::kDistManifestFile).IsOk());
+    };
+
+    // Overriding neither: the project's values ship.
+    writeDist();
+    editor::ExportPreset plain;
+    REQUIRE(editor::ApplyPresetDisplay(dir.AsView(), plain).IsOk());
+    {
+        engine::project::ProjectSettings dist;
+        readDist(dist);
+        CHECK(dist.renderWidth == 1920u);
+    }
+
+    // The window alone: the render size stays the project's.
+    editor::ExportPreset handheld;
+    handheld.overridesWindow = true;
+    handheld.windowWidth = 1280;
+    handheld.windowHeight = 800;
+    handheld.windowMode = engine::project::WindowMode::Fullscreen;
+    handheld.windowResizable = false;
+    REQUIRE(editor::ApplyPresetDisplay(dir.AsView(), handheld).IsOk());
+    {
+        engine::project::ProjectSettings dist;
+        readDist(dist);
+        CHECK(dist.renderWidth == 1920u);
+        CHECK(dist.windowHeight == 800u);
+        CHECK(dist.windowMode == engine::project::WindowMode::Fullscreen);
+        CHECK_FALSE(dist.windowResizable);
+    }
+
+    // The render size too.
+    handheld.overridesRender = true;
+    handheld.renderWidth = 640;
+    handheld.renderHeight = 400;
+    handheld.renderFit = FitMode::IntegerScale;
+    writeDist();
+    REQUIRE(editor::ApplyPresetDisplay(dir.AsView(), handheld).IsOk());
+    {
+        engine::project::ProjectSettings dist;
+        readDist(dist);
+        CHECK(dist.renderWidth == 640u);
+        CHECK(dist.renderFit == FitMode::IntegerScale);
+    }
+
+    // The overrides round-trip through export_presets.xml.
+    editor::ExportPresetSet set;
+    set.presets.PushBack(handheld);
+    REQUIRE(editor::SaveExportPresets(*root.AsWritable(), set).IsOk());
+    editor::ExportPresetSet loaded;
+    REQUIRE(editor::LoadExportPresets(root, loaded).IsOk());
+    REQUIRE(loaded.presets.Size() == 1u);
+    CHECK(loaded.presets[0].overridesRender);
+    CHECK(loaded.presets[0].renderHeight == 400u);
+    CHECK(loaded.presets[0].windowMode == engine::project::WindowMode::Fullscreen);
+    NukeTree(dir.AsView());
+}
+
 TEST_CASE("export: preset set round-trips through export_presets.xml")
 {
     const String dir = PathJoin(StringView(reinterpret_cast<const utf8char*>(

@@ -997,6 +997,41 @@ namespace editor
         return FileExists(modulePath.AsView()) ? Status{} : Status{ErrorCode::NotFound};
     }
 
+    Status ApplyPresetDisplay(StringView outDir, const ExportPreset& preset)
+    {
+        if (!preset.overridesRender && !preset.overridesWindow)
+        {
+            return Status{};
+        }
+        foundation::vfs::NativeFileSystem mount(outDir, editor::EditorRootAllocator());
+        engine::project::ProjectSettings dist;
+        if (!engine::project::LoadProjectSettings(mount, dist, engine::project::kDistManifestFile).IsOk())
+        {
+            LOG_ERROR(u8"Export", u8"the dist manifest did not read back for the preset's display");
+            return Status{ErrorCode::Internal};
+        }
+        if (preset.overridesRender)
+        {
+            dist.renderWidth = preset.renderWidth;
+            dist.renderHeight = preset.renderHeight;
+            dist.renderFit = preset.renderFit;
+        }
+        if (preset.overridesWindow)
+        {
+            dist.windowWidth = preset.windowWidth;
+            dist.windowHeight = preset.windowHeight;
+            dist.windowMode = preset.windowMode;
+            dist.windowResizable = preset.windowResizable;
+        }
+        if (!engine::project::SaveProjectSettings(*mount.AsWritable(), dist, engine::project::kDistManifestFile)
+                 .IsOk())
+        {
+            LOG_ERROR(u8"Export", u8"failed to write the preset's display into the dist manifest");
+            return Status{ErrorCode::Internal};
+        }
+        return Status{};
+    }
+
     Status ExportOne(EditorProject& project, const ExportPreset& preset,
                      const TemplateRegistry& templates, BuilderRegistry& builders,
                      StringView outRoot, StringView dataRoot, bool rebuild, ExportResult* outResult,
@@ -1118,7 +1153,7 @@ namespace editor
                                   sceneStreams, nullptr, nullptr, nullptr, variantSpan);
             }
         }
-        if (!contentStatus.IsOk())
+        if (!contentStatus.IsOk() || !ApplyPresetDisplay(result.outputDir.AsView(), preset).IsOk())
         {
             if (outResult != nullptr)
             {

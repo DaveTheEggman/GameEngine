@@ -21,6 +21,7 @@ import foundation.core;
 import foundation.vfs;
 import foundation.xml.serialization;
 import foundation.settings;
+import engine.project; // WindowMode (a preset's own window)
 
 using namespace foundation::core;
 
@@ -51,6 +52,19 @@ export namespace editor
         bool pruneToReachable = false; // ship only the closure of the entry points (default: pack
                                        // everything - the escape hatch for teams not managing
                                        // reachability).
+        // This platform draws at its own resolution rather than the project's (a handheld's native
+        // panel, say): the dist's player.xml carries these instead.
+        bool overridesRender = false;
+        u32 renderWidth = 0;
+        u32 renderHeight = 0;
+        FitMode renderFit = FitMode::Letterbox;
+        // This platform's window differs from the project's (fullscreen on a console-like device,
+        // say): the dist's player.xml carries these instead.
+        bool overridesWindow = false;
+        u32 windowWidth = 1280;
+        u32 windowHeight = 720;
+        engine::project::WindowMode windowMode = engine::project::WindowMode::Windowed;
+        bool windowResizable = true;
 
         void Serialize(ISerializer& ar)
         {
@@ -66,6 +80,16 @@ export namespace editor
             foundation::core::Serialize(ar, "stageSymbols", stageSymbols);
             // Closure pruning (false = pack the whole cooked dir).
             foundation::core::Serialize(ar, "pruneToReachable", pruneToReachable);
+            // The display overrides, appended: a preset file saved before them reads none.
+            SerializeAppended(ar, "overridesRender", overridesRender);
+            SerializeAppended(ar, "renderWidth", renderWidth);
+            SerializeAppended(ar, "renderHeight", renderHeight);
+            SerializeAppended(ar, "renderFit", renderFit);
+            SerializeAppended(ar, "overridesWindow", overridesWindow);
+            SerializeAppended(ar, "windowWidth", windowWidth);
+            SerializeAppended(ar, "windowHeight", windowHeight);
+            SerializeAppended(ar, "windowMode", windowMode);
+            SerializeAppended(ar, "windowResizable", windowResizable);
         }
     };
 

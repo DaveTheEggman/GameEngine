@@ -1965,6 +1965,86 @@ namespace editor::app
                                                 initial.pruneToReachable);
         column->AddView(pruneCheck.Get());
 
+        // The display, per platform: this preset's own render size or window over the project's
+        // (a handheld's native panel, fullscreen on a console-like device). The choices are the
+        // enums' reflected values.
+        struct DisplayControls
+        {
+            ui::CheckBox* overridesRender = nullptr;
+            ui::NumericField* renderWidth = nullptr;
+            ui::NumericField* renderHeight = nullptr;
+            ui::ComboBox* renderFit = nullptr;
+            ui::CheckBox* overridesWindow = nullptr;
+            ui::NumericField* windowWidth = nullptr;
+            ui::NumericField* windowHeight = nullptr;
+            ui::ComboBox* windowMode = nullptr;
+            ui::CheckBox* windowResizable = nullptr;
+        };
+        DisplayControls display;
+        {
+            const auto sizeField = [this](u32 value, f64 least)
+            {
+                auto field = MakeRef<ui::NumericField>(m_editorAllocator);
+                field->SetDecimalPlaces(0);
+                field->SetStep(1.0);
+                field->SetMin(least);
+                field->SetMax(16384.0);
+                field->SetValue(static_cast<f64>(value));
+                return field;
+            };
+            const auto enumCombo = [this](const TypeInfo& type, i64 current)
+            {
+                auto combo = MakeRef<ui::ComboBox>(m_editorAllocator);
+                i32 selected = 0;
+                for (usize i = 0; i < EnumeratorCount(type); ++i)
+                {
+                    (void)combo->AddItem(StringView(reinterpret_cast<const utf8char*>(EnumeratorAt(type, i).name)));
+                    selected = EnumeratorAt(type, i).value == current ? static_cast<i32>(i) : selected;
+                }
+                combo->SetSelectedIndex(selected);
+                return combo;
+            };
+            const auto pair = [this](ui::View* a, ui::View* b)
+            {
+                auto row = MakeRef<ui::FlexLayout>(m_editorAllocator);
+                row->Direction = ui::Orientation::Horizontal;
+                row->Spacing = 6;
+                ui::LayoutStyle fixed;
+                fixed.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(90));
+                row->AddView(a, fixed);
+                row->AddView(b, fixed);
+                return row;
+            };
+            const TypeInfo& settingsType = engine::project::ProjectSettings::StaticType(); // the enums
+            const TypeInfo& fitType = *FindProperty(settingsType, "renderFit")->type;
+            const TypeInfo& modeType = *FindProperty(settingsType, "windowMode")->type;
+
+            auto overridesRender = MakeRef<ui::CheckBox>(
+                m_editorAllocator, StringView(u8"Draw at its own render size"), initial.overridesRender);
+            column->AddView(overridesRender.Get());
+            auto renderWidth = sizeField(initial.renderWidth, 0.0);
+            auto renderHeight = sizeField(initial.renderHeight, 0.0);
+            AddFormRow(*column, u8"Render size", pair(renderWidth.Get(), renderHeight.Get()).Get());
+            auto renderFit = enumCombo(fitType, static_cast<i64>(initial.renderFit));
+            AddFormRow(*column, u8"Render fit", renderFit.Get());
+
+            auto overridesWindow = MakeRef<ui::CheckBox>(
+                m_editorAllocator, StringView(u8"Open its own window"), initial.overridesWindow);
+            column->AddView(overridesWindow.Get());
+            auto windowWidth = sizeField(initial.windowWidth, 1.0);
+            auto windowHeight = sizeField(initial.windowHeight, 1.0);
+            AddFormRow(*column, u8"Window size", pair(windowWidth.Get(), windowHeight.Get()).Get());
+            auto windowMode = enumCombo(modeType, static_cast<i64>(initial.windowMode));
+            AddFormRow(*column, u8"Window mode", windowMode.Get());
+            auto windowResizable =
+                MakeRef<ui::CheckBox>(m_editorAllocator, StringView(u8"Resizable"), initial.windowResizable);
+            column->AddView(windowResizable.Get());
+
+            display = DisplayControls{overridesRender.Get(), renderWidth.Get(), renderHeight.Get(),
+                                      renderFit.Get(), overridesWindow.Get(), windowWidth.Get(),
+                                      windowHeight.Get(), windowMode.Get(), windowResizable.Get()};
+        }
+
         dialog->SetContent(column.Get());
 
         ui::EditText* nameRaw = nameEdit.Get();
@@ -1980,8 +2060,8 @@ namespace editor::app
         ui::Button* save = dialog->AddButton(u8"Save", ui::DialogResult::None);
         save->OnClick.Add(
             [this, raw, editIndex, nameRaw, comboRaw, platformRaw, configRaw, playerRaw, subdirRaw,
-             filesRaw, symbolsRaw, pruneRaw, comboIds, comboPlatforms,
-             comboConfigs](ui::ButtonBase*)
+             filesRaw, symbolsRaw, pruneRaw, comboIds, comboPlatforms, comboConfigs,
+             display](ui::ButtonBase*)
             {
                 editor::ExportPreset result;
                 result.name = String(nameRaw->Text());
@@ -2002,6 +2082,25 @@ namespace editor::app
                 result.stageSymbols = symbolsRaw->IsChecked.Value();
                 result.pruneToReachable = pruneRaw->IsChecked.Value();
                 SplitSemicolons(filesRaw->Text(), result.additionalFiles);
+                const TypeInfo& settingsType = engine::project::ProjectSettings::StaticType();
+                const auto chosen = [&settingsType](ui::ComboBox* combo, const char* property)
+                {
+                    const TypeInfo& type = *FindProperty(settingsType, property)->type;
+                    const i32 index = combo->SelectedIndex();
+                    return (index >= 0 && static_cast<usize>(index) < EnumeratorCount(type))
+                               ? EnumeratorAt(type, static_cast<usize>(index)).value
+                               : 0;
+                };
+                result.overridesRender = display.overridesRender->IsChecked.Value();
+                result.renderWidth = static_cast<u32>(display.renderWidth->Value());
+                result.renderHeight = static_cast<u32>(display.renderHeight->Value());
+                result.renderFit = static_cast<FitMode>(chosen(display.renderFit, "renderFit"));
+                result.overridesWindow = display.overridesWindow->IsChecked.Value();
+                result.windowWidth = static_cast<u32>(display.windowWidth->Value());
+                result.windowHeight = static_cast<u32>(display.windowHeight->Value());
+                result.windowMode =
+                    static_cast<engine::project::WindowMode>(chosen(display.windowMode, "windowMode"));
+                result.windowResizable = display.windowResizable->IsChecked.Value();
 
                 if (editIndex < 0)
                 {

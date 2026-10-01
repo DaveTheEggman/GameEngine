@@ -579,6 +579,11 @@ export namespace editor
     /// Reload Native Module action for the full in-editor loop. Blocking; run off-UI.
     [[nodiscard]] Status BuildDevNativeModule(EditorProject& project);
 
+    /// A preset's own render resolution or window, over what the project's dist manifest
+    /// (player.xml in `outDir`) says: the platform's values ship. Nothing to do when the preset
+    /// overrides neither.
+    [[nodiscard]] Status ApplyPresetDisplay(StringView outDir, const ExportPreset& preset);
+
     /// Produce ONE preset's dist under `outRoot`: resolve its template, export the content
     /// (ExportProject), then stage the template's player + sidecars and the preset's additionalFiles.
     /// The whole dist from one entry point - the CLI and the editor call this identically (the cook
