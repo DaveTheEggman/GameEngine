@@ -109,6 +109,17 @@ namespace editor
                     return Err(Format(u8"PIE instance '{}' did not start (log_read says why)",
                                       pie->PieId()));
                 }
+                // A tab behind another never renders its first frame: to front, unless the front
+                // is another start's tab still waiting for its own (they take turns, not fight).
+                if (pie->IsRunning() && context.ActivePage() != page)
+                {
+                    IPieInstancePage* front =
+                        context.ActivePage() != nullptr ? PieOf(context.ActivePage()) : nullptr;
+                    if (front == nullptr || !front->IsRunning() || front->FrameCount() > 0)
+                    {
+                        context.RevealPage(page);
+                    }
+                }
                 if (wait->pumps > kStartPumpLimit)
                 {
                     return Err(Format(u8"PIE instance '{}' rendered no frame in five minutes - a "

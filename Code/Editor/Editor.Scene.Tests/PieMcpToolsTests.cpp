@@ -653,8 +653,19 @@ TEST_CASE("pie-tools: identical calls in flight each keep their own wait")
     HeadlessGamePage* two = rig.Page(u8"game-page-2");
     REQUIRE(one != nullptr);
     REQUIRE(two != nullptr); // the second start opened a tab of its own
-    one->Run();
-    two->Run();
+    // Both cooked and running, neither with a frame yet; only the front tab renders, so the one
+    // behind waits its turn, then comes to front (Sedulous ce5847fe).
+    one->starting = false;
+    one->running = true;
+    two->starting = false;
+    two->running = true;
+    rig.context.SetActivePage(two);
+    CHECK_FALSE(Pump(rig.server, 1, u8"pie_start", newInstance).finished);
+    CHECK(rig.context.ActivePage() == two); // the front tab's first frame is still to come
+    two->frames = 1;
+    CHECK_FALSE(Pump(rig.server, 1, u8"pie_start", newInstance).finished);
+    CHECK(rig.context.ActivePage() == one); // its turn: to front
+    one->frames = 1;
     Answer second = Pump(rig.server, 2, u8"pie_start", newInstance);
     Answer first = Pump(rig.server, 1, u8"pie_start", newInstance);
     REQUIRE(first.finished);
