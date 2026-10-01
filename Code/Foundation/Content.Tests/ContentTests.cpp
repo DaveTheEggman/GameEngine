@@ -31,6 +31,25 @@ namespace
         }
     };
 
+    // Every occurrence of `from` in `text` replaced with `to` (byte-wise; test-local helper).
+    String ReplaceAll(StringView text, StringView from, StringView to)
+    {
+        StringBuilder out;
+        usize i = 0;
+        while (i < text.Size())
+        {
+            if (i + from.Size() <= text.Size() && text.SubStr(i, from.Size()) == from)
+            {
+                out.Append(to);
+                i += from.Size();
+                continue;
+            }
+            out.Append(text[i]);
+            ++i;
+        }
+        return out.Take();
+    }
+
     void RemoveTree(StringView root)
     {
         FileDelete(JoinPath(root, u8"materials/steel.rasset"));
@@ -670,4 +689,71 @@ TEST_CASE("content: group children stay name-sorted through create and rename")
 
     RemoveDirectory(JoinPath(dir, u8"metals"));
     RemoveDirectory(dir);
+}
+
+// Sedulous 3dae9ac8: an author's edit of a stored envelope reads the way a load reads the stored
+// one - the same instance, the same type, a payload this build reads - or is refused with why.
+TEST_CASE("content: ReadObjectFrom reads an edited envelope, and refuses another's or a broken one")
+{
+    GlobalTypeRegistry().Register(MaterialResource::StaticType());
+    RegisterSerializable<MaterialResource>();
+    const StringView dir = u8"scratch_content_read_from_db";
+    RemoveTree(dir);
+    FileDelete(JoinPath(dir, u8"materials/copper.xasset"));
+    NativeFileSystem mount(dir, DefaultAllocator());
+    ContentDatabase db(DefaultAllocator(), mount, MakeXmlFactory(), u8".xasset");
+    Group* materials = db.RootGroup()->CreateGroup(u8"materials");
+    foundation::content::Instance* steel =
+        materials->CreateInstance(u8"steel", MaterialResource::StaticType());
+    foundation::content::Instance* copper =
+        materials->CreateInstance(u8"copper", MaterialResource::StaticType());
+    REQUIRE(steel != nullptr);
+    REQUIRE(copper != nullptr);
+    MaterialResource res;
+    res.shininess = 7;
+    res.shader = String(u8"pbr");
+    REQUIRE(steel->WriteObject(res).IsOk());
+    REQUIRE(copper->WriteObject(res).IsOk());
+
+    const auto text = [](foundation::content::Instance& instance)
+    {
+        UniquePtr<IStream> envelope = instance.OpenEnvelope();
+        REQUIRE(envelope);
+        Array<byte> bytes;
+        bytes.Resize(static_cast<usize>(envelope->Size()));
+        REQUIRE(envelope->Read(bytes.Data(), bytes.Size()) == bytes.Size());
+        return String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), bytes.Size()));
+    };
+    const auto readFrom = [](foundation::content::Instance& instance, StringView xml)
+    {
+        MemoryStream stream;
+        (void)stream.Write(xml.Data(), xml.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        return instance.ReadObjectFrom(stream);
+    };
+    const String stored = text(*steel);
+    REQUIRE(stored.AsView().ContainsIgnoreCase(u8">pbr<"));
+
+    // The edit reads as the object, the stored one untouched until it is written.
+    const String edited = ReplaceAll(stored.AsView(), u8">pbr<", u8">unlit<");
+    auto read = readFrom(*steel, edited.AsView());
+    REQUIRE(read.HasValue());
+    auto* object = Cast<MaterialResource>(read.Value().Get());
+    REQUIRE(object != nullptr);
+    CHECK(object->shader == u8"unlit");
+    CHECK(object->shininess == 7);
+
+    // Another asset's envelope, a misspelled key, and text that is not an envelope: refused.
+    auto other = readFrom(*copper, stored.AsView());
+    REQUIRE_FALSE(other.HasValue());
+    CHECK(other.Error().AsView().StartsWith(u8"the envelope's guid"));
+    auto misspelled = readFrom(*steel, ReplaceAll(stored.AsView(), u8"shininess", u8"shine").AsView());
+    REQUIRE_FALSE(misspelled.HasValue());
+    CHECK(misspelled.Error().AsView().StartsWith(u8"the payload did not read"));
+    auto garbage = readFrom(*steel, u8"<nothing/>");
+    REQUIRE_FALSE(garbage.HasValue());
+
+    (void)db.DeleteInstance(copper->Id());
+    (void)db.DeleteInstance(steel->Id());
+    RemoveTree(dir);
 }

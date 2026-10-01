@@ -70,6 +70,11 @@ export namespace foundation::content
         // Deserializes the primary object (constructing the concrete type from
         // its stored type name). Null if the type isn't registered or on I/O error.
         [[nodiscard]] RefPtr<ISerializable> ReadObject() const;
+        // Reads an envelope an AUTHOR supplied (an agent's edit of the stored text) the way
+        // ReadObject reads the stored one, so what it accepts is exactly what a load accepts:
+        // its header must name THIS instance, its guid and its type, and its payload must read
+        // under this build's version. The reason when it does not.
+        [[nodiscard]] Result<RefPtr<ISerializable>, String> ReadObjectFrom(IStream& stream) const;
 
         // Opens a named data stream for reading, or null if absent. Probes the text
         // sidecar (".data") first, then the binary/legacy one (".bin").
@@ -92,6 +97,9 @@ export namespace foundation::content
 
     private:
         friend class ContentDatabase; // storage layout (envelope/sidecar paths) for delete
+        // The one envelope reader: `checkIdentity` holds the header to this instance.
+        [[nodiscard]] Result<RefPtr<ISerializable>, String> ReadEnvelope(IStream& stream,
+                                                                         bool checkIdentity) const;
         [[nodiscard]] String EnvelopePath() const; // "<path>.<ext>"
         // "<path>.<stream>.bin" (Binary) / "<path>.<stream>.data" (Text).
         [[nodiscard]] String DataPath(StringView streamName, StreamEncoding encoding) const;

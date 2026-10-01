@@ -278,11 +278,22 @@ namespace foundation::content
         {
             return RefPtr<ISerializable>{};
         }
+        Result<RefPtr<ISerializable>, String> object = ReadEnvelope(*stream, false);
+        return object.HasValue() ? Move(object.Value()) : RefPtr<ISerializable>{};
+    }
 
-        UniquePtr<SerializerContext> ctx = m_db->CreateSerializer(*stream, SerializeMode::Read);
+    Result<RefPtr<ISerializable>, String> Instance::ReadObjectFrom(IStream& stream) const
+    {
+        return ReadEnvelope(stream, true);
+    }
+
+    Result<RefPtr<ISerializable>, String> Instance::ReadEnvelope(IStream& stream,
+                                                                 bool checkIdentity) const
+    {
+        UniquePtr<SerializerContext> ctx = m_db->CreateSerializer(stream, SerializeMode::Read);
         if (!ctx || ctx->serializer == nullptr)
         {
-            return RefPtr<ISerializable>{};
+            return Err(String(u8"the text did not open as an envelope"));
         }
         Serializer& ar = *ctx->serializer;
 
@@ -298,7 +309,21 @@ namespace foundation::content
         ar.Text(name);
         if (!ar.IsOk())
         {
-            return RefPtr<ISerializable>{};
+            return Err(String(u8"no envelope header (guid, typeNamespace, typeName)"));
+        }
+        if (checkIdentity && id != m_id)
+        {
+            utf8char asked[37];
+            utf8char mine[37];
+            id.ToChars(asked);
+            m_id.ToChars(mine);
+            return Err(Format(u8"the envelope's guid {} is not this asset's ({})",
+                              StringView(asked, 36), StringView(mine, 36)));
+        }
+        if (checkIdentity && (ns.AsView() != TypeNamespace() || name.AsView() != TypeName()))
+        {
+            return Err(Format(u8"the envelope's type '{}.{}' is not this asset's ('{}.{}')",
+                              ns.AsView(), name.AsView(), TypeNamespace(), TypeName()));
         }
 
         // Resolve the type and construct the object.
@@ -306,13 +331,13 @@ namespace foundation::content
                                                         reinterpret_cast<const char*>(name.CStr()));
         if (type == nullptr)
         {
-            return RefPtr<ISerializable>{};
+            return Err(Format(u8"the type '{}' is not registered in this build", name.AsView()));
         }
 
         RefPtr<ISerializable> object = m_db->Serializables().Create(type->id);
         if (object.Get() == nullptr)
         {
-            return RefPtr<ISerializable>{};
+            return Err(Format(u8"the type '{}' is not serializable in this build", name.AsView()));
         }
 
         // Deserialize the payload under its data-version scope (a version other than the
@@ -323,7 +348,12 @@ namespace foundation::content
         object->Serialize(ar);
         ar.EndObject();
         EndVersionedPayload(ar);
-        return ar.IsOk() ? object : RefPtr<ISerializable>{};
+        if (!ar.IsOk())
+        {
+            return Err(String(u8"the payload did not read: a missing or misspelled key, a value "
+                              u8"of the wrong kind, or dataVersions other than this build's"));
+        }
+        return object;
     }
 
     UniquePtr<IStream> Instance::ReadData(StringView streamName) const
