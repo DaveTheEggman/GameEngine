@@ -269,54 +269,6 @@ namespace editor
         }
     }
 
-    void ResourceRefEditor::SetValueText(StringView text)
-    {
-        if (m_valueText.AsView() == text)
-        {
-            return;
-        }
-        m_valueText = String(text);
-        if (m_slot.Get() != nullptr)
-        {
-            m_slot->SetValue(m_valueText.AsView(), HasValue());
-        }
-    }
-
-    RefPtr<ui::View> ResourceRefEditor::CreateEditorView()
-    {
-        m_slot = MakeRef<editor::app::AssetPickerSlot>(MemoryAllocator());
-        ResourceRefEditor* self = this;
-        // Forward only the affordances the consumer wired - unwired ones stay hidden.
-        if (OnPick)
-        {
-            m_slot->OnPick = [self]() { self->OnPick(); };
-        }
-        if (OnEdit)
-        {
-            m_slot->OnEdit = [self]() { self->OnEdit(); };
-        }
-        if (OnClear)
-        {
-            m_slot->OnClear = [self]() { self->OnClear(); };
-        }
-        if (OnReveal)
-        {
-            m_slot->OnReveal = [self]() { self->OnReveal(); };
-        }
-        if (OnAssignDropped)
-        {
-            m_slot->OnAssignDropped = [self](const Guid& id) { self->OnAssignDropped(id); };
-        }
-        if (OnRejectedDrop)
-        {
-            m_slot->OnRejectedDrop = [self](StringView assetName, StringView typeName)
-            { self->OnRejectedDrop(assetName, typeName); };
-        }
-        m_slot->SetAcceptedTypes(m_acceptedTypes);
-        m_slot->SetPreviewIcon(m_previewIcon);
-        m_slot->SetValue(m_valueText.AsView(), HasValue());
-        return RefPtr<ui::View>(m_slot.Get());
-    }
     void SceneInspectorView::Refresh()
     {
         // Auto-switch to the Entity tab when a NEW entity is selected (selecting implies you want to
@@ -1971,7 +1923,7 @@ namespace editor
         const StringView assetName =
             behavior.script.id.IsNil() ? StringView(u8"(none)") : AssetNameFor(behavior.script.id);
         auto picker = MakeRef<ResourceRefEditor>(MemoryAllocator(), StringView(u8"Script"),
-                                                 assetName, category);
+                                                 assetName, category, Span<const StringView>{});
         ResourceRefEditor* pickerRaw = picker.Get();
         pickerRaw->OnPick = [self, id, index]()
         {
@@ -2322,7 +2274,8 @@ namespace editor
         };
 
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
-                                                 nameOf(currentTarget()), category);
+                                                 nameOf(currentTarget()), category,
+                                                 Span<const StringView>{});
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
         {
@@ -2399,7 +2352,8 @@ namespace editor
         };
 
         auto editor =
-            MakeRef<ResourceRefEditor>(MemoryAllocator(), name, nameOf(currentTarget()), category);
+            MakeRef<ResourceRefEditor>(MemoryAllocator(), name, nameOf(currentTarget()), category,
+                                       Span<const StringView>{});
         ResourceRefEditor* raw = editor.Get();
         raw->OnPick = [self, edit, id, type, propName, path, currentTarget]()
         {
@@ -2430,7 +2384,8 @@ namespace editor
         auto currentTarget = [access]() -> Guid { return access->effective().guid; };
 
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
-                                                 AssetNameFor(currentTarget()), category);
+                                                 AssetNameFor(currentTarget()), category,
+                                                 Span<const StringView>{});
         ResourceRefEditor* raw = editor.Get();
         if (!property.description.IsEmpty())
         {
@@ -2554,19 +2509,7 @@ namespace editor
 
     StringView SceneInspectorView::AssetNameFor(const Guid& target)
     {
-        if (target.IsNil())
-        {
-            return u8"(none)";
-        }
-        if (m_editor->Project() != nullptr)
-        {
-            if (foundation::content::Instance* inst =
-                    m_editor->Project()->SourceDb().GetInstance(target))
-            {
-                return inst->Name();
-            }
-        }
-        return u8"(missing)";
+        return m_editor->AssetNameFor(target);
     }
 
     const Float4* SceneInspectorView::RangeOf(const PropertyInfo& prop)

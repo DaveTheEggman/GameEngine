@@ -58,60 +58,9 @@ export namespace editor
     namespace ui = foundation::ui;
     namespace scene = foundation::scene;
 
-    // A property row for resource::Ref fields, backed by the composite AssetPickerSlot:
-    // [type icon | name (click = picker) | Edit | Clear]. Affordances
-    // render only when their callback is wired, so non-asset consumers (the entity-ref twin)
-    // degrade to a plain name button. The value text refreshes from the ref's Guid each frame;
-    // "(none)" (AssetNameFor's nil spelling) marks the slot empty.
-    class ResourceRefEditor final : public ui::toolkit::PropertyEditor
-    {
-        RTTI_OBJECT(ResourceRefEditor, ui::toolkit::PropertyEditor)
-    public:
-        Function<void()> OnPick;   // opens the picker (wired by the inspector)
-        Function<void()> OnEdit;   // open-for-editing (EditorContext::OpenAsset routing)
-        Function<void()> OnClear;  // clears the ref through the consumer's undoable command
-        Function<void()> OnReveal; // reveal in the asset browser (EditorContext::RevealAsset)
-        Function<void(const Guid&)> OnAssignDropped; // browser drag-drop assign (same command)
-        Function<void(StringView, StringView)> OnRejectedDrop; // wrong-type drop -> toast
-
-        ResourceRefEditor(StringView name, StringView valueText, StringView category)
-            : ui::toolkit::PropertyEditor(name, category), m_valueText(valueText)
-        {
-        }
-
-        void SetValueText(StringView text);
-        /// The asset TYPE glyph for the slot preview (EditorIcons::ForAssetType); set before
-        /// the grid builds the row.
-        void SetPreviewIcon(ui::SVGDrawable* icon) { m_previewIcon = icon; }
-        /// The accepted asset-type names (picker filter + drop filter); set before the grid
-        /// builds the row.
-        void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
-        /// The generated thumbnail (wins over the type icon while set; empty falls back).
-        /// Queried per refresh by the row builders - cheap map lookup.
-        void SetPreviewThumbnail(ui::DrawablePtr thumbnail)
-        {
-            if (m_slot.Get() != nullptr)
-            {
-                m_slot->SetPreviewThumbnail(Move(thumbnail));
-            }
-        }
-
-        void RefreshView() override {}
-
-    protected:
-        RefPtr<ui::View> CreateEditorView() override;
-
-    private:
-        [[nodiscard]] bool HasValue() const
-        {
-            return m_valueText.AsView() != StringView(u8"(none)");
-        }
-
-        String m_valueText;
-        ui::SVGDrawable* m_previewIcon = nullptr; // borrowed (EditorIcons)
-        Array<String> m_acceptedTypes;
-        RefPtr<editor::app::AssetPickerSlot> m_slot;
-    };
+    // The asset reference row is Editor.App's (every page uses it): typed at construction, and
+    // BindAsset wires pick, drop and clear to one assignment.
+    using editor::app::ResourceRefEditor;
 
     // --- Property-attribute conventions (reflection PropAttribute metadata -> inspector) ---
     //
@@ -613,88 +562,22 @@ export namespace editor
             SceneEditContext* edit = m_edit;
             const char* propName = prop.name;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-
             auto editor = MakeRef<ResourceRefEditor>(
-                MemoryAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)),
-                category);
+                MemoryAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)), category,
+                Span<const StringView>{assetTypeNames.begin(), assetTypeNames.size()});
             ResourceRefEditor* raw = editor.Get();
-            Array<String> assetTypes;
-            for (StringView typeName : assetTypeNames)
-            {
-                assetTypes.PushBack(String(typeName));
-            }
-            raw->OnPick = [self, edit, type, propName, assetTypes]()
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+            raw->BindAsset(
+                *m_editor,
+                [self, type, propName]() { return self->SettingRefTarget<T>(type, propName); },
+                [self, edit, type, propName](const Guid& target)
                 {
-                    return;
-                }
-                foundation::resource::ResourceManager* resources = self->m_editor->Resources();
-                Array<String> typeNames = assetTypes;
-                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [edit, type, propName, resources](const Guid& target)
-                { edit->SetSceneSettingResourceRef<T>(type, propName, target, resources); };
-                dialog->Show(self->Context);
-            };
-            if (assetTypes.Size() > 0)
-            {
-                raw->SetPreviewIcon(
-                    editor::app::EditorIcons::Get().ForAssetType(assetTypes[0].AsView()));
-            }
-            raw->OnClear = [self, edit, type, propName]()
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
-                {
-                    return;
-                }
-                edit->SetSceneSettingResourceRef<T>(type, propName, Guid{},
-                                                    self->m_editor->Resources());
-            };
-            raw->OnEdit = [self, type, propName]()
-            {
-                const Guid target = self->SettingRefTarget<T>(type, propName);
-                if (!target.IsNil() && self->m_editor->OpenAsset)
-                {
-                    self->m_editor->OpenAsset(target);
-                }
-            };
-            raw->OnReveal = [self, type, propName]()
-            {
-                const Guid target = self->SettingRefTarget<T>(type, propName);
-                if (!target.IsNil() && self->m_editor->RevealAsset)
-                {
-                    self->m_editor->RevealAsset(target);
-                }
-            };
-            raw->SetAcceptedTypes(assetTypes);
-            raw->OnAssignDropped = [self, edit, type, propName](const Guid& target)
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
-                {
-                    return;
-                }
-                edit->SetSceneSettingResourceRef<T>(type, propName, target,
-                                                    self->m_editor->Resources());
-            };
-            raw->OnRejectedDrop = [self, assetTypes](StringView assetName, StringView typeName)
-            {
-                self->m_editor->Notify(
-                    editor::NoticeKind::Warning,
-                    Format(u8"{} is a {} - this field takes {}", assetName, typeName,
-                           assetTypes.Size() > 0 ? assetTypes[0].AsView() : StringView(u8"?"))
-                        .AsView());
-            };
-            AddEditor(raw,
-                      [self, type, propName, raw]()
-                      {
-                          const Guid target = self->SettingRefTarget<T>(type, propName);
-                          raw->SetValueText(self->AssetNameFor(target));
-                          raw->SetPreviewThumbnail(
-                              (!target.IsNil() && self->m_editor->Thumbnails() != nullptr)
-                                  ? self->m_editor->Thumbnails()->Get(target)
-                                  : RefPtr<ui::Drawable>{});
-                      });
+                    if (self->m_editor->Project() != nullptr)
+                    {
+                        edit->SetSceneSettingResourceRef<T>(type, propName, target,
+                                                            self->m_editor->Resources());
+                    }
+                });
+            AddEditor(raw, [raw]() { raw->Refresh(); });
         }
 
         template <typename T>
@@ -707,90 +590,24 @@ export namespace editor
             SceneEditContext* edit = m_edit;
             const char* propName = prop.name;
             const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-
             auto editor = MakeRef<ResourceRefEditor>(
                 MemoryAllocator(), name, AssetNameFor(RefTarget<T>(id, type, propName, path)),
-                category);
+                category, Span<const StringView>{assetTypeNames.begin(), assetTypeNames.size()});
             ResourceRefEditor* raw = editor.Get();
-            Array<String> assetTypes;
-            for (StringView typeName : assetTypeNames)
-            {
-                assetTypes.PushBack(String(typeName));
-            }
-            raw->OnPick = [self, edit, id, type, propName, path, assetTypes]()
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
+            // Pick, drop and clear are the one undoable component write.
+            raw->BindAsset(
+                *m_editor,
+                [self, id, type, propName, path]()
+                { return self->RefTarget<T>(id, type, propName, path); },
+                [self, edit, id, type, propName, path](const Guid& target)
                 {
-                    return;
-                }
-                foundation::resource::ResourceManager* resources = self->m_editor->Resources();
-
-                // The browser-mirroring picker (readonly; favorites pinned first; [Clear] = none).
-                Array<String> typeNames = assetTypes;
-                auto dialog = MakeRef<editor::app::AssetPickerDialog>(
-                    self->MemoryAllocator(), *self->m_editor, Move(typeNames));
-                dialog->OnPicked = [edit, id, type, propName, path, resources](const Guid& target)
-                { edit->SetComponentResourceRef<T>(id, type, path, propName, target, resources); };
-                dialog->Show(self->Context);
-            };
-            if (assetTypes.Size() > 0)
-            {
-                raw->SetPreviewIcon(
-                    editor::app::EditorIcons::Get().ForAssetType(assetTypes[0].AsView()));
-            }
-            raw->OnClear = [self, edit, id, type, propName, path]()
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
-                {
-                    return;
-                }
-                edit->SetComponentResourceRef<T>(id, type, path, propName, Guid{},
-                                                 self->m_editor->Resources());
-            };
-            raw->OnEdit = [self, id, type, propName, path]()
-            {
-                const Guid target = self->RefTarget<T>(id, type, propName, path);
-                if (!target.IsNil() && self->m_editor->OpenAsset)
-                {
-                    self->m_editor->OpenAsset(target);
-                }
-            };
-            raw->OnReveal = [self, id, type, propName, path]()
-            {
-                const Guid target = self->RefTarget<T>(id, type, propName, path);
-                if (!target.IsNil() && self->m_editor->RevealAsset)
-                {
-                    self->m_editor->RevealAsset(target);
-                }
-            };
-            raw->SetAcceptedTypes(assetTypes);
-            raw->OnAssignDropped = [self, edit, id, type, propName, path](const Guid& target)
-            {
-                if (self->Context == nullptr || self->m_editor->Project() == nullptr)
-                {
-                    return;
-                }
-                edit->SetComponentResourceRef<T>(id, type, path, propName, target,
-                                                 self->m_editor->Resources());
-            };
-            raw->OnRejectedDrop = [self, assetTypes](StringView assetName, StringView typeName)
-            {
-                self->m_editor->Notify(
-                    editor::NoticeKind::Warning,
-                    Format(u8"{} is a {} - this field takes {}", assetName, typeName,
-                           assetTypes.Size() > 0 ? assetTypes[0].AsView() : StringView(u8"?"))
-                        .AsView());
-            };
-            AddEditor(raw,
-                      [self, id, type, propName, path, raw]()
-                      {
-                          const Guid target = self->RefTarget<T>(id, type, propName, path);
-                          raw->SetValueText(self->AssetNameFor(target));
-                          raw->SetPreviewThumbnail(
-                              (!target.IsNil() && self->m_editor->Thumbnails() != nullptr)
-                                  ? self->m_editor->Thumbnails()->Get(target)
-                                  : RefPtr<ui::Drawable>{});
-                      });
+                    if (self->m_editor->Project() != nullptr)
+                    {
+                        edit->SetComponentResourceRef<T>(id, type, path, propName, target,
+                                                         self->m_editor->Resources());
+                    }
+                });
+            AddEditor(raw, [raw]() { raw->Refresh(); });
         }
 
         // Entity-reference row: the entity-picker twin of BuildResourceRefRow. Same ResourceRefEditor
@@ -831,7 +648,7 @@ export namespace editor
         bool m_forceRebuild = false; // set when a data-only mutation changed a section's SHAPE
     };
 
-    RTTI_DEFINE_OBJECT(ResourceRefEditor, "rtti::editor::editor")
+    // ResourceRefEditor's RTTI define moved with the class to editor.app (ResourceRefEditorImpl.cpp).
     RTTI_DEFINE_OBJECT(NoticeEditor, "rtti::editor::editor")
     RTTI_DEFINE_OBJECT(CollisionMatrixEditor, "rtti::editor::editor")
     // ContainerListEditor's RTTI define moved with the class to editor.app (ContainerListEditorImpl.cpp).

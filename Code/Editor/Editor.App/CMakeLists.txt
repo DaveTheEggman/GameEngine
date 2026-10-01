@@ -23,6 +23,7 @@ target_sources(Editor.App
         EditorIconsImpl.cpp
         ToolPanelImpl.cpp
         ContainerListEditorImpl.cpp
+        ResourceRefEditorImpl.cpp
         EditorMcpHostImpl.cpp
         EditorProjectOperationsImpl.cpp
         EditorPageToolsImpl.cpp EditorActionToolsImpl.cpp
@@ -50,6 +51,7 @@ target_sources(Editor.App
             EditorIcons.cppm
             AssetPickerSlot.cppm
             ContainerListEditor.cppm
+            ResourceRefEditor.cppm
             EditorMcpHost.cppm
             EditorProjectOperations.cppm
             EditorPageTools.cppm

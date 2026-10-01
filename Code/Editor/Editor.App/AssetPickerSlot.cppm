@@ -149,9 +149,31 @@ export namespace editor::app
         /// Body text size passthrough (list-slot rows run compact chrome).
         void SetFontSize(f32 size) { m_body->FontSize.SetValue(Optional<f32>{size}); }
 
+        /// The accepted type that means ANY asset: a row whose field is genuinely untyped.
+        static constexpr StringView kAnyAsset = u8"*";
+
         /// The asset-type names this slot accepts (the picker's filter list). Non-empty makes
-        /// the slot a drop target for asset-browser drags.
+        /// the slot a drop target for asset-browser drags; kAnyAsset accepts every asset type.
+        /// Empty is not a drop target at all, which is what an entity reference row wants.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
+        [[nodiscard]] Span<const String> AcceptedTypes() const noexcept
+        {
+            return Span<const String>{m_acceptedTypes.Data(), m_acceptedTypes.Size()};
+        }
+
+        /// Whether `typeName` is one of `accepted` (kAnyAsset takes everything). Shared by the
+        /// slot and the list widget's append drop.
+        [[nodiscard]] static bool Accepts(Span<const String> accepted, StringView typeName)
+        {
+            for (const String& type : accepted)
+            {
+                if (type.AsView() == kAnyAsset || type.AsView() == typeName)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         // === IDropTarget (asset-browser drags) ===
         // Any asset drag is ACCEPTED at hover level so OnDrop can warn on a type mismatch
@@ -252,14 +274,7 @@ export namespace editor::app
 
         [[nodiscard]] bool TypeAccepted(StringView typeName) const
         {
-            for (const String& accepted : m_acceptedTypes)
-            {
-                if (accepted.AsView() == typeName)
-                {
-                    return true;
-                }
-            }
-            return false;
+            return Accepts(AcceptedTypes(), typeName);
         }
 
         /// Thumbnail wins; the type icon is the fallback layer.

@@ -516,7 +516,8 @@ namespace editor
                 return u8"(missing)";
             };
             auto meshRow = MakeRef<ResourceRefEditor>(Allocator(), StringView(u8"Mesh"),
-                                                      meshName(), StringView(u8"Preview"));
+                                                      meshName(), StringView(u8"Preview"),
+                                                      Span<const StringView>{});
             ResourceRefEditor* meshRaw = meshRow.Get();
             meshRow->OnPick = [self, meshRaw, meshName]()
             {
@@ -689,7 +690,8 @@ namespace editor
             return Guid{};
         };
         auto editor = MakeRef<ResourceRefEditor>(Allocator(), slot.AsView(),
-                                                 AssetNameFor(target()), StringView(u8"Textures"));
+                                                 AssetNameFor(target()), StringView(u8"Textures"),
+                                                 Span<const StringView>{});
         editor->SetDisplayName(PrettifyPropertyName(slot.AsView()).AsView());
         ResourceRefEditor* raw = editor.Get();
         raw->OnPick = [self, slot]()
@@ -739,19 +741,7 @@ namespace editor
 
     StringView MaterialEditorPage::AssetNameFor(const Guid& target)
     {
-        if (target.IsNil())
-        {
-            return u8"(none)";
-        }
-        if (m_context->Project() != nullptr)
-        {
-            if (foundation::content::Instance* inst =
-                    m_context->Project()->SourceDb().GetInstance(target))
-            {
-                return inst->Name();
-            }
-        }
-        return u8"(missing)";
+        return m_context->AssetNameFor(target);
     }
 
     void MaterialEditorPage::AddEditor(foundation::ui::toolkit::PropertyEditor* editor,

@@ -163,6 +163,10 @@ export namespace editor
         /// Reveal the asset with this Guid in the asset browser (select + scroll into view).
         Function<void(const Guid&)> RevealAsset;
         void Notify(NoticeKind kind, StringView message);
+        /// An asset's display name for a reference row: its name, "(none)" for the nil id, and
+        /// "(missing)" for an id the open project does not have (a dangling reference). The one
+        /// spelling every row uses; the view is the instance's own name, valid while it lives.
+        [[nodiscard]] StringView AssetNameFor(const Guid& id) const;
 
     private:
         IAllocator* m_allocator;

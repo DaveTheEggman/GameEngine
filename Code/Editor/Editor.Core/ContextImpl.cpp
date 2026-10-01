@@ -84,6 +84,22 @@ namespace editor
         return result;
     }
 
+    StringView EditorContext::AssetNameFor(const Guid& id) const
+    {
+        if (id.IsNil())
+        {
+            return u8"(none)";
+        }
+        if (m_project != nullptr)
+        {
+            if (foundation::content::Instance* instance = m_project->SourceDb().GetInstance(id))
+            {
+                return instance->Name();
+            }
+        }
+        return u8"(missing)";
+    }
+
     void EditorContext::Notify(NoticeKind kind, StringView message)
     {
         // Errors and warnings ALWAYS reach the console log too: a toast is transient,
