@@ -17,11 +17,13 @@ module;
 module editor.core;
 
 import foundation.core;
+import foundation.content;
 import foundation.image.io;
 
 namespace editor
 {
     using namespace foundation::core;
+    namespace content = foundation::content; // the partition's alias is not visible here on MSVC
     namespace image = foundation::image;
 
     void ThumbnailService::ScheduleLoad(const Guid& id)

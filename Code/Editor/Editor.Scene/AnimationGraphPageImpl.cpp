@@ -44,6 +44,7 @@ namespace core = foundation::core;
 namespace render = foundation::render;
 namespace rhi = foundation::rhi;
 namespace runtime = foundation::runtime;
+namespace scene = foundation::scene; // :actions declares it too; MSVC does not see a partition's
 namespace ui = foundation::ui;
 namespace vg = foundation::vg;
 namespace fonts = foundation::fonts;
