@@ -95,7 +95,11 @@ name or path) reads a running game's entity outside a run.
 
 ## Workflows
 
-**Project**: `project_create` -> `project_open` -> `project_info`. `project_health` is the
+**Project**: `project_create` -> `project_open` -> `project_info`, which also reports the
+settings play reads (default scene, startup script, default input map, bus layout, UI theme,
+loading screen, UI font, MSAA). `project_settings_set` changes them, by the names
+`project_info` reports: each asset setting must name an asset of its type, `""` clears it, and
+nothing changes when any of it is refused. `project_health` is the
 one-call soundness sweep (dangling refs, broken sources, cook state); a dirty count alone
 is normal - clear it with `asset_cook`.
 

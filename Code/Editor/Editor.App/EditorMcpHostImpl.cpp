@@ -44,6 +44,8 @@ namespace editor::app
         editor::EditorContext* ctx = &context;
         m_session->onAssetWritten = [ctx](const Guid& assetId)
         { (void)ctx->NotifyAssetExternallyModified(assetId); };
+        // An agent's settings change re-applies what depends on them, as the dialog's Save does.
+        m_session->onSettingsChanged = [ctx]() { ctx->NotifyProjectSettingsChanged(); };
         foundation::mcp::RegisterHostInfoTool(
             m_server, Move(buildStamp),
             Function<JsonValue()>{[this]()

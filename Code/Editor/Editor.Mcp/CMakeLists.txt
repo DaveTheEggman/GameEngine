@@ -12,6 +12,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Engine::Composition # the FULL manager set for scene_validate's scratch (full payload validation)
                          # and the scene format reference's composed example (every manager + settings block)
     Engine::Script # the reference example's script behaviour (one override per property kind)
+    Engine::Project Engine::Render # project_settings_set: the reflected settings, the MSAA levels
     Foundation::Mcp.Reflection Foundation::Mcp.Script # the engine surface root registers their tools too
     Foundation::Mcp Foundation::Json Foundation::Core Foundation::Policy)
 
@@ -22,6 +23,7 @@ target_sources(Editor.Mcp
             ProjectOperations.cppm
             AssetCreate.cppm
             AssetData.cppm
+            ProjectSettingsTools.cppm
             SceneTools.cppm
             AssetUses.cppm
             ProjectHealth.cppm

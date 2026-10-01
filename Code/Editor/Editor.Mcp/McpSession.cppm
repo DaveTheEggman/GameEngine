@@ -35,6 +35,9 @@ export namespace editor::mcp
         /// the open pages editing it (EditorContext::NotifyAssetExternallyModified); the stdio
         /// host has no pages and leaves it unset.
         Function<void(const Guid&)> onAssetWritten;
+        /// project_settings_set saved new settings: the editor host re-applies what depends on
+        /// them, as its Project Settings dialog's Save does; the stdio host leaves it unset.
+        Function<void()> onSettingsChanged;
     };
 
     // The stdio host's project ownership: project_open stores what it opened here and points

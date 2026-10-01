@@ -19,6 +19,7 @@ export import :session;
 export import :operations;
 export import :asset_create;
 export import :asset_data;
+export import :project_settings;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
@@ -164,7 +165,11 @@ export namespace editor::mcp
 
         server.RegisterTool(
             u8"project_info",
-            u8"Details about the currently-open project (name, directory, sources root).",
+            u8"Details about the currently-open project: name, directory, sources root, and its "
+            u8"`settings`, what the editor's Project Settings dialog edits - the default scene, "
+            u8"startup script, default input map, bus layout, UI theme, loading screen and UI font "
+            u8"(each {guid, path}, or null when unset), the native module and the MSAA samples. "
+            u8"project_settings_set changes them.",
             SchemaBuilder().Build(),
             foundation::mcp::ToolAnnotations::ReadOnly(),
             [s](const JsonValue& /*args*/) -> ToolResult
@@ -177,6 +182,7 @@ export namespace editor::mcp
                 out.Set(u8"name", JsonValue::MakeString(String(s->project->Name())));
                 out.Set(u8"directory", JsonValue::MakeString(String(s->project->Directory())));
                 out.Set(u8"sourcesRoot", JsonValue::MakeString(s->project->SourcesRoot()));
+                out.Set(u8"settings", detail::ProjectSettingsJson(*s->project));
                 return out;
             });
     }
@@ -615,7 +621,7 @@ export namespace editor::mcp
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 26;
+    inline constexpr usize kEngineToolCount = 27;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -663,7 +669,7 @@ export namespace editor::mcp
     }
 
     // The engine tool surface EVERY MCP host serves, listed ONCE: reflection (type_list /
-    // type_info), script_api, project_info, the asset tools (list / info / import / cook / uses /
+    // type_info), script_api, project_info / project_settings_set, the asset tools (list / info / import / cook / uses /
     // creators / create / data read and write),
     // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
     // tools, script_validate / script_create, project_export, and the docs:// + project://
@@ -680,6 +686,7 @@ export namespace editor::mcp
         foundation::mcp::RegisterReflectionTools(server);
         foundation::mcp::RegisterScriptTools(server);
         RegisterProjectInfoTool(server, session);
+        RegisterProjectSettingsTool(server, session);
         RegisterAssetTools(server, session);
         RegisterAssetWriteTools(server, session, importers, operations);
         RegisterAssetCreateTools(server, session, creators, operations);

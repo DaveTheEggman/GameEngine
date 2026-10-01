@@ -686,3 +686,102 @@ TEST_CASE("integration.mcp: an agent edits a data asset through its envelope")
     session.project = nullptr;
     (void)RemoveDirectoryRecursive(u8"mcp_asset_data");
 }
+
+// Sedulous 3de51786: project_settings_set sets what the Project Settings dialog edits, typed by
+// the settings' reflection, checked in full first, saved to the manifest, and read back by
+// project_info.
+TEST_CASE("integration.mcp: an agent sets the project's settings")
+{
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    u32 changed = 0;
+    session.onSettingsChanged = [&changed]() { ++changed; };
+    (void)RemoveDirectoryRecursive(u8"mcp_settings");
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_settings"), u8"name",
+                       u8"Settings"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_settings"));
+    const String mapId = FfCall(server, u8"asset_create",
+                                FfStr(FfStr(JsonValue::MakeObject(), u8"type", u8"InputMapAsset"),
+                                      u8"name", u8"Controls"))
+                             .Get(u8"guid")
+                             .AsString();
+    const String sceneId = FfCall(server, u8"asset_create",
+                                  FfStr(FfStr(JsonValue::MakeObject(), u8"creator", u8"Scene"),
+                                        u8"name", u8"Level1"))
+                               .Get(u8"guid")
+                               .AsString();
+
+    const auto refused = [&](JsonValue arguments)
+    {
+        JsonValue params = JsonValue::MakeObject();
+        params.Set(u8"name", JsonValue::MakeString(String(u8"project_settings_set")));
+        params.Set(u8"arguments", Move(arguments));
+        JsonValue req = JsonValue::MakeObject();
+        req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+        req.Set(u8"id", JsonValue::MakeNumber(4));
+        req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
+        req.Set(u8"params", Move(params));
+        LineOutcome line = server.HandleLine(req.ToString().AsView());
+        JsonValue result = json::Parse(line.response.AsView()).value.Get(u8"result");
+        CHECK(result.Get(u8"isError").AsBool());
+        return result.Get(u8"content").At(0).Get(u8"text").AsString();
+    };
+
+    // A scene where an input map goes is refused, and the scene given beside it with it.
+    const String wrongType = refused(FfStr(FfStr(JsonValue::MakeObject(), u8"defaultInputMapId",
+                                                 sceneId.AsView()),
+                                           u8"defaultSceneId", sceneId.AsView()));
+    CHECK(wrongType.AsView().StartsWith(u8"`defaultInputMapId` takes a InputMapAsset; 'Level1' is a"));
+    CHECK(refused(FfStr(JsonValue::MakeObject(), u8"defaultMap", mapId.AsView()))
+              .AsView()
+              .StartsWith(u8"no setting 'defaultMap'; the settings are: name, nativeModule, "));
+    JsonValue msaa3 = JsonValue::MakeObject();
+    msaa3.Set(u8"renderMsaaSamples", JsonValue::MakeNumber(3));
+    CHECK(refused(Move(msaa3)).AsView() == StringView(u8"`renderMsaaSamples` takes 1, 2, 4"));
+    CHECK(changed == 0u);
+    CHECK(FfCall(server, u8"project_info", JsonValue::MakeObject())
+              .Get(u8"settings")
+              .Get(u8"defaultSceneId")
+              .IsNull()); // nothing changed
+
+    JsonValue arguments = FfStr(FfStr(JsonValue::MakeObject(), u8"defaultInputMapId", mapId.AsView()),
+                                u8"defaultSceneId", sceneId.AsView());
+    arguments.Set(u8"renderMsaaSamples", JsonValue::MakeNumber(4));
+    JsonValue set = FfCall(server, u8"project_settings_set", Move(arguments));
+    CHECK(changed == 1u);
+    const JsonValue settings = set.Get(u8"settings");
+    CHECK(settings.Get(u8"defaultInputMapId").Get(u8"path").AsString().AsView().EndsWith(u8"Controls"));
+    CHECK(settings.Get(u8"defaultSceneId").Get(u8"path").AsString() == StringView(u8"Scenes/Level1"));
+    CHECK(settings.Get(u8"renderMsaaSamples").AsNumber() == doctest::Approx(4.0));
+    CHECK(session.project->Settings().defaultScene == u8"Scenes/Level1"); // the path mirror follows
+
+    // Saved: a reopen reads it from the manifest; then "" clears one and leaves the rest.
+    (void)FfCall(server, u8"project_open", FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_settings"));
+    CHECK(FfCall(server, u8"project_info", JsonValue::MakeObject())
+              .Get(u8"settings")
+              .Get(u8"defaultInputMapId")
+              .Get(u8"guid")
+              .AsString() == mapId.AsView());
+    JsonValue cleared = FfCall(server, u8"project_settings_set",
+                               FfStr(JsonValue::MakeObject(), u8"defaultInputMapId", u8""))
+                            .Get(u8"settings");
+    CHECK(cleared.Get(u8"defaultInputMapId").IsNull());
+    CHECK(cleared.Get(u8"defaultSceneId").Get(u8"guid").AsString() == sceneId.AsView());
+
+    owner.project.Reset();
+    session.project = nullptr;
+    (void)RemoveDirectoryRecursive(u8"mcp_settings");
+}
