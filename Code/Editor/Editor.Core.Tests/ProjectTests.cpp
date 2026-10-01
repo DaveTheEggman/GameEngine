@@ -328,6 +328,7 @@ TEST_CASE("editor-project: the settings describe themselves, and the path mirror
     const TypeInfo& type = engine::project::ProjectSettings::StaticType();
     CHECK(type.dataVersion == 9u); // the manifest layout is unchanged
     u32 assets = 0;
+    u32 lists = 0;
     for (const PropertyInfo& property : Properties(type))
     {
         CAPTURE(property.name);
@@ -335,13 +336,16 @@ TEST_CASE("editor-project: the settings describe themselves, and the path mirror
         if (const String* assetType =
                 engine::project::SettingAttribute(property, engine::project::kSettingAssetTypeAttribute))
         {
-            ++assets;
-            CHECK(property.type == &TypeOf<Guid>());
+            // One asset, or a list of them (the other UI fonts).
+            CHECK((engine::project::IsAssetSetting(property) || engine::project::IsAssetListSetting(property)));
+            assets += engine::project::IsAssetSetting(property) ? 1u : 0u;
+            lists += engine::project::IsAssetListSetting(property) ? 1u : 0u;
             CHECK_FALSE(assetType->IsEmpty());
             CHECK(engine::project::SettingAttribute(property, engine::project::kSettingEmptyTextAttribute) != nullptr);
         }
     }
     CHECK(assets == 7u);
+    CHECK(lists == 1u);
     const PropertyInfo* scene = FindProperty(type, "defaultSceneId");
     REQUIRE(scene != nullptr);
     CHECK(*engine::project::SettingAttribute(*scene, engine::project::kSettingAssetTypeAttribute) ==
@@ -353,4 +357,70 @@ TEST_CASE("editor-project: the settings describe themselves, and the path mirror
     settings.RefreshPathMirrors([](const Guid&) { return String(u8"Scenes/Arena"); });
     CHECK(settings.defaultScene == u8"Scenes/Arena");
     CHECK(settings.startupScript.IsEmpty()); // no script: no mirror
+}
+
+// Sedulous 39147576: the other UI fonts are a list appended to the manifest. A manifest saved
+// before it (no uiFontIds key, the same data version) still opens with none, one saved after
+// round-trips the list, the copy the dist manifest is made with carries it, and the walk over
+// the asset settings (export roots, asset_uses, project_health) visits each entry.
+TEST_CASE("project: the other UI fonts are an appended list every asset walk reaches")
+{
+    const StringView dir = u8"scratch_project_ui_fonts_test";
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)RemoveDirectory(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+
+    // Saved before the list: strip its key from the manifest the create wrote.
+    {
+        {
+            UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+            REQUIRE(static_cast<bool>(project));
+            project->Settings().defaultUiFontId = Guid{1, 2};
+            REQUIRE(project->SaveSettings().IsOk());
+        }
+        Result<Array<byte>> bytes = ReadFile(PathJoin(dir, u8"Project.xml").AsView());
+        REQUIRE(bytes.HasValue());
+        std::string older(reinterpret_cast<const char*>(bytes.Value().Data()), bytes.Value().Size());
+        const usize start = older.find("<array name=\"uiFontIds\"");
+        REQUIRE(start != std::string::npos);
+        const usize close = older.find("/>", start);
+        REQUIRE(close != std::string::npos);
+        CHECK(older.substr(start, close - start).find('<', 1) == std::string::npos); // empty: <array .../>
+        older.erase(start, close + 2 - start);
+        foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
+        REQUIRE(root.AsWritable()
+                    ->Save(u8"Project.xml",
+                           Span<const byte>(reinterpret_cast<const byte*>(older.data()), older.size()))
+                    .IsOk());
+    }
+    const Guid title{0x51, 0x52};
+    const Guid caption{0x53, 0x54};
+    {
+        UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+        REQUIRE(static_cast<bool>(project)); // an older manifest still opens
+        CHECK(project->Settings().defaultUiFontId == Guid{1, 2});
+        CHECK(project->Settings().uiFontIds.IsEmpty());
+        project->Settings().uiFontIds.PushBack(title);
+        project->Settings().uiFontIds.PushBack(caption);
+        REQUIRE(project->SaveSettings().IsOk());
+    }
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    REQUIRE(project->Settings().uiFontIds.Size() == 2u);
+    CHECK(project->Settings().uiFontIds[0] == title);
+    CHECK(project->Settings().uiFontIds[1] == caption);
+
+    engine::project::ProjectSettings dist;
+    REQUIRE(engine::project::CopyProjectSettings(project->Settings(), dist).IsOk());
+    CHECK(dist.uiFontIds.Size() == 2u);
+
+    Array<Guid> visited;
+    engine::project::ForEachSettingAsset(project->Settings(),
+                                         [&visited](const PropertyInfo&, const Guid& id) { visited.PushBack(id); });
+    CHECK(visited.Size() == 3u); // the default font, then the list's two
+    CHECK(visited[1] == title);
+    CHECK(visited[2] == caption);
+
+    project.Reset();
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
 }

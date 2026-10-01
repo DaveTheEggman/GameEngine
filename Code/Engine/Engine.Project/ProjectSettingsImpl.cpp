@@ -55,5 +55,9 @@ namespace engine::project
         // Scene-pass MSAA samples (the render subsystem's levels: 1 = off, 2, 4).
         builder.Property<&ProjectSettings::renderMsaaSamples>("renderMsaaSamples")
             .PropAttribute(kSettingLabelAttribute, String(u8"MSAA"));
+        // Cooked fonts the game UI loads beside the default one, each a family a label picks.
+        RegisterArrayType<Guid>(); // the list container (the dialog's list, the MCP tools)
+        builder.Property<&ProjectSettings::uiFontIds>("uiFontIds");
+        asset(u8"Other UI fonts", u8"FontAsset", u8"(none)");
     }
 }

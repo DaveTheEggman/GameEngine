@@ -89,6 +89,9 @@ export namespace engine::project
         u32 renderMsaaSamples = 1; // scene-pass MSAA sample count (1 = off, 2, 4); the player and
                                    // play-in-editor apply it, capability-clamped at runtime (v9).
                                    // Default 1 keeps existing projects byte-identical.
+        Array<Guid> uiFontIds; // cooked fonts the game UI loads BESIDE the default one, each its
+                               // own family a label picks by font-family (a title face beside
+                               // the body text). Appended: a manifest saved before it reads none.
 
         /// Re-derives the human-readable path mirrors (defaultScene, startupScript) from their
         /// guids after a change: `pathOf` answers an asset's source-DB path, empty when unknown.
@@ -122,6 +125,7 @@ export namespace engine::project
             ar.Key("loadingDocumentId");
             ar.GuidValue(loadingDocumentId);
             foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
+            SerializeAppended(ar, "uiFontIds", uiFontIds);
         }
     };
 
@@ -133,6 +137,50 @@ export namespace engine::project
         const Attribute* found =
             FindAttribute(property, StringView(reinterpret_cast<const utf8char*>(key)));
         return found != nullptr ? found->value.TryGet<String>() : nullptr;
+    }
+
+    /// An asset setting: a Guid property naming one asset of its `assetType`.
+    [[nodiscard]] inline bool IsAssetSetting(const PropertyInfo& property) noexcept
+    {
+        return property.type == &TypeOf<Guid>() &&
+               SettingAttribute(property, kSettingAssetTypeAttribute) != nullptr;
+    }
+
+    /// An asset list setting: an Array<Guid> property naming assets of its `assetType`, in order.
+    [[nodiscard]] inline bool IsAssetListSetting(const PropertyInfo& property) noexcept
+    {
+        return property.type == &TypeOf<Array<Guid>>() &&
+               SettingAttribute(property, kSettingAssetTypeAttribute) != nullptr;
+    }
+
+    /// Every asset the settings name, each with the setting that names it (a list setting once
+    /// per entry); unset (nil) ones are skipped. What export roots, asset_uses and project_health
+    /// walk, so a new asset setting reaches all three by being reflected.
+    inline void ForEachSettingAsset(const ProjectSettings& settings,
+                                    const Function<void(const PropertyInfo&, const Guid&)>& visit)
+    {
+        const Instance instance(const_cast<ProjectSettings*>(&settings), &ProjectSettings::StaticType());
+        for (const PropertyInfo& property : Properties(ProjectSettings::StaticType()))
+        {
+            if (IsAssetSetting(property))
+            {
+                const Guid& id = *static_cast<const Guid*>(property.address(instance));
+                if (!id.IsNil())
+                {
+                    visit(property, id);
+                }
+            }
+            else if (IsAssetListSetting(property))
+            {
+                for (const Guid& id : *static_cast<const Array<Guid>*>(property.address(instance)))
+                {
+                    if (!id.IsNil())
+                    {
+                        visit(property, id);
+                    }
+                }
+            }
+        }
     }
 
     /// Read a manifest (Project.xml / player.xml) from `root`. NotFound when absent.

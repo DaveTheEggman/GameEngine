@@ -314,6 +314,26 @@ namespace engine::player
                                      u8"will not render (set Project Settings > Default UI font)");
             }
 
+            // The project's other UI fonts, each a family beside the default one (the subsystem
+            // holds the bound products).
+            if (UI() != nullptr && !m_settings.uiFontIds.IsEmpty())
+            {
+                Array<const foundation::fonts::Font*> extras;
+                for (const Guid& id : m_settings.uiFontIds)
+                {
+                    auto extra = Resources()->Bind<foundation::fonts::Font>(id);
+                    if (extra)
+                    {
+                        extras.PushBack(extra.Get());
+                    }
+                    else
+                    {
+                        LOG_WARNING(u8"Player", u8"UI font {} did not resolve", id);
+                    }
+                }
+                UI()->SetExtraFonts(Span<const foundation::fonts::Font* const>(extras.Data(), extras.Size()));
+            }
+
             // The project's default UI theme: cooked UITheme -> the game context's
             // stylesheet (nil/unresolved = the built-in GameTheme stays).
             if (UI() != nullptr && !m_settings.defaultUiThemeId.IsNil())

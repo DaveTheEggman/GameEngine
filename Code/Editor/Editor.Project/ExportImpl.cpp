@@ -212,13 +212,12 @@ namespace editor
         // reachability root so it (and the assets IT loads, via the normal AssetRef contract) ship.
         add(settings.startupScriptId, ExportRootReason::StartupScript);
 
-        // Every manifest default the PLAYER binds at startup must ship, or the binding silently
-        // fails in a pruned dist (the theme/input-map/bus-layout gap existed before the font).
-        add(settings.defaultInputMapId, ExportRootReason::ManifestDefault);
-        add(settings.defaultBusLayoutId, ExportRootReason::ManifestDefault);
-        add(settings.defaultUiThemeId, ExportRootReason::ManifestDefault);
-        add(settings.defaultUiFontId, ExportRootReason::ManifestDefault);
-        add(settings.loadingDocumentId, ExportRootReason::ManifestDefault); // the boot splash
+        // Every other asset the PLAYER binds at startup must ship, or the binding silently fails
+        // in a pruned dist (the theme/input-map/bus-layout gap existed before the font): each
+        // reflected asset setting, the lists too (the other UI fonts). The scene and the script
+        // above keep their own reasons (add keeps the first).
+        engine::project::ForEachSettingAsset(
+            settings, [&add](const PropertyInfo&, const Guid& id) { add(id, ExportRootReason::ManifestDefault); });
 
         // Phase 2 "Always Export": explicit instance flags, then group subtrees (dynamic membership -
         // whatever is under the flagged folder now). A group that also contains the default scene /

@@ -629,6 +629,17 @@ namespace editor::app
                 m_embeddedApp->UI()->SetDefaultFont(fontProxy.Get());
             }
         }
+        // The other UI fonts, each a family beside the default one; always set, so a font
+        // taken off the list leaves the game UI too.
+        Array<const foundation::fonts::Font*> extras;
+        for (const Guid& id : m_project->Settings().uiFontIds)
+        {
+            if (auto extra = m_resources->Bind<foundation::fonts::Font>(id))
+            {
+                extras.PushBack(extra.Get());
+            }
+        }
+        m_embeddedApp->UI()->SetExtraFonts(Span<const foundation::fonts::Font* const>(extras.Data(), extras.Size()));
     }
 
     void EditorApplication::ShowToast(editor::NoticeKind kind, StringView message)

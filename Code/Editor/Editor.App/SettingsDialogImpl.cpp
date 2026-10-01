@@ -76,7 +76,7 @@ namespace editor::app
         // The asset settings first, all of them, so the slots bind to entries that stay put.
         for (const PropertyInfo& property : Properties(type))
         {
-            if (proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute) != nullptr)
+            if (proj::IsAssetSetting(property))
             {
                 AssetSetting entry;
                 entry.property = &property;
@@ -94,6 +94,10 @@ namespace editor::app
             if (label == nullptr)
             {
                 continue;
+            }
+            if (proj::IsAssetListSetting(property))
+            {
+                continue; // a list of assets: edited over MCP until the dialog has a list row
             }
             if (const String* assetType =
                     proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute))
