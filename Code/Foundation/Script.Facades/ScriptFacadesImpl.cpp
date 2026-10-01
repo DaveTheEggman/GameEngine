@@ -91,6 +91,9 @@ namespace foundation::script
         builder.Method<&Random::value>("value");
         builder.Method<&Random::range>("range");
         builder.Method<&Random::intRange>("intRange");
+        builder.Method<&Random::seed>("seed", {"seed"});
+        // Sedulous's Random.Bool; lowercase `bool` is a keyword in AngelScript (and C++).
+        builder.Method<&Random::boolean>("boolean");
         builder.Constructor();
     }
 
@@ -99,6 +102,13 @@ namespace foundation::script
         builder.Method<&Scene::spawn>("spawn");
         builder.Method<&Scene::find>("find");
         builder.Method<&Scene::findByPath>("findByPath");
+        builder.Method<static_cast<Entity (Scene::*)() const>(&Scene::createEntity)>("createEntity");
+        builder.Method<static_cast<Entity (Scene::*)(String) const>(&Scene::createEntity)>(
+            "createEntity", {"name"});
+        builder.Method<&Scene::destroyEntity>("destroyEntity", {"entity"});
+        builder.Method<&Scene::findEntity>("findEntity", {"id"});
+        builder.Method<&Scene::name>("name");
+        builder.Method<&Scene::entityCount>("entityCount");
         // A computed property (parens-less): `scene.events` reads this scene's event-bus handle.
         builder.ComputedProperty<&Scene::eventsHandle>("events");
         builder.Constructor(); // some backends only materialize constructible foreign classes

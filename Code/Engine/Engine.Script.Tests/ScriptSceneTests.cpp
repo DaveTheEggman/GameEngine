@@ -4809,3 +4809,89 @@ TEST_CASE("script.scene: SceneScripts gives the scene's script time, sends, emit
         u8"    if value == 5 then self.entity.scene:find(\"flagB\"):setName(\"heard\") end\n"
         u8"end\n");
 }
+
+// The scene makes, ends and finds entities by id, and names itself; Random restarts from a seed
+// (Sedulous's Scene and Random). The script checks what it can, the test the rest.
+namespace
+{
+    void CheckSceneEntitiesScript(StringView language, StringView source)
+    {
+        ScriptedScene bed;
+        RefPtr<ScriptClass> maker = MakeClassLang(language, u8"Maker", source, {u8"onStart"});
+        const scene::EntityHandle holder = bed.AddScripted(maker, u8"holder");
+        const u32 before = bed.scene.EntityCount();
+
+        bed.Start();
+        bed.Frame();
+
+        ScriptComponent* comp = bed.components->Get(holder);
+        REQUIRE(comp != nullptr);
+        CHECK_FALSE(comp->behaviors[0].faulted);
+        CHECK(bed.scene.GetEntityName(holder) == StringView(u8"made"));
+        // "kept" stays; "gone" was made and destroyed, gone once the frame ended.
+        CHECK(bed.scene.FindEntityByName(u8"kept").IsAssigned());
+        CHECK_FALSE(bed.scene.FindEntityByName(u8"gone").IsAssigned());
+        CHECK(bed.scene.EntityCount() == before + 2u); // kept + the unnamed one
+    }
+}
+
+TEST_CASE("script.scene: a behaviour makes, ends and finds entities by id; Random restarts from a "
+          "seed (AngelScript)")
+{
+    CheckSceneEntitiesScript(
+        u8"angelscript",
+        u8"class Maker {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Maker(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        Scene@ scene = self.scene;\n"
+        u8"        uint count = scene.entityCount();\n"
+        u8"        Entity@ kept = scene.createEntity(\"kept\");\n"
+        u8"        Entity@ unnamed = scene.createEntity();\n"
+        u8"        Entity@ gone = scene.createEntity(\"gone\");\n"
+        u8"        scene.destroyEntity(gone);\n"
+        u8"        Entity@ found = scene.findEntity(kept.id());\n"
+        u8"        Random::seed(42);\n"
+        u8"        float first = Random::value();\n"
+        u8"        bool flag = Random::boolean();\n"
+        u8"        Random::seed(42);\n"
+        u8"        bool again = Random::value() == first && Random::boolean() == flag;\n"
+        // A destroy during play lands at the frame's end: `gone` still counts here.
+        u8"        if (found.isValid() && found.name() == \"kept\" && unnamed.isValid()\n"
+        u8"            && scene.name() == \"script-test\" && scene.entityCount() == count + 3\n"
+        u8"            && !scene.findEntity(Guid(\"not-a-guid\")).isValid() && again) {\n"
+        u8"            self.setName(\"made\");\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n");
+}
+
+TEST_CASE("script.scene: a behaviour makes, ends and finds entities by id; Random restarts from a "
+          "seed (Luau)")
+{
+    CheckSceneEntitiesScript(
+        u8"luau",
+        u8"Maker = {}\n"
+        u8"Maker.__index = Maker\n"
+        u8"function Maker.new(entity) return setmetatable({ entity = entity }, Maker) end\n"
+        u8"function Maker:onStart()\n"
+        u8"    local me = self.entity\n"
+        u8"    local scene = me.scene\n"
+        u8"    local count = scene:entityCount()\n"
+        u8"    local kept = scene:createEntity(\"kept\")\n"
+        u8"    local unnamed = scene:createEntity()\n"
+        u8"    local gone = scene:createEntity(\"gone\")\n"
+        u8"    scene:destroyEntity(gone)\n"
+        u8"    local found = scene:findEntity(kept:id())\n"
+        u8"    Random.seed(42)\n"
+        u8"    local first = Random.value()\n"
+        u8"    local flag = Random.boolean()\n"
+        u8"    Random.seed(42)\n"
+        u8"    local again = Random.value() == first and Random.boolean() == flag\n"
+        u8"    if found:isValid() and found:name() == \"kept\" and unnamed:isValid()\n"
+        u8"        and scene:name() == \"script-test\" and scene:entityCount() == count + 3\n"
+        u8"        and not scene:findEntity(Guid.new(\"not-a-guid\")):isValid() and again then\n"
+        u8"        me:setName(\"made\")\n"
+        u8"    end\n"
+        u8"end\n");
+}

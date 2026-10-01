@@ -354,6 +354,19 @@ export namespace foundation::script
             ScriptRuntimeBinding* binding = Time::Resolve();
             return (binding != nullptr && max >= min) ? binding->random.NextInt(min, max) : min;
         }
+        /// Restarts the run's sequence from `seed`: the same seed, the same draws after it.
+        static void seed(i64 seed)
+        {
+            if (ScriptRuntimeBinding* binding = Time::Resolve())
+            {
+                binding->random = core::Random(static_cast<u64>(seed));
+            }
+        }
+        [[nodiscard]] static bool boolean()
+        {
+            ScriptRuntimeBinding* binding = Time::Resolve();
+            return binding != nullptr && binding->random.NextBool();
+        }
     };
 
     /// A BOUND scene handle. `scene.spawn(prefab,x,y,z)` / `scene.find(name)` /
@@ -378,6 +391,18 @@ export namespace foundation::script
         /// Resolve a '/'-separated hierarchy path from THIS scene's roots, e.g.
         /// "Player/Weapon/Muzzle" (invalid if any segment misses).
         [[nodiscard]] Entity findByPath(String path) const;
+        // ---- as Sedulous's Scene: entities made, ended and found by id; the scene's name ----
+        [[nodiscard]] Entity createEntity() const;
+        [[nodiscard]] Entity createEntity(String name) const;
+        /// Ends the entity and everything under it (as entity.destroy()).
+        void destroyEntity(Entity entity) const;
+        /// The entity with this stable id (an EntityRef's), invalid if none.
+        [[nodiscard]] Entity findEntity(Guid id) const;
+        [[nodiscard]] String name() const
+        {
+            return scene != nullptr ? String(scene->Name()) : String{};
+        }
+        [[nodiscard]] u32 entityCount() const { return scene != nullptr ? scene->EntityCount() : 0u; }
         /// This scene's event-bus handle: `scene.events.emit(name, payload)`. A computed property
         /// (parens-less), so scripts write `scene.events.emit(...)` without call parens. Defined
         /// out-of-line (SceneEvents is completed below).
@@ -517,6 +542,23 @@ export namespace foundation::script
         const scene::EntityHandle under =
             (parent.scene == scene && parent.Live()) ? parent.Handle() : scene::EntityHandle::Invalid();
         return WrapEntity(scene, spawner->Spawn(prefab, position, rotation, under));
+    }
+
+    inline Entity Scene::createEntity() const { return createEntity(String{}); }
+    inline Entity Scene::createEntity(String name) const
+    {
+        return scene != nullptr ? WrapEntity(scene, scene->CreateEntity(name.AsView())) : Entity{};
+    }
+    inline void Scene::destroyEntity(Entity entity) const
+    {
+        if (entity.scene == scene)
+        {
+            entity.destroy();
+        }
+    }
+    inline Entity Scene::findEntity(Guid id) const
+    {
+        return (scene != nullptr && !id.IsNil()) ? WrapEntity(scene, scene->FindEntity(id)) : Entity{};
     }
 
     inline Entity Scene::find(String name) const
