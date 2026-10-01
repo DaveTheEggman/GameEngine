@@ -118,7 +118,7 @@ else()
         add_executable(Engine.GamePlayer ShipMain.cpp)
         target_link_libraries(Engine.GamePlayer PRIVATE
             Engine.Player.Main ${ENGINE_GAME_NATIVE_TARGET} Foundation::Policy)
-        util_copy_runtime_deps(Engine.GamePlayer EXTRA ${BUILDSYSTEM_DXC_LIB} ${BUILDSYSTEM_WGPU_LIB})
+        util_copy_runtime_deps(Engine.GamePlayer EXTRA ${BUILDSYSTEM_WGPU_LIB})
         if(UNIX AND NOT APPLE)
             set_property(TARGET Engine.GamePlayer APPEND PROPERTY BUILD_RPATH "$ORIGIN")
             set_property(TARGET Engine.GamePlayer PROPERTY INSTALL_RPATH "$ORIGIN")
@@ -128,14 +128,15 @@ else()
     # Stage the player's runtime deps beside it + emit Engine.Player.runtime-libs (the export
     # host-template reads that list for its sidecars). SDL3 links statically in a static engine
     # build (no DLL to stage) and shared under ENGINE_SHARED_LIBS, where TARGET_RUNTIME_DLLS
-    # stages it like any other link dependency;
-    # DXC (libdxcompiler.so / dxcompiler.dll) is dlopen'd at runtime by
-    # the renderer's shader compiler and is NOT a link dependency, so it must be staged explicitly -
-    # without it a copied dist finds no DXC and the renderer stays inert. On Linux, $ORIGIN on the
-    # player's RUNPATH lets the loader find the staged copy beside the exe (Windows searches the exe
-    # dir for a bare DLL by default).
-    # wgpu-native rides along for the same reason (dlopen dependency; --webgpu in a dist).
-    util_copy_runtime_deps(Engine.Player EXTRA ${BUILDSYSTEM_DXC_LIB} ${BUILDSYSTEM_WGPU_LIB})
+    # stages it like any other link dependency.
+    # wgpu-native is dlopen'd at runtime (--webgpu) and NOT a link dependency, so it is staged
+    # explicitly; on Linux, $ORIGIN on the player's RUNPATH lets the loader find it beside the exe
+    # (Windows searches the exe dir for a bare DLL by default).
+    # DXC is NOT staged: a player never compiles shaders. A dist renders from its cooked
+    # shaders.dpak, and a dev player run from Bin/ finds the vendored compiler at
+    # BUILDSYSTEM_DXC_PATH. Only the editor and the cook tools carry DXC (its glibc 2.38 floor would
+    # also keep a template from ever running on an older system, the Steam Deck's).
+    util_copy_runtime_deps(Engine.Player EXTRA ${BUILDSYSTEM_WGPU_LIB})
     if(UNIX AND NOT APPLE)
         set_property(TARGET Engine.Player APPEND PROPERTY BUILD_RPATH "$ORIGIN")
         set_property(TARGET Engine.Player PROPERTY INSTALL_RPATH "$ORIGIN")

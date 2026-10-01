@@ -1284,9 +1284,10 @@ namespace editor
         {
             onProgress(u8"Staging runtime libs...", 0.96f);
         }
-        // Template sidecars (runtime libs) from the template dir. The cooked shader pack retires the
-        // runtime DXC compiler, so its libs are dropped here - the dist ships no dxcompiler/dxil
-        // (retires the DXC-runtime-sidecar fragility class for dists).
+        // Template sidecars (runtime libs) from the template dir. A dist renders from its cooked
+        // shader pack and never compiles; the player build no longer lists DXC at all, and a template
+        // made before that still might, so its libs are dropped here - the dist ships no
+        // dxcompiler/dxil.
         for (const String& sidecar : tmpl->sidecars)
         {
             if (nativeWeb && (sidecar.AsView().EndsWith(u8".js") ||
