@@ -63,6 +63,18 @@ export namespace editor
         ~IPlaybackPage() = default;
     };
 
+    /// A page that runs a game (a Game tab). The editor stops every one before it unloads code a
+    /// run executes (a native module reload); a run's own exit request stops only its own tab.
+    class IGameRunPage : public IPageService
+    {
+    public:
+        /// Stops the run, if one is going; the tab stays open.
+        virtual void StopRun() = 0;
+
+    protected:
+        ~IGameRunPage() = default;
+    };
+
     // One open document. Owns its command stack; the context routes Edit>Undo/Redo to the
     // active page's stack. `Commands().OnChanged` is wired by the base to mark the page dirty.
     class EditorPage

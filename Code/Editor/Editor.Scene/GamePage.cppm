@@ -231,7 +231,9 @@ export namespace editor
         void OnError(const foundation::script::ScriptError& error) override;
     };
 
-    class GameEditorPage final : public app::UIEditorPage, public IPieInstancePage
+    class GameEditorPage final : public app::UIEditorPage,
+                                 public IPieInstancePage,
+                                 public IGameRunPage
     {
     public:
         /// `pieId` names the tab: the id its dock panel persists under and the PIE tools address
@@ -244,6 +246,7 @@ export namespace editor
               m_gameInstance(instance), m_pieId(pieId)
         {
             Provide<IPieInstancePage>(*this); // what the PIE tools act through
+            Provide<IGameRunPage>(*this);     // what the editor stops before a native reload
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
             m_input = host.Ctx().GetSubsystem<engine::input::InputSubsystem>();
@@ -252,9 +255,19 @@ export namespace editor
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
             m_viewport->ClearColor = rhi::ClearColor{0.05f, 0.05f, 0.06f, 1.0f};
 
-            // "Exit" from embedded game code = stop this play session (deferred by the
-            // app to after the page-update loop - never torn down mid-script-dispatch).
-            context.StopGameRun = Function<void()>{[this]() { Stop(); }};
+            // THIS instance's exit request stops THIS tab's run, whichever tab it is: the
+            // script asking fires inside the embedded app's update, which runs before the
+            // pages, so the stop is deferred to this page's next OnUpdate, no script call on
+            // the stack.
+            if (m_gameInstance != nullptr)
+            {
+                m_gameInstance->RunBinding().requestExit = Function<void(i32)>{
+                    [this](i32 code)
+                    {
+                        LOG_INFO(u8"Editor", u8"Game: '{}' requested exit({})", m_pieId, code);
+                        m_exitRequested = true;
+                    }};
+            }
 
             // Toolbar: Play / Stop / Restart + the run-state readout.
             GameEditorPage* self = this;
@@ -343,6 +356,7 @@ export namespace editor
         /// Total teardown - the fresh-run model's whole cleanup story. Also cancels a
         /// Play still waiting on the cook.
         void Stop() override;
+        void StopRun() override { Stop(); }
 
         // ---- IPieInstancePage: the run as the PIE tools see it ----
         [[nodiscard]] StringView PieId() const noexcept override { return m_pieId.AsView(); }
@@ -519,5 +533,6 @@ export namespace editor
         u32 m_captureHeight = 0;
         bool m_running = false;
         bool m_pendingPlay = false; // Play latched, waiting for the cook to go idle
+        bool m_exitRequested = false; // the game asked to exit; the run stops next OnUpdate
     };
 }

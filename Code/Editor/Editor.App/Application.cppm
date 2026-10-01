@@ -405,7 +405,6 @@ export namespace editor::app
         UniquePtr<runtime::EmbeddedApplicationHost> m_embeddedHost;
         // (the transport pumps on NetworkSubsystem::PostUpdate)
         UniquePtr<engine::runtime::DefaultApplication> m_embeddedApp;
-        bool m_stopGameRequested = false; // borrowed (exe injects)
 
         // Log drain state (see DrainLog).
         Array<editor::EditorLogEntry> m_pendingLog;

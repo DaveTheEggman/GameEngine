@@ -366,13 +366,12 @@ namespace editor::app
         m_embeddedHost = MakeUnique<runtime::EmbeddedApplicationHost>(m_editorAllocator, host,
                                                                       m_runtimeContext);
         m_embeddedHost->SetExitHandler(Function<void(int)>{
-            [this](int code)
+            [](int code)
             {
-                // "Exit" from embedded game code = stop the play session. DEFERRED to
-                // after the page-update loop: the request usually fires from inside the
-                // game script's update(), and Stop tears the script down.
-                LOG_INFO(u8"Editor", u8"embedded app requested exit({})", code);
-                m_stopGameRequested = true;
+                // A Game tab routes its own instance's exit to its own run; what reaches here
+                // is an instance no tab is playing, which has no run to stop.
+                LOG_INFO(u8"Editor", u8"embedded app requested exit({}) with no Game tab playing it",
+                         code);
             }});
         m_embeddedApp = MakeUnique<engine::runtime::DefaultApplication>(m_editorAllocator);
         m_embeddedApp->SetDataRoot(m_config.dataRoot.AsView()); // the editor's root, not a re-walk
@@ -979,16 +978,6 @@ namespace editor::app
         for (const PagePanel& entry : m_pagePanels)
         {
             entry.page->OnUpdate(host, dt);
-        }
-
-        // Deferred embedded-exit: safe here - no script dispatch is on the stack.
-        if (m_stopGameRequested)
-        {
-            m_stopGameRequested = false;
-            if (m_context.StopGameRun)
-            {
-                m_context.StopGameRun();
-            }
         }
     }
 
@@ -2718,10 +2707,13 @@ namespace editor::app
                              u8"No native module declared (Project Settings > Native module).");
             return;
         }
-        // Run bracket: a live game run executes plugin code - stop it before teardown.
-        if (m_context.StopGameRun)
+        // Run bracket: a live game run executes plugin code - stop every one before teardown.
+        for (const UniquePtr<EditorPage>& open : m_context.OpenPages())
         {
-            m_context.StopGameRun();
+            if (IGameRunPage* run = ServiceOf<IGameRunPage>(open.Get()))
+            {
+                run->StopRun();
+            }
         }
         // Scene bracket (game-native-code.md N6/S1): every live scene on the embedded runtime
         // is snapshotted through the wire format BEFORE the unload withdraws the plugin's

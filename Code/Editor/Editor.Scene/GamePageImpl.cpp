@@ -594,6 +594,11 @@ namespace editor
         // A capture recorded last frame: the GPU has to finish the copy.
         m_capture.Complete(host.Graphics() != nullptr ? host.Graphics()->Raw() : nullptr,
                            Allocator());
+        if (m_exitRequested)
+        {
+            m_exitRequested = false;
+            Stop();
+        }
         // A Play pressed while the cook ran (or just kicked one) starts here, on the first
         // frame the cook service reports idle - never against a half-written cooked DB.
         if (m_pendingPlay && !m_context->IsCookBusy())
@@ -752,6 +757,7 @@ namespace editor
         if (m_gameInstance != nullptr)
         {
             m_gameInstance->SetInputSource(m_input != nullptr ? &m_input->ShellSource() : nullptr);
+            m_gameInstance->RunBinding().requestExit = Function<void(i32)>{}; // it points here
         }
         // Destroy THIS tab's extra instance (unregisters its scene manager + tears down its run
         // host) so nothing dangling is ticked/rendered after the tab closes. No-op for the primary.
@@ -760,7 +766,6 @@ namespace editor
             m_app->ReleaseInstance(m_gameInstance);
         }
         m_gameInstance = nullptr;
-        m_context->StopGameRun = Function<void()>{};
         if (m_host->Graphics() != nullptr)
         {
             m_capture.Release(m_host->Graphics()->Raw()); // the readback buffer, while the device lives

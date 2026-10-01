@@ -389,9 +389,6 @@ export namespace editor
         /// `pieId` names the tab: the id its dock panel persists under and the PIE tools address
         /// it by (`game-page`, then `game-page-1`, ...).
         Function<UniquePtr<EditorPage>(bool newInstance, StringView pieId)> GamePageFactory;
-        /// Stops the Game tab's live run, if any (the embedded app's RequestExit lands
-        /// here, deferred to after the page-update loop). Set by the Game page.
-        Function<void()> StopGameRun;
 
         /// Export seam: transcodes a scene/prefab instance's TEXT source stream to the
         /// binary wire for staging. Registered by the scene editor plugin (needs scene
