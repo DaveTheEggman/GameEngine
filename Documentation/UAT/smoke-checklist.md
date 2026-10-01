@@ -167,7 +167,7 @@ audible/interactive items were never auto-checked - those remain for user sessio
       lowpass ~1500 Hz, cook, set it as Default bus layout in project settings —
       the player and Game tab start with quiet music and muffled effects.
 - [ ] User volumes: run the player, change a bus volume from script
-      (Audio.setBusVolume("music", 0.1)), quit, relaunch — the volume persisted
+      (Audio.setBusVolume(AudioBus.Music, 0.1)), quit, relaunch — the volume persisted
       (<userdata>/<project>.user.settings.xml).
 - [ ] Wren: game script calls Audio.setBusVolume/busMuted/stopMusic without faulting.
 
@@ -211,7 +211,7 @@ audible/interactive items were never auto-checked - those remain for user sessio
 ## Audio niceties (merge, 2026-07-19)
 - [ ] Named bus: bus layout with a custom slot (drums, parent effects, lowpass 1200) as
       project default; an AudioSource with busName=drums sounds muffled while other
-      Effects stay clean; Audio.setBusVolume("drums", 0.2) dims just it.
+      Effects stay clean; Audio.setNamedBusVolume("drums", 0.2) dims just it.
 - [ ] Faded steal: tiny voice pool (SetAudioEngineSettings voiceCount 4) + one-shot
       spam — stolen voices fade ~30 ms, no clicks.
 - [ ] Playhead: clip page playhead tracks the TRUE cursor (looping clip visibly wraps;

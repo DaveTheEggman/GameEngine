@@ -773,6 +773,29 @@ export namespace engine::audio
             return {};
         }
 
+        // ---- asset-id addressing (the facade's Sedulous-shaped calls) ----
+        // A clip or cue by its guid, bound through the manager like a component ref. A nil id,
+        // an id naming nothing or something of another type warns once per id and resolves
+        // null - scripts never fault on content problems.
+        [[nodiscard]] RefPtr<AudioClip> ClipById(foundation::resource::ResourceManager& resources,
+                                                 const Guid& id)
+        {
+            if (!IsAudioOfType(resources, id, u8"AudioClipSource"))
+            {
+                return {};
+            }
+            return RefPtr<AudioClip>(resources.Bind<AudioClip>(id).Get());
+        }
+        [[nodiscard]] RefPtr<SoundCue> CueById(foundation::resource::ResourceManager& resources,
+                                               const Guid& id)
+        {
+            if (!IsAudioOfType(resources, id, u8"SoundCueSource"))
+            {
+                return {};
+            }
+            return RefPtr<SoundCue>(resources.Bind<SoundCue>(id).Get());
+        }
+
         VoiceHandle PlayMusicByPath(foundation::resource::ResourceManager& resources, StringView path,
                                     f32 crossFadeSeconds = 1.0f)
         {
@@ -925,6 +948,33 @@ export namespace engine::audio
             return result;
         }
 
+        [[nodiscard]] bool IsAudioOfType(foundation::resource::ResourceManager& resources,
+                                         const Guid& id, StringView typeName)
+        {
+            if (id.IsNil())
+            {
+                return false;
+            }
+            foundation::content::Instance* instance = resources.Database().GetInstance(id);
+            const char* reason = nullptr;
+            if (instance == nullptr)
+            {
+                reason = "no content with this id";
+            }
+            else if (instance->TypeName() != typeName)
+            {
+                reason = "not of the type this call plays";
+            }
+            if (reason == nullptr)
+            {
+                return true;
+            }
+            utf8char text[37];
+            id.ToChars(text);
+            WarnPathOnce(StringView(text), StringView(reinterpret_cast<const utf8char*>(reason)));
+            return false;
+        }
+
         void WarnPathOnce(StringView path, StringView reason)
         {
             String key(path);
@@ -979,11 +1029,13 @@ export namespace engine::audio
         HashMap<String, bool> m_warnedScriptPaths; // warn-once per content path
     };
     // The scripting facade (the Input facade's twin): statics on a foreign class
-    // resolving the CURRENT script context's bound AudioScriptBinding. Bus addressing
-    // by name ("master"/"effects"/"music"/"ui" + the layout's custom buses; unknown =
-    // no-op / neutral read). Clip/cue PLAYBACK addresses content by its source-DB
-    // path (the string shown in the editor) - resource addressing, no entity handles
-    // needed; missing content warns once per path and no-ops.
+    // resolving the CURRENT script context's bound AudioScriptBinding. As Sedulous's: clips
+    // and cues by asset id (playOneShot / playOneShot3D / playCue / playCue3D / playMusic),
+    // the four buses by AudioBus (setBusVolume / busVolume). Ours beside them, named apart
+    // since a same-arity overload cannot share a name: the *Path forms play content by its
+    // source-DB path (the string shown in the editor), and setNamedBusVolume / namedBusVolume
+    // reach a bus by name ("master"/"effects"/"music"/"ui" + the layout's custom buses;
+    // unknown = no-op / neutral read). Missing content warns once and no-ops.
     class Audio final : public Object
     {
         RTTI_OBJECT(Audio, Object)
@@ -1019,8 +1071,99 @@ export namespace engine::audio
             return true;
         }
 
-        // ---- content-path playback (returns whether a voice actually started) ----
-        static bool playOneShot(String path)
+        // ---- playback by asset id (Sedulous's Audio facade): the voice, invalid when the id did
+        // not resolve or no engine runs ----
+        static VoiceHandle playOneShot(Guid clip) { return playOneShot(clip, AudioBus::Effects, 1.0f, 1.0f); }
+        static VoiceHandle playOneShot(Guid clip, AudioBus bus) { return playOneShot(clip, bus, 1.0f, 1.0f); }
+        static VoiceHandle playOneShot(Guid clip, AudioBus bus, f32 volume)
+        {
+            return playOneShot(clip, bus, volume, 1.0f);
+        }
+        static VoiceHandle playOneShot(Guid clip, AudioBus bus, f32 volume, f32 pitch)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return {};
+            }
+            RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
+            return resolved.Get() != nullptr ? subsystem->PlayOneShot(resolved, bus, volume, pitch)
+                                             : VoiceHandle{};
+        }
+        static VoiceHandle playOneShot3D(Guid clip, Float3 position)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return {};
+            }
+            RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
+            return resolved.Get() != nullptr ? subsystem->PlayOneShot3D(resolved, position)
+                                             : VoiceHandle{};
+        }
+        static VoiceHandle playCue(Guid cue) { return playCue(cue, AudioBus::Effects); }
+        static VoiceHandle playCue(Guid cue, AudioBus bus)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return {};
+            }
+            RefPtr<SoundCue> resolved = subsystem->CueById(*resources, cue);
+            return resolved.Get() != nullptr ? subsystem->PlayCueOneShot(resolved, bus)
+                                             : VoiceHandle{};
+        }
+        static VoiceHandle playCue3D(Guid cue, Float3 position)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return {};
+            }
+            RefPtr<SoundCue> resolved = subsystem->CueById(*resources, cue);
+            return resolved.Get() != nullptr ? subsystem->PlayCueOneShot3D(resolved, position)
+                                             : VoiceHandle{};
+        }
+        /// The music track, cross-faded from the last.
+        static VoiceHandle playMusic(Guid clip) { return playMusic(clip, 1.0f, 1.0f); }
+        static VoiceHandle playMusic(Guid clip, f32 crossFadeSeconds)
+        {
+            return playMusic(clip, crossFadeSeconds, 1.0f);
+        }
+        static VoiceHandle playMusic(Guid clip, f32 crossFadeSeconds, f32 volume)
+        {
+            AudioSubsystem* subsystem = nullptr;
+            foundation::resource::ResourceManager* resources = nullptr;
+            if (!ResolvePlayback(subsystem, resources))
+            {
+                return {};
+            }
+            RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
+            return resolved.Get() != nullptr
+                       ? subsystem->PlayMusic(resolved, Max(crossFadeSeconds, 0.0f), volume)
+                       : VoiceHandle{};
+        }
+
+        // ---- the four buses by enum (Sedulous's); a layout's named buses by name below ----
+        static void setBusVolume(AudioBus bus, f32 volume)
+        {
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->SetBusVolume(bus, Clamp(volume, 0.0f, 4.0f));
+            }
+        }
+        [[nodiscard]] static f32 busVolume(AudioBus bus)
+        {
+            AudioEngine* engine = Resolve();
+            return engine != nullptr ? engine->BusVolume(bus) : 1.0f;
+        }
+
+        // ---- content-path playback, the path forms (returns whether a voice actually started) ----
+        static bool playOneShotPath(String path)
         {
             AudioSubsystem* subsystem = nullptr;
             foundation::resource::ResourceManager* resources = nullptr;
@@ -1030,7 +1173,7 @@ export namespace engine::audio
             }
             return subsystem->PlayOneShotByPath(*resources, path.AsView()).IsValid();
         }
-        static bool playOneShot3D(String path, f32 x, f32 y, f32 z)
+        static bool playOneShot3DPath(String path, f32 x, f32 y, f32 z)
         {
             AudioSubsystem* subsystem = nullptr;
             foundation::resource::ResourceManager* resources = nullptr;
@@ -1041,7 +1184,7 @@ export namespace engine::audio
             return subsystem->PlayOneShot3DByPath(*resources, path.AsView(), Float3{x, y, z})
                 .IsValid();
         }
-        static bool playCue(String path)
+        static bool playCuePath(String path)
         {
             AudioSubsystem* subsystem = nullptr;
             foundation::resource::ResourceManager* resources = nullptr;
@@ -1051,7 +1194,7 @@ export namespace engine::audio
             }
             return subsystem->PlayCueByPath(*resources, path.AsView()).IsValid();
         }
-        static bool playMusic(String path, f32 fadeSeconds)
+        static bool playMusicPath(String path, f32 fadeSeconds)
         {
             AudioSubsystem* subsystem = nullptr;
             foundation::resource::ResourceManager* resources = nullptr;
@@ -1070,7 +1213,7 @@ export namespace engine::audio
 
         // Bus addressing: the four fixed names first, then the applied layout's NAMED
         // custom buses (item: named bus trees) - unknown = no-op / neutral read.
-        static void setBusVolume(String bus, f32 volume)
+        static void setNamedBusVolume(String bus, f32 volume)
         {
             AudioEngine* engine = Resolve();
             if (engine == nullptr)
@@ -1088,7 +1231,7 @@ export namespace engine::audio
                 engine->SetNamedBusVolume(bus.AsView(), clamped);
             }
         }
-        [[nodiscard]] static f32 busVolume(String bus)
+        [[nodiscard]] static f32 namedBusVolume(String bus)
         {
             AudioEngine* engine = Resolve();
             if (engine == nullptr)

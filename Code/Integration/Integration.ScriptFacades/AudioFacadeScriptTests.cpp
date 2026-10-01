@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Audio script FACADE end-to-end: a script drives Audio.playOneShot/playCue/playMusic by content
-// path through the resource seam. Cross-layer (scripting x audio), so it lives in Integration, not
+// Audio script FACADE end-to-end: a script drives Audio.playOneShot/playCue/playMusic by asset id
+// and the four buses by AudioBus (Sedulous's facade), and the *Path forms by content path, through
+// the resource seam. Cross-layer (scripting x audio), so it lives in Integration, not
 // in Engine.Audio.Tests (which stays backend-neutral). Driven on both surviving backends (AngelScript
 // + Luau) through a shared fixture; guarded so a build with neither compiles to an empty TU.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #if defined(OPTION_HAS_ANGELSCRIPT) || defined(OPTION_HAS_LUAU)
 #include <cmath>
+#include <string>
 
 import foundation.core;
 import foundation.audio;
@@ -61,11 +63,25 @@ namespace
 
     // The full facade drive, parameterized by the backend's manager + its two scripts (the main
     // program + the null-binding probe). Shared so AngelScript and Luau prove identical behavior.
+    // Keeps a script's errors, so a refused load says why.
+    struct ErrorLog final : foundation::script::IScriptErrorHandler
+    {
+        String text;
+        void OnError(const foundation::script::ScriptError& error) override
+        {
+            text += Format(u8"{}:{}: {}\n", error.module, error.line, error.message);
+        }
+    };
+
+    // `idScript` spells the id-addressed program for the clip's and the cue's guids.
+    using IdScript = Function<String(StringView beep, StringView steps)>;
+
     void DriveAudioFacade(RefPtr<foundation::script::IScriptManager> scripts,
                           foundation::core::StringView script,
-                          foundation::core::StringView bareScript)
+                          foundation::core::StringView bareScript, const IdScript& idScript)
     {
         REQUIRE(scripts.Get() != nullptr);
+        RegisterCoreTypes(); // Guid and Float3, which the id forms take
         RegisterAudioScriptFacade();
         RegisterAudioResource();
 
@@ -134,6 +150,36 @@ namespace
         REQUIRE(subsystem.Engine()->GetVoiceStatus(subsystem.Engine()->MusicVoice(), music));
         CHECK(music.bus == AudioBus::Music);
 
+        // By asset id (Sedulous's shape): a voice for the clip and the cue, plain and 3D, music,
+        // an invalid voice for an id of the wrong type, and the buses by AudioBus.
+        {
+            utf8char beepText[37];
+            utf8char stepsText[37];
+            beep->Id().ToChars(beepText);
+            steps->Id().ToChars(stepsText);
+            const String byId = idScript(StringView(beepText), StringView(stepsText));
+            const usize before = subsystem.Engine()->ActiveVoiceCount();
+            RefPtr<foundation::script::IScriptContext> ids = scripts->CreateContext();
+            ErrorLog errors;
+            ids->SetErrorHandler(&errors);
+            subsystem.ExposeToScript(*ids, &manager);
+            const Status loaded = ids->Load(byId.AsView(), u8"main");
+            if (!loaded.IsOk())
+            {
+                MESSAGE(std::string(reinterpret_cast<const char*>(errors.text.CStr())));
+            }
+            REQUIRE(loaded.IsOk());
+            CHECK(ids->GetGlobal(u8"Played").Get<bool>());
+            CHECK(ids->GetGlobal(u8"Spatial").Get<bool>());
+            CHECK(ids->GetGlobal(u8"Cue").Get<bool>());
+            CHECK(ids->GetGlobal(u8"Cue3D").Get<bool>());
+            CHECK(ids->GetGlobal(u8"Music").Get<bool>());
+            CHECK_FALSE(ids->GetGlobal(u8"WrongType").Get<bool>());
+            CHECK(subsystem.Engine()->ActiveVoiceCount() >= before + 4u);
+            CHECK(subsystem.Engine()->BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
+            CHECK(ids->GetGlobal(u8"MusicVolume").Get<f64>() == doctest::Approx(0.5));
+        }
+
         // No binding bound: playback calls report false, never a fault.
         RefPtr<foundation::script::IScriptContext> bare = scripts->CreateContext();
         REQUIRE(bare->Load(bareScript, u8"main").IsOk());
@@ -149,36 +195,70 @@ namespace
 }
 
 #ifdef OPTION_HAS_ANGELSCRIPT
-TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by CONTENT PATH "
-          "through the resource seam (missing paths no-op, never fault)")
+TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by asset id and by "
+          "content path, and sets the buses by AudioBus (missing content no-ops, never faults)")
 {
     DriveAudioFacade(
         foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator()),
         u8"bool Played; bool Spatial; bool Cue; bool Music; bool Missing; bool MissingAgain;\n"
         u8"void main() {\n"
-        u8"  Played = Audio::playOneShot(\"sfx/beep\");\n"
-        u8"  Spatial = Audio::playOneShot3D(\"sfx/beep\", 1.0f, 2.0f, 3.0f);\n"
-        u8"  Cue = Audio::playCue(\"sfx/steps\");\n"
-        u8"  Music = Audio::playMusic(\"sfx/beep\", 0.1f);\n"
-        u8"  Missing = Audio::playOneShot(\"sfx/nope\");\n"
-        u8"  MissingAgain = Audio::playOneShot(\"sfx/nope\");\n" // warn-once path
+        u8"  Played = Audio::playOneShotPath(\"sfx/beep\");\n"
+        u8"  Spatial = Audio::playOneShot3DPath(\"sfx/beep\", 1.0f, 2.0f, 3.0f);\n"
+        u8"  Cue = Audio::playCuePath(\"sfx/steps\");\n"
+        u8"  Music = Audio::playMusicPath(\"sfx/beep\", 0.1f);\n"
+        u8"  Missing = Audio::playOneShotPath(\"sfx/nope\");\n"
+        u8"  MissingAgain = Audio::playOneShotPath(\"sfx/nope\");\n" // warn-once path
         u8"}\n",
-        u8"bool Played; void main() { Played = Audio::playOneShot(\"sfx/beep\"); }\n");
+        u8"bool Played; void main() { Played = Audio::playOneShotPath(\"sfx/beep\"); }\n",
+        [](StringView beep, StringView steps)
+        {
+            return Format(
+                u8"bool Played; bool Spatial; bool Cue; bool Cue3D; bool Music; bool WrongType;\n"
+                u8"double MusicVolume;\n"
+                u8"void main() {{\n"
+                u8"  Guid clip = Guid(\"{}\");\n"
+                u8"  Guid cue = Guid(\"{}\");\n"
+                u8"  Played = Audio::playOneShot(clip, AudioBus::Effects, 0.8f, 1.1f).isValid();\n"
+                u8"  Spatial = Audio::playOneShot3D(clip, Float3(1.0f, 2.0f, 3.0f)).isValid();\n"
+                u8"  Cue = Audio::playCue(cue, AudioBus::UI).isValid();\n"
+                u8"  Cue3D = Audio::playCue3D(cue, Float3(0.0f, 1.0f, 0.0f)).isValid();\n"
+                u8"  Music = Audio::playMusic(clip, 0.1f, 0.55f).isValid();\n"
+                u8"  WrongType = Audio::playOneShot(cue).isValid();\n"
+                u8"  Audio::setBusVolume(AudioBus::Music, 0.5f);\n"
+                u8"  MusicVolume = Audio::busVolume(AudioBus::Music);\n"
+                u8"}}\n",
+                beep, steps);
+        });
 }
 #endif // OPTION_HAS_ANGELSCRIPT
 
 #ifdef OPTION_HAS_LUAU
-TEST_CASE("audio-facade: the Luau Audio facade plays clips/cues/music by CONTENT PATH "
-          "through the resource seam (missing paths no-op, never fault)")
+TEST_CASE("audio-facade: the Luau Audio facade plays clips/cues/music by asset id and by content "
+          "path, and sets the buses by AudioBus (missing content no-ops, never faults)")
 {
     DriveAudioFacade(foundation::script::CreateLuauScriptManager(DefaultAllocator()),
-                     u8"Played = Audio.playOneShot(\"sfx/beep\")\n"
-                     u8"Spatial = Audio.playOneShot3D(\"sfx/beep\", 1, 2, 3)\n"
-                     u8"Cue = Audio.playCue(\"sfx/steps\")\n"
-                     u8"Music = Audio.playMusic(\"sfx/beep\", 0.1)\n"
-                     u8"Missing = Audio.playOneShot(\"sfx/nope\")\n"
-                     u8"MissingAgain = Audio.playOneShot(\"sfx/nope\")\n",
-                     u8"Played = Audio.playOneShot(\"sfx/beep\")\n");
+                     u8"Played = Audio.playOneShotPath(\"sfx/beep\")\n"
+                     u8"Spatial = Audio.playOneShot3DPath(\"sfx/beep\", 1, 2, 3)\n"
+                     u8"Cue = Audio.playCuePath(\"sfx/steps\")\n"
+                     u8"Music = Audio.playMusicPath(\"sfx/beep\", 0.1)\n"
+                     u8"Missing = Audio.playOneShotPath(\"sfx/nope\")\n"
+                     u8"MissingAgain = Audio.playOneShotPath(\"sfx/nope\")\n",
+                     u8"Played = Audio.playOneShotPath(\"sfx/beep\")\n",
+                     [](StringView beep, StringView steps)
+                     {
+                         return Format(
+                             u8"local clip = Guid.new(\"{}\")\n"
+                             u8"local cue = Guid.new(\"{}\")\n"
+                             u8"Played = Audio.playOneShot(clip, AudioBus.Effects, 0.8, 1.1):isValid()\n"
+                             u8"Spatial = Audio.playOneShot3D(clip, Float3.new(1, 2, 3)):isValid()\n"
+                             u8"Cue = Audio.playCue(cue, AudioBus.UI):isValid()\n"
+                             u8"Cue3D = Audio.playCue3D(cue, Float3.new(0, 1, 0)):isValid()\n"
+                             u8"Music = Audio.playMusic(clip, 0.1, 0.55):isValid()\n"
+                             u8"WrongType = Audio.playOneShot(cue):isValid()\n"
+                             u8"Audio.setBusVolume(AudioBus.Music, 0.5)\n"
+                             u8"MusicVolume = Audio.busVolume(AudioBus.Music)\n",
+                             beep, steps);
+                     });
 }
 #endif // OPTION_HAS_LUAU
 

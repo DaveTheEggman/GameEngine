@@ -134,6 +134,14 @@ namespace engine::audio
         builder.Value("UI", AudioBus::UI);
     }
 
+    // A voice the Audio facade started (Sedulous's VoiceHandle): invalid when nothing played.
+    REFLECT_VALUE(VoiceHandle, "rtti::engine::audio")
+    {
+        builder.Property<&VoiceHandle::slot>("slot");
+        builder.Property<&VoiceHandle::generation>("generation");
+        builder.Method<&VoiceHandle::IsValid>("isValid");
+    }
+
     REFLECT_ENUM(AudioAttenuationModel, "rtti::engine::audio")
     {
         builder.Value("None", AudioAttenuationModel::None);
@@ -204,16 +212,37 @@ namespace engine::audio
 
     REFLECT_MEMBERS(Audio, "rtti::engine::audio")
     {
-        builder.Method<&Audio::setBusVolume>("setBusVolume");
-        builder.Method<&Audio::busVolume>("busVolume");
+        // By asset id and AudioBus, as Sedulous's facade: each an ARITY FAMILY.
+        builder.Method<static_cast<VoiceHandle (*)(Guid)>(&Audio::playOneShot)>("playOneShot", {"clip"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, AudioBus)>(&Audio::playOneShot)>(
+            "playOneShot", {"clip", "bus"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, AudioBus, f32)>(&Audio::playOneShot)>(
+            "playOneShot", {"clip", "bus", "volume"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, AudioBus, f32, f32)>(&Audio::playOneShot)>(
+            "playOneShot", {"clip", "bus", "volume", "pitch"});
+        builder.Method<&Audio::playOneShot3D>("playOneShot3D", {"clip", "position"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid)>(&Audio::playCue)>("playCue", {"cue"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, AudioBus)>(&Audio::playCue)>("playCue",
+                                                                                     {"cue", "bus"});
+        builder.Method<&Audio::playCue3D>("playCue3D", {"cue", "position"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid)>(&Audio::playMusic)>("playMusic", {"clip"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, f32)>(&Audio::playMusic)>(
+            "playMusic", {"clip", "crossFadeSeconds"});
+        builder.Method<static_cast<VoiceHandle (*)(Guid, f32, f32)>(&Audio::playMusic)>(
+            "playMusic", {"clip", "crossFadeSeconds", "volume"});
+        builder.Method<&Audio::setBusVolume>("setBusVolume", {"bus", "volume"});
+        builder.Method<&Audio::busVolume>("busVolume", {"bus"});
+        // Ours beside them: a bus by name (the layout's custom buses too), muting, the music stop.
+        builder.Method<&Audio::setNamedBusVolume>("setNamedBusVolume", {"bus", "volume"});
+        builder.Method<&Audio::namedBusVolume>("namedBusVolume", {"bus"});
         builder.Method<&Audio::setBusMuted>("setBusMuted");
         builder.Method<&Audio::busMuted>("busMuted");
         builder.Method<&Audio::stopMusic>("stopMusic");
-        // Content-path playback (item 4): path = the editor's source-DB content path.
-        builder.Method<&Audio::playOneShot>("playOneShot");
-        builder.Method<&Audio::playOneShot3D>("playOneShot3D");
-        builder.Method<&Audio::playCue>("playCue");
-        builder.Method<&Audio::playMusic>("playMusic");
+        // Content-path playback: path = the editor's source-DB content path.
+        builder.Method<&Audio::playOneShotPath>("playOneShotPath");
+        builder.Method<&Audio::playOneShot3DPath>("playOneShot3DPath");
+        builder.Method<&Audio::playCuePath>("playCuePath");
+        builder.Method<&Audio::playMusicPath>("playMusicPath");
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
@@ -238,6 +267,11 @@ namespace engine::audio
         // So the behavior/Level prelude imports `Audio` too (AngelScript binds by
         // registry). Without this only top-level `main`/Game scripts can see it. Idempotent.
         foundation::script::RegisterExtraFacadeName(u8"Audio");
+        // The bus its calls take, and the voice its plays return.
+        GlobalTypeRegistry().Register(core::TypeOf<AudioBus>());
+        RttiRegisterValue_VoiceHandle();
+        GlobalTypeRegistry().Register(core::TypeOf<VoiceHandle>());
+        foundation::script::RegisterExtraScriptRootType(&core::TypeOf<VoiceHandle>());
 
         // Surface the audio SOURCE component to script (AudioSourceComponent.of(entity) - live
         // volume/pitch/loop/...): register it, seed the emission root, name it for the prelude.

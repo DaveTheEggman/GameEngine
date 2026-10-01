@@ -75,10 +75,15 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
 - **Manager tick** (`ScenePhase::PostTransform`) resolves dirty refs, syncs position/forward/velocity,
   autoplays on simulation start, reaps finished one-shots; scene pause pauses that scene's voices
   (a per-scene group under the bus).
-- **`Audio` facade** (registered via the reflection facade path; certified on Wren + AngelScript):
-  `playOneShot` / `playOneShot3D` / `playCue` / `playMusic` / `stopMusic` + `busVolume` /
-  `setBusVolume`. Playback by CONTENT PATH (warn-once no-op on bad paths). Master/bus volumes persist
-  via `AudioUserSettings` (`<userdata>/<project>.user.settings.xml`).
+- **`Audio` facade** (registered via the reflection facade path; AngelScript + Luau), as Sedulous's:
+  `playOneShot(clip[, bus, volume, pitch])` / `playOneShot3D(clip, position)` / `playCue(cue[, bus])`
+  / `playCue3D(cue, position)` / `playMusic(clip[, crossFadeSeconds, volume])` by ASSET ID, each
+  returning the `VoiceHandle` (`isValid()` false when nothing played), and `setBusVolume` /
+  `busVolume` by `AudioBus`. Ours beside them, named apart (a same-arity overload cannot share a
+  name): `playOneShotPath` / `playOneShot3DPath` / `playCuePath` / `playMusicPath` by CONTENT PATH,
+  `setNamedBusVolume` / `namedBusVolume` by bus name (a layout's custom buses too), `setBusMuted` /
+  `busMuted` / `stopMusic`. Bad content warns once and no-ops. Master/bus volumes persist via
+  `AudioUserSettings` (`<userdata>/<project>.user.settings.xml`).
 
 ## Deferred
 
