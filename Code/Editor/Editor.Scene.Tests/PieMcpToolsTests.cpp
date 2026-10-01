@@ -11,6 +11,8 @@
 import foundation.core;
 import foundation.json;
 import foundation.mcp;
+import foundation.input;
+import foundation.scene;
 import editor.core;
 import editor.scene;
 
@@ -44,11 +46,12 @@ namespace
         {
             running = false;
             starting = false;
+            scripted.Reset();
         }
         [[nodiscard]] bool IsRunning() const noexcept override { return running; }
         [[nodiscard]] bool IsStarting() const noexcept override { return starting; }
         [[nodiscard]] StringView SceneName() const noexcept override { return scene.AsView(); }
-        [[nodiscard]] f64 GameTime() const noexcept override { return gameTime; }
+        [[nodiscard]] f64 RunTime() const noexcept override { return runTime; }
         [[nodiscard]] u64 FrameCount() const noexcept override { return frames; }
         [[nodiscard]] PieScriptState ScriptState() const noexcept override { return script; }
         [[nodiscard]] StringView ScriptFault() const noexcept override { return fault.AsView(); }
@@ -63,13 +66,64 @@ namespace
             return capture;
         }
 
+        // The run's scene, and a game script with one property, `score`.
+        [[nodiscard]] foundation::scene::Scene* RunningScene() noexcept override
+        {
+            return running ? &level : nullptr;
+        }
+        [[nodiscard]] Result<Variant> GetScriptProperty(StringView name) const override
+        {
+            if (!running || name != u8"score")
+            {
+                return Err(ErrorCode::NotFound);
+            }
+            return Variant::From<f64>(score);
+        }
+
+        // The scripted input a run installed, advanced by Frame as the page's OnUpdate does.
+        void BeginScriptedInput(UniquePtr<foundation::input::ScriptedInputSource> source) override
+        {
+            scripted = Move(source);
+            scriptStart = runTime;
+            scriptEnding = false;
+            ++scriptsBegun;
+        }
+        void EndScriptedInput() override
+        {
+            scriptEnding = scripted.Get() != nullptr;
+        }
+        [[nodiscard]] bool IsScripted() const noexcept override { return scripted.Get() != nullptr; }
+
+        /// One rendered frame of the run: the clock, then the page's advance of the script (an
+        /// ended script goes, as the page's release frame then restore do).
+        void Frame(f64 dt)
+        {
+            if (!running)
+            {
+                return;
+            }
+            ++frames;
+            runTime += dt;
+            if (scripted.Get() != nullptr)
+            {
+                if (scriptEnding)
+                {
+                    scripted.Reset();
+                }
+                else
+                {
+                    scripted->Advance(runTime - scriptStart);
+                }
+            }
+        }
+
         /// The run's first frame: started, running, one frame drawn.
         void Run()
         {
             starting = false;
             running = true;
             frames = 1;
-            gameTime = 0.5;
+            runTime = 0.5;
         }
 
         bool running = false;
@@ -77,8 +131,14 @@ namespace
         bool failToStart = false;
         u32 plays = 0;
         u64 frames = 0;
-        f64 gameTime = 0.0;
+        f64 runTime = 0.0;
         String scene{u8"Arena"};
+        foundation::scene::Scene level{DefaultAllocator(), u8"Level1"};
+        f64 score = 0.0;
+        UniquePtr<foundation::input::ScriptedInputSource> scripted;
+        f64 scriptStart = 0.0;
+        bool scriptEnding = false;
+        u32 scriptsBegun = 0;
         PieScriptState script = PieScriptState::Running;
         String fault;
         ViewportCapture capture;
@@ -227,7 +287,7 @@ TEST_CASE("pie-tools: start waits for the first frame, a running primary answers
     CHECK(got.payload.Get(u8"script").Get(u8"state").AsString() == StringView(u8"faulted"));
     CHECK(got.payload.Get(u8"script").Get(u8"fault").AsString() ==
           StringView(u8"faulted in update: boom"));
-    CHECK(got.payload.Get(u8"gameTime").AsNumber() == doctest::Approx(0.5));
+    CHECK(got.payload.Get(u8"runTime").AsNumber() == doctest::Approx(0.5));
     got = Pump(rig.server, u8"pie_state", u8"{\"pie\":\"game-page-9\"}");
     CHECK_FALSE(got.ok);
     CHECK(got.error.AsView().ContainsIgnoreCase(u8"pie_list"));
@@ -291,4 +351,59 @@ TEST_CASE("pie-tools: a screenshot waits for its frame, and a stopped instance i
     got = Pump(rig.server, u8"pie_screenshot", u8"{\"path\":\"pie2.png\"}");
     REQUIRE(got.finished);
     CHECK(got.error.AsView().ContainsIgnoreCase(u8"stopped before"));
+}
+
+// Sedulous aaf5ff78: the HTTP host re-enters every unfinished call each pump, so captures of two
+// instances interleave; each waits for its own frame.
+TEST_CASE("pie-tools: screenshots of two instances wait side by side")
+{
+    PlayRig rig;
+    rig.primary = rig.Open(u8"game-page");
+    HeadlessGamePage* client = rig.Open(u8"game-page-1");
+    rig.primary->Run();
+    client->Run();
+    const StringView hostArgs = u8"{\"pie\":\"game-page\",\"path\":\"host.png\"}";
+    const StringView clientArgs = u8"{\"pie\":\"game-page-1\",\"path\":\"client.png\"}";
+    CHECK_FALSE(Pump(rig.server, u8"pie_screenshot", hostArgs).finished);
+    CHECK_FALSE(Pump(rig.server, u8"pie_screenshot", clientArgs).finished);
+    CHECK(client->capture.path == u8"client.png");
+    CHECK(rig.primary->capture.path == u8"host.png"); // the second did not re-arm the first
+
+    client->capture.state = ViewportCaptureState::Written;
+    CHECK_FALSE(Pump(rig.server, u8"pie_screenshot", hostArgs).finished);
+    Answer got = Pump(rig.server, u8"pie_screenshot", clientArgs);
+    REQUIRE(got.finished);
+    CHECK(got.payload.Get(u8"pie").AsString() == StringView(u8"game-page-1"));
+    rig.primary->capture.state = ViewportCaptureState::Written;
+    got = Pump(rig.server, u8"pie_screenshot", hostArgs);
+    REQUIRE(got.finished);
+    CHECK(got.payload.Get(u8"path").AsString() == StringView(u8"host.png"));
+}
+
+TEST_CASE("pie-tools: entity_inspect reads a running game's entity by `pie`")
+{
+    PlayRig rig;
+    RegisterSceneLiveTools(rig.server, rig.context);
+    rig.primary = rig.Open(u8"game-page");
+    rig.primary->Run();
+    const foundation::scene::EntityHandle player = rig.primary->level.CreateEntity(u8"Player");
+    Transform placed;
+    placed.position = Float3{4.0f, 0.0f, 0.0f};
+    rig.primary->level.SetLocalTransform(player, placed);
+
+    Answer got = Pump(rig.server, u8"entity_inspect", u8"{\"pie\":\"game-page\",\"entity\":\"Player\"}");
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"pie").AsString() == StringView(u8"game-page"));
+    CHECK(got.payload.Get(u8"scene").AsString() == StringView(u8"Level1"));
+    CHECK(got.payload.Get(u8"entity").Get(u8"name").AsString() == StringView(u8"Player"));
+    CHECK(got.payload.Get(u8"entity").Get(u8"transform").Get(u8"position").At(0).AsNumber() ==
+          doctest::Approx(4.0));
+
+    got = Pump(rig.server, u8"entity_inspect", u8"{\"pie\":\"game-page\",\"entity\":\"Ghost\"}");
+    CHECK(got.error.AsView().StartsWith(u8"no entity 'Ghost' in PIE instance 'game-page''s scene 'Level1'"));
+    got = Pump(rig.server, u8"entity_inspect", u8"{\"pie\":\"game-page\"}");
+    CHECK(got.error.AsView().StartsWith(u8"pass `entity`"));
+    rig.primary->Stop();
+    got = Pump(rig.server, u8"entity_inspect", u8"{\"pie\":\"game-page\",\"entity\":\"Player\"}");
+    CHECK(got.error.AsView().StartsWith(u8"PIE instance 'game-page' is not running a scene"));
 }

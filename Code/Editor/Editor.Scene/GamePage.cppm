@@ -352,10 +352,10 @@ export namespace editor
         {
             return m_scene != nullptr ? m_scene->Name() : StringView{};
         }
-        [[nodiscard]] f64 GameTime() const noexcept override
+        [[nodiscard]] f64 RunTime() const noexcept override
         {
             return (m_running && m_gameInstance != nullptr) ? m_gameInstance->RunTime()
-                                                            : m_stoppedGameTime;
+                                                            : m_stoppedRunTime;
         }
         [[nodiscard]] u64 FrameCount() const noexcept override { return m_frameCount; }
         [[nodiscard]] PieScriptState ScriptState() const noexcept override
@@ -379,6 +379,24 @@ export namespace editor
         [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override
         {
             return m_capture.State();
+        }
+        [[nodiscard]] scene::Scene* RunningScene() noexcept override
+        {
+            return m_running ? m_scene : nullptr;
+        }
+        [[nodiscard]] Result<Variant> GetScriptProperty(StringView name) const override
+        {
+            if (m_gameInstance == nullptr)
+            {
+                return Err(ErrorCode::NotFound);
+            }
+            return m_gameInstance->GetScriptProperty(name);
+        }
+        void BeginScriptedInput(UniquePtr<foundation::input::ScriptedInputSource> source) override;
+        void EndScriptedInput() override;
+        [[nodiscard]] bool IsScripted() const noexcept override
+        {
+            return m_scripted.Get() != nullptr;
         }
 
         // Bind (and re-bind after dock/float moves) the viewport to the window hosting it -
@@ -440,6 +458,17 @@ export namespace editor
         // run by OnUpdate once the cook is idle.
         void StartRunNow();
 
+        // Scripted input (pie_run): a timeline source in place of the viewport's, on this tab's
+        // game instance and, while this tab holds it, the input subsystem, so the other tabs
+        // keep their own. What this tab's game reads: the script while one runs, else the
+        // viewport.
+        [[nodiscard]] foundation::input::IInputSourceProvider* ActiveSource() noexcept;
+        // Once per frame from OnUpdate: the script advances by the run's time; an ended one
+        // lets go of everything for a frame, then the viewport's input returns.
+        void AdvanceScriptedInput();
+        // The viewport source back where the script was installed, and the script gone.
+        void DropScriptedInput();
+
         EditorContext* m_context = nullptr;
         runtime::IApplicationHost* m_host = nullptr;
         ui::runtime::UIHost* m_uiHost = nullptr;
@@ -477,7 +506,11 @@ export namespace editor
         String m_sceneTitle;
         String m_pieId;                // IPieInstancePage::PieId
         u64 m_frameCount = 0;          // frames rendered since the run started
-        f64 m_stoppedGameTime = 0.0;   // the game time a stopped run ended at
+        f64 m_stoppedRunTime = 0.0;    // the run time a stopped run ended at
+        UniquePtr<foundation::input::ScriptedInputSource> m_scripted; // while a run scripts this tab
+        f64 m_scriptedStart = 0.0;     // the run time the script's zero is
+        bool m_scriptedEnding = false; // end asked: a release frame, then the viewport returns
+        bool m_scriptedReleased = false;
         // The PIE capture (pie_screenshot): armed by RequestViewportCapture, recorded in
         // OnAfterSceneRender after the overlays, completed in the next OnUpdate.
         ViewportCaptureRecorder m_capture;

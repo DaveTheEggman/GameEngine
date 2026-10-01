@@ -306,10 +306,10 @@ namespace editor
         // run before any scene, so a script tested here boots exactly like the player. The
         // page only resolves the script SOURCE (editor project layout) and surfaces notices.
         m_frameCount = 0;
-        m_stoppedGameTime = 0.0;
+        m_stoppedRunTime = 0.0;
         if (m_gameInstance != nullptr)
         {
-            m_gameInstance->ResetRunClock(); // game time counts from this start
+            m_gameInstance->ResetRunClock(); // run time counts from this start
             m_scriptErrors.context = m_context;
             m_gameInstance->SetScriptErrorHandler(&m_scriptErrors);
             EnableDebugging();
@@ -409,6 +409,7 @@ namespace editor
         {
             return;
         }
+        DropScriptedInput(); // a stopped run scripts nothing
         // The map clears (no actions bound between runs); the SOURCE stays - it is
         // the runtime input's permanent provider (v3) - but its SCENE BINDING drops
         // with the run, returning the editor to inert (ScreenTierOnly) game UI.
@@ -431,7 +432,7 @@ namespace editor
         m_appliedBreakpoints.Clear();
         if (m_running && m_gameInstance != nullptr)
         {
-            m_stoppedGameTime = m_gameInstance->RunTime(); // pie_state still reads where it ended
+            m_stoppedRunTime = m_gameInstance->RunTime(); // pie_state still reads where it ended
         }
         // Script exits first (it may still observe the world), then the scenes.
         if (m_gameInstance != nullptr)
@@ -510,7 +511,7 @@ namespace editor
         // pause, and reflect the switch in the readout + log so they name the actually-rendered scene.
         if (m_input != nullptr)
         {
-            m_input->SetSourceProvider(&m_viewportSource, m_scene);
+            m_input->SetSourceProvider(ActiveSource(), m_scene);
         }
         if (m_scene != nullptr)
         {
@@ -577,7 +578,7 @@ namespace editor
             }
             if (m_input != nullptr)
             {
-                m_input->SetSourceProvider(&m_viewportSource,
+                m_input->SetSourceProvider(ActiveSource(),
                                            m_running ? static_cast<const void*>(m_scene) : nullptr);
             }
         }
@@ -603,6 +604,7 @@ namespace editor
         // Follow the instance's current scene BEFORE anything renders this frame: a scripted switch
         // (run.loadScene) repointed it, so adopt the new scene + retire the outgoing one here.
         FollowInstanceScene();
+        AdvanceScriptedInput();
         EnsureViewportBound();
         m_viewport->SyncInputRegion();
         if (m_router.Get() != nullptr)
@@ -735,6 +737,7 @@ namespace editor
 
     void GameEditorPage::OnClose()
     {
+        DropScriptedInput(); // before the sources it replaced are torn down
         Stop();
         // Stop leaves this page's viewport source as the input override (by design, so a STOPPED-
         // but-open tab keeps viewport input). On CLOSE the source is about to be freed, so clear it
@@ -763,6 +766,83 @@ namespace editor
             m_capture.Release(m_host->Graphics()->Raw()); // the readback buffer, while the device lives
         }
         m_viewport->Shutdown();
+    }
+
+    // ---- scripted input (pie_run) ----
+
+    foundation::input::IInputSourceProvider* GameEditorPage::ActiveSource() noexcept
+    {
+        if (m_scripted.Get() != nullptr)
+        {
+            return m_scripted.Get();
+        }
+        return &m_viewportSource;
+    }
+
+    void GameEditorPage::BeginScriptedInput(
+        UniquePtr<foundation::input::ScriptedInputSource> source)
+    {
+        DropScriptedInput();
+        m_scripted = Move(source);
+        m_scriptedStart = RunTime();
+        m_scriptedEnding = false;
+        m_scriptedReleased = false;
+        // The subsystem's source only while this tab holds it: another tab's stays its own.
+        if (m_input != nullptr && &m_input->ActiveSource() == &m_viewportSource)
+        {
+            m_input->SetSourceProvider(m_scripted.Get(), m_scene);
+        }
+        if (m_gameInstance != nullptr)
+        {
+            m_gameInstance->SetInputSource(m_scripted.Get());
+        }
+    }
+
+    void GameEditorPage::EndScriptedInput()
+    {
+        if (m_scripted.Get() != nullptr)
+        {
+            m_scriptedEnding = true;
+        }
+    }
+
+    void GameEditorPage::AdvanceScriptedInput()
+    {
+        if (m_scripted.Get() == nullptr)
+        {
+            return;
+        }
+        if (!m_scriptedEnding)
+        {
+            m_scripted->Advance(RunTime() - m_scriptedStart);
+            return;
+        }
+        if (!m_scriptedReleased)
+        {
+            m_scripted->ReleaseAll(); // the game reads the let-go next frame
+            m_scriptedReleased = true;
+            return;
+        }
+        DropScriptedInput();
+    }
+
+    void GameEditorPage::DropScriptedInput()
+    {
+        if (m_scripted.Get() == nullptr)
+        {
+            return;
+        }
+        if (m_input != nullptr && &m_input->ActiveSource() == m_scripted.Get())
+        {
+            m_input->SetSourceProvider(&m_viewportSource, m_scene);
+        }
+        if (m_gameInstance != nullptr)
+        {
+            m_gameInstance->SetInputSource(&m_viewportSource);
+        }
+        m_scripted.Reset();
+        m_scriptedEnding = false;
+        m_scriptedReleased = false;
     }
 
     void GameEditorPage::EnsureCamera(scene::Scene& scene)
@@ -801,14 +881,14 @@ namespace editor
         // THIS run's scene, so game-UI routing + consumption confine to it - open
         // editing pages' HUDs can no longer catch the run's clicks/keys, and the
         // run's UI never reacts to another scene's coordinates.
-        m_input->SetSourceProvider(&m_viewportSource,
+        m_input->SetSourceProvider(ActiveSource(),
                                    m_scene); // UI-pump active source (game-UI routing)
         // Per-instance INPUT: this tab's game reads its OWN viewport source through its OWN action
         // runtime, so two Game tabs never cross-feed keys (only the FOCUSED tab's surface reports
         // them). The shared subsystem runtime is no longer the game's input.
         if (m_gameInstance != nullptr)
         {
-            m_gameInstance->SetInputSource(&m_viewportSource);
+            m_gameInstance->SetInputSource(ActiveSource());
         }
         const Guid mapId = m_context->Project()->Settings().defaultInputMapId;
         if (mapId.IsNil() || m_context->Resources() == nullptr)

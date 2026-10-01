@@ -14,6 +14,7 @@ module;
 export module editor.scene:pie_tools;
 
 import foundation.core;
+import foundation.json;
 import foundation.mcp;
 import editor.core;
 
@@ -27,4 +28,9 @@ export namespace editor
     inline constexpr StringView kPrimaryPieId = u8"game-page";
 
     void RegisterPieTools(foundation::mcp::McpServer& server, EditorContext& context);
+
+    /// The Game tab a call addresses: its `pie` argument, or the primary; the reason, for the
+    /// agent to read, when no such tab is open. The page publishes IPieInstancePage.
+    [[nodiscard]] Result<EditorPage*, String> ResolvePie(const EditorContext& context,
+                                                         const foundation::json::JsonValue& args);
 }

@@ -120,6 +120,43 @@ namespace editor
             return out;
         }
 
+        /// entity_inspect over a running PIE instance: `entity` by guid, name or path in the
+        /// scene that game is in now.
+        ToolResult InspectPie(EditorContext& context, const JsonValue& args)
+        {
+            Result<EditorPage*, String> resolved = ResolvePie(context, args);
+            if (!resolved.HasValue())
+            {
+                return Err(Move(resolved.Error()));
+            }
+            IPieInstancePage* pie = ServiceOf<IPieInstancePage>(resolved.Value());
+            scene::Scene* running = pie->RunningScene();
+            if (!pie->IsRunning() || running == nullptr)
+            {
+                return Err(Format(u8"PIE instance '{}' is not running a scene (pie_state says "
+                                  u8"where it is)",
+                                  pie->PieId()));
+            }
+            const JsonValue entityArg = args.Get(u8"entity");
+            if (!entityArg.IsString())
+            {
+                return Err(String(u8"pass `entity` (a guid, a name or a slash path): a running "
+                                  u8"game has no selection"));
+            }
+            const String text = entityArg.AsString();
+            const scene::EntityHandle handle = FindEntity(*running, text.AsView());
+            if (!running->IsValid(handle))
+            {
+                return Err(Format(u8"no entity '{}' in PIE instance '{}''s scene '{}'",
+                                  text.AsView(), pie->PieId(), running->Name()));
+            }
+            JsonValue out = JsonValue::MakeObject();
+            out.Set(u8"pie", JsonValue::MakeString(String(pie->PieId())));
+            out.Set(u8"scene", JsonValue::MakeString(String(running->Name())));
+            out.Set(u8"entity", EntityJson(*running, handle));
+            return out;
+        }
+
         // === component_set: one property, one locked undo step, through the edit context ===
 
         /// A JSON value as the Variant a leaf property of `type` takes; empty when the JSON
@@ -463,14 +500,22 @@ namespace editor
             u8"An entity of a scene page as the editor's inspector sees it: guid, name, active, "
             u8"parent, children, the local transform, and every component the scene holds for it "
             u8"with its reflected properties (references as asset guids, enums by name, nested "
-            u8"structures and lists expanded). Defaults to the page's primary selection.",
+            u8"structures and lists expanded). Defaults to the page's primary selection. With "
+            u8"`pie`, the entity as the running game has it now, in that instance's current scene.",
             SchemaBuilder()
                 .Str(u8"page", kPageArgument)
-                .Str(u8"entity", u8"the entity's guid (default: the page's primary selection)")
+                .Str(u8"pie", u8"instead of a page: a running PIE instance's id (pie_list), "
+                              u8"reading the scene that game is in")
+                .Str(u8"entity", u8"the entity's guid (default: the page's primary selection); "
+                                 u8"with `pie`, a guid, a name or a slash path, required")
                 .Build(),
             ToolAnnotations::ReadOnly(),
             [ctx](const JsonValue& args) -> ToolResult
             {
+                if (args.Has(u8"pie"))
+                {
+                    return InspectPie(*ctx, args);
+                }
                 Result<AddressedPage, String> addressed = ResolveScenePage(*ctx, args);
                 if (!addressed.HasValue())
                 {

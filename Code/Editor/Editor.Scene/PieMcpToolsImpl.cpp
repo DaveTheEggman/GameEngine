@@ -29,13 +29,48 @@ namespace editor
         /// Frames: ten seconds at 60 Hz, then pie_screenshot gives up.
         constexpr u32 kCapturePumpLimit = 600;
 
-        /// One pie_start or pie_screenshot in flight: the tool is re-entered every pump with the
-        /// same arguments until the instance answers, or it gives up.
+        /// The pie_start in flight: the tool is re-entered every pump with the same arguments
+        /// until the instance answers, or it gives up.
         struct PendingPie
         {
             EditorPage* page = nullptr; // borrowed; null while nothing is in flight
             u32 pumps = 0;
+        };
+
+        /// The pie_screenshot calls in flight, one per instance: the HTTP host re-enters every
+        /// unfinished call each pump, so captures of two instances interleave.
+        struct CaptureWaits
+        {
+            struct Wait
+            {
+                EditorPage* page = nullptr; // borrowed
+                u32 pumps = 0;
+            };
+            Array<Wait> waits;
             u32 serial = 0; // per host, so two captures of one instance never share a default name
+
+            Wait* Find(const EditorPage* page) noexcept
+            {
+                for (Wait& wait : waits)
+                {
+                    if (wait.page == page)
+                    {
+                        return &wait;
+                    }
+                }
+                return nullptr;
+            }
+            void Remove(const EditorPage* page) noexcept
+            {
+                for (usize i = 0; i < waits.Size(); ++i)
+                {
+                    if (waits[i].page == page)
+                    {
+                        waits.RemoveAt(i);
+                        return;
+                    }
+                }
+            }
         };
 
         IPieInstancePage* PieOf(EditorPage* page) noexcept
@@ -69,22 +104,6 @@ namespace editor
             return nullptr;
         }
 
-        /// The instance a call addresses: `pie`, or the primary.
-        Result<EditorPage*, String> ResolvePie(const EditorContext& context, const JsonValue& args)
-        {
-            const String asked = args.Get(u8"pie").AsString();
-            const StringView id = asked.IsEmpty() ? kPrimaryPieId : asked.AsView();
-            if (EditorPage* page = FindPie(context, id))
-            {
-                return page;
-            }
-            if (id == kPrimaryPieId)
-            {
-                return Err(String(u8"no Game tab is open (pie_start opens and runs one)"));
-            }
-            return Err(Format(u8"no PIE instance '{}' (pie_list names them)", id));
-        }
-
         JsonValue StateJson(const IPieInstancePage& pie)
         {
             JsonValue out = JsonValue::MakeObject();
@@ -92,7 +111,7 @@ namespace editor
             out.Set(u8"running", JsonValue::MakeBool(pie.IsRunning()));
             out.Set(u8"starting", JsonValue::MakeBool(pie.IsStarting()));
             out.Set(u8"scene", JsonValue::MakeString(String(pie.SceneName())));
-            out.Set(u8"gameTime", JsonValue::MakeNumber(pie.GameTime()));
+            out.Set(u8"runTime", JsonValue::MakeNumber(pie.RunTime()));
             out.Set(u8"frames", JsonValue::MakeNumber(static_cast<f64>(pie.FrameCount())));
             JsonValue script = JsonValue::MakeObject();
             switch (pie.ScriptState())
@@ -215,24 +234,31 @@ namespace editor
             return ToolOutcome::NotFinished();
         }
 
-        ToolOutcome Screenshot(EditorContext& context, PendingPie& pending, const JsonValue& args)
+        ToolOutcome Screenshot(EditorContext& context, CaptureWaits& captures, const JsonValue& args)
         {
+            // A wait whose tab closed is over; its page pointer is never used again.
+            for (usize i = captures.waits.Size(); i > 0; --i)
+            {
+                if (!IsOpen(context, captures.waits[i - 1].page))
+                {
+                    captures.waits.RemoveAt(i - 1);
+                }
+            }
             Result<EditorPage*, String> resolved = ResolvePie(context, args);
             if (!resolved.HasValue())
             {
-                pending.page = nullptr;
                 return Err(Move(resolved.Error()));
             }
             EditorPage* page = resolved.Value();
             IPieInstancePage* pie = PieOf(page);
-            if (pending.page == page)
+            if (CaptureWaits::Wait* wait = captures.Find(page))
             {
                 // Re-entered: the same call, one pump later.
                 const ViewportCapture& capture = pie->LastViewportCapture();
-                ++pending.pumps;
+                ++wait->pumps;
                 if (capture.state == ViewportCaptureState::Written)
                 {
-                    pending.page = nullptr;
+                    captures.Remove(page);
                     JsonValue out = JsonValue::MakeObject();
                     out.Set(u8"pie", JsonValue::MakeString(String(pie->PieId())));
                     out.Set(u8"path", JsonValue::MakeString(capture.path));
@@ -242,20 +268,20 @@ namespace editor
                 }
                 if (capture.state == ViewportCaptureState::Failed)
                 {
-                    pending.page = nullptr;
+                    captures.Remove(page);
                     return Err(Format(u8"the capture of PIE instance '{}' failed (log_read, "
                                       u8"category Screenshot, says why)",
                                       pie->PieId()));
                 }
                 if (!pie->IsRunning())
                 {
-                    pending.page = nullptr;
+                    captures.Remove(page);
                     return Err(Format(u8"PIE instance '{}' stopped before a frame was captured",
                                       pie->PieId()));
                 }
-                if (pending.pumps > kCapturePumpLimit)
+                if (wait->pumps > kCapturePumpLimit)
                 {
-                    pending.page = nullptr;
+                    captures.Remove(page);
                     return Err(Format(u8"PIE instance '{}' rendered no frame in ten seconds - is "
                                       u8"its tab visible (an editor window minimised or hidden)?",
                                       pie->PieId()));
@@ -275,17 +301,31 @@ namespace editor
                 {
                     return Err(Format(u8"could not create '{}'", dir.AsView()));
                 }
-                ++pending.serial;
+                ++captures.serial;
                 path = PathJoin(dir.AsView(), Format(u8"{}-{}-{}.png", pie->PieId(), ProcessId(),
-                                                     pending.serial)
+                                                     captures.serial)
                                                   .AsView());
             }
             context.RevealPage(page); // to front: a background tab's viewport never renders
             pie->RequestViewportCapture(path.AsView());
-            pending.page = page;
-            pending.pumps = 0;
+            captures.waits.PushBack(CaptureWaits::Wait{page, 0});
             return ToolOutcome::NotFinished();
         }
+    }
+
+    Result<EditorPage*, String> ResolvePie(const EditorContext& context, const JsonValue& args)
+    {
+        const String asked = args.Get(u8"pie").AsString();
+        const StringView id = asked.IsEmpty() ? kPrimaryPieId : asked.AsView();
+        if (EditorPage* page = FindPie(context, id))
+        {
+            return page;
+        }
+        if (id == kPrimaryPieId)
+        {
+            return Err(String(u8"no Game tab is open (pie_start opens and runs one)"));
+        }
+        return Err(Format(u8"no PIE instance '{}' (pie_list names them)", id));
     }
 
     void RegisterPieTools(foundation::mcp::McpServer& server, EditorContext& context)
@@ -358,9 +398,9 @@ namespace editor
         server.RegisterTool(
             u8"pie_state",
             u8"One PIE instance's state: whether it is running (or starting, waiting on the cook), "
-            u8"the scene it is in, the game time since it started (the gameplay clock the game "
-            u8"script moves by), the frames rendered since, and its startup script's state "
-            u8"(`none`, `running`, or `faulted` with the reason).",
+            u8"the scene it is in, `runTime`, the seconds of frames since it started (unscaled: a "
+            u8"menu that stops gameplay time does not stop it), the frames rendered since, and its "
+            u8"startup script's state (`none`, `running`, or `faulted` with the reason).",
             SchemaBuilder().Str(u8"pie", kPieArgument).Build(), ToolAnnotations::ReadOnly(),
             [ctx](const JsonValue& args) -> ToolOutcome
             {
@@ -393,8 +433,8 @@ namespace editor
                 return out;
             });
 
-        auto capturing = MakeUnique<PendingPie>(context.Allocator());
-        PendingPie* capturingPtr = capturing.Get();
+        auto capturing = MakeUnique<CaptureWaits>(context.Allocator());
+        CaptureWaits* capturingPtr = capturing.Get();
         server.RegisterTool(
             u8"pie_screenshot",
             u8"What one running PIE instance's Game tab renders, as a PNG at the viewport's size: "
