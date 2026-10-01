@@ -7,7 +7,7 @@
 
 util_add_engine_library(Engine.Composition ALIAS Engine::Composition)
 target_link_libraries(Engine.Composition PUBLIC
-    Foundation::Core Foundation::Scene Foundation::Scene.Resource Foundation::Resource
+    Foundation::Core Foundation::Content Foundation::Scene Foundation::Scene.Resource Foundation::Resource
     Foundation::Script.Facades
     Engine::Domain
     Engine::Render Engine::Animation Engine::Particles Engine::Physics Engine::Terrain Engine::Vegetation Engine::Spline Engine::Navigation
@@ -18,6 +18,7 @@ target_link_libraries(Engine.Composition PUBLIC
 target_sources(Engine.Composition
     PRIVATE
         CompositionImpl.cpp
+        SceneExportSupport.cpp
     PUBLIC
         FILE_SET engine_composition_modules TYPE CXX_MODULES FILES
             Composition.cppm)

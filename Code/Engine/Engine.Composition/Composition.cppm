@@ -21,6 +21,7 @@ module;
 export module engine.composition;
 
 import foundation.core;
+import foundation.content;
 import foundation.scene;
 import foundation.resource;
 export import engine.domain;
@@ -41,6 +42,31 @@ export namespace engine
     /// scratch scenes (export transcode, MCP validation, the scene format reference) and the
     /// runtime assemble from the same list.
     void AddAllSceneManagers(foundation::scene::Scene& scene);
+
+    // ---- Scene export support (Sedulous's SceneExportSupport) ----
+    // What an export needs from the full scene composition, for every host that exports (the
+    // export CLI, the editor, the MCP hosts): the scene streams transcoded to the binary wire,
+    // and a scene's direct references. Both load over EVERY manager, since a hand-kept set
+    // silently drops the records it does not cover.
+
+    /// The data stream a scene or prefab document keeps its text source in.
+    inline constexpr StringView kSceneStream = u8"scene";
+
+    /// Whether a content instance is a scene or a prefab document.
+    [[nodiscard]] bool IsSceneLike(const foundation::content::Instance& instance);
+
+    /// Every scene's and prefab's TEXT source under `group` transcoded to the binary wire, by
+    /// guid; a prefab without its settings, a scene with. A stream that does not transcode is
+    /// left out (the stager then stages it verbatim, and the runtime sniffs).
+    void CollectSceneStreams(IAllocator& allocator, foundation::content::Group& group,
+                             HashMap<Guid, Array<byte>>& outStreams);
+
+    /// A scene's or prefab's DIRECT references: the component resource Refs, through a
+    /// factory-less ResourceManager whose every bind lands unresolved, plus the parked prefab
+    /// instance ids. False when the stored stream does not load.
+    bool ScanSceneReferences(IAllocator& allocator, foundation::content::Instance& instance,
+                             foundation::content::IContentDatabase& db, Array<Guid>& outResources,
+                             Array<Guid>& outPrefabs);
 
     /// Registers every domain's component reflection (data-version gates + field metadata); must
     /// run once before any scene stream with component payloads deserializes. Idempotent.

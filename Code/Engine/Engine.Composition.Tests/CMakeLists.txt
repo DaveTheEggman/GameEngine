@@ -1,6 +1,6 @@
-add_executable(Engine.Composition.Tests TestsMain.cpp CompositionTests.cpp)
+add_executable(Engine.Composition.Tests TestsMain.cpp CompositionTests.cpp SceneExportSupportTests.cpp)
 target_link_libraries(Engine.Composition.Tests PRIVATE
-    Engine::Composition Foundation::Scene Foundation::Resource Foundation::Script.Facades
+    Engine::Composition Foundation::Content Foundation::VFS Foundation::Scene Foundation::Resource Foundation::Script.Facades
     Foundation::RHI Foundation::Shaders.System doctest::doctest)
 target_compile_definitions(Engine.Composition.Tests PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Engine.Composition.Tests PRIVATE
