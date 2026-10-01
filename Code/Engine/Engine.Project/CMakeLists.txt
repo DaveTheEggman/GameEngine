@@ -5,6 +5,8 @@ target_link_libraries(Engine.Project
     PUBLIC Foundation::Core Foundation::VFS Foundation::Xml.Serialization Foundation::Policy)
 
 target_sources(Engine.Project
+    PRIVATE
+        ProjectSettingsImpl.cpp
     PUBLIC
         FILE_SET project_modules TYPE CXX_MODULES FILES
             ProjectModule.cppm)

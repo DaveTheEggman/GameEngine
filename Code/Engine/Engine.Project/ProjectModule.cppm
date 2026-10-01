@@ -53,6 +53,14 @@ export namespace engine::project
     inline constexpr StringView kDistContentPak = u8"Content.pak";
     inline constexpr StringView kDistManifestFile = u8"player.xml";
 
+    // ProjectSettings reflects the settings the Project Settings dialog edits (and the MCP
+    // project_settings_set sets), each with a `label`; an asset setting is a Guid property whose
+    // `assetType` attribute names the asset type it takes (the picker's filter) and whose
+    // `emptyText` says what unset means. The engine stamp and the path mirrors are not settings.
+    inline constexpr const char* kSettingLabelAttribute = "label";
+    inline constexpr const char* kSettingAssetTypeAttribute = "assetType";
+    inline constexpr const char* kSettingEmptyTextAttribute = "emptyText";
+
     // The shared, committed part of a project (Project.xml payload) - also the dist manifest
     // (player.xml), which is the same shape minus editor-only concerns.
     class ProjectSettings final : public ISerializable
@@ -82,7 +90,15 @@ export namespace engine::project
                                    // play-in-editor apply it, capability-clamped at runtime (v9).
                                    // Default 1 keeps existing projects byte-identical.
 
-        // One layout: the current data version (RTTI_DEFINE_OBJECT_VERSIONED). A manifest
+        /// Re-derives the human-readable path mirrors (defaultScene, startupScript) from their
+        /// guids after a change: `pathOf` answers an asset's source-DB path, empty when unknown.
+        void RefreshPathMirrors(const Function<String(const Guid&)>& pathOf)
+        {
+            defaultScene = defaultSceneId.IsNil() ? String() : pathOf(defaultSceneId);
+            startupScript = startupScriptId.IsNil() ? String() : pathOf(startupScriptId);
+        }
+
+        // One layout: the current data version (REFLECT_MEMBERS' DataVersion). A manifest
         // written under another version is refused by the versioned-payload reader.
         void Serialize(ISerializer& ar) override
         {
@@ -108,6 +124,16 @@ export namespace engine::project
             foundation::core::Serialize(ar, "renderMsaaSamples", renderMsaaSamples);
         }
     };
+
+    /// A setting property's string attribute (kSettingLabelAttribute, kSettingAssetTypeAttribute,
+    /// kSettingEmptyTextAttribute); null when the property has none.
+    [[nodiscard]] inline const String* SettingAttribute(const PropertyInfo& property,
+                                                        const char* key) noexcept
+    {
+        const Attribute* found =
+            FindAttribute(property, StringView(reinterpret_cast<const utf8char*>(key)));
+        return found != nullptr ? found->value.TryGet<String>() : nullptr;
+    }
 
     /// Read a manifest (Project.xml / player.xml) from `root`. NotFound when absent.
     [[nodiscard]] inline Status LoadProjectSettings(vfs::IFileSystem& root, ProjectSettings& out,
@@ -175,5 +201,4 @@ export namespace engine::project
         return writable.Save(fileName, buffer.Bytes());
     }
 
-    RTTI_DEFINE_OBJECT_VERSIONED(ProjectSettings, "rtti::engine::project", 9)
 }

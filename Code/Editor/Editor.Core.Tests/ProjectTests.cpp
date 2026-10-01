@@ -319,3 +319,38 @@ TEST_CASE("project: manifests carry the engine version stamp; a stale-version ma
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
     (void)RemoveDirectory(dir);
 }
+
+// Sedulous 3de51786 (reflected here, not a list): the settings the Project Settings dialog and
+// project_settings_set edit are the type's own description - every asset setting a Guid naming
+// the asset type it takes, every setting labelled - and the path mirrors follow their guids.
+TEST_CASE("editor-project: the settings describe themselves, and the path mirrors follow the guids")
+{
+    const TypeInfo& type = engine::project::ProjectSettings::StaticType();
+    CHECK(type.dataVersion == 9u); // the manifest layout is unchanged
+    u32 assets = 0;
+    for (const PropertyInfo& property : Properties(type))
+    {
+        CAPTURE(property.name);
+        REQUIRE(engine::project::SettingAttribute(property, engine::project::kSettingLabelAttribute) != nullptr);
+        if (const String* assetType =
+                engine::project::SettingAttribute(property, engine::project::kSettingAssetTypeAttribute))
+        {
+            ++assets;
+            CHECK(property.type == &TypeOf<Guid>());
+            CHECK_FALSE(assetType->IsEmpty());
+            CHECK(engine::project::SettingAttribute(property, engine::project::kSettingEmptyTextAttribute) != nullptr);
+        }
+    }
+    CHECK(assets == 7u);
+    const PropertyInfo* scene = FindProperty(type, "defaultSceneId");
+    REQUIRE(scene != nullptr);
+    CHECK(*engine::project::SettingAttribute(*scene, engine::project::kSettingAssetTypeAttribute) ==
+          u8"SceneDocument");
+
+    engine::project::ProjectSettings settings;
+    Random rng(5);
+    settings.defaultSceneId = Guid::Generate(rng);
+    settings.RefreshPathMirrors([](const Guid&) { return String(u8"Scenes/Arena"); });
+    CHECK(settings.defaultScene == u8"Scenes/Arena");
+    CHECK(settings.startupScript.IsEmpty()); // no script: no mirror
+}
