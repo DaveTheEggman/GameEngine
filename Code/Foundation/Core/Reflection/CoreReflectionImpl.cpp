@@ -27,6 +27,7 @@ import :constant_registry;
 import :reflection;
 import :enum_reflection;
 import :math;
+import :content_fit; // FitMode
 import :instance;
 import :variant;
 import :logger;
@@ -370,6 +371,16 @@ namespace foundation::core
             .Value("Append", FileMode::Append);
     }
 
+    // How fixed-size content fits a region of another shape (a game's render resolution in its
+    // window, the Game tab's viewport): a setting the project and its export presets carry.
+    REFLECT_ENUM(FitMode, "rtti::core")
+    {
+        builder.Value("Stretch", FitMode::Stretch)
+            .Value("Letterbox", FitMode::Letterbox)
+            .Value("Crop", FitMode::Crop)
+            .Value("IntegerScale", FitMode::IntegerScale);
+    }
+
     REFLECT_ENUM(SeekOrigin, "rtti::core")
     {
         builder.Value("Begin", SeekOrigin::Begin)
@@ -444,6 +455,8 @@ namespace foundation::core
         GlobalTypeRegistry().Register(TypeOf<FileMode>());
         RttiRegisterEnum_SeekOrigin();
         GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
+        RttiRegisterEnum_FitMode();
+        GlobalTypeRegistry().Register(TypeOf<FitMode>());
             return true;
         }();
         (void)once;

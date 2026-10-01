@@ -111,6 +111,44 @@ export namespace foundation::core
         return nullptr;
     }
 
+    // An enum field's value at `address`, read by the enum's size (an enum is stored as its
+    // underlying integer: one, two, four or eight bytes). What a tool editing an enum through
+    // reflection reads, with no knowledge of the enum's C++ type.
+    [[nodiscard]] inline i64 ReadEnumValue(const void* address, const TypeInfo& type) noexcept
+    {
+        switch (type.size)
+        {
+        case 1:
+            return *static_cast<const i8*>(address);
+        case 2:
+            return *static_cast<const i16*>(address);
+        case 8:
+            return *static_cast<const i64*>(address);
+        default:
+            return *static_cast<const i32*>(address);
+        }
+    }
+
+    // Writes `value` to the enum field at `address`, by the enum's size (ReadEnumValue's pair).
+    inline void WriteEnumValue(void* address, const TypeInfo& type, i64 value) noexcept
+    {
+        switch (type.size)
+        {
+        case 1:
+            *static_cast<i8*>(address) = static_cast<i8>(value);
+            break;
+        case 2:
+            *static_cast<i16*>(address) = static_cast<i16>(value);
+            break;
+        case 8:
+            *static_cast<i64*>(address) = value;
+            break;
+        default:
+            *static_cast<i32*>(address) = static_cast<i32>(value);
+            break;
+        }
+    }
+
     // Looks up the integer value for an enumerator name; false if not found.
     [[nodiscard]] inline bool EnumValueByName(const TypeInfo& type, const char* name,
                                               i64& outValue) noexcept

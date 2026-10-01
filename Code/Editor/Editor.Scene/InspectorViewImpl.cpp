@@ -699,17 +699,7 @@ namespace editor
                 {
                     return 0;
                 }
-                switch (p->type->size)
-                {
-                case 1:
-                    return *static_cast<const i8*>(address);
-                case 2:
-                    return *static_cast<const i16*>(address);
-                case 8:
-                    return *static_cast<const i64*>(address);
-                default:
-                    return *static_cast<const i32*>(address);
-                }
+                return ReadEnumValue(address, *p->type);
             };
             auto indexOf = [values](i64 value) -> i32
             {
@@ -1165,17 +1155,7 @@ namespace editor
         {
             return 0;
         }
-        switch (p.type->size)
-        {
-        case 1:
-            return *static_cast<const i8*>(address);
-        case 2:
-            return *static_cast<const i16*>(address);
-        case 8:
-            return *static_cast<const i64*>(address);
-        default:
-            return *static_cast<const i32*>(address);
-        }
+        return ReadEnumValue(address, *p.type);
     }
 
     void SceneInspectorView::BuildPropertyRow(const Guid& id, const TypeInfo* type,
@@ -1348,17 +1328,7 @@ namespace editor
                 {
                     return 0;
                 }
-                switch (p->type->size)
-                {
-                case 1:
-                    return *static_cast<const i8*>(address);
-                case 2:
-                    return *static_cast<const i16*>(address);
-                case 8:
-                    return *static_cast<const i64*>(address);
-                default:
-                    return *static_cast<const i32*>(address);
-                }
+                return ReadEnumValue(address, *p->type);
             };
             auto indexOf = [values](i64 value) -> i32
             {

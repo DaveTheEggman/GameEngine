@@ -1583,10 +1583,10 @@ export namespace editor
                     }
                     if (!m_hasOld)
                     {
-                        m_oldRaw = ReadRawInt(address, prop->type->size);
+                        m_oldRaw = ReadEnumValue(address, *prop->type);
                         m_hasOld = true;
                     }
-                    WriteRawInt(address, prop->type->size, m_newRaw);
+                    WriteEnumValue(address, *prop->type, m_newRaw);
                     return true;
                 }
 
@@ -1611,7 +1611,7 @@ export namespace editor
                     if (void* address =
                             (prop->address != nullptr) ? prop->address(settings) : nullptr)
                     {
-                        WriteRawInt(address, prop->type->size, m_oldRaw);
+                        WriteEnumValue(address, *prop->type, m_oldRaw);
                     }
                 }
                 else
@@ -1643,38 +1643,6 @@ export namespace editor
                     ++i;
                 }
                 return a[i] == b[i];
-            }
-            [[nodiscard]] static i64 ReadRawInt(const void* address, u32 size) noexcept
-            {
-                switch (size)
-                {
-                case 1:
-                    return *static_cast<const i8*>(address);
-                case 2:
-                    return *static_cast<const i16*>(address);
-                case 8:
-                    return *static_cast<const i64*>(address);
-                default:
-                    return *static_cast<const i32*>(address);
-                }
-            }
-            static void WriteRawInt(void* address, u32 size, i64 value) noexcept
-            {
-                switch (size)
-                {
-                case 1:
-                    *static_cast<i8*>(address) = static_cast<i8>(value);
-                    break;
-                case 2:
-                    *static_cast<i16*>(address) = static_cast<i16>(value);
-                    break;
-                case 8:
-                    *static_cast<i64*>(address) = value;
-                    break;
-                default:
-                    *static_cast<i32*>(address) = static_cast<i32>(value);
-                    break;
-                }
             }
 
             [[nodiscard]] Instance ResolveSettings(const PropertyInfo** outProp)
@@ -1738,10 +1706,10 @@ export namespace editor
                     }
                     if (!m_hasOld)
                     {
-                        m_oldRaw = ReadRaw(address, prop->type->size);
+                        m_oldRaw = ReadEnumValue(address, *prop->type);
                         m_hasOld = true;
                     }
-                    WriteRaw(address, prop->type->size, m_newRaw);
+                    WriteEnumValue(address, *prop->type, m_newRaw);
                     return true;
                 }
 
@@ -1766,7 +1734,7 @@ export namespace editor
                     if (void* address =
                             (prop->address != nullptr) ? prop->address(component) : nullptr)
                     {
-                        WriteRaw(address, prop->type->size, m_oldRaw);
+                        WriteEnumValue(address, *prop->type, m_oldRaw);
                     }
                 }
                 else
@@ -1799,38 +1767,6 @@ export namespace editor
                     ++i;
                 }
                 return a[i] == b[i];
-            }
-            [[nodiscard]] static i64 ReadRaw(const void* address, u32 size) noexcept
-            {
-                switch (size)
-                {
-                case 1:
-                    return *static_cast<const i8*>(address);
-                case 2:
-                    return *static_cast<const i16*>(address);
-                case 8:
-                    return *static_cast<const i64*>(address);
-                default:
-                    return *static_cast<const i32*>(address);
-                }
-            }
-            static void WriteRaw(void* address, u32 size, i64 value) noexcept
-            {
-                switch (size)
-                {
-                case 1:
-                    *static_cast<i8*>(address) = static_cast<i8>(value);
-                    break;
-                case 2:
-                    *static_cast<i16*>(address) = static_cast<i16>(value);
-                    break;
-                case 8:
-                    *static_cast<i64*>(address) = value;
-                    break;
-                default:
-                    *static_cast<i32*>(address) = static_cast<i32>(value);
-                    break;
-                }
             }
 
             [[nodiscard]] Instance ResolveComponent(const PropertyInfo** outProperty)

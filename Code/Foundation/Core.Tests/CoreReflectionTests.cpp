@@ -504,6 +504,16 @@ TEST_CASE("core-reflection: public enums are reflected")
     // Other public enums.
     CHECK(EnumeratorCount(TypeOf<FileMode>()) == 4u);
     CHECK(EnumeratorCount(TypeOf<SeekOrigin>()) == 3u);
+    CHECK(EnumeratorCount(TypeOf<FitMode>()) == 4u);
+    i64 integer = -1;
+    CHECK(EnumValueByName(TypeOf<FitMode>(), "IntegerScale", integer));
+    CHECK(integer == static_cast<i64>(FitMode::IntegerScale));
+
+    // An enum field read and written through reflection, by its size.
+    FitMode fit = FitMode::Letterbox;
+    CHECK(ReadEnumValue(&fit, TypeOf<FitMode>()) == static_cast<i64>(FitMode::Letterbox));
+    WriteEnumValue(&fit, TypeOf<FitMode>(), static_cast<i64>(FitMode::Crop));
+    CHECK(fit == FitMode::Crop);
     i64 notFound = -1;
     CHECK(EnumValueByName(TypeOf<ErrorCode>(), "NotFound", notFound));
     CHECK(notFound == static_cast<i64>(ErrorCode::NotFound));
