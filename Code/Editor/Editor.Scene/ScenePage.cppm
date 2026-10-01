@@ -855,13 +855,11 @@ export namespace editor
         context.SceneStreamStager = [](foundation::content::Instance& instance,
                                        Array<byte>& out) -> bool
         {
-            const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
-            const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab)
+            if (!engine::IsSceneLike(instance))
             {
                 return false;
             }
-            UniquePtr<IStream> stream = instance.ReadData(u8"scene");
+            UniquePtr<IStream> stream = instance.ReadData(engine::kSceneStream);
             if (stream.Get() == nullptr)
             {
                 return false;
@@ -870,6 +868,7 @@ export namespace editor
             // silently skipped by a hand-listed set).
             scene::Scene scratch(editor::EditorRootAllocator(), u8"__export_transcode");
             engine::AddAllSceneManagers(scratch);
+            const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
             Result<Array<byte>> bytes =
                 scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
             if (!bytes.HasValue())
@@ -880,38 +879,19 @@ export namespace editor
             return true;
         };
 
-        // Export reachability seam: collect the assets a
-        // scene/prefab references so the export closure can chase the scene->asset edges the cook's
-        // read-dep graph can't see. Same full-composition scratch pattern as the stager above (the full
-        // manager set, so no component type is silently skipped); resolves the scene's Refs through a
-        // factory-less ResourceManager (nothing builds, so every bound id lands in CollectUnresolved)
-        // and reads back the parked prefab instances. MAIN-THREAD only.
+        // Export reachability seam: the assets a scene or prefab references, so the export
+        // closure can chase the scene->asset edges the cook's read-dep graph can't see. MAIN-THREAD
+        // only.
         context.SceneRefScanner =
             [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
                Array<Guid>& outResources, Array<Guid>& outPrefabs) -> bool
         {
-            const bool isScene = instance.TypeName() == StringView(u8"SceneDocument");
-            const bool isPrefab = instance.TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab)
+            if (!engine::IsSceneLike(instance))
             {
                 return false;
             }
-            // A transient scratch scene assembled from the full composition (no component type
-            // silently skipped by a hand-listed set).
-            scene::Scene scratch(editor::EditorRootAllocator(), u8"__export_scan");
-            engine::AddAllSceneManagers(scratch);
-            const bool loaded = scene::LoadScene(instance, scratch).IsOk();
-            if (loaded)
-            {
-                foundation::resource::ResourceManager collector(editor::EditorRootAllocator(), 
-                    db); // no factories -> all binds unresolved
-                scene::ResolveSceneResources(scratch, collector);
-                collector.CollectUnresolved(outResources);
-                scratch.ForEachPendingPrefabInstance(
-                    [&outPrefabs](scene::Scene::PendingPrefabInstance& pending)
-                    { outPrefabs.PushBack(pending.prefabId); });
-            }
-            return loaded;
+            return engine::ScanSceneReferences(editor::EditorRootAllocator(), instance, db,
+                                               outResources, outPrefabs);
         };
 
         context.AddImportListener(

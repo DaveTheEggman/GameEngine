@@ -20,8 +20,6 @@ import foundation.core;
 import foundation.json;
 import foundation.content;
 import foundation.vfs;
-import foundation.scene;
-import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
 import engine.composition;
@@ -34,48 +32,7 @@ import :export_presets; // RefreshExportTemplates
 using namespace foundation::core;
 using foundation::json::JsonValue;
 namespace content = foundation::content;
-namespace scene = foundation::scene;
 namespace vfs = foundation::vfs;
-
-namespace editor::mcp::detail
-{
-    // Pre-transcode every scene/prefab TEXT source to the binary wire over the FULL manager
-    // set - the same pass the export CLI runs (a manager-less transcode would drop records).
-    inline void CollectExportSceneStreams(content::Group* group,
-                                          HashMap<Guid, Array<byte>>& out)
-    {
-        if (group == nullptr)
-        {
-            return;
-        }
-        for (content::Instance* instance : group->Instances())
-        {
-            const bool isScene = instance->TypeName() == StringView(u8"SceneDocument");
-            const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab)
-            {
-                continue;
-            }
-            UniquePtr<IStream> stream = instance->ReadData(u8"scene");
-            if (stream.Get() == nullptr)
-            {
-                continue;
-            }
-            scene::Scene scratch(editor::EditorRootAllocator(), u8"__mcp_export_transcode");
-            engine::AddAllSceneManagers(scratch);
-            Result<Array<byte>> bytes =
-                scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
-            if (bytes.HasValue())
-            {
-                out.InsertOrAssign(instance->Id(), Move(bytes.Value()));
-            }
-        }
-        for (content::Group* child : group->Groups())
-        {
-            CollectExportSceneStreams(child, out);
-        }
-    }
-}
 
 export namespace editor::mcp
 {
@@ -92,7 +49,10 @@ export namespace editor::mcp
         editor::TemplateRegistry templates;
         detail::RefreshExportTemplates(templates, hostToolDir);
         HashMap<Guid, Array<byte>> sceneStreams;
-        detail::CollectExportSceneStreams(session.project->SourceDb().RootGroup(), sceneStreams);
+        if (content::Group* root = session.project->SourceDb().RootGroup())
+        {
+            engine::CollectSceneStreams(editor::EditorRootAllocator(), *root, sceneStreams);
+        }
         const editor::SceneReferenceScanner scanner =
             [](content::Instance& instance, content::ContentDatabase& db,
                editor::SceneReferences& out)

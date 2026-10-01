@@ -26,9 +26,6 @@ import foundation.core;
 import foundation.json;
 import foundation.content;
 import foundation.vfs;
-import foundation.resource;
-import foundation.scene;
-import foundation.scene.resource;
 import foundation.mcp;
 import pipeline.core;
 import engine.composition;
@@ -39,7 +36,6 @@ import :session;
 using namespace foundation::core;
 using foundation::json::JsonValue;
 namespace content = foundation::content;
-namespace scene = foundation::scene;
 namespace vfs = foundation::vfs;
 
 namespace editor::mcp::detail
@@ -64,25 +60,14 @@ namespace editor::mcp::detail
         Array<String> edges;
     };
 
-    // A scene/prefab instance's DIRECT references: component resource Refs (via a factory-less
-    // ResourceManager - every bound id lands unresolved) + parked prefab-instance ids. The scratch
-    // carries the full manager set, so no component's Refs are invisible. Returns false when the
-    // stored stream does not load (project_health counts those; asset_uses skips them).
+    // A scene/prefab instance's DIRECT references (component resource Refs + parked prefab-instance
+    // ids), as every exporting host scans them. Returns false when the stored stream does not load
+    // (project_health counts those; asset_uses skips them).
     inline bool CollectSceneReferences(content::Instance& instance, content::ContentDatabase& db,
                                        Array<Guid>& resources, Array<Guid>& prefabs)
     {
-        scene::Scene scratch{editor::EditorRootAllocator()};
-        engine::AddAllSceneManagers(scratch);
-        if (!scene::LoadScene(instance, scratch).IsOk())
-        {
-            return false;
-        }
-        foundation::resource::ResourceManager collector(editor::EditorRootAllocator(), db); // no factories -> all binds unresolved
-        scene::ResolveSceneResources(scratch, collector);
-        collector.CollectUnresolved(resources);
-        scratch.ForEachPendingPrefabInstance([&prefabs](scene::Scene::PendingPrefabInstance& pending)
-                                             { prefabs.PushBack(pending.prefabId); });
-        return true;
+        return engine::ScanSceneReferences(editor::EditorRootAllocator(), instance, db, resources,
+                                           prefabs);
     }
 
     // Walk every source-DB instance (depth-first) and collect those with an edge to `target`.

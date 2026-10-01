@@ -95,67 +95,6 @@ namespace
         return reinterpret_cast<const char*>(s.CStr());
     }
 
-    // Pre-transcode every scene/prefab TEXT source stream to the binary wire (the editor
-    // does the same on its main thread before the pack job) - the staged pak then matches
-    // an editor export exactly. A stream that fails to transcode stages verbatim (the
-    // runtime sniffs), so this can only improve the output.
-    void CollectSceneStreams(foundation::content::Group& group, HashMap<Guid, Array<byte>>& out)
-    {
-        for (foundation::content::Instance* instance : group.Instances())
-        {
-            const bool isScene = instance->TypeName() == StringView(u8"SceneDocument");
-            const bool isPrefab = instance->TypeName() == StringView(u8"PrefabDocument");
-            if (!isScene && !isPrefab)
-            {
-                continue;
-            }
-            UniquePtr<IStream> stream = instance->ReadData(u8"scene");
-            if (stream.Get() == nullptr)
-            {
-                continue;
-            }
-            // The FULL manager set (the scene-surface composition root - the same per-domain
-            // functions the subsystems inject through), or the transcode would silently drop
-            // records of any component type missing from the scratch.
-            scene::Scene scratch(AppRoot(), u8"__export_transcode");
-            engine::AddAllSceneManagers(scratch);
-            Result<Array<byte>> bytes =
-                scene::TranscodeSceneStreamToBinary(*stream, scratch, /*includeSettings=*/isScene);
-            if (bytes.HasValue())
-            {
-                out.InsertOrAssign(instance->Id(), Move(bytes.Value()));
-            }
-        }
-        for (foundation::content::Group* child : group.Groups())
-        {
-            CollectSceneStreams(*child, out);
-        }
-    }
-
-    // Scene-reference scanner for closure pruning: load a scene/prefab over the full manager set,
-    // resolve its component Refs through a factory-less ResourceManager (nothing builds, so every
-    // bound id lands in CollectUnresolved), and read back its parked prefab instances. The export
-    // library stays subsystem-agnostic; this bridges the scene->asset edges PlanFor can't see.
-    editor::SceneReferenceScanner MakeSceneScanner()
-    {
-        return [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
-                  editor::SceneReferences& out)
-        {
-            scene::Scene scene{AppRoot()};
-            engine::AddAllSceneManagers(scene);
-            if (!scene::LoadScene(instance, scene).IsOk())
-            {
-                return;
-            }
-            foundation::resource::ResourceManager collector(AppRoot(), 
-                db); // no factories -> all binds unresolved
-            scene::ResolveSceneResources(scene, collector);
-            collector.CollectUnresolved(out.resources);
-            scene.ForEachPendingPrefabInstance([&out](scene::Scene::PendingPrefabInstance& pending)
-                                               { out.prefabs.PushBack(pending.prefabId); });
-        };
-    }
-
     // The builder + type registration set now lives in Pipeline::Registration (the composition
     // root) - see RegisterPipelineTypes / RegisterAllBuilders. main() calls them directly.
 
@@ -392,7 +331,7 @@ int main(int argc, char** argv)
     // audio/script/UI/net were missing).
     engine::RegisterAllSceneComponentReflection();
     HashMap<Guid, Array<byte>> sceneStreams;
-    CollectSceneStreams(*project->SourceDb().RootGroup(), sceneStreams);
+    engine::CollectSceneStreams(AppRoot(), *project->SourceDb().RootGroup(), sceneStreams);
 
     // Presets: from <project>/export_presets.xml, else a synthesized host preset.
     editor::ExportPresetSet presets;
@@ -410,7 +349,10 @@ int main(int argc, char** argv)
     const String outRoot =
         (outArg != nullptr) ? String(Sv(outArg)) : PathJoin(project->Directory(), u8"Dist");
 
-    const editor::SceneReferenceScanner scanner = MakeSceneScanner();
+    const editor::SceneReferenceScanner scanner =
+        [](foundation::content::Instance& instance, foundation::content::ContentDatabase& db,
+           editor::SceneReferences& out)
+    { (void)engine::ScanSceneReferences(AppRoot(), instance, db, out.resources, out.prefabs); };
 
     // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
     // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
