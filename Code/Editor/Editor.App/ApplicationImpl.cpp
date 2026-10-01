@@ -2549,9 +2549,6 @@ namespace editor::app
                 ShowToast(editor::NoticeKind::Success,
                           Format(u8"Cook finished: {} asset(s).", cooked).AsView());
             }
-            // A finished cook may have CREATED products the project-open bind missed
-            // (fresh checkout: the default UI font/theme cook after the open-time bind).
-            ApplyProjectUiDefaults();
             // Hot reload: rebuilt products swap in behind the proxy handles - live
             // scenes see the new resources with no reopen (dependents reload
             // transitively through the manager's recorded edges).
@@ -2562,6 +2559,12 @@ namespace editor::app
                     (void)m_resources->Reload(product);
                 }
             }
+            // A finished cook may have CREATED products the project-open bind missed
+            // (fresh checkout: the default UI font/theme cook after the open-time bind).
+            // AFTER the reload: the game UI borrows the font product itself, so binding first
+            // left it on the product a rebuilt font's reload then freed, and the next game UI
+            // layout read freed memory.
+            ApplyProjectUiDefaults();
         };
         m_shell.SetAssetsContent(m_assetsView.Get());
 
