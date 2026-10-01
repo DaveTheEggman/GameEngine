@@ -16,6 +16,7 @@ import foundation.ui;
 import foundation.ui.toolkit; // TreeDragData: a hierarchy row
 import editor.core;
 import editor.app;
+import foundation.settings; // the Preferences store
 import engine.project; // the reflected asset settings the dialog builds rows from
 
 using namespace foundation::core;
@@ -481,4 +482,39 @@ TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
     CHECK(appended == kMaterial);
     CHECK(list->EditorView()->AsDropTarget()->OnDrop(material.Get(), 0, 0) ==
           ui::DragDropEffects::None);
+}
+
+// Sedulous c5100e94: Preferences lists the user's preview resolutions as rows, one per entry of
+// the store's section; Add appends one, Remove takes one out (applied on Save).
+TEST_CASE("preferences: the preview resolutions are rows that add and remove")
+{
+    RegisterEditorSettingsTypes();
+    EditorContext context{DefaultAllocator()};
+    foundation::settings::Settings store(DefaultAllocator());
+    GamePreviewSettings& previews = store.Section<GamePreviewSettings>();
+    previews.seeded = true; // the user's own list, not the seeded one
+    previews.presets.PushBack(GamePreviewResolution{String(u8"Deck"), 1280, 800});
+    previews.presets.PushBack(GamePreviewResolution{String(u8"Phone"), 1080, 2400});
+
+    auto dialog = MakeRef<app::EditorPreferencesDialog>(DefaultAllocator(), context, store);
+    CHECK(dialog->PreviewRowCount() == 2u);
+    const auto button = [&dialog](StringView text)
+    {
+        Array<ui::Button*> buttons;
+        CollectViews(*dialog, buttons);
+        for (ui::Button* candidate : buttons)
+        {
+            if (candidate->Text.Value() == text)
+            {
+                return candidate;
+            }
+        }
+        return static_cast<ui::Button*>(nullptr);
+    };
+    REQUIRE(button(u8"Add resolution") != nullptr);
+    button(u8"Add resolution")->FireClick();
+    CHECK(dialog->PreviewRowCount() == 3u);
+    REQUIRE(button(u8"Remove") != nullptr);
+    button(u8"Remove")->FireClick();
+    CHECK(dialog->PreviewRowCount() == 2u);
 }

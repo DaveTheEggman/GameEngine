@@ -144,6 +144,34 @@ export namespace editor::app
                 column->AddView(note.Get());
             }
 
+            // The Game tab's preview resolutions (GamePreviewSettings): sizes to test at on this
+            // machine, after the project's own and its export presets'. Staged, applied on Save.
+            {
+                auto header = MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"Game preview resolutions"));
+                header->FontSize.SetValue(13.0f);
+                column->AddView(header.Get());
+                auto previews = MakeRef<ui::FlexLayout>(MemoryAllocator());
+                previews->Direction = ui::Orientation::Vertical;
+                previews->Spacing = 4;
+                ui::LayoutStyle match;
+                match.Width = ui::SizeSpec::Match();
+                column->AddView(previews.Get(), match);
+                m_previewColumn = previews.Get();
+                if (const editor::GamePreviewSettings* seeded = editor::GamePreviewSettings::From(&store))
+                {
+                    for (const editor::GamePreviewResolution& preview : seeded->presets)
+                    {
+                        AddPreviewRow(preview.name.AsView(), preview.width, preview.height);
+                    }
+                }
+                auto add = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Add resolution"));
+                EditorPreferencesDialog* self = this;
+                add->OnClick.Add([self](ui::ButtonBase*) { self->AddPreviewRow(u8"Custom", 1920, 1080); });
+                ui::LayoutStyle left;
+                left.AlignSelf = ui::Align::Start;
+                column->AddView(add.Get(), left);
+            }
+
             // Shortcuts: every action with its effective chord; a click on the chord captures the
             // next key, Reset forgets the override. Staged in m_shortcutEdits, applied on Save.
             {
@@ -233,7 +261,76 @@ export namespace editor::app
         /// host for the open project without a reopen.
         Function<void()> OnMcpSettingsApplied;
 
+        /// The preview resolutions staged in the dialog (rows not removed), in order.
+        [[nodiscard]] usize PreviewRowCount() const noexcept
+        {
+            usize count = 0;
+            for (const PreviewRow& row : m_previewRows)
+            {
+                count += row.removed ? 0u : 1u;
+            }
+            return count;
+        }
+
     private:
+        /// One staged preview resolution; its views are the rows container's.
+        struct PreviewRow
+        {
+            ui::FlexLayout* row = nullptr;
+            ui::EditText* name = nullptr;
+            ui::NumericField* width = nullptr;
+            ui::NumericField* height = nullptr;
+            bool removed = false;
+        };
+
+        void AddPreviewRow(StringView name, u32 width, u32 height)
+        {
+            auto row = MakeRef<ui::FlexLayout>(MemoryAllocator());
+            row->Direction = ui::Orientation::Horizontal;
+            row->Spacing = 6;
+            auto nameEdit = MakeRef<ui::EditText>(MemoryAllocator());
+            nameEdit->SetText(name);
+            ui::LayoutStyle grow;
+            grow.FlexGrow = 1.0f;
+            grow.AlignSelf = ui::Align::Center;
+            row->AddView(nameEdit.Get(), grow);
+            const auto sizeField = [this, &row](u32 value)
+            {
+                auto field = MakeRef<ui::NumericField>(MemoryAllocator());
+                field->SetDecimalPlaces(0);
+                field->SetMin(1.0);
+                field->SetMax(16384.0);
+                field->SetStep(1.0);
+                field->SetValue(static_cast<f64>(value));
+                ui::LayoutStyle style;
+                style.Width = ui::SizeSpec::Fixed(ui::Unit::Dp(80));
+                style.AlignSelf = ui::Align::Center;
+                row->AddView(field.Get(), style);
+                return field.Get();
+            };
+            ui::NumericField* widthField = sizeField(width);
+            ui::LayoutStyle centred;
+            centred.AlignSelf = ui::Align::Center;
+            row->AddView(MakeRef<ui::Label>(MemoryAllocator(), StringView(u8"x")).Get(), centred);
+            ui::NumericField* heightField = sizeField(height);
+            auto remove = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Remove"));
+            const usize index = m_previewRows.Size();
+            EditorPreferencesDialog* self = this;
+            // Hidden and skipped on Save rather than torn out from under its own click.
+            remove->OnClick.Add(
+                [self, index](ui::ButtonBase*)
+                {
+                    self->m_previewRows[index].removed = true;
+                    self->m_previewRows[index].row->Visibility = ui::Visibility::Gone;
+                    self->m_previewRows[index].row->Invalidate();
+                });
+            row->AddView(remove.Get(), centred);
+            ui::LayoutStyle match;
+            match.Width = ui::SizeSpec::Match();
+            m_previewColumn->AddView(row.Get(), match);
+            m_previewRows.PushBack(PreviewRow{row.Get(), nameEdit.Get(), widthField, heightField, false});
+        }
+
         void UpdateScaleLabel(f32 value)
         {
             if (m_uiScaleLabel != nullptr)
@@ -372,6 +469,21 @@ export namespace editor::app
             {
                 OnMcpSettingsApplied(); // live: the host follows the new enabled/port/token
             }
+            if (editor::GamePreviewSettings* previews = editor::GamePreviewSettings::From(m_settings))
+            {
+                previews->presets.Clear();
+                for (const PreviewRow& row : m_previewRows)
+                {
+                    if (row.removed || row.name->Text().IsEmpty())
+                    {
+                        continue;
+                    }
+                    previews->presets.PushBack(editor::GamePreviewResolution{
+                        String(row.name->Text()), static_cast<u32>(row.width->Value()),
+                        static_cast<u32>(row.height->Value())});
+                }
+                m_settings->MarkChanged<editor::GamePreviewSettings>();
+            }
             if (!m_shortcutEdits.IsEmpty())
             {
                 Array<String> collisions;
@@ -408,6 +520,8 @@ export namespace editor::app
         ui::EditText* m_mcpPortEdit = nullptr;
         ui::EditText* m_mcpTokenEdit = nullptr;
         editor::ShortcutEdits m_shortcutEdits; // staged; applied and persisted on Save
+        ui::FlexLayout* m_previewColumn = nullptr; // the preview rows sit here
+        Array<PreviewRow> m_previewRows;
     };
 
     RTTI_DEFINE_OBJECT(EditorPreferencesDialog, "rtti::editor::editor::app")
