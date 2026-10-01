@@ -237,3 +237,36 @@ TEST_CASE("particles: the manager takes its camera position from the scene's pri
     sceneObj.Update(0.1f);
     CHECK(particlesManager->CameraPosition().x == doctest::Approx(-1.0f));
 }
+
+// An effect on an entity made and placed this frame, the way a spawned prefab is, fires its
+// one-shot burst where the entity IS: the simulation runs once the transforms are final, not
+// before, when a new entity's world position still reads the origin (Sedulous bf6a6712).
+TEST_CASE("particles: a spawned one-shot bursts where its entity is")
+{
+    particles::RegisterParticleEffectResource();
+
+    scene::Scene sceneObj{DefaultAllocator()};
+    auto* manager = sceneObj.AddSystem<engine::particles::ParticleEffectComponentManager>();
+
+    RefPtr<particles::ParticleEffectResource> res =
+        MakeRef<particles::ParticleEffectResource>(DefaultAllocator());
+    particles::ParticleSystem& sys = res->Effect().AddSystem(32);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat{5.0f, 5.0f};
+    sys.emitter.mode = particles::EmissionMode::Burst;
+    sys.emitter.burstCount = 6;
+
+    sceneObj.Update(0.016f); // a scene already running
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Burst");
+    sceneObj.SetLocalPosition(e, Float3{12.0f, 3.0f, -40.0f});
+    engine::particles::ParticleEffectComponent& c = manager->Add(e);
+    c.effectAsset = res.Get();
+    sceneObj.Update(0.016f);
+
+    REQUIRE(c.instance.Get() != nullptr);
+    const particles::ParticleSystem* live = c.instance->Effect().GetSystem(0);
+    REQUIRE(live->AliveCount() == 6); // the one burst, on the first step
+    for (i32 i = 0; i < 6; ++i)
+    {
+        CHECK(Length((*live->Streams().Positions())[i] - Float3{12.0f, 3.0f, -40.0f}) < 0.1f);
+    }
+}

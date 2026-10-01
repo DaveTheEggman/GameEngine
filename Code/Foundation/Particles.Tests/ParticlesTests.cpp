@@ -993,3 +993,34 @@ TEST_CASE("particle reflection (batch 7): a whole effect traverses effect -> sys
     CHECK(ContainerRemoveAt(sysC, systemsInst, 0).IsOk());
     CHECK(ContainerSize(sysC, systemsInst) == 0u);
 }
+
+// A world-space system with nothing to place its particles bears them at the emitter, not at the
+// origin or where a dead particle last was (Sedulous bf6a6712).
+TEST_CASE("ParticleSystem: with no position initializer, particles are born at the emitter")
+{
+    particles::ParticleEffect effect(u8"unplaced");
+    particles::ParticleSystem& sys = effect.AddSystem(16);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat{5.0f, 5.0f};
+    sys.emitter.mode = particles::EmissionMode::Burst;
+    sys.emitter.burstCount = 4;
+
+    particles::ParticleEffectInstance instance(effect);
+    instance.position = Float3{100.0f, 2.0f, -7.0f};
+    instance.Update(0.016f);
+    REQUIRE(sys.AliveCount() == 4);
+    for (i32 i = 0; i < 4; ++i)
+    {
+        CHECK(Length((*sys.Streams().Positions())[i] - Float3{100.0f, 2.0f, -7.0f}) < 0.01f);
+    }
+
+    // Reset clears the particles, not their slots: the next burst is born where the emitter is
+    // NOW, not where the old ones were.
+    instance.Reset();
+    instance.position = Float3{-50.0f, 0.0f, 3.0f};
+    instance.Update(0.016f);
+    REQUIRE(sys.AliveCount() == 4);
+    for (i32 i = 0; i < 4; ++i)
+    {
+        CHECK(Length((*sys.Streams().Positions())[i] - Float3{-50.0f, 0.0f, 3.0f}) < 0.01f);
+    }
+}

@@ -167,10 +167,13 @@ export namespace engine::particles
         /// primary camera as of the last tick (the origin until one exists).
         [[nodiscard]] Float3 CameraPosition() const noexcept { return m_cameraPos; }
 
-        // Scene-driven sim: advance every instance in PostUpdate (before render extraction).
+        // Scene-driven sim: advance every instance in PostTransform, once the transforms are
+        // final (and before render extraction reads them). Earlier, an effect spawned this frame
+        // (a prefab a behaviour placed in its update) read its not-yet-composed world position,
+        // the origin, and a one-shot burst went off there.
         void OnUpdate(scene::ScenePhase phase, f32 deltaTime) override
         {
-            if (phase != scene::ScenePhase::PostUpdate || m_scene == nullptr)
+            if (phase != scene::ScenePhase::PostTransform || m_scene == nullptr)
             {
                 return;
             }

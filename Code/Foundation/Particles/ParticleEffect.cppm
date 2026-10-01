@@ -503,6 +503,13 @@ export namespace foundation::particles
                     break;
                 }
                 const i32 index = m_streams.aliveCount++;
+                // Born at the emitter unless an initializer places it: a system with no Position
+                // initializer would otherwise keep the slot's leftover - the origin, or where a
+                // dead particle last was.
+                if (CPUStream<Float3>* positions = m_streams.Positions())
+                {
+                    (*positions)[index] = emState;
+                }
                 for (usize k = 0; k < m_initializers.Size(); ++k)
                 {
                     m_initializers[k]->Initialize(m_streams, index, m_random);
