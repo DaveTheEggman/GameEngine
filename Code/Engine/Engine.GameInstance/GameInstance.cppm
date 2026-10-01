@@ -619,6 +619,7 @@ export namespace engine::runtime
             m_runBinding; // stable; app fills its pointers, installed per context (StartScript)
 
         input::ActionRuntime m_inputRuntime; // this run's action state (per-instance)
+        void TraceInput(); // ENV_INPUT_TRACE: the input path, logged twice a second
         input::IInputSourceProvider* m_inputSource =
             nullptr; // borrowed: the viewport / shell devices
 

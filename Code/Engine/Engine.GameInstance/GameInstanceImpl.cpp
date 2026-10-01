@@ -186,6 +186,41 @@ namespace engine::runtime
         }
         m_inputRuntime.SetTimeScale(contextTimeScale);
         m_inputRuntime.Update(*m_inputSource, deltaTime);
+        TraceInput();
+    }
+
+    void GameInstance::TraceInput()
+    {
+        // ENV_INPUT_TRACE set: twice a second, what the input path saw (each pad's left stick and
+        // south button as the device reports them) and what the actions made of it. For a device
+        // where input misbehaves and no debugger reaches, a handheld say.
+        static const bool tracing = []
+        {
+            const Optional<core::String> value = core::GetEnvironmentVariable(u8"ENV_INPUT_TRACE");
+            return value.HasValue() && !value->IsEmpty();
+        }();
+        if (!tracing || (m_inputRuntime.Frame() % 30u) != 0u)
+        {
+            return;
+        }
+        core::String line = core::Format(u8"InputTrace: frame {} pads {}", m_inputRuntime.Frame(),
+                                         m_inputSource->GamepadCount());
+        for (core::i32 i = 0; i < m_inputSource->GamepadCount(); ++i)
+        {
+            if (foundation::shell::IGamepad* pad = m_inputSource->Gamepad(i))
+            {
+                line += core::Format(u8" [{} '{}' connected {} left ({},{}) south {}]", pad->Index(), pad->Name(),
+                                     pad->Connected(), pad->Axis(foundation::shell::GamepadAxis::LeftX),
+                                     pad->Axis(foundation::shell::GamepadAxis::LeftY),
+                                     pad->IsButtonDown(foundation::shell::GamepadButton::South))
+                            .AsView();
+            }
+        }
+        core::String actions;
+        m_inputRuntime.AppendStateSummary(actions);
+        line += u8" | ";
+        line += actions.AsView();
+        LOG_INFO(u8"Input", u8"{}", line.AsView());
     }
 
     scene::Scene* GameInstance::CreateScene(core::StringView name, bool activate)

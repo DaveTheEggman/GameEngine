@@ -349,6 +349,24 @@ export namespace foundation::input
         }
         [[nodiscard]] u64 Frame() const noexcept { return m_frame; }
 
+        /// Every action's name, value and held state on one line, "Move=(0,1) Jump=(1,0) down":
+        /// what a trace of the input path prints.
+        void AppendStateSummary(String& out) const
+        {
+            usize flat = 0;
+            for (const ActionSet& set : m_map.sets)
+            {
+                for (const Action& action : set.actions)
+                {
+                    const ActionState& state = m_states[flat++];
+                    out += Format(u8"{}{}=({},{}){}", out.IsEmpty() ? StringView() : StringView(u8" "),
+                                  action.name.AsView(), state.value.x, state.value.y,
+                                  state.pressed ? StringView(u8" down") : StringView())
+                               .AsView();
+                }
+            }
+        }
+
         /// Engine time scale, applied to actions whose processors set `timeScale` (their
         /// VALUE multiplies by it - a rate driving per-second gameplay slows with the
         /// world). Mouse-delta-style rates should simply not set the flag (the ez rule).

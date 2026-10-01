@@ -215,6 +215,23 @@ TEST_CASE("input: buttons - edges, device folding, and key modifiers")
     devices.keyboard.mods = shell::KeyModifiers::None;
 }
 
+TEST_CASE("input: the state summary names every action, its value and whether it is down")
+{
+    // Sedulous 18961314: what the input trace prints, one line for every action of the map.
+    ActionRuntime runtime;
+    runtime.SetMap(MakeGameplayMap());
+    runtime.DisableSet(u8"Menu");
+    FakeDevices devices;
+    devices.keyboard.Set(shell::KeyCode::Space, true);
+    devices.keyboard.Set(shell::KeyCode::D, true);
+    runtime.Update(devices, 1.0f / 60.0f);
+    String summary;
+    runtime.AppendStateSummary(summary);
+    CAPTURE(reinterpret_cast<const char*>(summary.CStr()));
+    CHECK(summary.AsView().StartsWith(u8"Jump=(1,0) down Move=(1,0)"));
+    CHECK(summary.AsView().ContainsIgnoreCase(u8" Move=(1,0) down"));
+}
+
 TEST_CASE("input: axes - composite, stick dead zone, and folding by magnitude")
 {
     ActionRuntime runtime;
