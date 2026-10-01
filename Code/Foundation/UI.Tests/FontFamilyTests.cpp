@@ -129,12 +129,12 @@ TEST_CASE("font-family: Resolution_InlineFontFamilyBeatsContextSheet")
 
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     root->AddView(view.Get());
-    view->SetStyle(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"Chewy"});
 
     // Inline override beats the context sheet cascade.
     const StyleValue resolved = view->ResolveStyle(StyleProperty::FontFamily);
     CHECK(resolved.AsString().HasValue());
-    CHECK(resolved.AsString().Value() == u8"JungleAdventurer");
+    CHECK(resolved.AsString().Value() == u8"Chewy");
 }
 
 TEST_CASE("font-service: DrawRootView pushes the context's CURRENT service into the VG")

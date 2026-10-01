@@ -370,10 +370,10 @@ TEST_CASE("markup: Label_FontFamily")
 {
     EnsureInit();
     auto view = MarkupLoader::LoadFromString(DefaultAllocator(), 
-        u8"<Label text=\"Decorative\" font-family=\"JungleAdventurer\"/>");
+        u8"<Label text=\"Decorative\" font-family=\"Chewy\"/>");
     Label* label = Cast<Label>(view.Get());
     REQUIRE(label != nullptr);
-    CHECK(label->FontFamily.Value() == u8"JungleAdventurer");
+    CHECK(label->FontFamily.Value() == u8"Chewy");
 }
 
 TEST_CASE("markup: Button_FontFamily")
@@ -418,10 +418,10 @@ TEST_CASE("markup: Style_StringProperty")
 {
     EnsureInit();
     auto view = MarkupLoader::LoadFromString(DefaultAllocator(), 
-        u8"<Label text=\"hi\" style=\"font-family: JungleAdventurer;\"/>");
+        u8"<Label text=\"hi\" style=\"font-family: Chewy;\"/>");
     Label* label = Cast<Label>(view.Get());
     CHECK(label->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() ==
-          u8"JungleAdventurer");
+          u8"Chewy");
 }
 
 TEST_CASE("markup: Style_BeatsContextSheetRule")

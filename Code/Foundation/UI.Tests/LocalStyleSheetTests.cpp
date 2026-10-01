@@ -402,14 +402,14 @@ TEST_CASE("local-stylesheet: Pseudo_FontFamily_ForAllOnAncestorLocal_ReachesAllD
     inner->AddView(view.Get());
 
     StyleSheet* pauseLocal = SetupLocalSheet(*pauseRoot);
-    pauseLocal->ForAll().Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    pauseLocal->ForAll().Set(StyleProperty::FontFamily, StringView(u8"Chewy"));
 
     CHECK(pauseRoot->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
     CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
     CHECK(view->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
 }
 
 TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_NoMatchInChain_ReturnsNone")
@@ -426,7 +426,7 @@ TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_NoMatchInChain_ReturnsNon
 
     StyleSheet* local = SetupLocalSheet(*outer);
     local->ForType(&Label::StaticType())
-        .Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+        .Set(StyleProperty::FontFamily, StringView(u8"Chewy"));
 
     CHECK(inner->ResolveStyle(StyleProperty::FontFamily).GetKind() == StyleValue::Kind::None);
 }
@@ -445,8 +445,8 @@ TEST_CASE("local-stylesheet: FontFamily_TypeScopedRule_AncestorMatchesType_Inher
 
     StyleSheet* local = SetupLocalSheet(*outer);
     local->ForType(&TestGroup::StaticType())
-        .Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+        .Set(StyleProperty::FontFamily, StringView(u8"Chewy"));
 
     CHECK(inner->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
 }

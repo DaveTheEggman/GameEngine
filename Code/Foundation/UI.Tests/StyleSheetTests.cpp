@@ -91,7 +91,7 @@ TEST_CASE("stylesheet: StringValue_OverwriteFreesPrevious")
     // RAII: overwriting an entry drops the previous StyleValue (its owned String). No leak.
     StyleRule rule;
     rule.Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
-    rule.Set(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
+    rule.Set(StyleProperty::FontFamily, StringView{u8"Chewy"});
     rule.Set(StyleProperty::FontFamily, StringView{u8"LilitaOne"});
 
     CHECK(rule.GetValue(StyleProperty::FontFamily).Value().AsString().Value() ==
@@ -114,9 +114,9 @@ TEST_CASE("stylesheet: StringValue_DestructorFrees")
     {
         StyleRule rule;
         rule.Set(StyleProperty::FontFamily, StringView{u8"Roboto"});
-        rule.Set(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
+        rule.Set(StyleProperty::FontFamily, StringView{u8"Chewy"});
         CHECK(rule.GetValue(StyleProperty::FontFamily).Value().AsString().Value() ==
-              StringView{u8"JungleAdventurer"});
+              StringView{u8"Chewy"});
     }
 }
 
@@ -584,15 +584,15 @@ TEST_CASE("stylesheet: ForAll_RuleMatchesEveryView")
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
     Init(ctx, root.Get());
     StyleSheet* sheet = SetupSheet(ctx);
-    sheet->ForAll().Set(StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    sheet->ForAll().Set(StyleProperty::FontFamily, StringView(u8"Chewy"));
     auto testView = core::MakeRef<TestView>(core::DefaultAllocator());
     auto testGroup = core::MakeRef<TestGroup>(core::DefaultAllocator());
     root->AddView(testGroup.Get());
     testGroup->AddView(testView.Get());
     CHECK(testView->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
     CHECK(testGroup->ResolveStyle(StyleProperty::FontFamily).AsString().Value() ==
-          StringView(u8"JungleAdventurer"));
+          StringView(u8"Chewy"));
 }
 
 TEST_CASE("stylesheet: ForAll_LosesSpecificityToTypedRule")

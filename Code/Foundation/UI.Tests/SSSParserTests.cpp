@@ -655,12 +655,12 @@ TEST_CASE("sss: DrawableFactory_SvgWithTint")
 
 TEST_CASE("sss: FontFamily_BareIdentifier")
 {
-    Fixture f(LoadSSS(u8"View { font-family: JungleAdventurer; }"));
+    Fixture f(LoadSSS(u8"View { font-family: Chewy; }"));
     core::RefPtr<TestView> view = f.AddView();
     const StyleValue v = view->ResolveStyle(StyleProperty::FontFamily);
     core::Optional<StringView> s = v.AsString();
     REQUIRE(s.HasValue());
-    CHECK(s.Value() == StringView(u8"JungleAdventurer"));
+    CHECK(s.Value() == StringView(u8"Chewy"));
 }
 
 TEST_CASE("sss: TypePlusClassRule")

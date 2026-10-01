@@ -1068,16 +1068,17 @@ void UISandbox::OnStartup(runtime::IApplicationHost& host)
         LoadFontSize(u8"Roboto", fontPath.AsView(), 16.0f);
         LoadFontSize(u8"Roboto", fontPath.AsView(), 24.0f);
 
-        // Decorative families for the pause-menu FontFamily demo (freely licensed: Lilita One OFL).
+        // Decorative families for the pause-menu FontFamily demo (freely licensed: Lilita One OFL,
+        // Chewy Apache 2.0).
         // GetFont falls back to Roboto if a family is missing, so the demo still renders if these
         // fail to load.
         const String titlePath = DataPath(u8"Assets/fonts/lilita-one/LilitaOne-Regular.ttf");
-        const String junglePath = DataPath(u8"Assets/fonts/jungle-adventurer/JungleAdventurer.ttf");
+        const String playfulPath = DataPath(u8"Assets/fonts/chewy/Chewy-Regular.ttf");
         const f32 decorativeSizes[] = {14.0f, 18.0f, 24.0f, 32.0f};
         for (f32 s : decorativeSizes)
         {
             LoadFontSize(u8"LilitaOne", titlePath.AsView(), s);
-            LoadFontSize(u8"JungleAdventurer", junglePath.AsView(), s);
+            LoadFontSize(u8"Chewy", playfulPath.AsView(), s);
         }
     }
 
@@ -1632,7 +1633,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     }
 
     // Inline style demo on the title: override TextColor + FontSize + FontFamily without touching the
-    // theme. The inline FontFamily "LilitaOne" wins over the local sheet's "JungleAdventurer".
+    // theme. The inline FontFamily "LilitaOne" wins over the local sheet's "Chewy".
     if (ui::Label* title = pauseRoot->FindByName<ui::Label>(u8"title"))
     {
         title->SetStyle(ui::StyleProperty::TextColor, Rgb(255, 220, 100));
@@ -1644,7 +1645,7 @@ void UISandbox::BuildPauseMenuTab(ui::TabView* tabView)
     // text color; every Button gets padding + a rounded gray-blue state-list. Inline overrides above still
     // win (title FontSize 32 beats 14; resume/quit inline state-lists beat the gray-blue default).
     RefPtr<ui::StyleSheet> pauseLocal = MakeRef<ui::StyleSheet>(AppRoot());
-    pauseLocal->ForAll().Set(ui::StyleProperty::FontFamily, StringView(u8"JungleAdventurer"));
+    pauseLocal->ForAll().Set(ui::StyleProperty::FontFamily, StringView(u8"Chewy"));
     pauseLocal->ForType(&ui::Label::StaticType())
         .Set(ui::StyleProperty::FontSize, 14.0f)
         .Set(ui::StyleProperty::TextColor, Rgb(210, 215, 225));

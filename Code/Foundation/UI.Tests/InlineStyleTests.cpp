@@ -583,7 +583,7 @@ TEST_CASE("inline-style: SetStyle_String_OverwriteFreesPrevious")
     // Multiple overwrites; each drops the previous owned String (RAII, no leak).
     auto view = core::MakeRef<TestView>(core::DefaultAllocator());
     view->SetStyle(StyleProperty::FontFamily, StringView{u8"Roboto"});
-    view->SetStyle(StyleProperty::FontFamily, StringView{u8"JungleAdventurer"});
+    view->SetStyle(StyleProperty::FontFamily, StringView{u8"Chewy"});
     view->SetStyle(StyleProperty::FontFamily, StringView{u8"LilitaOne"});
 
     CHECK(view->GetInlineStyle(StyleProperty::FontFamily).AsString().Value() ==
