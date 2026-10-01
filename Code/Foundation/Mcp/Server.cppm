@@ -72,6 +72,37 @@ export namespace foundation::mcp
     };
     using ToolHandler = Function<ToolOutcome(const JsonValue& args)>;
 
+    /// What a call-aware tool keeps between the entries of one call. A tool derives its own; its
+    /// destructor is its cleanup, run when the call answers or its caller leaves.
+    class ToolCallState
+    {
+    public:
+        virtual ~ToolCallState() = default;
+    };
+
+    /// One tools/call as a tool that answers NotFinished sees it across its re-entries: the same
+    /// object every time the call comes back, so the tool keeps what it started in `state` rather
+    /// than recognising its own call by its arguments (two identical calls in flight at once, from
+    /// two agents, have the same arguments). The server owns it from the call's first entry to its
+    /// answer, or until the transport says the caller went away (McpServer::AbandonCall).
+    struct ToolCall
+    {
+        /// The transport's identity for the call; 0 when it gave none (known by its line).
+        u64 id = 0;
+        /// This call answered NotFinished before, and this is it coming back.
+        bool isReentry = false;
+        /// What the tool keeps between entries, destroyed when the call ends.
+        UniquePtr<ToolCallState> state;
+
+        template <typename T>
+        [[nodiscard]] T* State() noexcept
+        {
+            return static_cast<T*>(state.Get());
+        }
+    };
+    /// A handler that sees its call: what a tool answering NotFinished uses.
+    using ToolCallHandler = Function<ToolOutcome(ToolCall& call, const JsonValue& args)>;
+
     /// How HandleLine dealt with one line.
     enum class LineState : u8
     {
@@ -115,6 +146,7 @@ export namespace foundation::mcp
         JsonValue inputSchema;
         ToolAnnotations annotations;
         ToolHandler handler;
+        ToolCallHandler callHandler; ///< set instead of `handler` for a tool that sees its call
     };
 
     // A resource exposes read-only text by URI; the reader returns content or an error message.
@@ -182,6 +214,18 @@ export namespace foundation::mcp
         String m_serverVersion = String(u8"0.1.0");
         Function<void(StringView, bool)> m_toolObserver;
 
+        /// A call in flight, known by the transport's id, or by its line when it gave none.
+        struct CallEntry
+        {
+            ToolCall call;
+            String line; ///< the line, when the call has no id
+        };
+        /// The calls that answered NotFinished and have not answered since.
+        Array<CallEntry> m_calls;
+        /// The identity of the message HandleLine is handling: its id, or its line when 0.
+        u64 m_callId = 0;
+        StringView m_callLine;
+
     public:
         [[nodiscard]] StringView ServerName() const noexcept { return m_serverName.AsView(); }
         [[nodiscard]] StringView ServerVersion() const noexcept
@@ -206,8 +250,35 @@ export namespace foundation::mcp
                           ToolAnnotations annotations, ToolHandler handler)
         {
             m_tools.PushBack(
-                Tool{Move(name), Move(description), Move(schema), annotations, Move(handler)});
+                Tool{Move(name), Move(description), Move(schema), annotations, Move(handler), {}});
         }
+        /// A tool whose handler sees its call (ToolCall): one that answers NotFinished and keeps
+        /// what it started in the call's state.
+        void RegisterTool(String name, String description, JsonValue schema,
+                          ToolAnnotations annotations, ToolCallHandler handler)
+        {
+            m_tools.PushBack(Tool{Move(name), Move(description), Move(schema), annotations,
+                                  ToolHandler{}, Move(handler)});
+        }
+        /// The caller of an unfinished call went away (its connection closed): the call ends, its
+        /// state destroyed, as if it had answered. Nothing when the id names no call in flight.
+        void AbandonCall(u64 callId)
+        {
+            if (callId == 0)
+            {
+                return;
+            }
+            for (usize i = 0; i < m_calls.Size(); ++i)
+            {
+                if (m_calls[i].call.id == callId)
+                {
+                    m_calls.RemoveAt(i);
+                    return;
+                }
+            }
+        }
+        /// How many calls are in flight: answered NotFinished, not yet answered or abandoned.
+        [[nodiscard]] usize CallsInFlight() const noexcept { return m_calls.Size(); }
         void RegisterResource(String uri, String name, String mimeType, String description,
                               ResourceReader reader)
         {
@@ -223,9 +294,13 @@ export namespace foundation::mcp
 
         // Handle ONE JSON-RPC message: the response line to write, a notification (nothing to
         // write), or NotFinished (re-enter with the same line next pump). Never throws;
-        // malformed input yields a protocol error line.
-        [[nodiscard]] LineOutcome HandleLine(StringView line)
+        // malformed input yields a protocol error line. `callId` is the transport's identity for
+        // the message, the same every time it hands an unfinished call back in (the HTTP host
+        // numbers each pending request); 0 when it has none, the call then known by its line.
+        [[nodiscard]] LineOutcome HandleLine(StringView line, u64 callId = 0)
         {
+            m_callId = callId;
+            m_callLine = line;
             json::ParseResult parsed = json::Parse(line);
             if (!parsed.ok)
             {
@@ -271,6 +346,29 @@ export namespace foundation::mcp
         }
 
     private:
+        /// The index of the call in flight under the current identity, a new one started when
+        /// there is none.
+        [[nodiscard]] usize FindOrStartCall()
+        {
+            for (usize i = 0; i < m_calls.Size(); ++i)
+            {
+                const CallEntry& entry = m_calls[i];
+                if (m_callId != 0 ? entry.call.id == m_callId
+                                  : (entry.call.id == 0 && entry.line.AsView() == m_callLine))
+                {
+                    return i;
+                }
+            }
+            CallEntry entry;
+            entry.call.id = m_callId;
+            if (m_callId == 0)
+            {
+                entry.line = String(m_callLine);
+            }
+            m_calls.PushBack(Move(entry));
+            return m_calls.Size() - 1;
+        }
+
         [[nodiscard]] const Tool* FindTool(StringView name) const
         {
             for (usize i = 0; i < m_tools.Size(); ++i)
@@ -365,11 +463,16 @@ export namespace foundation::mcp
                 // Run the tool. A tool that is not finished is asked again next pump (same
                 // line, same args). BOTH finished outcomes are successful JSON-RPC responses;
                 // a tool failure is reported as isError content, not a protocol error.
-                ToolOutcome outcome = tool->handler(args);
+                // The call this is: the one in flight under this identity, or a new one.
+                const usize callIndex = FindOrStartCall();
+                ToolOutcome outcome = tool->callHandler ? tool->callHandler(m_calls[callIndex].call, args)
+                                                        : tool->handler(args);
                 if (!outcome.IsFinished())
                 {
+                    m_calls[callIndex].call.isReentry = true;
                     return LineOutcome{LineState::NotFinished, String()};
                 }
+                m_calls.RemoveAt(callIndex); // answered: its state goes
                 ToolResult& answer = outcome.answer.Value();
                 JsonValue item = JsonValue::MakeObject();
                 item.Set(u8"type", JsonValue::MakeString(u8"text"));

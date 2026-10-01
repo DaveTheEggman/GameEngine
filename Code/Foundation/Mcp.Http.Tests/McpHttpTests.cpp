@@ -307,3 +307,104 @@ TEST_CASE("mcp.http: a tool that is not finished keeps the caller waiting across
     CHECK(answered == 1);
     CHECK_FALSE(host.HasPendingRequest());
 }
+
+// Sedulous d509904a: over HTTP a call is known by its request's number, so two identical calls in
+// flight keep separate states; a caller that hangs up ends its call, the state going with it.
+namespace
+{
+    struct Entries final : ToolCallState
+    {
+        u32 count = 0;
+    };
+}
+
+TEST_CASE("mcp.http: identical calls in flight keep their own state, and a caller that leaves "
+          "ends its call")
+{
+    McpServer server;
+    u32 states = 0;
+    bool release = false; // the slow calls answer once this is set
+    server.RegisterTool(
+        u8"slow", u8"answers once released", SchemaBuilder().Build(), ToolAnnotations::ReadOnly(),
+        [&](ToolCall& call, const JsonValue&) -> ToolOutcome
+        {
+            if (call.state.Get() == nullptr)
+            {
+                call.state = MakeUnique<Entries>(DefaultAllocator());
+                ++states;
+            }
+            Entries* entries = call.State<Entries>();
+            ++entries->count;
+            if (!release)
+            {
+                return ToolOutcome::NotFinished();
+            }
+            JsonValue out = JsonValue::MakeObject();
+            out.Set(u8"entries", JsonValue::MakeNumber(static_cast<f64>(entries->count)));
+            return out;
+        });
+    McpHttpHost host(DefaultAllocator(), server);
+    REQUIRE(host.Start(McpHttpConfig{0, String(u8"sekrit")}));
+    const u16 port = host.BoundPort();
+    const StringView body = u8"{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\","
+                            u8"\"params\":{\"name\":\"slow\",\"arguments\":{}}}";
+
+    bool firstDone = false;
+    bool secondDone = false;
+    Result<HttpResponse, String> first = Err(String(u8"unset"));
+    Result<HttpResponse, String> second = Err(String(u8"unset"));
+    Thread a([&] { first = HttpFetch(u8"127.0.0.1", port, Post(u8"sekrit", body)); firstDone = true; });
+    Thread b([&] { second = HttpFetch(u8"127.0.0.1", port, Post(u8"sekrit", body)); secondDone = true; });
+    for (u32 i = 0; i < 5000 && server.CallsInFlight() < 2; ++i)
+    {
+        (void)host.Pump();
+        SleepMilliseconds(1);
+    }
+    CHECK(server.CallsInFlight() == 2u); // the same line twice, two calls
+    CHECK(states == 2u);
+    release = true;
+    for (u32 i = 0; i < 5000 && !(firstDone && secondDone); ++i)
+    {
+        (void)host.Pump();
+        SleepMilliseconds(1);
+    }
+    a.Join();
+    b.Join();
+    REQUIRE(first.HasValue());
+    REQUIRE(second.HasValue());
+    CHECK(server.CallsInFlight() == 0u);
+
+    // A caller that leaves while its call waits: the call ends.
+    release = false;
+    Thread departing(
+        [&]
+        {
+            net::TcpSocket raw = net::TcpSocket::Connect(u8"127.0.0.1", port);
+            for (u32 i = 0; i < 5000 && raw.ConnectStatus() == 0; ++i)
+            {
+                SleepMilliseconds(1);
+            }
+            const String request = Format(u8"POST /mcp HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer "
+                                          u8"sekrit\r\nContent-Length: {}\r\n\r\n{}",
+                                          body.Size(), body);
+            (void)raw.Send(Span<const byte>(reinterpret_cast<const byte*>(request.Data()),
+                                            request.Size()));
+            for (u32 i = 0; i < 200; ++i) // long enough for the call to start waiting
+            {
+                SleepMilliseconds(1);
+            }
+            // the socket closes on scope exit
+        });
+    bool started = false;
+    bool ended = false;
+    for (u32 i = 0; i < 5000 && !ended; ++i)
+    {
+        (void)host.Pump();
+        started = started || server.CallsInFlight() == 1u;
+        ended = started && server.CallsInFlight() == 0u;
+        SleepMilliseconds(1);
+    }
+    departing.Join();
+    CHECK(started);
+    CHECK(ended);
+}

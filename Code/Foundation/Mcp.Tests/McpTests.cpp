@@ -446,3 +446,73 @@ TEST_CASE("mcp: Serve re-enters a not-finished line until it answers - one outpu
                    u8"\"calls\":4"));
     CHECK(json::Parse(t.Output(1).AsView()).value.Get(u8"id").AsInt() == 7);
 }
+
+// Sedulous d509904a: an unfinished call has an identity across its re-entries (the transport's
+// id, or its line without one), its own state, destroyed when it answers or its caller leaves.
+namespace
+{
+    struct CallCounter final : ToolCallState
+    {
+        explicit CallCounter(u32* alive) : alive(alive) { ++*alive; }
+        ~CallCounter() override { --*alive; }
+        u32* alive;
+        u32 entries = 0;
+    };
+}
+
+TEST_CASE("mcp: an unfinished call keeps its own state across its re-entries, until it answers "
+          "or is abandoned")
+{
+    McpServer server;
+    u32 alive = 0;
+    server.RegisterTool(
+        u8"slow", u8"answers on its third entry", SchemaBuilder().Build(), ToolAnnotations::ReadOnly(),
+        [&alive](ToolCall& call, const JsonValue&) -> ToolOutcome
+        {
+            if (!call.isReentry)
+            {
+                CHECK(call.state.Get() == nullptr);
+                call.state = MakeUnique<CallCounter>(DefaultAllocator(), &alive);
+            }
+            CallCounter* counter = call.State<CallCounter>();
+            REQUIRE(counter != nullptr);
+            if (++counter->entries < 3)
+            {
+                return ToolOutcome::NotFinished();
+            }
+            JsonValue out = JsonValue::MakeObject();
+            out.Set(u8"entries", JsonValue::MakeNumber(counter->entries));
+            out.Set(u8"id", JsonValue::MakeNumber(static_cast<f64>(call.id)));
+            return ToolResult(Move(out));
+        });
+    const StringView line =
+        u8"{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/call\",\"params\":{\"name\":\"slow\",\"arguments\":{}}}";
+
+    // Two identical calls in flight at once, told apart by their ids.
+    CHECK(server.HandleLine(line, 7).state == LineState::NotFinished);
+    CHECK(server.HandleLine(line, 8).state == LineState::NotFinished);
+    CHECK(server.CallsInFlight() == 2u);
+    CHECK(alive == 2u);
+    CHECK(server.HandleLine(line, 7).state == LineState::NotFinished);
+    const LineOutcome seven = server.HandleLine(line, 7); // its third entry: it answers
+    REQUIRE(seven.state == LineState::Answered);
+    const JsonValue result = Response(seven).Get(u8"result");
+    const JsonValue payload = json::Parse(result.Get(u8"content").At(0).Get(u8"text").AsString().AsView()).value;
+    CHECK(payload.Get(u8"entries").AsNumber() == doctest::Approx(3.0));
+    CHECK(payload.Get(u8"id").AsNumber() == doctest::Approx(7.0));
+    CHECK(server.CallsInFlight() == 1u); // answered: its state went
+    CHECK(alive == 1u);
+
+    // The other's caller leaves: its call ends and its state goes with it.
+    server.AbandonCall(8);
+    CHECK(server.CallsInFlight() == 0u);
+    CHECK(alive == 0u);
+    server.AbandonCall(99); // no such call: nothing
+
+    // Without an id a call is known by its line, as before.
+    CHECK(server.HandleLine(line).state == LineState::NotFinished);
+    CHECK(server.HandleLine(line).state == LineState::NotFinished);
+    CHECK(server.HandleLine(line).state == LineState::Answered);
+    CHECK(server.CallsInFlight() == 0u);
+    CHECK(alive == 0u);
+}

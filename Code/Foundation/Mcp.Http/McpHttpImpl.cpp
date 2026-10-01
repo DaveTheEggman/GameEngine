@@ -31,6 +31,9 @@ namespace foundation::mcp
         }
         m_http.SetHandler([this](const http::HttpRequest& request)
                           { return Handle(request); });
+        // A call waiting on a tool whose caller left ends there: the tool's state for it goes.
+        m_http.SetAbandonHandler([this](const http::HttpRequest& request)
+                                 { m_server->AbandonCall(request.sequence); });
         m_http.SetStreamHandler(
             [this](const http::HttpRequest&, RefPtr<http::SseStream> stream)
             {
@@ -112,7 +115,9 @@ namespace foundation::mcp
                 return http::HttpResponse::Json(
                     405, u8"{\"error\":\"POST one JSON-RPC message per request\"}");
             }
-            LineOutcome outcome = m_server->HandleLine(request.BodyText());
+            // The request's number is the call's identity: the same each time an unfinished call
+            // comes back, and different for two identical calls in flight at once.
+            LineOutcome outcome = m_server->HandleLine(request.BodyText(), request.sequence);
             switch (outcome.state)
             {
             case LineState::Notification:
