@@ -42,7 +42,13 @@ export namespace engine::uiscript
     [[nodiscard]] bool visible() const;                                                                 \
     [[nodiscard]] bool enabled() const;                                                                 \
     void setVisible(bool value);                                                                        \
-    void setEnabled(bool value);
+    void setEnabled(bool value);                                                                        \
+    [[nodiscard]] f32 opacity() const;                                                                  \
+    /* At once, clamped to 0..1; a running fade on the view stops. */                                   \
+    void setOpacity(f32 value);                                                                         \
+    /* From where it is to `target` over `seconds` of UI frame time, which runs while the game is */    \
+    /* paused (time scale 0); zero seconds, or a view in no tree yet, is a set. */                      \
+    void fadeTo(f32 target, f32 seconds);
 
     /// A bare view - identity + visibility/enabled. What findByName / childAt return.
     struct View

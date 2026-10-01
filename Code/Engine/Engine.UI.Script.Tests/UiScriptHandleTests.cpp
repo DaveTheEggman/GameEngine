@@ -92,3 +92,53 @@ TEST_CASE("uiscript.handle: findLabel searches the subtree deeply, first match")
     REQUIRE(deep.isValid());
     CHECK(deep.text() == StringView(u8"found"));
 }
+
+// Sedulous 3bffde51: a view's opacity at once, or faded on the UI's frame clock (which runs while
+// the game is paused); a set stops a running fade; a null handle takes nothing.
+TEST_CASE("uiscript.handle: a view fades on the frame clock, and a set stops the fade")
+{
+    ui::UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto panel = MakeRef<ui::FrameLayout>(DefaultAllocator());
+    panel->Name = String(u8"panel");
+    root->AddView(panel.Get());
+    panel->AddView(MakeLabel(u8"title", u8"Paused").Get());
+    uis::ViewGroup rootGroup = Group(root.Get());
+
+    uis::Label label = rootGroup.findLabel(u8"title");
+    REQUIRE(label.isValid());
+    CHECK(label.opacity() == doctest::Approx(1.0f));
+    label.setOpacity(0.25f);
+    CHECK(label.opacity() == doctest::Approx(0.25f));
+    label.setOpacity(3.0f);
+    CHECK(label.opacity() == doctest::Approx(1.0f)); // clamped
+
+    label.fadeTo(0.0f, 1.0f);
+    CHECK(label.opacity() == doctest::Approx(1.0f)); // from where it was
+    ctx.BeginFrame(0.5f);
+    CHECK(label.opacity() > 0.0f);
+    CHECK(label.opacity() < 1.0f); // half way
+    ctx.BeginFrame(0.6f);
+    CHECK(label.opacity() == doctest::Approx(0.0f));
+
+    label.fadeTo(1.0f, 1.0f);
+    ctx.BeginFrame(0.2f);
+    label.setOpacity(0.5f);
+    ctx.BeginFrame(1.0f);
+    CHECK(label.opacity() == doctest::Approx(0.5f)); // the set stopped the fade
+
+    // Zero seconds is a set; a group fades too; a null handle takes nothing.
+    label.fadeTo(0.1f, 0.0f);
+    CHECK(label.opacity() == doctest::Approx(0.1f));
+    uis::ViewGroup group = rootGroup.findGroup(u8"panel");
+    REQUIRE(group.isValid());
+    group.fadeTo(0.0f, 0.2f);
+    ctx.BeginFrame(0.3f);
+    CHECK(group.opacity() == doctest::Approx(0.0f));
+    uis::Label missing = rootGroup.findLabel(u8"nope");
+    missing.setOpacity(0.5f);
+    missing.fadeTo(0.5f, 1.0f);
+    CHECK(missing.opacity() == doctest::Approx(0.0f));
+}

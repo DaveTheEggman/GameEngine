@@ -79,6 +79,42 @@ namespace engine::uiscript
     }
 
     // ============================================================================ common handle ops ===
+    namespace
+    {
+        // A view's opacity at once, clamped; a running fade on it stops. Nothing for null.
+        void SetViewOpacity(ui::View* view, f32 value)
+        {
+            if (view == nullptr)
+            {
+                return;
+            }
+            if (view->Context != nullptr)
+            {
+                view->Context->Animations()->CancelForView(view);
+            }
+            view->Opacity = Clamp(value, 0.0f, 1.0f);
+        }
+
+        // A fade on the UI's frame clock (UIContext::BeginFrame), which keeps running while the
+        // game sits at time scale 0, so a pause menu or a fade to black animates.
+        void FadeViewTo(ui::View* view, f32 target, f32 seconds)
+        {
+            if (view == nullptr)
+            {
+                return;
+            }
+            const f32 to = Clamp(target, 0.0f, 1.0f);
+            if (view->Context == nullptr || seconds <= 0.0f)
+            {
+                SetViewOpacity(view, to);
+                return;
+            }
+            view->Context->Animations()->CancelForView(view);
+            view->Context->Animations()->Add(
+                ui::ViewAnimator::FadeTo(view, view->Opacity, to, seconds, ui::Easing::EaseInOut));
+        }
+    }
+
     // Defined once via a macro (the value structs share the members but have no inheritance).
 #define UI_SCRIPT_DEFINE_COMMON(H)                                                                      \
     bool H::isValid() const { return static_cast<bool>(view); }                                         \
@@ -98,7 +134,10 @@ namespace engine::uiscript
         {                                                                                               \
             view->IsEnabled = value;                                                                    \
         }                                                                                               \
-    }
+    }                                                                                                   \
+    f32 H::opacity() const { return view ? view->Opacity : 0.0f; }                                      \
+    void H::setOpacity(f32 value) { SetViewOpacity(view.Get(), value); }                                \
+    void H::fadeTo(f32 target, f32 seconds) { FadeViewTo(view.Get(), target, seconds); }
 
     UI_SCRIPT_DEFINE_COMMON(View)
     UI_SCRIPT_DEFINE_COMMON(Label)
@@ -342,6 +381,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&View::enabled>("enabled");
         builder.Method<&View::setVisible>("setVisible", {"value"});
         builder.Method<&View::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&View::opacity>("opacity");
+        builder.Method<&View::setOpacity>("setOpacity", {"value"});
+        builder.Method<&View::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Constructor();
     }
     REFLECT_VALUE(Label, "rtti::engine.ui.script")
@@ -353,6 +395,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&Label::text>("text");
         builder.Method<&Label::setVisible>("setVisible", {"value"});
         builder.Method<&Label::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Label::opacity>("opacity");
+        builder.Method<&Label::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Label::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&Label::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -365,6 +410,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&Button::text>("text");
         builder.Method<&Button::setVisible>("setVisible", {"value"});
         builder.Method<&Button::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Button::opacity>("opacity");
+        builder.Method<&Button::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Button::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&Button::setText>("setText", {"value"});
         builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
@@ -378,6 +426,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&ProgressBar::value>("value");
         builder.Method<&ProgressBar::setVisible>("setVisible", {"value"});
         builder.Method<&ProgressBar::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&ProgressBar::opacity>("opacity");
+        builder.Method<&ProgressBar::setOpacity>("setOpacity", {"value"});
+        builder.Method<&ProgressBar::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&ProgressBar::setValue>("setValue", {"value"});
         builder.Constructor();
     }
@@ -390,6 +441,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&TextBox::text>("text");
         builder.Method<&TextBox::setVisible>("setVisible", {"value"});
         builder.Method<&TextBox::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&TextBox::opacity>("opacity");
+        builder.Method<&TextBox::setOpacity>("setOpacity", {"value"});
+        builder.Method<&TextBox::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&TextBox::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -402,6 +456,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&ViewGroup::childCount>("childCount");
         builder.Method<&ViewGroup::setVisible>("setVisible", {"value"});
         builder.Method<&ViewGroup::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&ViewGroup::opacity>("opacity");
+        builder.Method<&ViewGroup::setOpacity>("setOpacity", {"value"});
+        builder.Method<&ViewGroup::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&ViewGroup::childAt>("childAt", {"index"});
         builder.Method<&ViewGroup::findByName>("findByName", {"name"});
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
@@ -421,6 +478,9 @@ namespace engine::uiscript
         builder.ComputedProperty<&Screen::childCount>("childCount");
         builder.Method<&Screen::setVisible>("setVisible", {"value"});
         builder.Method<&Screen::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Screen::opacity>("opacity");
+        builder.Method<&Screen::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Screen::fadeTo>("fadeTo", {"opacity", "seconds"});
         builder.Method<&Screen::childAt>("childAt", {"index"});
         builder.Method<&Screen::findByName>("findByName", {"name"});
         builder.Method<&Screen::findLabel>("findLabel", {"name"});
