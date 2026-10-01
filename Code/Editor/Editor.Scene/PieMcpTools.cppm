@@ -1,0 +1,30 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026-Present Robert Campbell
+// Editor::Scene - :pie_tools partition (agent-playtesting-and-asset-creation.md P3).
+//
+// The play-in-editor tools the editor's MCP host serves through the scene editor's tool
+// contribution: pie_start, pie_stop, pie_state, pie_list and pie_screenshot. PIE is not one game:
+// every Game tab runs its own instance, so every call addresses ONE by its `pie` id (`game-page`
+// for the primary, `game-page-1`, ... for Play New Instance's), defaulting to the primary, and
+// every answer names the instance it is about. A tab is reached through the interface it
+// publishes (EditorPage::Service<IPieInstancePage>).
+module;
+#include "Core/Prelude.h"
+
+export module editor.scene:pie_tools;
+
+import foundation.core;
+import foundation.mcp;
+import editor.core;
+
+using namespace foundation::core;
+
+export namespace editor
+{
+    /// The number of tools RegisterPieTools registers; a tripwire like kSceneLiveToolCount.
+    inline constexpr usize kPieToolCount = 5;
+    /// The primary Game tab's PIE id.
+    inline constexpr StringView kPrimaryPieId = u8"game-page";
+
+    void RegisterPieTools(foundation::mcp::McpServer& server, EditorContext& context);
+}

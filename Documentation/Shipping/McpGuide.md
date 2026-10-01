@@ -32,6 +32,20 @@ viewport never renders - move the camera, shoot, read the file). A `scene_write`
 reaches its page at once: a clean page reloads in place, a page with unsaved edits keeps
 them and warns the user - ask before `page_reload` with `force`, which discards them.
 
+Play in editor (PIE) is the editor's too, and it is how gameplay is tested: `simulate_start`
+previews ONE scene in its page, while PIE runs the project as the player does (the default
+scene, the startup script, the input map). PIE is not one game: every Game tab runs its own
+instance, addressed by its `pie` id (`game-page`, the primary; `game-page-1`, ... for each new
+instance), default the primary. `pie_start` cooks, opens and runs the primary (or with
+`newInstance` another tab, a host and a client say) and answers once the first frame has
+rendered; `pie_state` reports whether it runs, its scene, the game time since start, the
+frames rendered and the startup script (`running`, or `faulted` with the reason);
+`pie_list` shows every instance, the ones the user started too; `pie_stop` stops one (or
+`all`), its tab staying open and the others running. `pie_screenshot` writes what an
+instance's tab renders, the game through its own camera with its UI, as `viewport_screenshot`
+does for a scene page. Game time is the gameplay clock, frames are real frames: a timing
+varies by a frame between runs.
+
 ## First moves in a session
 
 1. `tools/list` - read the real surface before guessing; descriptions carry the contract, and

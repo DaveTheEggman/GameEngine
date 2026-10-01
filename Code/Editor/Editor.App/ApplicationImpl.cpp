@@ -493,7 +493,10 @@ namespace editor::app
             m_context.Notify(editor::NoticeKind::Info, u8"No game page registered in this build.");
             return;
         }
-        UniquePtr<editor::EditorPage> page = m_context.GamePageFactory(newInstance);
+        // A unique id per tab, so a docking restore cannot collide; the page answers to it too.
+        const String pieId = newInstance ? Format(u8"game-page-{}", m_gamePageCounter + 1)
+                                         : String(u8"game-page");
+        UniquePtr<editor::EditorPage> page = m_context.GamePageFactory(newInstance, pieId.AsView());
         if (!page)
         {
             return;
@@ -504,23 +507,18 @@ namespace editor::app
         {
             return;
         }
-        if (!newInstance)
-        {
-            m_gamePage = uiPage;
-        } // only the primary tab is the focus target
-
-        ui::toolkit::DockablePanel* panel =
-            m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
-        // Unique persistence id per tab (extras get a counter so a docking restore can't collide).
         if (newInstance)
         {
-            const String id = Format(u8"game-page-{}", ++m_gamePageCounter);
-            panel->SetPersistenceId(id.AsView());
+            ++m_gamePageCounter;
         }
         else
         {
-            panel->SetPersistenceId(u8"game-page");
+            m_gamePage = uiPage; // only the primary tab is the focus target
         }
+
+        ui::toolkit::DockablePanel* panel =
+            m_shell.AddPagePanel(uiPage->Title(), uiPage->ContentView());
+        panel->SetPersistenceId(pieId.AsView());
         panel->DestroyOnClose = true; // the page's views die with it, as for any page
         panel->OnCloseRequested.Add(
             [this, uiPage](ui::toolkit::DockablePanel*)

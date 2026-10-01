@@ -54,6 +54,8 @@ import foundation.mcp; // McpServer (the MCP tool contribution)
 import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
 import :scene_page_interface; // ISceneEditorPage (published on the page)
+import :viewport_capture;     // ViewportCaptureRecorder (viewport_screenshot)
+import :pie_tools;            // RegisterPieTools (the contribution)
 import :actions; // the scene editor's action declarations
 import :mcp_tools;            // RegisterSceneLiveTools (the contribution)
 import :model_prefab;
@@ -516,15 +518,12 @@ export namespace editor
             {
                 return Status{ErrorCode::NotSupported};
             }
-            m_capture = ViewportCapture{};
-            m_capture.state = ViewportCaptureState::Pending;
-            m_capture.path = String(path);
-            m_screenshot.Request(path);
+            m_capture.Request(path);
             return Status{};
         }
         [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override
         {
-            return m_capture;
+            return m_capture.State();
         }
 
     private:
@@ -746,8 +745,7 @@ export namespace editor
         bool m_renderedOnce = false; // first-frame debug log
         // The viewport capture (viewport_screenshot): armed by RequestViewportCapture, recorded
         // in OnAfterSceneRender off the composed colour target, completed in the next OnUpdate.
-        engine::runtime::ScreenshotCapture m_screenshot;
-        ViewportCapture m_capture;
+        ViewportCaptureRecorder m_capture;
         bool m_renderedThisFrame = false; // OnRenderWindow added the view this frame, at:
         u32 m_captureWidth = 0;
         u32 m_captureHeight = 0;
@@ -824,6 +822,9 @@ export namespace editor
             EditorContext* ctx = &context;
             context.RegisterMcpToolContribution([ctx](foundation::mcp::McpServer& server)
                                                 { RegisterSceneLiveTools(server, *ctx); });
+            // Play in editor for agents: start, stop, state and capture, per Game tab.
+            context.RegisterMcpToolContribution([ctx](foundation::mcp::McpServer& server)
+                                                { RegisterPieTools(server, *ctx); });
         }
 
         // Model imports: generate/refresh the hierarchy prefab beside the manifest (the
@@ -835,15 +836,15 @@ export namespace editor
         runtime::IApplicationHost* appHost = &host;
 
         // Play-in-editor: the singleton Game tab (player behavior in-process).
-        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost,
-                                   embeddedApp](bool newInstance) -> UniquePtr<EditorPage>
+        context.GamePageFactory = [editorContext, appHost, appUiHost = &uiHost, embeddedApp](
+                                      bool newInstance, StringView pieId) -> UniquePtr<EditorPage>
         {
             // Reuse the primary instance for the normal Play; spin up an extra for "Play New Instance".
             engine::runtime::GameInstance* instance =
                 newInstance ? embeddedApp->CreateInstance() : &embeddedApp->Instance();
             return UniquePtr<EditorPage>(
                 editor::EditorRootAllocator().New<GameEditorPage>(*editorContext, *appHost, *appUiHost,
-                                                       embeddedApp, instance),
+                                                       embeddedApp, instance, pieId),
                 editor::EditorRootAllocator());
         };
 

@@ -305,8 +305,11 @@ namespace editor
         // script FIRST (matching Engine.Player): launch()/update(dt)
         // run before any scene, so a script tested here boots exactly like the player. The
         // page only resolves the script SOURCE (editor project layout) and surfaces notices.
+        m_frameCount = 0;
+        m_stoppedGameTime = 0.0;
         if (m_gameInstance != nullptr)
         {
+            m_gameInstance->ResetRunClock(); // game time counts from this start
             m_scriptErrors.context = m_context;
             m_gameInstance->SetScriptErrorHandler(&m_scriptErrors);
             EnableDebugging();
@@ -426,6 +429,10 @@ namespace editor
         m_context->ScriptValueProbe = {};       // hover-values die with the run
         m_context->OnBreakpointsChanged = {};   // live sync dies with the run
         m_appliedBreakpoints.Clear();
+        if (m_running && m_gameInstance != nullptr)
+        {
+            m_stoppedGameTime = m_gameInstance->RunTime(); // pie_state still reads where it ended
+        }
         // Script exits first (it may still observe the world), then the scenes.
         if (m_gameInstance != nullptr)
         {
@@ -583,6 +590,9 @@ namespace editor
 
     void GameEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
+        // A capture recorded last frame: the GPU has to finish the copy.
+        m_capture.Complete(host.Graphics() != nullptr ? host.Graphics()->Raw() : nullptr,
+                           Allocator());
         // A Play pressed while the cook ran (or just kicked one) starts here, on the first
         // frame the cook service reports idle - never against a half-written cooked DB.
         if (m_pendingPlay && !m_context->IsCookBusy())
@@ -664,6 +674,13 @@ namespace editor
         m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
                               h, render::ViewportRect{0, 0, w, h}, nullptr, targetState);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+        if (m_running)
+        {
+            ++m_frameCount;
+        }
+        m_renderedThisFrame = true; // OnAfterSceneRender captures this frame, at:
+        m_captureWidth = w;
+        m_captureHeight = h;
     }
 
     void GameEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
@@ -673,6 +690,8 @@ namespace editor
         // inside the compose. This composites the game's WINDOW-SPACE overlays
         // (screen-tier UI, diagnostics) onto the viewport through the generic
         // registry - the tab shows the same full output as the player's window.
+        const bool rendered = m_renderedThisFrame;
+        m_renderedThisFrame = false;
         if (!m_running || m_scene == nullptr || !m_viewport->IsReady() || !frame.valid)
         {
             return;
@@ -704,6 +723,14 @@ namespace editor
                                          rhi::ResourceState::RenderTarget,
                                          rhi::ResourceState::ShaderRead);
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
+        // The capture, once the frame is whole: the scene, then the game's overlays over it.
+        // The device is the editor's own (the outer host's), the one the viewport lives on.
+        if (rendered && m_capture.Armed() && host.Graphics() != nullptr)
+        {
+            m_capture.Record(host.Graphics()->Raw(), frame.encoder, m_viewport->ColorTexture(),
+                             m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
+                             rhi::ResourceState::ShaderRead);
+        }
     }
 
     void GameEditorPage::OnClose()
@@ -731,6 +758,10 @@ namespace editor
         }
         m_gameInstance = nullptr;
         m_context->StopGameRun = Function<void()>{};
+        if (m_host->Graphics() != nullptr)
+        {
+            m_capture.Release(m_host->Graphics()->Raw()); // the readback buffer, while the device lives
+        }
         m_viewport->Shutdown();
     }
 

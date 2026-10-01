@@ -81,20 +81,9 @@ namespace editor
     }
     void SceneEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
-        // A viewport capture recorded last frame: the GPU has to finish the copy - a one-off,
-        // so wait for everything, then map and write.
-        if (m_screenshot.Recorded())
-        {
-            if (auto* gfx = host.Graphics(); gfx != nullptr && gfx->Raw() != nullptr)
-            {
-                gfx->Raw()->WaitIdle();
-                foundation::image::Image written;
-                const Status saved = m_screenshot.Complete(*gfx->Raw(), host.Ctx().Allocator(), written);
-                m_capture.state = saved.IsOk() ? ViewportCaptureState::Written : ViewportCaptureState::Failed;
-                m_capture.width = written.Width();
-                m_capture.height = written.Height();
-            }
-        }
+        // A viewport capture recorded last frame: the GPU has to finish the copy.
+        m_capture.Complete(host.Graphics() != nullptr ? host.Graphics()->Raw() : nullptr,
+                           host.Ctx().Allocator());
         EnsureViewportBound();
         if (m_hostWindow == nullptr)
         {
@@ -285,17 +274,13 @@ namespace editor
         // where the graph left it for the UI; OnUpdate completes the capture next frame.
         const bool rendered = m_renderedThisFrame;
         m_renderedThisFrame = false;
-        if (!rendered || !m_screenshot.Armed() || frame.encoder == nullptr ||
-            host.Graphics() == nullptr || host.Graphics()->Raw() == nullptr)
+        if (!rendered || !m_capture.Armed() || host.Graphics() == nullptr)
         {
             return;
         }
-        if (!m_screenshot.Record(*host.Graphics()->Raw(), *frame.encoder, m_viewport->ColorTexture(),
-                                 m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
-                                 rhi::ResourceState::ShaderRead))
-        {
-            m_capture.state = ViewportCaptureState::Failed; // logged by the capture
-        }
+        m_capture.Record(host.Graphics()->Raw(), frame.encoder, m_viewport->ColorTexture(),
+                         m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
+                         rhi::ResourceState::ShaderRead);
     }
 
     void SceneEditorPage::CreatePrefabFromEntity(const Guid& entityId)
@@ -788,7 +773,7 @@ namespace editor
         // GPU targets + external-texture registration go while device + VGRenderer live.
         if (m_host->Graphics() != nullptr && m_host->Graphics()->Raw() != nullptr)
         {
-            m_screenshot.Release(*m_host->Graphics()->Raw()); // the readback buffer
+            m_capture.Release(m_host->Graphics()->Raw()); // the readback buffer
         }
         m_viewport->Shutdown();
         if (m_scene != nullptr)

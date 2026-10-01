@@ -35,6 +35,7 @@ target_sources(Editor.Scene
         InspectorViewImpl.cpp
         ScenePageImpl.cpp
         SceneMcpToolsImpl.cpp
+        PieMcpToolsImpl.cpp
         GamePageImpl.cpp
         MaterialPageImpl.cpp
         MeshPageImpl.cpp
@@ -48,6 +49,9 @@ target_sources(Editor.Scene
             CameraPreview.cppm
             EditContext.cppm
             SceneEditorPageInterface.cppm
+            ViewportCaptureRecorder.cppm
+            PieInstancePage.cppm
+            PieMcpTools.cppm
             SceneActions.cppm
             SceneMcpTools.cppm
             Gizmo.cppm
