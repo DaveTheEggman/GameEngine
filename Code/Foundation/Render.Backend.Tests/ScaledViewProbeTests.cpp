@@ -50,6 +50,10 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
     if (device == nullptr)
     {
         MESSAGE("Vulkan unavailable - the scaled view probe skipped");
+        if (backend != nullptr)
+        {
+            backend->Destroy(); // backends self-free, created even when no device came up
+        }
         return;
     }
     {
@@ -188,4 +192,5 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
         host.Shutdown();
     }
     device->Destroy();
+    backend->Destroy();
 }
