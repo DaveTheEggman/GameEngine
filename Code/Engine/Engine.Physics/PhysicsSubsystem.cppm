@@ -257,6 +257,7 @@ export namespace engine::physics
                             m_world->SetCharacterVelocity(c.character, Float3{0, 0, 0});
                             c.moveVelocity = Float3{0, 0, 0};
                             c.jumpSpeed = 0.0f;
+                            c.launchPending = false;
                             c.prevPosition = c.teleportTo;
                             c.currPosition = c.teleportTo;
                             c.ground = CharacterGround::InAir;
@@ -265,7 +266,14 @@ export namespace engine::physics
                         }
                         const Float3 current = m_world->CharacterVelocity(c.character);
                         Float3 velocity{c.moveVelocity.x, 0.0f, c.moveVelocity.z};
-                        if (c.ground == CharacterGround::OnGround)
+                        if (c.launchPending)
+                        {
+                            // A launch sets the vertical speed wherever the character is.
+                            velocity.y = c.launchSpeed;
+                            c.launchPending = false;
+                            c.jumpSpeed = 0.0f;
+                        }
+                        else if (c.ground == CharacterGround::OnGround)
                         {
                             if (c.jumpSpeed > 0.0f)
                             {
@@ -685,6 +693,7 @@ export namespace engine::physics
                     c.prevPosition = c.currPosition = position;
                     c.moveVelocity = Float3{0, 0, 0};
                     c.jumpSpeed = 0.0f;
+                    c.launchPending = false;
                     c.teleportPending = false;
                 }
             }

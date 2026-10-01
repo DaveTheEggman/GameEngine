@@ -184,6 +184,8 @@ export namespace engine::physics
         // Runtime input (gameplay/scripts write):
         Float3 moveVelocity{0.0f, 0.0f, 0.0f};
         f32 jumpSpeed = 0.0f; // consumed at the next grounded step
+        f32 launchSpeed = 0.0f;      // the vertical speed a launch sets (launch)
+        bool launchPending = false;  // consumed at the next step, grounded or not
         Float3 teleportTo{0.0f, 0.0f, 0.0f};
         bool teleportPending = false; // consumed (snap) at the next step, then cleared
 
@@ -202,6 +204,14 @@ export namespace engine::physics
         // character only" limitation). ----
         void move(f32 velocityX, f32 velocityZ) { moveVelocity = Float3{velocityX, 0.0f, velocityZ}; }
         void jump(f32 speed) { jumpSpeed = speed; }
+        // Sets the vertical speed at the next step, on the ground OR in the air, replacing what
+        // gravity had built up: a bounce off an enemy, a spring pad, a double jump. Negative
+        // slams down. A pending jump is dropped.
+        void launch(f32 speed)
+        {
+            launchSpeed = speed;
+            launchPending = true;
+        }
         // Teleport/respawn: request a hard snap to (x, y, z). The physics tick moves the
         // CharacterVirtual (a live character owns its transform, so a plain entity.setPosition would be
         // overwritten next step) and drops momentum. Applied once, then the request clears.

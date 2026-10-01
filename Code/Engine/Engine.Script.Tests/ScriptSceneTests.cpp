@@ -3282,6 +3282,7 @@ TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity co
                       u8"        CharacterComponent@ c = CharacterComponent::of(self);\n"
                       u8"        c.move(5.0f, 3.0f);\n"
                       u8"        c.jump(6.0f);\n"
+                      u8"        c.launch(4.0f);\n"
                       u8"    }\n"
                       u8"}\n",
                       {u8"onStart"});
@@ -3293,6 +3294,9 @@ TEST_CASE("script.scene: CharacterComponent.of(entity).move/jump - per-entity co
     REQUIRE(characters->Get(e) != nullptr);
     CHECK(characters->Get(e)->moveVelocity.x == doctest::Approx(5.0f));
     CHECK(characters->Get(e)->jumpSpeed == doctest::Approx(6.0f));
+    // A launch, the air's jump (Sedulous 86b1dd31), held for the physics step.
+    CHECK(characters->Get(e)->launchPending);
+    CHECK(characters->Get(e)->launchSpeed == doctest::Approx(4.0f));
 }
 
 // The scriptable-impulse gameplay op (Roll Call finding #1: "no scriptable impulse on a dynamic

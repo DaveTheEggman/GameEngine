@@ -845,6 +845,61 @@ TEST_CASE("physics.scene: the character component walks, jumps, and lands (inter
     CHECK(play.scene.GetWorldPosition(hero).y == doctest::Approx(0.9f).epsilon(0.03));
 }
 
+// Sedulous 86b1dd31: a launch sets the vertical speed in the air, where a jump waits for the
+// ground: a falling character launched mid-air goes back up, then lands as usual.
+TEST_CASE("physics.scene: a launch works in the air, where a jump waits for the ground")
+{
+    PlayScene play;
+    play.scene.AddSystem<CharacterComponentManager>();
+    play.AddFloor();
+    scene::EntityHandle hero = play.scene.CreateEntity(u8"hero");
+    play.scene.SetLocalPosition(hero, Float3{0.0f, 0.9f, 0.0f});
+    CharacterComponent& character = play.scene.GetSystem<CharacterComponentManager>()->Add(hero);
+    play.Start();
+    play.Step(30);
+    const auto heightNow = [&]()
+    {
+        play.physics->ApplyInterpolation(1.0f);
+        play.scene.UpdateTransforms();
+        return play.scene.GetWorldPosition(hero).y;
+    };
+
+    // Up, then past the apex: falling.
+    character.jumpSpeed = 5.0f;
+    f32 previous = 0.0f;
+    f32 y = 0.0f;
+    for (int i = 0; i < 60; ++i)
+    {
+        play.Step();
+        previous = y;
+        y = heightNow();
+        if (i > 5 && y < previous)
+        {
+            break;
+        }
+    }
+    CHECK(character.ground == CharacterGround::InAir);
+    CHECK(y < previous); // falling
+
+    // A jump in the air is only held for the ground: the fall goes on.
+    character.jumpSpeed = 5.0f;
+    play.Step(3);
+    const f32 afterJump = heightNow();
+    CHECK(afterJump < y); // a jump does not lift a falling character
+    character.jumpSpeed = 0.0f;
+
+    // A launch does, from where it is.
+    character.launch(6.0f);
+    play.Step(6);
+    CHECK(heightNow() > afterJump + 0.2f); // the launch lifts it mid-air
+    CHECK_FALSE(character.launchPending);  // consumed by the step
+
+    // And it comes down to stand again.
+    play.Step(180);
+    CHECK(character.ground == CharacterGround::OnGround);
+    CHECK(heightNow() == doctest::Approx(0.9f).epsilon(0.03));
+}
+
 TEST_CASE("physics.scene: CharacterComponent.setPosition teleports the character (respawn)")
 {
     PlayScene play;

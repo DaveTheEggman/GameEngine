@@ -296,6 +296,7 @@ namespace engine::physics
         // limitation): Character.of(entity).move(x, z) / .jump(speed) / .grounded() / .positionY().
         builder.Method<&CharacterComponent::move>("move", {"velocityX", "velocityZ"});
         builder.Method<&CharacterComponent::jump>("jump", {"speed"});
+        builder.Method<&CharacterComponent::launch>("launch", {"speed"});
         builder.Method<&CharacterComponent::setPosition>("setPosition", {"x", "y", "z"});
         builder.Method<&CharacterComponent::grounded>("grounded");
         builder.Method<&CharacterComponent::positionX>("positionX");
