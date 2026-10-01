@@ -21,6 +21,7 @@ target_sources(Editor.Mcp
             McpSession.cppm
             ProjectOperations.cppm
             AssetCreate.cppm
+            AssetData.cppm
             SceneTools.cppm
             AssetUses.cppm
             ProjectHealth.cppm

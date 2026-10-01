@@ -56,6 +56,25 @@ namespace
         o.Set(String(k), JsonValue::MakeString(String(v)));
         return o;
     }
+
+    // Every occurrence of `from` in `text` replaced with `to` (byte-wise; test-local helper).
+    String ReplaceAll(StringView text, StringView from, StringView to)
+    {
+        StringBuilder out;
+        usize i = 0;
+        while (i < text.Size())
+        {
+            if (i + from.Size() <= text.Size() && text.SubStr(i, from.Size()) == from)
+            {
+                out.Append(to);
+                i += from.Size();
+                continue;
+            }
+            out.Append(text[i]);
+            ++i;
+        }
+        return out.Take();
+    }
 }
 
 TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, validate, "
@@ -579,4 +598,91 @@ TEST_CASE("integration.mcp: asset_creators and asset_create make what File > New
     owner.project.Reset();
     session.project = nullptr;
     (void)RemoveDirectoryRecursive(u8"mcp_create_project");
+}
+
+// Sedulous 3dae9ac8: asset_data_read hands out an asset's envelope; asset_data_write takes an
+// edited one back only when it loads, as the engine's own reader reads it.
+TEST_CASE("integration.mcp: an agent edits a data asset through its envelope")
+{
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    (void)RemoveDirectoryRecursive(u8"mcp_asset_data");
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_asset_data"), u8"name",
+                       u8"Data"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_asset_data"));
+    JsonValue made = FfCall(server, u8"asset_create",
+                            FfStr(FfStr(JsonValue::MakeObject(), u8"type", u8"InputMapAsset"),
+                                  u8"name", u8"Controls"));
+    const String guid = made.Get(u8"guid").AsString();
+    u32 announced = 0;
+    session.onAssetWritten = [&announced](const Guid&) { ++announced; };
+
+    JsonValue read =
+        FfCall(server, u8"asset_data_read", FfStr(JsonValue::MakeObject(), u8"guid", guid.AsView()));
+    CHECK(read.Get(u8"type").AsString() == StringView(u8"InputMapAsset"));
+    const String original = read.Get(u8"xml").AsString();
+    REQUIRE(original.AsView().ContainsIgnoreCase(u8"<string name=\"typeName\">InputMapAsset</string>"));
+    REQUIRE(original.AsView().ContainsIgnoreCase(u8">Gameplay<"));
+    const String edited = ReplaceAll(original.AsView(), u8">Gameplay<", u8">Platformer<");
+
+    const auto write = [&](StringView xml)
+    {
+        JsonValue arguments = FfStr(FfStr(JsonValue::MakeObject(), u8"guid", guid.AsView()), u8"xml", xml);
+        JsonValue params = JsonValue::MakeObject();
+        params.Set(u8"name", JsonValue::MakeString(String(u8"asset_data_write")));
+        params.Set(u8"arguments", Move(arguments));
+        JsonValue req = JsonValue::MakeObject();
+        req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+        req.Set(u8"id", JsonValue::MakeNumber(3));
+        req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
+        req.Set(u8"params", Move(params));
+        LineOutcome line = server.HandleLine(req.ToString().AsView());
+        return json::Parse(line.response.AsView()).value.Get(u8"result");
+    };
+    const auto refusedWith = [&](StringView xml, StringView reason)
+    {
+        JsonValue result = write(xml);
+        CHECK(result.Get(u8"isError").AsBool());
+        const String text = result.Get(u8"content").At(0).Get(u8"text").AsString();
+        CAPTURE(reinterpret_cast<const char*>(text.CStr()));
+        CHECK(text.AsView().ContainsIgnoreCase(reason));
+    };
+
+    // Refusals: each leaves the stored envelope exactly as it was, and announces nothing.
+    refusedWith(ReplaceAll(edited.AsView(), guid.AsView(), u8"00000000-0000-0000-0000-000000000001").AsView(),
+                u8"is not this asset's");
+    refusedWith(ReplaceAll(edited.AsView(), u8"name=\"priority\"", u8"name=\"prio\"").AsView(),
+                u8"the payload did not read");
+    refusedWith(ReplaceAll(edited.AsView(), u8">InputMapAsset<", u8">SoundCueAsset<").AsView(),
+                u8"type");
+    CHECK(FfCall(server, u8"asset_data_read", FfStr(JsonValue::MakeObject(), u8"guid", guid.AsView()))
+              .Get(u8"xml")
+              .AsString() == original.AsView());
+    CHECK(announced == 0u);
+
+    JsonValue written = write(edited.AsView());
+    REQUIRE_FALSE(written.Get(u8"isError").AsBool());
+    CHECK(announced == 1u);
+    CHECK(FfCall(server, u8"asset_data_read", FfStr(JsonValue::MakeObject(), u8"guid", guid.AsView()))
+              .Get(u8"xml")
+              .AsString()
+              .AsView()
+              .ContainsIgnoreCase(u8">Platformer<"));
+
+    owner.project.Reset();
+    session.project = nullptr;
+    (void)RemoveDirectoryRecursive(u8"mcp_asset_data");
 }

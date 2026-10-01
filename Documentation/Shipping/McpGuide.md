@@ -104,7 +104,12 @@ is normal - clear it with `asset_cook`.
 checkboxes by label (`{"Generate collision": true}` gives an imported model's prefab colliders);
 an unknown one is refused with the importer's list, and the result lists every toggle's value.
 In the editor an imported model gets its prefab, the `Prefab` asset beside its manifest.
-`asset_list`/`asset_info` to inspect either database.
+`asset_list`/`asset_info` to inspect either database. What File > New makes comes from
+`asset_create` (`asset_creators` lists them). A data asset's content (an input map's actions
+and bindings, a material, a physics material, a sound cue) is edited through its envelope:
+`asset_data_read` gives the XML, and `asset_data_write` takes the edited whole back, loading it
+exactly as the engine would and refusing it, unchanged, when it does not load. Enum fields are
+numbers there; `type_info` on the field's type names the cases.
 
 **Scenes**: read `docs://generated/SceneSchema.json` once (or `component_schema` for one
 component), copy from `docs://generated/SceneExample.scene.xml`, read the target with

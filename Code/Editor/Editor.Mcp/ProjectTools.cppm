@@ -18,6 +18,7 @@ export module editor.mcp;
 export import :session;
 export import :operations;
 export import :asset_create;
+export import :asset_data;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
@@ -614,7 +615,7 @@ export namespace editor::mcp
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 24;
+    inline constexpr usize kEngineToolCount = 26;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -663,7 +664,7 @@ export namespace editor::mcp
 
     // The engine tool surface EVERY MCP host serves, listed ONCE: reflection (type_list /
     // type_info), script_api, project_info, the asset tools (list / info / import / cook / uses /
-    // creators / create),
+    // creators / create / data read and write),
     // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
     // tools, script_validate / script_create, project_export, and the docs:// + project://
     // resources. A host adds what only it can serve on top (the stdio host: project_create /
@@ -682,6 +683,7 @@ export namespace editor::mcp
         RegisterAssetTools(server, session);
         RegisterAssetWriteTools(server, session, importers, operations);
         RegisterAssetCreateTools(server, session, creators, operations);
+        RegisterAssetDataTools(server, session);
         RegisterAssetUsesTool(server, session, builders);
         RegisterProjectHealthTool(server, session, builders);
         RegisterLogTools(server, logBuffer, paths.knownIssues);
