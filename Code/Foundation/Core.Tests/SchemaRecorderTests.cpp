@@ -202,5 +202,7 @@ TEST_CASE("schema-recorder: ScalarText spells every kind the way a default reads
     CHECK(SchemaRecorder::ScalarText(&i64v, ScalarKind::Int64) == u8"-5000000000");
     CHECK(SchemaRecorder::ScalarText(&u64v, ScalarKind::UInt64) == u8"18000000000000000000");
     CHECK(SchemaRecorder::ScalarText(&f32v, ScalarKind::Float32) == u8"0.5");
+    const f32 tenth = 0.1f; // not 0.10000000149011612: a default reads as authored
+    CHECK(SchemaRecorder::ScalarText(&tenth, ScalarKind::Float32) == u8"0.1");
     CHECK(SchemaRecorder::ScalarText(&f64v, ScalarKind::Float64) == u8"-2.25");
 }

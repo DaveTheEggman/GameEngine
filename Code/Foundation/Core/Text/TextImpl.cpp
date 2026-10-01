@@ -37,6 +37,16 @@ namespace foundation::core::detail
         return static_cast<usize>(result.ptr - buffer);
     }
 
+    usize FloatToChars(char* buffer, usize capacity, f32 value) noexcept
+    {
+        const std::to_chars_result result = std::to_chars(buffer, buffer + capacity, value);
+        if (result.ec != std::errc{})
+        {
+            return 0;
+        }
+        return static_cast<usize>(result.ptr - buffer);
+    }
+
     bool FloatFromChars(const char* begin, const char* end, f64& out) noexcept
     {
         const std::from_chars_result result = std::from_chars(begin, end, out);

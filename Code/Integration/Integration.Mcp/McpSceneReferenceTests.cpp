@@ -192,6 +192,9 @@ TEST_CASE("integration.mcp: scene reference - an EntityRef field is `ref: entity
     REQUIRE(lightType.IsObject());
     CHECK(lightType.Get(u8"enum").Count() >= 2);
     CHECK(Field(light.Get(u8"fields"), u8"range").Get(u8"range").Get(u8"max").AsNumber() == doctest::Approx(500.0));
+    // Authored f32 values read as written, not as their f64 widening (0.10000000149011612).
+    CHECK(Field(light.Get(u8"fields"), u8"intensity").Get(u8"range").Get(u8"step").AsNumber() == 0.1);
+    CHECK(Field(light.Get(u8"fields"), u8"outerAngle").Get(u8"default").AsString() == StringView(u8"0.6"));
     // The light's colour is a math value: an object of r, g, b, a, none of them "unreflected".
     CHECK(Field(light.Get(u8"fields"), u8"color").Get(u8"fields").Count() == 4);
     CHECK_FALSE(Lists(light.Get(u8"unreflected"), u8"r"));

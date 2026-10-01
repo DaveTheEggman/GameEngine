@@ -37,6 +37,9 @@ export namespace foundation::core
         /// ever needs those symbols. Integral to_chars is unaffected (no such tables), so only
         /// the float path routes through here. See shared-libraries.md section 5 (P5).
         [[nodiscard]] usize FloatToChars(char* buffer, usize capacity, f64 value) noexcept;
+        /// The shortest text that reads back as the same f32: 0.1f is "0.1", where widening it
+        /// to f64 first prints its binary expansion, "0.10000000149011612".
+        [[nodiscard]] usize FloatToChars(char* buffer, usize capacity, f32 value) noexcept;
 
         /// The parse direction, out of line for the same reason: std::from_chars' float path
         /// instantiates the same STL tables. Returns false unless the WHOLE [begin, end) is a

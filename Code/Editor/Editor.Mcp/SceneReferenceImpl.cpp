@@ -230,6 +230,15 @@ namespace
         return false;
     }
 
+    // An f32 as the JSON number an author wrote: its own shortest text read back as f64, so a
+    // range step of 0.1f reads 0.1, not its widening 0.10000000149011612.
+    JsonValue F32Json(f32 value)
+    {
+        const String text = Format(u8"{}", value);
+        const Optional<f64> parsed = ParseFloat(text.AsView());
+        return JsonValue::MakeNumber(parsed.HasValue() ? parsed.Value() : static_cast<f64>(value));
+    }
+
     JsonValue AttributeJson(StringView key, const Variant& value)
     {
         if (const String* text = value.TryGet<String>())
@@ -241,16 +250,16 @@ namespace
             if (key == u8"range") // {min, max, step}: the inspector's slider bounds
             {
                 JsonValue range = JsonValue::MakeObject();
-                range.Set(u8"min", JsonValue::MakeNumber(static_cast<f64>(v->x)));
-                range.Set(u8"max", JsonValue::MakeNumber(static_cast<f64>(v->y)));
-                range.Set(u8"step", JsonValue::MakeNumber(static_cast<f64>(v->z)));
+                range.Set(u8"min", F32Json(v->x));
+                range.Set(u8"max", F32Json(v->y));
+                range.Set(u8"step", F32Json(v->z));
                 return range;
             }
             JsonValue list = JsonValue::MakeArray();
-            list.Add(JsonValue::MakeNumber(static_cast<f64>(v->x)));
-            list.Add(JsonValue::MakeNumber(static_cast<f64>(v->y)));
-            list.Add(JsonValue::MakeNumber(static_cast<f64>(v->z)));
-            list.Add(JsonValue::MakeNumber(static_cast<f64>(v->w)));
+            list.Add(F32Json(v->x));
+            list.Add(F32Json(v->y));
+            list.Add(F32Json(v->z));
+            list.Add(F32Json(v->w));
             return list;
         }
         if (const bool* b = value.TryGet<bool>())
@@ -259,7 +268,7 @@ namespace
         }
         if (const f32* f = value.TryGet<f32>())
         {
-            return JsonValue::MakeNumber(static_cast<f64>(*f));
+            return F32Json(*f);
         }
         if (const f64* d = value.TryGet<f64>())
         {

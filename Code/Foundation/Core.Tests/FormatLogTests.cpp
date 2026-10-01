@@ -34,6 +34,10 @@ TEST_CASE("format: substitution and types")
     CHECK(FormatEquals(u8"char X", u8"char {}", 'X'));
     CHECK(FormatEquals(u8"str hello", u8"str {}", u8"hello"));
     CHECK(FormatEquals(u8"pi 3.5", u8"pi {}", 3.5));
+    // An f32 prints its own shortest form, not its f64 widening (0.10000000149011612).
+    CHECK(FormatEquals(u8"step 0.1", u8"step {}", 0.1f));
+    CHECK(FormatEquals(u8"angle 1.55", u8"angle {}", 1.55f));
+    CHECK(FormatEquals(u8"double 0.1", u8"double {}", 0.1));
 }
 
 TEST_CASE("format: brace escapes and extra/missing args")

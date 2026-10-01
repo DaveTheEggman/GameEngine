@@ -170,7 +170,7 @@ export namespace foundation::core
             case ScalarKind::UInt64:
                 return Format(u8"{}", *static_cast<const u64*>(value));
             case ScalarKind::Float32:
-                return Format(u8"{}", static_cast<f64>(*static_cast<const f32*>(value)));
+                return Format(u8"{}", *static_cast<const f32*>(value)); // its own shortest form
             case ScalarKind::Float64:
                 return Format(u8"{}", *static_cast<const f64*>(value));
             }

@@ -220,8 +220,18 @@ export namespace foundation::core
         // directly: instantiating the STL's floating-point path in a module interface leaves
         // consumers referencing STL static DATA members that a shared Core cannot hand them.
         // See the declaration in String.cppm for the full reason.
+        // An f32 prints its own shortest form ("0.1"), never its f64 widening
+        // ("0.10000000149011612"); every other floating type goes through f64.
         char temp[48];
-        const usize n = detail::FloatToChars(temp, sizeof(temp), static_cast<f64>(value));
+        usize n = 0;
+        if constexpr (std::is_same_v<T, f32>)
+        {
+            n = detail::FloatToChars(temp, sizeof(temp), value);
+        }
+        else
+        {
+            n = detail::FloatToChars(temp, sizeof(temp), static_cast<f64>(value));
+        }
         detail::AppendAsciiDigits(out, temp, n);
     }
 
