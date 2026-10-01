@@ -1018,6 +1018,41 @@ TEST_CASE("game-instance: LoadScene / LoadSceneAsync own the scene load orchestr
               nullptr);
     }
 
+    SUBCASE("a level load replaces the scene it lands over, on the pump and synchronously")
+    {
+        engine::runtime::GameInstance gi;
+        gi.SetSceneActivationPolicy(Function<void(scene::Scene*)>{[](scene::Scene*) {}});
+
+        engine::runtime::SceneLoadHandle first =
+            gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        (void)gi.TrackScriptLoad(first);
+        gi.PumpScriptLoads();
+        scene::Scene* level1 = gi.GetScene();
+        REQUIRE(level1 != nullptr);
+        CHECK(gi.Scenes().SceneCount() == 1u);
+
+        // The same level again, as a restart loads it: both exist while the new one loads, then
+        // the new copy is the run's scene and the manager's current, and the old one is gone.
+        engine::runtime::SceneLoadHandle second =
+            gi.LoadSceneAsync(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        scene::Scene* level2 = second.Scene();
+        (void)gi.TrackScriptLoad(second);
+        CHECK(gi.Scenes().SceneCount() == 2u);
+        gi.PumpScriptLoads();
+        CHECK(gi.GetScene() == level2);
+        CHECK(gi.Scenes().CurrentScene() == level2);
+        CHECK(gi.Scenes().IsActive(level2));
+        CHECK(gi.Scenes().SceneCount() == 1u);
+
+        // The synchronous path (run.loadScene) adopts the same way.
+        scene::Scene* level3 =
+            gi.LoadScene(*sceneInst, resources, Function<UniquePtr<IStream>(const Guid&)>{});
+        REQUIRE(level3 != nullptr);
+        gi.AdoptLoadedScene(level3);
+        CHECK(gi.GetScene() == level3);
+        CHECK(gi.Scenes().SceneCount() == 1u);
+    }
+
     SUBCASE("script-load registry: ticket -> poll -> PumpScriptLoads activates + runs the policy")
     {
         engine::runtime::GameInstance gi;

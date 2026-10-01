@@ -406,6 +406,15 @@ export namespace engine::runtime
         // (not the app) so the orchestrator script that launched with NO scene resolves its loads
         // through its OWN instance host - see the app's per-host facade install.
 
+        /// Makes a just-loaded, active scene the run's level: the instance's bookkeeping (current
+        /// scene, net replication, the scene manager's current), then the app's policy, then the
+        /// level it lands over is DESTROYED. Left alone the old level kept ticking unseen beside
+        /// the new one - its player read the input, its events reached the run bus - and every
+        /// restart stacked one more. A behaviour that loads a level from inside the scene it
+        /// replaces is safe: the scene manager defers a destroy asked for during its update to
+        /// the end of that update. The async pump and the synchronous run.loadScene both use this.
+        void AdoptLoadedScene(scene::Scene* activated);
+
         /// The post-activation policy the APP owns (EnsureCamera, Start, SetSimulationEnabled - the
         /// render/sim half; SetScene is the instance's own bookkeeping and runs first). Set once by
         /// the app; PumpScriptLoads invokes it on a scene the moment its tracked load completes.

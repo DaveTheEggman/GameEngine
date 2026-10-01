@@ -296,12 +296,27 @@ namespace engine::runtime
                 ++i;
                 continue;
             }
-            SetScene(activated);              // instance bookkeeping: current scene + net replication
-            if (m_activatePolicy)
-            {
-                m_activatePolicy(activated); // app render/sim policy (EnsureCamera, Start, ...)
-            }
             m_scriptLoads.RemoveAt(i); // retire: the ticket now reads terminal-safe via the fallback
+            AdoptLoadedScene(activated); // after the retire: it may drop loads aimed at the old level
+        }
+    }
+
+    void GameInstance::AdoptLoadedScene(scene::Scene* activated)
+    {
+        if (activated == nullptr)
+        {
+            return;
+        }
+        scene::Scene* previous = m_scene;
+        SetScene(activated); // instance bookkeeping: current scene + net replication
+        m_sceneManager.SetCurrentScene(activated);
+        if (m_activatePolicy)
+        {
+            m_activatePolicy(activated); // app render/sim policy (EnsureCamera, Start, ...)
+        }
+        if (previous != nullptr && previous != activated)
+        {
+            DestroyScene(previous); // deferred by the manager when asked from inside its update
         }
     }
 

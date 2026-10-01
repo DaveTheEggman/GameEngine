@@ -455,8 +455,9 @@ namespace engine::runtime
                 {
                     return false;
                 }
-                instance->SetScene(scene); // current-scene bookkeeping (async path does this in Pump)
-                self->ApplyLoadedSceneActivation(scene);
+                // The async pump's own path: current scene, the app's policy, and the level it
+                // lands over destroyed (deferred when a behaviour of that level asked for it).
+                instance->AdoptLoadedScene(scene);
                 return true;
             }};
 
