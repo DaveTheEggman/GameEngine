@@ -497,3 +497,42 @@ TEST_CASE("project: the display settings are appended, with defaults an older ma
     project.Reset();
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));
 }
+
+// Sedulous 765efdfa: the player reads its manifest before its window exists, to open the
+// window the project asks for: a dist's player.xml first, else a dev tree's Project.xml.
+TEST_CASE("project: the player's manifest is the dist's, else the project's")
+{
+    const StringView dir = u8"scratch_player_manifest_test";
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)FileDelete(PathJoin(dir, u8"player.xml"));
+    (void)RemoveDirectory(dir);
+    REQUIRE(CreateDirectory(dir));
+    foundation::vfs::NativeFileSystem root(dir, foundation::core::DefaultAllocator());
+    {
+        engine::project::ProjectSettings none;
+        CHECK(engine::project::LoadPlayerManifest(root, none).Code() == ErrorCode::NotFound);
+    }
+    engine::project::ProjectSettings project;
+    project.name = String(u8"Dev");
+    project.windowWidth = 800;
+    REQUIRE(engine::project::SaveProjectSettings(*root.AsWritable(), project).IsOk());
+    {
+        engine::project::ProjectSettings read;
+        REQUIRE(engine::project::LoadPlayerManifest(root, read).IsOk());
+        CHECK(read.name == StringView(u8"Dev"));
+        CHECK(read.windowWidth == 800u);
+    }
+    engine::project::ProjectSettings dist;
+    dist.name = String(u8"Shipped");
+    dist.windowMode = engine::project::WindowMode::Fullscreen;
+    REQUIRE(engine::project::SaveProjectSettings(*root.AsWritable(), dist, engine::project::kDistManifestFile).IsOk());
+    {
+        engine::project::ProjectSettings read;
+        REQUIRE(engine::project::LoadPlayerManifest(root, read).IsOk());
+        CHECK(read.name == StringView(u8"Shipped")); // the dist's wins
+        CHECK(read.windowMode == engine::project::WindowMode::Fullscreen);
+    }
+    (void)FileDelete(PathJoin(dir, u8"Project.xml"));
+    (void)FileDelete(PathJoin(dir, u8"player.xml"));
+    (void)RemoveDirectory(dir);
+}

@@ -237,6 +237,17 @@ export namespace engine::project
         return ctx->serializer->IsOk() ? Status{} : ctx->serializer->GetStatus();
     }
 
+    /// The manifest a player runs from `root`: a dist's player.xml, else a dev tree's
+    /// Project.xml. NotFound with neither.
+    [[nodiscard]] inline Status LoadPlayerManifest(vfs::IFileSystem& root, ProjectSettings& out)
+    {
+        if (LoadProjectSettings(root, out, kDistManifestFile).IsOk())
+        {
+            return Status{};
+        }
+        return LoadProjectSettings(root, out);
+    }
+
     /// The one copy of a manifest (a ProjectSettings is serializable, so it has no copy): through
     /// its own Serialize body, so every field written there is copied. The project open and the
     /// dist manifest each kept a hand list of fields, and both drifted (loadingDocumentId and

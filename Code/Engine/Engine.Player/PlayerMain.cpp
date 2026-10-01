@@ -172,10 +172,33 @@ int engine::player::PlayerMain(int argc, char** argv,
         }
     }
 
+    // The window the game asked for, read before the window exists: the dist's player.xml, or a
+    // dev tree's Project.xml. Neither, and the defaults stand.
+    engine::project::ProjectSettings manifest;
+    {
+        foundation::vfs::NativeFileSystem root(options.projectDir.AsView(), DefaultAllocator());
+        if (!engine::project::LoadPlayerManifest(root, manifest).IsOk())
+        {
+            LOG_WARNING(u8"Player", u8"no manifest in '{}', the default window", options.projectDir);
+        }
+    }
     shell::WindowSettings ws;
-    ws.title = u8"Player";
-    ws.width = 1280;
-    ws.height = 720;
+    ws.title = manifest.name.IsEmpty() ? StringView(u8"Player") : manifest.name.AsView();
+    ws.width = Max(manifest.windowWidth, 1u);
+    ws.height = Max(manifest.windowHeight, 1u);
+    ws.resizable = manifest.windowResizable;
+    switch (manifest.windowMode)
+    {
+    case engine::project::WindowMode::Windowed:
+        ws.fullscreen = shell::WindowFullscreen::None;
+        break;
+    case engine::project::WindowMode::Fullscreen:
+        ws.fullscreen = shell::WindowFullscreen::Exclusive;
+        break;
+    case engine::project::WindowMode::Borderless:
+        ws.fullscreen = shell::WindowFullscreen::Desktop;
+        break;
+    }
     auto shellPtr = shell::CreateShell(DefaultAllocator(), ws);
     if (shellPtr.Get() == nullptr || shellPtr->MainWindow() == nullptr)
     {
