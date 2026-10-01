@@ -1155,23 +1155,26 @@ export namespace engine::physics
             return (system != nullptr) ? system->World() : nullptr;
         }
 
-        void setGravity(f32 x, f32 y, f32 z)
+        void setGravity(f32 x, f32 y, f32 z) { setGravity(Float3{x, y, z}); }
+        void setGravity(Float3 gravity)
         {
             if (PhysicsWorld* world = World())
             {
-                world->SetGravity(Float3{x, y, z});
+                world->SetGravity(gravity);
             }
         }
-        [[nodiscard]] f32 gravityY() const
+        [[nodiscard]] Float3 gravity() const
         {
             PhysicsWorld* world = World();
-            return world != nullptr ? world->Gravity().y : 0.0f;
+            return world != nullptr ? world->Gravity() : Float3{0.0f, 0.0f, 0.0f};
         }
+        [[nodiscard]] f32 gravityY() const { return gravity().y; }
+
         // Ray against THIS scene's world -> an EXPLICIT RayCastHit (hit/distance/position/
         // normal/surface + entity() + impulse()); RayCastHit.hit == false on a miss. No
-        // stored last-hit state exists anymore.
-        [[nodiscard]] RayCastHit rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
-                                         f32 dirZ, f32 maxDistance) const
+        // stored last-hit state exists anymore. `groupMask`: bit g = consider collision group g.
+        [[nodiscard]] RayCastHit rayCast(Float3 from, Float3 direction, f32 maxDistance,
+                                         u32 groupMask) const
         {
             RayCastHit result;
             result.scene = scene;
@@ -1181,8 +1184,7 @@ export namespace engine::physics
                 return result;
             }
             RayHit hit;
-            if (world->RayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
-                               hit))
+            if (world->RayCast(from, direction, maxDistance, hit, groupMask))
             {
                 result.hit = true;
                 result.body = hit.body;
@@ -1194,13 +1196,23 @@ export namespace engine::physics
             }
             return result;
         }
+        [[nodiscard]] RayCastHit rayCast(Float3 from, Float3 direction, f32 maxDistance) const
+        {
+            return rayCast(from, direction, maxDistance, 0xFFFFFFFFu);
+        }
+        [[nodiscard]] RayCastHit rayCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
+                                         f32 dirZ, f32 maxDistance) const
+        {
+            return rayCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
+                           0xFFFFFFFFu);
+        }
 
-        // A swept SPHERE (radius) from (from*) along (dir*) up to maxDistance -> the CLOSEST hit, as a
-        // RayCastHit (hit == false on a miss). Like rayCast but with a volume - the ray that would slip
-        // through a gap a fat projectile cannot. (dir*) must be UNIT length, like rayCast: `distance`
-        // scales by |dir| otherwise.
-        [[nodiscard]] RayCastHit sphereCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
-                                            f32 dirZ, f32 maxDistance, f32 radius) const
+        // A swept SPHERE (radius) from `from` along `direction` up to maxDistance -> the CLOSEST hit,
+        // as a RayCastHit (hit == false on a miss). Like rayCast but with a volume - the ray that would
+        // slip through a gap a fat projectile cannot. `direction` must be UNIT length, like rayCast:
+        // `distance` scales by its length otherwise.
+        [[nodiscard]] RayCastHit sphereCast(Float3 from, Float3 direction, f32 maxDistance,
+                                            f32 radius, u32 groupMask) const
         {
             RayCastHit result;
             result.scene = scene;
@@ -1213,8 +1225,8 @@ export namespace engine::physics
             shape.kind = ShapeKind::Sphere;
             shape.radius = radius;
             RayHit hit;
-            if (world->ShapeCast(shape, Float3{fromX, fromY, fromZ}, Quaternion::Identity,
-                                 Float3{dirX, dirY, dirZ}, maxDistance, hit))
+            if (world->ShapeCast(shape, from, Quaternion::Identity, direction, maxDistance, hit,
+                                 groupMask))
             {
                 result.hit = true;
                 result.body = hit.body;
@@ -1226,13 +1238,24 @@ export namespace engine::physics
             }
             return result;
         }
+        [[nodiscard]] RayCastHit sphereCast(Float3 from, Float3 direction, f32 maxDistance,
+                                            f32 radius) const
+        {
+            return sphereCast(from, direction, maxDistance, radius, 0xFFFFFFFFu);
+        }
+        [[nodiscard]] RayCastHit sphereCast(f32 fromX, f32 fromY, f32 fromZ, f32 dirX, f32 dirY,
+                                            f32 dirZ, f32 maxDistance, f32 radius) const
+        {
+            return sphereCast(Float3{fromX, fromY, fromZ}, Float3{dirX, dirY, dirZ}, maxDistance,
+                              radius, 0xFFFFFFFFu);
+        }
 
-        // The body NEAREST to (x,y,z) whose shape overlaps a SPHERE (radius) there, filtered to
+        // The body NEAREST to `center` whose shape overlaps a SPHERE (radius) there, filtered to
         // `groupMask` (bit g = include collision group g; ~0 = all) -> a RayCastHit (hit == false if
         // none). The script surface returns one handle rather than a list, so this gives the nearest -
         // exactly what "aim at / act on the closest thing in range" needs; the group mask does the
         // category filtering (e.g. only delivery-zone triggers). `result.position` is the body origin.
-        [[nodiscard]] RayCastHit nearestOverlap(f32 x, f32 y, f32 z, f32 radius, i32 groupMask) const
+        [[nodiscard]] RayCastHit nearestOverlap(Float3 center, f32 radius, u32 groupMask) const
         {
             RayCastHit result;
             result.scene = scene;
@@ -1245,15 +1268,14 @@ export namespace engine::physics
             shape.kind = ShapeKind::Sphere;
             shape.radius = radius;
             Array<foundation::physics::BodyId> bodies;
-            world->ShapeOverlap(shape, Float3{x, y, z}, Quaternion::Identity, bodies,
-                                static_cast<u32>(groupMask));
+            world->ShapeOverlap(shape, center, Quaternion::Identity, bodies, groupMask);
             f32 bestSq = kFloatMax; // best body-ORIGIN distance (see the semantics note above)
             for (const foundation::physics::BodyId& b : bodies)
             {
                 Float3 pos;
                 Quaternion rot;
                 world->GetBodyTransform(b, pos, rot);
-                const f32 dx = pos.x - x, dy = pos.y - y, dz = pos.z - z;
+                const f32 dx = pos.x - center.x, dy = pos.y - center.y, dz = pos.z - center.z;
                 const f32 d2 = dx * dx + dy * dy + dz * dz;
                 if (d2 < bestSq)
                 {
@@ -1272,15 +1294,23 @@ export namespace engine::physics
             }
             return result;
         }
+        [[nodiscard]] RayCastHit nearestOverlap(Float3 center, f32 radius) const
+        {
+            return nearestOverlap(center, radius, 0xFFFFFFFFu);
+        }
+        [[nodiscard]] RayCastHit nearestOverlap(f32 x, f32 y, f32 z, f32 radius, i32 groupMask) const
+        {
+            return nearestOverlap(Float3{x, y, z}, radius, static_cast<u32>(groupMask));
+        }
 
-        // ALL entities overlapping a SPHERE (radius) at (x,y,z), filtered to `groupMask` (bit g =
+        // ALL entities overlapping a SPHERE (radius) at `center`, filtered to `groupMask` (bit g =
         // include collision group g; ~0 = all) -> a native array the script walks with `.length`/`[]`
         // (AngelScript) or `#`/`ipairs` (Luau). This is the full set (nearestOverlap is the convenience
         // for "just the closest"). RESOLVED Entities, not packed u64 words: a Lua table element is an
         // f64 and a packed handle exceeds 2^53. Since-destroyed bodies are
         // skipped, so every element is a live entity.
-        [[nodiscard]] Array<foundation::script::Entity> overlapSphere(f32 x, f32 y, f32 z, f32 radius,
-                                                                     i32 groupMask) const
+        [[nodiscard]] Array<foundation::script::Entity> overlapSphere(Float3 center, f32 radius,
+                                                                     u32 groupMask) const
         {
             Array<foundation::script::Entity> result;
             PhysicsWorld* world = World();
@@ -1292,8 +1322,7 @@ export namespace engine::physics
             shape.kind = ShapeKind::Sphere;
             shape.radius = radius;
             Array<foundation::physics::BodyId> bodies;
-            world->ShapeOverlap(shape, Float3{x, y, z}, Quaternion::Identity, bodies,
-                                static_cast<u32>(groupMask));
+            world->ShapeOverlap(shape, center, Quaternion::Identity, bodies, groupMask);
             for (const foundation::physics::BodyId& b : bodies)
             {
                 const scene::EntityHandle handle = UnpackEntity(world->UserData(b));
@@ -1308,6 +1337,15 @@ export namespace engine::physics
                 result.PushBack(e);
             }
             return result;
+        }
+        [[nodiscard]] Array<foundation::script::Entity> overlapSphere(Float3 center, f32 radius) const
+        {
+            return overlapSphere(center, radius, 0xFFFFFFFFu);
+        }
+        [[nodiscard]] Array<foundation::script::Entity> overlapSphere(f32 x, f32 y, f32 z, f32 radius,
+                                                                     i32 groupMask) const
+        {
+            return overlapSphere(Float3{x, y, z}, radius, static_cast<u32>(groupMask));
         }
 
         [[nodiscard]] f32 bodyCount() const
@@ -1324,6 +1362,10 @@ export namespace engine::physics
         // reconcile pass clears it), and Stop clears it too - it never outlives the run.
         void applyImpulse(foundation::script::Entity entity, f32 x, f32 y, f32 z)
         {
+            applyImpulse(entity, Float3{x, y, z});
+        }
+        void applyImpulse(foundation::script::Entity entity, Float3 impulse)
+        {
             PhysicsWorld* world = World();
             if (world == nullptr || scene == nullptr)
             {
@@ -1339,14 +1381,59 @@ export namespace engine::physics
             }
             if (body->body.IsValid())
             {
-                world->AddImpulse(body->body, Float3{x, y, z});
+                world->AddImpulse(body->body, impulse);
             }
             else
             {
                 // Body not created yet (a prefab spawned + launched THIS frame): queue the impulse on
                 // the component; CreateBodyForEntity applies it when the Jolt body is made next assembly.
-                body->pendingImpulse += Float3{x, y, z};
+                body->pendingImpulse += impulse;
             }
+        }
+
+        // ---- the entity's character, as Sedulous's PhysicsFacade has it (the same ops as
+        // CharacterComponent.of(entity); no-ops for an entity without a character) ----
+        void moveCharacter(foundation::script::Entity entity, f32 velocityX, f32 velocityZ) const
+        {
+            if (CharacterComponent* character = Character(entity))
+            {
+                character->move(velocityX, velocityZ);
+            }
+        }
+        void jumpCharacter(foundation::script::Entity entity, f32 speed) const
+        {
+            if (CharacterComponent* character = Character(entity))
+            {
+                character->jump(speed);
+            }
+        }
+        void launchCharacter(foundation::script::Entity entity, f32 speed) const
+        {
+            if (CharacterComponent* character = Character(entity))
+            {
+                character->launch(speed);
+            }
+        }
+        void setCharacterPosition(foundation::script::Entity entity, Float3 position) const
+        {
+            if (CharacterComponent* character = Character(entity))
+            {
+                character->setPosition(position);
+            }
+        }
+        [[nodiscard]] bool isCharacterGrounded(foundation::script::Entity entity) const
+        {
+            CharacterComponent* character = Character(entity);
+            return character != nullptr && character->grounded();
+        }
+        [[nodiscard]] CharacterComponent* Character(foundation::script::Entity entity) const
+        {
+            if (scene == nullptr || entity.scene != scene)
+            {
+                return nullptr;
+            }
+            auto* characters = scene->GetSystem<CharacterComponentManager>();
+            return characters != nullptr ? characters->Get(entity.Handle()) : nullptr;
         }
 
         // The OPTION 1 factory: ScenePhysics.of(scene). Argument is the bound Scene facade.

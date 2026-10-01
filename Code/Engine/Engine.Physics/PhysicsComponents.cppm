@@ -220,6 +220,7 @@ export namespace engine::physics
             teleportTo = Float3{x, y, z};
             teleportPending = true;
         }
+        void setPosition(Float3 position) { setPosition(position.x, position.y, position.z); }
         [[nodiscard]] bool grounded() const { return ground == CharacterGround::OnGround; }
         [[nodiscard]] f32 positionX() const { return currPosition.x; }
         [[nodiscard]] f32 positionY() const { return currPosition.y; }

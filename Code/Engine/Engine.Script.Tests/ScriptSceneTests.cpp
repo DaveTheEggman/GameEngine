@@ -4895,3 +4895,116 @@ TEST_CASE("script.scene: a behaviour makes, ends and finds entities by id; Rando
         u8"    end\n"
         u8"end\n");
 }
+
+// ScenePhysics in Sedulous's Float3 forms: a ray down onto a body, the overlap set by a center, an
+// impulse by a Float3, gravity by a Float3. Both backends act the same way.
+namespace
+{
+    void CheckPhysicsFloat3Script(StringView language, StringView className, StringView source)
+    {
+        engine::physics::RegisterPhysicsScriptFacade();
+        ContactWorld world;
+        const scene::EntityHandle a = world.AddBody(u8"left", Float3{-1.5f, 0, 0},
+                                                    physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+        const scene::EntityHandle b = world.AddBody(u8"right", Float3{1.5f, 0, 0},
+                                                    physics::MotionKind::Dynamic, Float3{0.5f, 0.5f, 0.5f});
+        const scene::EntityHandle scanner = world.scene->CreateEntity(u8"scanner");
+        world.Attach(scanner, MakeClassLang(language, className, source, {u8"onStart"}));
+
+        world.Play(2);
+        auto* sys = world.scene->GetSystem<engine::physics::PhysicsSceneSystem>();
+        auto* bodies = world.scene->GetSystem<engine::physics::RigidBodyComponentManager>();
+        REQUIRE(sys->World() != nullptr);
+        CHECK(world.scene->GetEntityName(scanner) == StringView(u8"hit")); // the ray found `left`
+        CHECK(sys->World()->Gravity().y == doctest::Approx(-20.0f));
+        CHECK(sys->World()->LinearVelocity(bodies->Get(a)->body).y > 0.0f);
+        CHECK(sys->World()->LinearVelocity(bodies->Get(b)->body).y > 0.0f);
+    }
+}
+
+TEST_CASE("script.scene: ScenePhysics casts, overlaps, impulses and gravity by Float3 (AngelScript)")
+{
+    CheckPhysicsFloat3Script(
+        u8"angelscript", u8"Scanner",
+        u8"class Scanner {\n"
+        u8"    private Entity@ self;\n"
+        u8"    Scanner(Entity@ entity) { @self = entity; }\n"
+        u8"    void onStart() {\n"
+        u8"        ScenePhysics@ p = ScenePhysics::of(self.scene);\n"
+        u8"        p.setGravity(Float3(0, -20, 0));\n"
+        u8"        RayCastHit@ down = p.rayCast(Float3(-1.5f, 10, 0), Float3(0, -1, 0), 20.0f);\n"
+        u8"        RayCastHit@ masked = p.rayCast(Float3(-1.5f, 10, 0), Float3(0, -1, 0), 20.0f, 0);\n"
+        u8"        RayCastHit@ near = p.nearestOverlap(Float3(1.4f, 0, 0), 1.0f);\n"
+        u8"        if (down.hit && down.entity().name() == \"left\" && !masked.hit && near.hit\n"
+        u8"            && near.entity().name() == \"right\" && p.gravity().y == -20.0f) {\n"
+        u8"            self.setName(\"hit\");\n"
+        u8"        }\n"
+        u8"        array<Entity@>@ hits = p.overlapSphere(Float3(0, 0, 0), 3.0f);\n"
+        u8"        for (uint i = 0; i < hits.length(); i++) {\n"
+        u8"            p.applyImpulse(hits[i], Float3(0, 5000, 0));\n"
+        u8"        }\n"
+        u8"    }\n"
+        u8"}\n");
+}
+
+TEST_CASE("script.scene: ScenePhysics casts, overlaps, impulses and gravity by Float3 (Luau)")
+{
+    CheckPhysicsFloat3Script(
+        u8"luau", u8"Scanner",
+        u8"Scanner = {}\n"
+        u8"Scanner.__index = Scanner\n"
+        u8"function Scanner.new(entity) return setmetatable({ entity = entity }, Scanner) end\n"
+        u8"function Scanner:onStart()\n"
+        u8"    local me = self.entity\n"
+        u8"    local p = ScenePhysics.of(me.scene)\n"
+        u8"    p:setGravity(Float3.new(0, -20, 0))\n"
+        u8"    local down = p:rayCast(Float3.new(-1.5, 10, 0), Float3.new(0, -1, 0), 20.0)\n"
+        u8"    local masked = p:rayCast(Float3.new(-1.5, 10, 0), Float3.new(0, -1, 0), 20.0, 0)\n"
+        u8"    local near = p:nearestOverlap(Float3.new(1.4, 0, 0), 1.0)\n"
+        u8"    if down.hit and down:entity():name() == \"left\" and not masked.hit and near.hit\n"
+        u8"        and near:entity():name() == \"right\" and p:gravity().y == -20 then\n"
+        u8"        me:setName(\"hit\")\n"
+        u8"    end\n"
+        u8"    local hits = p:overlapSphere(Float3.new(0, 0, 0), 3.0)\n"
+        u8"    for i = 1, #hits do\n"
+        u8"        p:applyImpulse(hits[i], Float3.new(0, 5000, 0))\n"
+        u8"    end\n"
+        u8"end\n");
+}
+
+TEST_CASE("script.scene: ScenePhysics drives an entity's character, as Sedulous's facade does")
+{
+    engine::physics::RegisterPhysicsScriptFacade();
+    ScriptedScene bed;
+    auto* characters = bed.scene.AddSystem<engine::physics::CharacterComponentManager>();
+    RefPtr<ScriptClass> driver =
+        MakeClassLang(u8"angelscript", u8"Driver",
+                      u8"class Driver {\n"
+                      u8"    private Entity@ self;\n"
+                      u8"    Driver(Entity@ entity) { @self = entity; }\n"
+                      u8"    void onStart() {\n"
+                      u8"        ScenePhysics@ p = ScenePhysics::of(self.scene);\n"
+                      u8"        p.moveCharacter(self, 5.0f, 3.0f);\n"
+                      u8"        p.jumpCharacter(self, 6.0f);\n"
+                      u8"        p.launchCharacter(self, 4.0f);\n"
+                      u8"        p.setCharacterPosition(self, Float3(1, 2, 3));\n"
+                      u8"        CharacterComponent::of(self).setPosition(Float3(1, 2, 4));\n"
+                      u8"        if (!p.isCharacterGrounded(self)) { self.setName(\"airborne\"); }\n"
+                      u8"    }\n"
+                      u8"}\n",
+                      {u8"onStart"});
+    const scene::EntityHandle e = bed.AddScripted(driver, u8"e");
+    characters->Add(e);
+
+    bed.Start();
+    bed.Frame();
+    engine::physics::CharacterComponent* character = characters->Get(e);
+    REQUIRE(character != nullptr);
+    CHECK(character->moveVelocity.x == doctest::Approx(5.0f));
+    CHECK(character->moveVelocity.z == doctest::Approx(3.0f));
+    CHECK(character->jumpSpeed == doctest::Approx(6.0f));
+    CHECK(character->launchPending);
+    CHECK(character->teleportPending);
+    CHECK(character->teleportTo.z == doctest::Approx(4.0f)); // the component's Float3 form, last
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"airborne"));
+}
