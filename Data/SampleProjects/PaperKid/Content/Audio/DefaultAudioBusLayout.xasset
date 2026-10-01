@@ -3,7 +3,7 @@
 	<string name="typeNamespace">rtti::pipeline::audio</string>
 	<string name="typeName">AudioBusLayoutAsset</string>
 	<array name="dataVersions" count="1">
-		<u64 name="type">17578191711583650696</u64>
+		<u64 name="type">13119554008351747678</u64>
 		<u32 name="version">2</u32>
 	</array>
 	<object name="payload">

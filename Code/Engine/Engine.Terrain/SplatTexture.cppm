@@ -336,12 +336,12 @@ export namespace engine::terrain
 
         [[nodiscard]] static u64 HashScales(Span<const f32> scales) noexcept
         {
-            u64 h = 1469598103934665603ull;
+            u64 h = kFnv1a64OffsetBasis; // FNV-1a
             const auto mix = [&h](f32 v)
             {
                 u32 bits;
                 MemCopy(&bits, &v, sizeof(bits));
-                h = (h ^ bits) * 1099511628211ull;
+                h = (h ^ bits) * kFnv1a64Prime;
             };
             for (usize i = 0; i < scales.Size(); ++i)
             {

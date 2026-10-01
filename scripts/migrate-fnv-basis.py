@@ -1,0 +1,166 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026-Present Robert Campbell
+"""Rewrite stored type ids from the old FNV offset basis to the standard one (2026-10-01).
+
+Until 2026-10-01 HashBytes seeded FNV-1a 64 with 1469598103934665603, a digit short of the
+published basis 14695981039346656037. Type ids are built on it, and every versioned payload
+stores its chain of type ids (`dataVersions`), so a file written before the change is refused by
+a build after it. This script rewrites those ids in place: it reads every registered type's
+namespace and name from this checkout's sources, computes each type's old and new id, and
+replaces each stored old id it can name. An id it cannot name is reported, never guessed.
+
+Script property overrides (`nameHash` in a scene) are hashes of property NAMES, not types; pass
+--scripts <dir> to name them from the script sources in that directory and rehash them too.
+
+Usage:
+  scripts/migrate-fnv-basis.py <path>... [--scripts <dir>] [--apply]
+
+<path> is a file or a directory (walked for .xml, .xasset, .data and, under a project, .bin).
+Without --apply it only reports. Back up first; cooked folders are simply recooked.
+"""
+import os
+import re
+import struct
+import subprocess
+import sys
+
+OLD = 1469598103934665603
+NEW = 14695981039346656037
+PRIME = 1099511628211
+MASK = (1 << 64) - 1
+
+
+def fnv(data, seed):
+    h = seed
+    for byte in data:
+        h = ((h ^ byte) * PRIME) & MASK
+    return h
+
+
+def type_id(namespace, name, seed):
+    h = fnv(namespace.encode(), seed)
+    h = fnv(b"::", h)
+    return fnv(name.encode(), h)
+
+
+def registered_types(repo):
+    """Every (namespace, name) the sources register, the way the RTTI macros spell them."""
+    patterns = [
+        re.compile(r'RTTI_DEFINE_OBJECT(?:_VERSIONED)?\(\s*([A-Za-z_][\w:]*)\s*,\s*"([^"]*)"'),
+        re.compile(r'REFLECT_(?:VALUE|ENUM|OBJECT|MEMBERS)\(\s*([A-Za-z_][\w:]*)\s*,\s*"([^"]*)"'),
+        re.compile(r'(?:TypeBuilder|EnumBuilder)<[^>]*>\s*\w*\s*[\({]\s*"([^"]+)"\s*,\s*"([^"]*)"'),
+        re.compile(r'MakeTypeInfo<[^>]*>\(\s*"([^"]+)"\s*,\s*"([^"]*)"'),
+    ]
+    files = subprocess.run(["git", "-C", repo, "ls-files", "Code"], capture_output=True,
+                           text=True, check=True).stdout.split()
+    pairs = set()
+    for path in files:
+        if not path.endswith((".cpp", ".cppm", ".h")):
+            continue
+        with open(os.path.join(repo, path), errors="ignore") as handle:
+            text = handle.read()
+        for pattern in patterns:
+            for match in pattern.finditer(text):
+                pairs.add((match.group(2), match.group(1).split("::")[-1]))
+    return pairs
+
+
+def candidate_files(paths):
+    for path in paths:
+        if os.path.isfile(path):
+            yield path
+            continue
+        for root, _, names in os.walk(path):
+            for name in names:
+                if name.endswith((".xml", ".xasset", ".data", ".bin")):
+                    yield os.path.join(root, name)
+
+
+def main(argv):
+    apply = "--apply" in argv
+    scripts_dir = None
+    paths = []
+    i = 1
+    while i < len(argv):
+        if argv[i] == "--apply":
+            pass
+        elif argv[i] == "--scripts":
+            i += 1
+            scripts_dir = argv[i]
+        else:
+            paths.append(argv[i])
+        i += 1
+    if not paths:
+        print(__doc__)
+        return 2
+
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    by_old = {}
+    for namespace, name in registered_types(repo):
+        by_old[type_id(namespace, name, OLD)] = type_id(namespace, name, NEW)
+
+    binary_new = {struct.pack("<Q", old): struct.pack("<Q", new) for old, new in by_old.items()}
+    binary_ids = re.compile(b"|".join(re.escape(key) for key in binary_new))
+
+    names_by_old = {}
+    if scripts_dir:
+        for root, _, files in os.walk(scripts_dir):
+            for file_name in files:
+                with open(os.path.join(root, file_name), errors="ignore") as handle:
+                    for word in re.findall(r"[A-Za-z_]\w*", handle.read()):
+                        names_by_old[fnv(word.encode(), OLD)] = fnv(word.encode(), NEW)
+
+    id_re = re.compile(r'(<u64 name="type">)(\d+)(</u64>)')
+    hash_re = re.compile(r'(<u64 name="nameHash">)(\d+)(</u64>)')
+    changed = 0
+    unknown = {}
+    for path in candidate_files(paths):
+        if path.endswith(".bin"):
+            with open(path, "rb") as handle:
+                data = handle.read()
+            # One pass over the file: every old id, little-endian, as one alternation.
+            updated = binary_ids.sub(lambda m: binary_new[m.group(0)], data)
+            if updated != data:
+                changed += 1
+                print(("rewrote " if apply else "would rewrite ") + path)
+                if apply:
+                    with open(path, "wb") as handle:
+                        handle.write(updated)
+            continue
+        with open(path, errors="ignore") as handle:
+            text = handle.read()
+        if 'name="dataVersions"' not in text and 'name="nameHash"' not in text:
+            continue
+
+        def remap_type(match):
+            value = int(match.group(2))
+            if value in by_old:
+                return match.group(1) + str(by_old[value]) + match.group(3)
+            if value not in by_old.values():
+                unknown.setdefault(value, set()).add(path)
+            return match.group(0)
+
+        def remap_hash(match):
+            value = int(match.group(2))
+            if value in names_by_old:
+                return match.group(1) + str(names_by_old[value]) + match.group(3)
+            if scripts_dir and value not in names_by_old.values():
+                unknown.setdefault(value, set()).add(path)
+            return match.group(0)
+
+        updated = hash_re.sub(remap_hash, id_re.sub(remap_type, text))
+        if updated != text:
+            changed += 1
+            print(("rewrote " if apply else "would rewrite ") + path)
+            if apply:
+                with open(path, "w") as handle:
+                    handle.write(updated)
+    for value, files in sorted(unknown.items()):
+        print("cannot name id %d in %s" % (value, ", ".join(sorted(files))))
+    print("%d file(s) %s" % (changed, "rewritten" if apply else "to rewrite (dry run)"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

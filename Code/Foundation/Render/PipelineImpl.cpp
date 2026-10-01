@@ -1033,12 +1033,12 @@ namespace foundation::render
         {
             return 0;
         }
-        u64 sig = 1469598103934665603ull; // FNV-1a offset basis
+        u64 sig = kFnv1a64OffsetBasis; // FNV-1a
         const auto mix = [&sig](f32 v)
         {
             const u64 q =
                 static_cast<u64>(static_cast<i64>(v * 1000.0f)); // ~1mm / 0.001 quantization
-            sig = (sig ^ q) * 1099511628211ull;
+            sig = (sig ^ q) * kFnv1a64Prime;
         };
         for (const LocalShadowCaster& c : scene->LocalShadowCasters())
         {

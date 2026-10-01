@@ -815,10 +815,15 @@ namespace
         // The hash, with a worked example a reader can check.
         {
             JsonValue hash = JsonValue::MakeObject();
+            // The numbers are the ones the hash uses, interpolated, never retyped: a retyped
+            // basis once documented the standard value while the code used another.
             hash.Set(u8"algorithm",
-                     JsonValue::MakeString(u8"FNV-1a, 64-bit, over the UTF-8 bytes of the property "
-                                           u8"name: offset basis 14695981039346656037, prime "
-                                           u8"1099511628211, no terminator"));
+                     JsonValue::MakeString(Format(u8"FNV-1a, 64-bit, over the UTF-8 bytes of the "
+                                                  u8"property name: offset basis {}, prime {}, no "
+                                                  u8"terminator",
+                                                  kFnv1a64OffsetBasis, kFnv1a64Prime)));
+            hash.Set(u8"offsetBasis", JsonValue::MakeString(Decimal(kFnv1a64OffsetBasis)));
+            hash.Set(u8"prime", JsonValue::MakeString(Decimal(kFnv1a64Prime)));
             const StringView exampleName = u8"speed";
             JsonValue example = JsonValue::MakeObject();
             example.Set(u8"name", JsonValue::MakeString(String(exampleName)));

@@ -226,6 +226,26 @@ TEST_CASE("integration.mcp: scene reference - the script override section's work
     CHECK_FALSE(name.IsEmpty());
     CHECK(example.Get(u8"nameHash").AsString() ==
           Format(u8"{}", foundation::script::ScriptPropertyNameHash(name.AsView())).AsView());
+    // And from the DOCUMENTED numbers alone, as an agent reading the reference computes it: the
+    // reference once stated the standard basis while the code used another.
+    {
+        u64 basis = 0;
+        u64 prime = 0;
+        for (const utf8char c : overrides.Get(u8"hash").Get(u8"offsetBasis").AsString().AsView())
+        {
+            basis = basis * 10u + static_cast<u64>(c - u8'0');
+        }
+        for (const utf8char c : overrides.Get(u8"hash").Get(u8"prime").AsString().AsView())
+        {
+            prime = prime * 10u + static_cast<u64>(c - u8'0');
+        }
+        u64 recomputed = basis;
+        for (const utf8char c : name.AsView())
+        {
+            recomputed = (recomputed ^ static_cast<u64>(static_cast<u8>(c))) * prime;
+        }
+        CHECK(example.Get(u8"nameHash").AsString() == Format(u8"{}", recomputed).AsView());
+    }
 
     const JsonValue kinds = overrides.Get(u8"kinds");
     CHECK(static_cast<usize>(kinds.Count()) == foundation::script::ScriptPropertyTypeNames().Size());

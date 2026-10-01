@@ -3,7 +3,7 @@
 	<string name="typeNamespace">rtti::pipeline::input</string>
 	<string name="typeName">InputMapAsset</string>
 	<array name="dataVersions" count="1">
-		<u64 name="type">3030621698075312454</u64>
+		<u64 name="type">12023214776058417496</u64>
 		<u32 name="version">0</u32>
 	</array>
 	<object name="payload">

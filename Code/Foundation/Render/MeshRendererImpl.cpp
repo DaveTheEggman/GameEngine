@@ -2908,10 +2908,10 @@ namespace foundation::render
 
     u64 MeshRenderer::InstShareKey(const void* view, const void* mesh, const void* mat) noexcept
     {
-        u64 k = 1469598103934665603ull;
-        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(view))) * 1099511628211ull;
-        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mesh))) * 1099511628211ull;
-        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mat))) * 1099511628211ull;
+        u64 k = kFnv1a64OffsetBasis; // FNV-1a
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(view))) * kFnv1a64Prime;
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mesh))) * kFnv1a64Prime;
+        k = (k ^ static_cast<u64>(reinterpret_cast<usize>(mat))) * kFnv1a64Prime;
         return k;
     }
 
@@ -2979,9 +2979,9 @@ namespace foundation::render
         // Keyed per (view pointer, item) - entityId when there is one, else the mesh uid
         // (page-local previews). Persisted across frames; that is what hysteresis needs.
         const u64 itemId = (md.entityId != 0) ? md.entityId : mesh->uid;
-        u64 key = 1469598103934665603ull;
-        key = (key ^ static_cast<u64>(reinterpret_cast<usize>(ctx.view))) * 1099511628211ull;
-        key = (key ^ itemId) * 1099511628211ull;
+        u64 key = kFnv1a64OffsetBasis; // FNV-1a
+        key = (key ^ static_cast<u64>(reinterpret_cast<usize>(ctx.view))) * kFnv1a64Prime;
+        key = (key ^ itemId) * kFnv1a64Prime;
         if (const u32* last = m_lodLast.Find(key))
         {
             sel = ApplyLodHysteresis(*mesh, coverage, sel, *last);

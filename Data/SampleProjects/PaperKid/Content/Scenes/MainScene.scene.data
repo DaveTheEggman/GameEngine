@@ -210,7 +210,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">48276d84-a9c8-4839-a9d9-12c36dad2d85</string>
@@ -231,7 +231,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -252,7 +252,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -273,7 +273,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -294,7 +294,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -315,7 +315,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -336,7 +336,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -357,7 +357,7 @@
 			<string name="type">mesh</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">5133810385441919920</u64>
+					<u64 name="type">17486421469838262082</u64>
 					<u32 name="version">4</u32>
 				</array>
 				<string name="mesh">7fc81b83-b9ed-4ed0-829c-a2364114056c</string>
@@ -378,7 +378,7 @@
 			<string name="type">camera</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">15344420864105550314</u64>
+					<u64 name="type">15970338616317997800</u64>
 					<u32 name="version">0</u32>
 				</array>
 				<f32 name="fovYRadians">1.41</f32>
@@ -399,7 +399,7 @@
 			<string name="type">light</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">13988020301906217043</u64>
+					<u64 name="type">5052821885067367169</u64>
 					<u32 name="version">0</u32>
 				</array>
 				<u8 name="type">0</u8>
@@ -423,7 +423,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -455,7 +455,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -487,7 +487,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -519,7 +519,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -551,7 +551,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -583,7 +583,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -615,7 +615,7 @@
 			<string name="type">physics.RigidBody</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">16919434437036753967</u64>
+					<u64 name="type">17846367354606235997</u64>
 					<u32 name="version">3</u32>
 				</array>
 				<u8 name="motion">0</u8>
@@ -647,7 +647,7 @@
 			<string name="type">physics.Character</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">9830938460267796647</u64>
+					<u64 name="type">3366171619946857365</u64>
 					<u32 name="version">1</u32>
 				</array>
 				<f32 name="radius">0.35</f32>
@@ -664,7 +664,7 @@
 			<string name="type">script</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">14062242794954242583</u64>
+					<u64 name="type">10795854242375899641</u64>
 					<u32 name="version">1</u32>
 				</array>
 				<array name="behaviors" count="1">
@@ -672,7 +672,7 @@
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
 					<array name="overrides" count="1">
-						<u64 name="nameHash">9306705833465037412</u64>
+						<u64 name="nameHash">5312283033137526150</u64>
 						<u8 name="kind">1</u8>
 						<f64 name="number">120</f64>
 					</array>
@@ -684,7 +684,7 @@
 			<string name="type">script</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">14062242794954242583</u64>
+					<u64 name="type">10795854242375899641</u64>
 					<u32 name="version">1</u32>
 				</array>
 				<array name="behaviors" count="1">
@@ -692,7 +692,7 @@
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
 					<array name="overrides" count="1">
-						<u64 name="nameHash">8677635130031352134</u64>
+						<u64 name="nameHash">1653916590517707752</u64>
 						<u8 name="kind">7</u8>
 						<string name="guid">d675703d-69d7-4fc7-8e99-aebee4267072</string>
 					</array>
@@ -704,7 +704,7 @@
 			<string name="type">script</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">14062242794954242583</u64>
+					<u64 name="type">10795854242375899641</u64>
 					<u32 name="version">1</u32>
 				</array>
 				<array name="behaviors" count="1">
@@ -720,7 +720,7 @@
 		<object>
 			<string name="system">navigation</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">7391183583667289637</u64>
+				<u64 name="type">17060359306528790095</u64>
 				<u32 name="version">2</u32>
 			</array>
 			<object name="settings">
@@ -732,14 +732,14 @@
 		<object>
 			<string name="system">sceneScript</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">11474571353029392215</u64>
+				<u64 name="type">17871001856427645353</u64>
 				<u32 name="version">2</u32>
 			</array>
 			<object name="settings">
 				<string name="script">409dd43a-10d5-425c-a373-91760e619728</string>
 				<bool name="enabled">true</bool>
 				<array name="overrides" count="1">
-					<u64 name="nameHash">5921755853645451273</u64>
+					<u64 name="nameHash">13555333221183339639</u64>
 					<u8 name="kind">1</u8>
 					<f64 name="number">90</f64>
 				</array>
@@ -748,7 +748,7 @@
 		<object>
 			<string name="system">environment</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">18085087500305644796</u64>
+				<u64 name="type">8050982980905767318</u64>
 				<u32 name="version">4</u32>
 			</array>
 			<object name="settings">
@@ -792,7 +792,7 @@
 		<object>
 			<string name="system">postprocess</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">7065443234402282730</u64>
+				<u64 name="type">18428310631361443216</u64>
 				<u32 name="version">3</u32>
 			</array>
 			<object name="settings">
@@ -826,7 +826,7 @@
 		<object>
 			<string name="system">physics</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">1687828790460678239</u64>
+				<u64 name="type">2041796140320429017</u64>
 				<u32 name="version">1</u32>
 			</array>
 			<object name="settings">

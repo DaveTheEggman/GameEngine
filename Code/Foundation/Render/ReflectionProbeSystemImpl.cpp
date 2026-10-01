@@ -351,11 +351,11 @@ namespace foundation::render
 
     u64 ReflectionProbeSystem::TransformSignature(const ReflectionProbe& p)
     {
-        u64 h = 1469598103934665603ull; // FNV-1a
+        u64 h = kFnv1a64OffsetBasis; // FNV-1a
         auto mix = [&](f32 v)
         {
             h ^= static_cast<u64>(__builtin_bit_cast(u32, v));
-            h *= 1099511628211ull;
+            h *= kFnv1a64Prime;
         };
         mix(p.center.x);
         mix(p.center.y);

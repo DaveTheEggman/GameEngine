@@ -22,6 +22,8 @@ import pipeline.core;
 import pipeline.importer;
 import pipeline.registration;
 import engine.composition;
+import engine.script;                // ScriptComponentManager: the behaviours a scene stores
+import foundation.script.resource;   // ScriptClassSource: what a cooked class declares
 import editor.project;
 import editor.mcp;
 
@@ -83,6 +85,78 @@ namespace
     }
 }
 
+namespace
+{
+    // The script overrides checked under `group`: each must name a property its behaviour's
+    // COOKED class declares. The key is the property name's hash, so a hash change that forgets
+    // to rehash the sources leaves overrides that silently apply to nothing.
+    usize CheckOverrides(editor::EditorProject& project, foundation::content::Group& group)
+    {
+        usize count = 0;
+        for (foundation::content::Instance* instance : group.Instances())
+        {
+            if (instance->TypeName() != StringView(u8"SceneDocument") &&
+                instance->TypeName() != StringView(u8"PrefabDocument"))
+            {
+                continue;
+            }
+            const String name(instance->Name());
+            const std::string shown(reinterpret_cast<const char*>(name.CStr()), name.Size());
+            foundation::scene::Scene scratch(DefaultAllocator(), name.AsView());
+            engine::AddAllSceneManagers(scratch);
+            if (!foundation::scene::LoadScene(*instance, scratch).IsOk())
+            {
+                continue; // the read test above reports a refused stream
+            }
+            // One check for both places an override lives: a behaviour's, and the scene's Level
+            // script's (the sceneScript settings block).
+            const auto check = [&](const Guid& scriptId,
+                                   Span<const engine::script::ScriptPropertyOverride> overrides)
+            {
+                foundation::content::Instance* cooked = project.CookedDb().GetInstance(scriptId);
+                REQUIRE_MESSAGE(cooked != nullptr, "the script is cooked: ", shown);
+                const RefPtr<ISerializable> object = cooked->ReadObject();
+                const auto* source = Cast<foundation::script::ScriptClassSource>(object.Get());
+                REQUIRE_MESSAGE(source != nullptr, "the script is a class: ", shown);
+                for (const engine::script::ScriptPropertyOverride& o : overrides)
+                {
+                    bool declared = false;
+                    for (const foundation::script::ScriptPropertyDesc& property : source->properties)
+                    {
+                        declared = declared || property.hash == o.nameHash;
+                    }
+                    CHECK_MESSAGE(declared, shown, ": override ", o.nameHash,
+                                  " names no property of its class");
+                    ++count;
+                }
+            };
+            auto* scripts = scratch.GetSystem<engine::script::ScriptComponentManager>();
+            REQUIRE(scripts != nullptr);
+            for (const foundation::scene::EntityHandle owner : scripts->Owners())
+            {
+                for (const engine::script::ScriptBehavior& behavior : scripts->Get(owner)->behaviors)
+                {
+                    check(behavior.script.id,
+                          Span<const engine::script::ScriptPropertyOverride>{
+                              behavior.overrides.Data(), behavior.overrides.Size()});
+                }
+            }
+            if (auto* level = scratch.GetSystem<engine::script::SceneScriptSystem>();
+                level != nullptr && !level->Settings().script.id.IsNil())
+            {
+                const engine::script::SceneScriptSettings& settings = level->Settings();
+                check(settings.script.id, Span<const engine::script::ScriptPropertyOverride>{
+                                              settings.overrides.Data(), settings.overrides.Size()});
+            }
+        }
+        for (foundation::content::Group* child : group.Groups())
+        {
+            count += CheckOverrides(project, *child);
+        }
+        return count;
+    }
+}
+
 TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versions")
 {
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type (idempotent)
@@ -136,6 +210,16 @@ TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versi
         const JsonValue cooked = Call(server, u8"asset_cook", Move(args));
         CHECK(cooked.Get(u8"cooked").AsNumber() >= 20.0);
         CHECK(cooked.Get(u8"failed").AsNumber() == doctest::Approx(0.0));
+    }
+
+    // Every script override a scene stores names a property its cooked class declares (taken
+    // from Sedulous 80272182: it fails on the old FNV basis, naming the follow camera's target).
+    {
+        UniquePtr<editor::EditorProject> project =
+            editor::EditorProject::Open(DefaultAllocator(), u8"scratch_paperkid_versions");
+        REQUIRE(static_cast<bool>(project));
+        const usize overrides = CheckOverrides(*project, *project->SourceDb().RootGroup());
+        CHECK(overrides >= 3u);
     }
     std::filesystem::remove_all(scratch, ec);
     GlobalLogger().RemoveSink(&console);

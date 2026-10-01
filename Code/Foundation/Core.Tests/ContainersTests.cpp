@@ -248,6 +248,23 @@ TEST_CASE("hash: integers and strings hash deterministically")
     CHECK(HashBytes("abc", 3) == HashBytes("abc", 3));
 }
 
+// The published FNV-1a 64 test vectors: the basis is the standard one, and HashBytes, HashText and
+// the type ids built on them are the same function. The basis was a digit short until 2026-10-01.
+TEST_CASE("hash: HashBytes and HashText are the published FNV-1a 64")
+{
+    CHECK(kFnv1a64OffsetBasis == 14695981039346656037ull);
+    CHECK(HashBytes("", 0) == 0xcbf29ce484222325ull);
+    CHECK(HashBytes("a", 1) == 0xaf63dc4c8601ec8cull);
+    CHECK(HashBytes("foobar", 6) == 0x85944171f73967e8ull);
+    CHECK(HashText(u8"foobar") == 0x85944171f73967e8ull);
+    // A type id chains namespace, "::" and name through the same function.
+    u64 chained = HashBytes("rtti::test", 10);
+    chained = HashBytes("::", 2, chained);
+    chained = HashBytes("Probe", 5, chained);
+    CHECK(ComputeTypeId("rtti::test", "Probe") == chained);
+    CHECK(ComputeTypeId("rtti::test", "Probe") == HashBytes("rtti::test::Probe", 17));
+}
+
 // --- Containers: HashMap ---------------------------------------------------
 
 TEST_CASE("hashmap: insert, find, contains, overwrite")

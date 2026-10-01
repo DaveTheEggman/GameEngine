@@ -22,11 +22,11 @@ export namespace foundation::core
     // FNV-1a, 64-bit, over the view's UTF-8 bytes; constexpr-evaluable.
     [[nodiscard]] constexpr u64 HashText(StringView text) noexcept
     {
-        u64 hash = 1469598103934665603ull;
+        u64 hash = kFnv1a64OffsetBasis;
         for (usize i = 0; i < text.Size(); ++i)
         {
             hash ^= static_cast<u64>(static_cast<u8>(text[i]));
-            hash *= 1099511628211ull;
+            hash *= kFnv1a64Prime;
         }
         return hash;
     }

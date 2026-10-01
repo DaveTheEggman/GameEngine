@@ -3,7 +3,7 @@
 	<string name="typeNamespace">rtti::pipeline::ui</string>
 	<string name="typeName">UIDocumentAsset</string>
 	<array name="dataVersions" count="1">
-		<u64 name="type">7668136761240854479</u64>
+		<u64 name="type">6477862957065698361</u64>
 		<u32 name="version">2</u32>
 	</array>
 	<object name="payload">

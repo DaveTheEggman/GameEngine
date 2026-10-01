@@ -141,11 +141,10 @@ export namespace foundation::core
 #else
             const char* s = __PRETTY_FUNCTION__;
 #endif
-            u64 hash = 14695981039346656037ull;
+            u64 hash = kFnv1a64OffsetBasis;
             for (; *s != '\0'; ++s)
             {
-                hash = (hash ^ static_cast<u64>(static_cast<unsigned char>(*s))) *
-                       1099511628211ull;
+                hash = (hash ^ static_cast<u64>(static_cast<unsigned char>(*s))) * kFnv1a64Prime;
             }
             return hash == 0 ? 1 : hash;
         }

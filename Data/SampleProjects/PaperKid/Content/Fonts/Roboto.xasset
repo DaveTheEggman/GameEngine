@@ -3,7 +3,7 @@
 	<string name="typeNamespace">rtti::pipeline::fonts</string>
 	<string name="typeName">FontAsset</string>
 	<array name="dataVersions" count="1">
-		<u64 name="type">15761808650773528129</u64>
+		<u64 name="type">16239583163195038263</u64>
 		<u32 name="version">1</u32>
 	</array>
 	<object name="payload">

@@ -18,16 +18,22 @@ import :base;
 
 export namespace foundation::core
 {
-    // FNV-1a, 64-bit.
+    /// FNV-1a 64-bit, as published: the offset basis and the prime. Type ids, script property
+    /// hashes and every stable key are built on these; a private copy of either drifts (the
+    /// basis here was 1469598103934665603, a digit short, until 2026-10-01).
+    inline constexpr u64 kFnv1a64OffsetBasis = 14695981039346656037ull;
+    inline constexpr u64 kFnv1a64Prime = 1099511628211ull;
+
+    // FNV-1a, 64-bit. `seed` chains a hash over several pieces (pass the previous result).
     [[nodiscard]] inline u64 HashBytes(const void* data, usize size,
-                                       u64 seed = 1469598103934665603ull) noexcept
+                                       u64 seed = kFnv1a64OffsetBasis) noexcept
     {
         const auto* bytes = static_cast<const u8*>(data);
         u64 hash = seed;
         for (usize i = 0; i < size; ++i)
         {
             hash ^= static_cast<u64>(bytes[i]);
-            hash *= 1099511628211ull;
+            hash *= kFnv1a64Prime;
         }
         return hash;
     }

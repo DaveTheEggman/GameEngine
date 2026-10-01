@@ -1,6 +1,6 @@
 <root>
 	<array name="dataVersions" count="1">
-		<u64 name="type">4966272516536031399</u64>
+		<u64 name="type">3041078812905029385</u64>
 		<u32 name="version">9</u32>
 	</array>
 	<string name="name">NativeSample</string>

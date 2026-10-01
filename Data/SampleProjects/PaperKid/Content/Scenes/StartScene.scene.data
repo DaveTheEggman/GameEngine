@@ -30,7 +30,7 @@
 			<string name="type">light</string>
 			<object name="data">
 				<array name="dataVersions" count="1">
-					<u64 name="type">13988020301906217043</u64>
+					<u64 name="type">5052821885067367169</u64>
 					<u32 name="version">0</u32>
 				</array>
 				<u8 name="type">0</u8>
@@ -54,7 +54,7 @@
 		<object>
 			<string name="system">navigation</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">7391183583667289637</u64>
+				<u64 name="type">17060359306528790095</u64>
 				<u32 name="version">2</u32>
 			</array>
 			<object name="settings">
@@ -66,7 +66,7 @@
 		<object>
 			<string name="system">sceneScript</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">11474571353029392215</u64>
+				<u64 name="type">17871001856427645353</u64>
 				<u32 name="version">2</u32>
 			</array>
 			<object name="settings">
@@ -78,7 +78,7 @@
 		<object>
 			<string name="system">environment</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">18085087500305644796</u64>
+				<u64 name="type">8050982980905767318</u64>
 				<u32 name="version">4</u32>
 			</array>
 			<object name="settings">
@@ -122,7 +122,7 @@
 		<object>
 			<string name="system">postprocess</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">7065443234402282730</u64>
+				<u64 name="type">18428310631361443216</u64>
 				<u32 name="version">3</u32>
 			</array>
 			<object name="settings">
@@ -156,7 +156,7 @@
 		<object>
 			<string name="system">physics</string>
 			<array name="dataVersions" count="1">
-				<u64 name="type">1687828790460678239</u64>
+				<u64 name="type">2041796140320429017</u64>
 				<u32 name="version">1</u32>
 			</array>
 			<object name="settings">
