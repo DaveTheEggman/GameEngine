@@ -30,6 +30,7 @@ export namespace engine::uiscript
     struct Label;
     struct Button;
     struct ProgressBar;
+    struct Slider;
     struct TextBox;
     struct ViewGroup;
     struct Screen;
@@ -85,6 +86,25 @@ export namespace engine::uiscript
         void setValue(f64 value);
     };
 
+    /// A slider: `slider.value` within `min`..`max`, and `onChanged` for a drag, a click, an arrow or a
+    /// pad's left and right. A volume control, say.
+    struct Slider
+    {
+        UI_SCRIPT_COMMON_HANDLE_MEMBERS
+        [[nodiscard]] f64 value() const;
+        /// Clamped and snapped to the range. Like any change it runs the onChanged handler, so a
+        /// handler that writes the value back must not write a different one each time.
+        void setValue(f64 value);
+        [[nodiscard]] f64 min() const;
+        [[nodiscard]] f64 max() const;
+        void setRange(f64 min, f64 max);
+        /// The amount an arrow or a pad press moves it; 0 is a twentieth of the range.
+        void setStep(f64 step);
+        /// The handler runs through the mutation queue, as a button's click does, and reads `value`
+        /// itself; it stays alive as long as the slider.
+        void onChanged(RefPtr<foundation::script::IScriptDelegate> handler);
+    };
+
     /// A text input. `box.text` reads/writes the edited text.
     struct TextBox
     {
@@ -104,6 +124,7 @@ export namespace engine::uiscript
         [[nodiscard]] Label findLabel(String name) const;
         [[nodiscard]] Button findButton(String name) const;
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
+        [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
         [[nodiscard]] Screen findScreen(String name) const;
@@ -120,6 +141,7 @@ export namespace engine::uiscript
         [[nodiscard]] Label findLabel(String name) const;
         [[nodiscard]] Button findButton(String name) const;
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
+        [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
     };

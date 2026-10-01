@@ -59,6 +59,9 @@ namespace
                     auto btn = MakeRef<ui::Button>(DefaultAllocator(), StringView(u8"Cancel"));
                     btn->Name = String(u8"cancel");
                     group->AddView(btn.Get());
+                    auto slider = MakeRef<ui::Slider>(DefaultAllocator());
+                    slider->Name = String(u8"volume");
+                    group->AddView(slider.Get());
                     return group;
                 }};
         }
@@ -221,6 +224,43 @@ TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; fir
 #endif // OPTION_HAS_ANGELSCRIPT
 
 #ifdef OPTION_HAS_LUAU
+TEST_CASE("ui-facade: Luau drives a slider - range, step, value, and a change handler")
+{
+    // Sedulous 8c8c0bd4: a settings menu's volume control from a script.
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status =
+        ctx->Load(u8"changes = 0\n"
+                  u8"ui.push(Guid.new(17, 34))\n"
+                  u8"local volume = ui.findSlider(\"volume\")\n"
+                  u8"volume:setRange(0, 10)\n"
+                  u8"volume:setStep(1)\n"
+                  u8"volume:setValue(4)\n"
+                  u8"value = volume.value\n"
+                  u8"top = volume.max\n"
+                  u8"volume:onChanged(function() changes = changes + 1 end)\n"
+                  u8"wrong = ui.findSlider(\"cancel\"):isValid()\n",
+                  u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"value").template Get<f64>() == doctest::Approx(4.0));
+    CHECK(ctx->GetGlobal(u8"top").template Get<f64>() == doctest::Approx(10.0));
+    CHECK_FALSE(ctx->GetGlobal(u8"wrong").template Get<bool>()); // a button is no slider
+
+    // A change (an arrow, a pad, a drag) runs the handler, deferred to the next drain.
+    ui::Slider* volume = bed.root->FindByName<ui::Slider>(u8"volume");
+    REQUIRE(volume != nullptr);
+    volume->Value.SetValue(7.0f);
+    CHECK(ctx->GetGlobal(u8"changes").template Get<f64>() == doctest::Approx(0.0));
+    bed.context.MutationQueueRef().Drain();
+    CHECK(ctx->GetGlobal(u8"changes").template Get<f64>() == doctest::Approx(1.0));
+}
+
 TEST_CASE("ui-facade: Luau binds a button click to a script function; firing runs the handler")
 {
     RegisterCoreTypes();

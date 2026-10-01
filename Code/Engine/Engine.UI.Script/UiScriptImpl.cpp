@@ -143,6 +143,7 @@ namespace engine::uiscript
     UI_SCRIPT_DEFINE_COMMON(Label)
     UI_SCRIPT_DEFINE_COMMON(Button)
     UI_SCRIPT_DEFINE_COMMON(ProgressBar)
+    UI_SCRIPT_DEFINE_COMMON(Slider)
     UI_SCRIPT_DEFINE_COMMON(TextBox)
     UI_SCRIPT_DEFINE_COMMON(ViewGroup)
     UI_SCRIPT_DEFINE_COMMON(Screen)
@@ -222,6 +223,68 @@ namespace engine::uiscript
         }
     }
 
+    // -------------------------------------------------------------------------------------- Slider ---
+    f64 Slider::value() const
+    {
+        auto* s = As<ui::Slider>(view);
+        return (s != nullptr) ? static_cast<f64>(s->Value.Value()) : 0.0;
+    }
+    void Slider::setValue(f64 value)
+    {
+        if (auto* s = As<ui::Slider>(view))
+        {
+            s->Value.SetValue(static_cast<f32>(value));
+        }
+    }
+    f64 Slider::min() const
+    {
+        auto* s = As<ui::Slider>(view);
+        return (s != nullptr) ? static_cast<f64>(s->Min.Value()) : 0.0;
+    }
+    f64 Slider::max() const
+    {
+        auto* s = As<ui::Slider>(view);
+        return (s != nullptr) ? static_cast<f64>(s->Max.Value()) : 0.0;
+    }
+    void Slider::setRange(f64 min, f64 max)
+    {
+        if (auto* s = As<ui::Slider>(view))
+        {
+            s->Min.SetValue(static_cast<f32>(min));
+            s->Max.SetValue(static_cast<f32>(max));
+        }
+    }
+    void Slider::setStep(f64 step)
+    {
+        if (auto* s = As<ui::Slider>(view))
+        {
+            s->Step.SetValue(static_cast<f32>(step));
+        }
+    }
+    void Slider::onChanged(RefPtr<foundation::script::IScriptDelegate> handler)
+    {
+        auto* s = As<ui::Slider>(view);
+        if (s == nullptr || !handler)
+        {
+            return; // null-but-valid handle, or no handler: a safe no-op
+        }
+        // As Button::onClick: the delegate lives with the subscription, and the handler never runs
+        // inline during dispatch but through the mutation queue (directly with no context).
+        s->OnValueChanged.Add(
+            [handler](ui::Slider* changed, f32)
+            {
+                ui::UIContext* ctx = (changed != nullptr) ? changed->Context : nullptr;
+                if (ctx != nullptr)
+                {
+                    ctx->MutationQueueRef().QueueAction([handler] { (void)handler->Invoke(Span<Variant>{}); });
+                }
+                else
+                {
+                    (void)handler->Invoke(Span<Variant>{});
+                }
+            });
+    }
+
     // ------------------------------------------------------------------------------------- TextBox ---
     String TextBox::text() const
     {
@@ -262,6 +325,7 @@ namespace engine::uiscript
     {                                                                                                   \
         return FindAs<ui::ProgressBar, ProgressBar>(view, name.AsView());                               \
     }                                                                                                   \
+    Slider H::findSlider(String name) const { return FindAs<ui::Slider, Slider>(view, name.AsView()); } \
     TextBox H::findTextBox(String name) const                                                           \
     {                                                                                                   \
         return FindAs<ui::EditText, TextBox>(view, name.AsView());                                      \
@@ -319,6 +383,7 @@ namespace engine::uiscript
     Label Ui::findLabel(String name) { return root().findLabel(Move(name)); }
     Button Ui::findButton(String name) { return root().findButton(Move(name)); }
     ProgressBar Ui::findProgressBar(String name) { return root().findProgressBar(Move(name)); }
+    Slider Ui::findSlider(String name) { return root().findSlider(Move(name)); }
     TextBox Ui::findTextBox(String name) { return root().findTextBox(Move(name)); }
     ViewGroup Ui::findGroup(String name) { return root().findGroup(Move(name)); }
 
@@ -417,6 +482,27 @@ namespace engine::uiscript
         builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
     }
+    REFLECT_VALUE(Slider, "rtti::engine.ui.script")
+    {
+        builder.Method<&Slider::isValid>("isValid");
+        builder.ComputedProperty<&Slider::name>("name");
+        builder.ComputedProperty<&Slider::visible>("visible");
+        builder.ComputedProperty<&Slider::enabled>("enabled");
+        builder.ComputedProperty<&Slider::value>("value");
+        builder.ComputedProperty<&Slider::min>("min");
+        builder.ComputedProperty<&Slider::max>("max");
+        builder.Method<&Slider::setVisible>("setVisible", {"value"});
+        builder.Method<&Slider::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Slider::opacity>("opacity");
+        builder.Method<&Slider::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Slider::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<&Slider::setValue>("setValue", {"value"});
+        builder.Method<&Slider::setRange>("setRange", {"min", "max"});
+        builder.Method<&Slider::setStep>("setStep", {"step"});
+        builder.Method<&Slider::onChanged>("onChanged", {"handler"});
+        builder.Constructor();
+    }
+
     REFLECT_VALUE(ProgressBar, "rtti::engine.ui.script")
     {
         builder.Method<&ProgressBar::isValid>("isValid");
@@ -464,6 +550,7 @@ namespace engine::uiscript
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
         builder.Method<&ViewGroup::findButton>("findButton", {"name"});
         builder.Method<&ViewGroup::findProgressBar>("findProgressBar", {"name"});
+        builder.Method<&ViewGroup::findSlider>("findSlider", {"name"});
         builder.Method<&ViewGroup::findTextBox>("findTextBox", {"name"});
         builder.Method<&ViewGroup::findGroup>("findGroup", {"name"});
         builder.Method<&ViewGroup::findScreen>("findScreen", {"name"});
@@ -486,6 +573,7 @@ namespace engine::uiscript
         builder.Method<&Screen::findLabel>("findLabel", {"name"});
         builder.Method<&Screen::findButton>("findButton", {"name"});
         builder.Method<&Screen::findProgressBar>("findProgressBar", {"name"});
+        builder.Method<&Screen::findSlider>("findSlider", {"name"});
         builder.Method<&Screen::findTextBox>("findTextBox", {"name"});
         builder.Method<&Screen::findGroup>("findGroup", {"name"});
         builder.Constructor();
@@ -501,6 +589,7 @@ namespace engine::uiscript
         builder.Method<&Ui::findLabel>("findLabel", {"name"});
         builder.Method<&Ui::findButton>("findButton", {"name"});
         builder.Method<&Ui::findProgressBar>("findProgressBar", {"name"});
+        builder.Method<&Ui::findSlider>("findSlider", {"name"});
         builder.Method<&Ui::findTextBox>("findTextBox", {"name"});
         builder.Method<&Ui::findGroup>("findGroup", {"name"});
         builder.Method<&Ui::push>("push", {"document"});
@@ -519,6 +608,7 @@ namespace engine::uiscript
             RttiRegisterValue_Label();
             RttiRegisterValue_Button();
             RttiRegisterValue_ProgressBar();
+            RttiRegisterValue_Slider();
             RttiRegisterValue_TextBox();
             RttiRegisterValue_ViewGroup();
             RttiRegisterValue_Screen();
@@ -526,6 +616,7 @@ namespace engine::uiscript
             GlobalTypeRegistry().Register(TypeOf<Label>());
             GlobalTypeRegistry().Register(TypeOf<Button>());
             GlobalTypeRegistry().Register(TypeOf<ProgressBar>());
+            GlobalTypeRegistry().Register(TypeOf<Slider>());
             GlobalTypeRegistry().Register(TypeOf<TextBox>());
             GlobalTypeRegistry().Register(TypeOf<ViewGroup>());
             GlobalTypeRegistry().Register(TypeOf<Screen>());

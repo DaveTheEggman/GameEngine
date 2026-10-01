@@ -72,6 +72,7 @@ export namespace engine::uiscript
         [[nodiscard]] static Label findLabel(String name);
         [[nodiscard]] static Button findButton(String name);
         [[nodiscard]] static ProgressBar findProgressBar(String name);
+        [[nodiscard]] static Slider findSlider(String name);
         [[nodiscard]] static TextBox findTextBox(String name);
         [[nodiscard]] static ViewGroup findGroup(String name);
 
