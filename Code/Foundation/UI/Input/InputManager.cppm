@@ -52,6 +52,11 @@ export namespace foundation::ui
         bool ProcessKeyUp(KeyCode key, KeyModifiers modifiers, f32 timestamp = 0.0f);
         bool ProcessTextInput(char32_t character);
 
+        // Nothing is under the pointer any more: what was hovered is told it lost it. For a pointer
+        // that is not in use - a hidden cursor parked over a button while a pad drives the menu,
+        // which must not light that button up.
+        void ClearHover();
+
         // === Deletion safety ===
         void OnViewDeleted(View* view);
 

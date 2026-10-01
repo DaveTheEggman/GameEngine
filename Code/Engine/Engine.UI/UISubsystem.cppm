@@ -684,6 +684,13 @@ export namespace engine::ui
         // while the UI was pumping.
         ViewId m_confirmPressedOn = ViewId::Invalid;
         bool m_backPressed = false;
+        // The pointer is in use: it moved, clicked or scrolled since a key or a pad last drove the
+        // UI. Only a live pointer hovers. Off until the pointer first moves, so a cursor resting
+        // where the window opened lights nothing up.
+        bool m_pointerLive = false;
+        // A key or a pad has driven the UI, or a pad is connected: focus then shows its ring however
+        // it arrived, since that is what the player navigates by.
+        bool m_navigating = false;
         u32 m_traceFrame = 0; // ENV_INPUT_TRACE's sample counter
         void TraceUi(foundation::shell::IMouse* mouse); // ENV_INPUT_TRACE: what the UI holds
         f32 m_navDeltaTime = 0.0f;

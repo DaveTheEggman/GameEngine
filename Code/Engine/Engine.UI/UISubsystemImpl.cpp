@@ -1183,7 +1183,24 @@ namespace engine::ui
                 m_context.SetActiveInputRoot(target);
             }
         }
+        // A pointer only counts once it is used: moved, clicked or scrolled. A cursor that sits
+        // still, hidden on a handheld say, hovers nothing while keys or a pad drive. Moved by its
+        // MOTION, not its position: the platform's first report of where the cursor rests, and a
+        // warp, change the position with no motion at all.
         if (mouse != nullptr)
+        {
+            const bool used = mouse->DeltaX() != 0.0f || mouse->DeltaY() != 0.0f || mouse->ScrollX() != 0.0f ||
+                              mouse->ScrollY() != 0.0f ||
+                              mouse->IsButtonDown(foundation::shell::MouseButton::Left) ||
+                              mouse->IsButtonDown(foundation::shell::MouseButton::Right) ||
+                              mouse->IsButtonDown(foundation::shell::MouseButton::Middle);
+            m_pointerLive = m_pointerLive || used;
+            if (!m_pointerLive)
+            {
+                inputManager.ClearHover();
+            }
+        }
+        if (mouse != nullptr && m_pointerLive)
         {
             // Panel routing swaps in panel-local pixels: the active root IS the panel's
             // standalone root, so dispatch coordinates live in its texture space.
@@ -1234,6 +1251,9 @@ namespace engine::ui
             switch (event.kind)
             {
             case foundation::shell::InputEventKind::KeyDown:
+                // Keys take over from the pointer, and focus then shows.
+                m_pointerLive = false;
+                m_navigating = true;
                 // An arrow with nothing focused lands on the menu first, as the pad does,
                 // rather than going nowhere; that press does not also move on.
                 if (IsArrow(event.key) && m_context.GetFocusManager()->FocusedView() == nullptr &&
@@ -1276,6 +1296,15 @@ namespace engine::ui
             const FocusDirection directions[4] = {FocusDirection::Up, FocusDirection::Down,
                                                   FocusDirection::Left, FocusDirection::Right};
             FocusManager* focus = m_context.GetFocusManager();
+            // A connected pad is how the player navigates, so focus shows; any pad input takes over
+            // from the pointer.
+            m_navigating = true;
+            if (wants[0] || wants[1] || wants[2] || wants[3] ||
+                pad->IsButtonPressed(foundation::shell::GamepadButton::South) ||
+                pad->IsButtonPressed(foundation::shell::GamepadButton::East))
+            {
+                m_pointerLive = false;
+            }
             for (u32 i = 0; i < 4; ++i)
             {
                 if (!wants[i])
@@ -1345,6 +1374,19 @@ namespace engine::ui
                                             m_context.TotalTime());
                 inputManager.ProcessKeyUp(KeyCode::Escape, KeyModifiers::None,
                                           m_context.TotalTime());
+            }
+        }
+
+        // While keys or a pad drive and the pointer is idle, focus a screen set by itself (its
+        // default button) shows its ring: the player has to see where the confirm button goes
+        // before the first direction press. A pointer in use keeps the quiet look.
+        if (m_navigating && !m_pointerLive)
+        {
+            FocusManager* focus = m_context.GetFocusManager();
+            if (focus != nullptr && focus->FocusedView() != nullptr &&
+                focus->Source() == FocusSource::Programmatic)
+            {
+                focus->SetFocus(focus->FocusedView(), FocusSource::Keyboard);
             }
         }
 

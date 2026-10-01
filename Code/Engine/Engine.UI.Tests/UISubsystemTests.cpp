@@ -548,6 +548,119 @@ TEST_CASE("ui.subsystem: an arrow with nothing focused lands on the menu, and do
     ctx.Shutdown();
 }
 
+namespace
+{
+    // A mouse a case moves: MoveTo sets the motion as a real mouse reports it; a position set
+    // directly (the platform's first report of where the cursor rests) has none.
+    struct MovingMouse final : foundation::shell::IMouse
+    {
+        f32 x = 0.0f, y = 0.0f, dx = 0.0f, dy = 0.0f;
+        void MoveTo(f32 nx, f32 ny)
+        {
+            dx = nx - x;
+            dy = ny - y;
+            x = nx;
+            y = ny;
+        }
+        [[nodiscard]] f32 X() const override { return x; }
+        [[nodiscard]] f32 Y() const override { return y; }
+        [[nodiscard]] f32 GlobalX() const override { return x; }
+        [[nodiscard]] f32 GlobalY() const override { return y; }
+        [[nodiscard]] f32 DeltaX() const override { return dx; }
+        [[nodiscard]] f32 DeltaY() const override { return dy; }
+        [[nodiscard]] f32 ScrollX() const override { return 0.0f; }
+        [[nodiscard]] f32 ScrollY() const override { return 0.0f; }
+        [[nodiscard]] bool IsButtonDown(foundation::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonPressed(foundation::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool RelativeMode() const override { return false; }
+        void SetRelativeMode(bool) override {}
+        [[nodiscard]] bool CursorVisible() const override { return false; }
+        void SetCursorVisible(bool) override {}
+        void SetCursor(foundation::shell::CursorType) override {}
+        void SetGlobalCapture(bool) override {}
+    };
+
+    // A pad and a mouse behind one provider: a handheld, whose cursor is hidden but still has a
+    // position.
+    struct PadAndMouseDevices final : foundation::input::IInputSourceProvider
+    {
+        NavFakePad pad;
+        MovingMouse mouse;
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override { return &mouse; }
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 1; }
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32 index) override { return index == 0 ? &pad : nullptr; }
+    };
+}
+
+TEST_CASE("ui.subsystem: only a pointer in use hovers, and a pad's focus shows")
+{
+    // Sedulous 51756d2a and 773b2379: on the Steam Deck the hidden cursor rested over a menu's
+    // last button and lit it like focus, while the real focus, set by the screen, drew no ring.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm{DefaultAllocator()};
+    scenes->RegisterManager(&sm);
+    {
+        const scene::SceneModule uiModule{u8"ui", &AddUISceneManagers, nullptr};
+        const scene::SceneModule* modules[] = {&uiModule};
+        scenes->SetComposition(scene::SceneComposition::Build(modules));
+    }
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PadAndMouseDevices devices;
+    input->SetSourceProvider(&devices);
+
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::EntityHandle e = scene->CreateEntity(u8"pause");
+    UICanvasComponent& canvas = scene->GetSystem<UICanvasComponentManager>()->Add(e);
+    canvas.document =
+        MakeDocument(u8"<Flex direction=\"vertical\" spacing=\"4\">"
+                     u8"<Button id=\"top\" text=\"Top\" width=\"200\" height=\"36\"/>"
+                     u8"<Button id=\"bottom\" text=\"Bottom\" width=\"200\" height=\"36\"/>"
+                     u8"</Flex>");
+    // The cursor rests over the bottom button from the very first frame: a position with no
+    // motion, as the platform first reports one.
+    devices.mouse.x = 100.0f;
+    devices.mouse.y = 58.0f;
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(root);
+    Button* top = Cast<ViewGroup>(canvas.root.Get())->FindByName<Button>(u8"top");
+    Button* bottom = Cast<ViewGroup>(canvas.root.Get())->FindByName<Button>(u8"bottom");
+    REQUIRE(top != nullptr);
+    REQUIRE(bottom != nullptr);
+
+    // The screen's default focus, set by itself.
+    FocusManager* focus = ui->Context().GetFocusManager();
+    focus->SetFocus(top);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    InputManager* inputManager = ui->Context().GetInputManager();
+    CHECK_FALSE(inputManager->HoveredId() == bottom->Id); // a pointer that never moved hovers nothing
+    CHECK(top->IsFocusVisible());                        // with a pad connected, the default focus shows
+
+    // The pointer moves: it is in use, and hovers.
+    devices.mouse.MoveTo(100.0f, 60.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.mouse.dx = devices.mouse.dy = 0.0f;
+    CHECK(inputManager->HoveredId() == bottom->Id); // a moved pointer hovers
+
+    // The pad takes over: the hover goes, and stays gone while the pointer rests.
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadDown)] = true;
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.pad.down[static_cast<u32>(foundation::shell::GamepadButton::DPadDown)] = false;
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(inputManager->HoveredId() == bottom->Id); // pad input drops the hover
+
+    input->SetSourceProvider(nullptr);
+    ctx.Shutdown();
+}
+
 TEST_CASE("ui.subsystem: gamepad dpad moves focus with hold-repeat; South activates")
 {
     runtime::Context ctx(foundation::core::DefaultAllocator());

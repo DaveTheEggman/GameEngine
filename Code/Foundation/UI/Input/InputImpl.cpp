@@ -916,6 +916,22 @@ namespace foundation::ui
             (hitView != nullptr) ? hitView->EffectiveCursor(Float2{x, y}) : CursorType::Default;
     }
 
+    void InputManager::ClearHover()
+    {
+        if (!m_hoveredId.IsValid())
+        {
+            return;
+        }
+        if (View* oldHovered = m_context->GetViewById(m_hoveredId))
+        {
+            oldHovered->OnMouseLeave();
+            oldHovered->InvalidateVisual();
+        }
+        m_hoveredId = ViewId::Invalid;
+        m_context->Tooltips()->OnHoverChanged(nullptr);
+        m_currentCursor = CursorType::Default;
+    }
+
     void InputManager::FocusNearestFocusable(View* view)
     {
         View* v = view;
