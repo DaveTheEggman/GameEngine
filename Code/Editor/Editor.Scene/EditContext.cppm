@@ -278,6 +278,37 @@ export namespace editor
         /// The scene manager whose component type is `type` (null if none).
         [[nodiscard]] scene::ComponentManagerBase* FindManager(const TypeInfo* type);
 
+        /// One undoable mutation of `entity`'s component of `componentType`, whatever it holds
+        /// (a reflected list, a hidden one like a Script component's behaviours): the live value
+        /// mutated, captured, restored from its serialized form, then PASTED, the paste command
+        /// keeping the value before - one undo step. False when the entity has no such component.
+        bool MutateComponent(const Guid& entity, const TypeInfo* componentType,
+                             const Function<void(const Instance&)>& mutate);
+
+        /// The typed form, for a copyable component: the value before is restored by copy, so
+        /// runtime state its serialized form leaves out survives.
+        template <typename C>
+        bool MutateComponent(const Guid& entity, const Function<void(C&)>& mutate)
+        {
+            scene::ComponentManagerBase* manager = FindManager(&TypeOf<C>());
+            const scene::EntityHandle e = Resolve(entity);
+            if (manager == nullptr || !e.IsAssigned() || !manager->HasComponent(e))
+            {
+                return false;
+            }
+            C* live = static_cast<C*>(manager->GetComponentInstance(e).Pointer());
+            if (live == nullptr)
+            {
+                return false;
+            }
+            const C before = *live;
+            mutate(*live);
+            Array<byte> blob = CopyComponent(entity, &TypeOf<C>());
+            *live = before;
+            return !blob.IsEmpty() &&
+                   PasteComponent(entity, Span<const byte>{blob.Data(), blob.Size()});
+        }
+
         /// The instance a property path addresses: the entity's component of `componentType`
         /// (an empty path) or the element of its reflected container property at `path.index`.
         /// `outOwnerType` (optional) receives the type whose properties apply - the component

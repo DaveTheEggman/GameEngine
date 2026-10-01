@@ -428,6 +428,36 @@ namespace editor
         return found;
     }
 
+    bool SceneEditContext::MutateComponent(const Guid& entity, const TypeInfo* componentType,
+                                           const Function<void(const Instance&)>& mutate)
+    {
+        const scene::EntityHandle e = Resolve(entity);
+        scene::ComponentManagerBase* manager = FindManager(componentType);
+        if (manager == nullptr || !e.IsAssigned() || !manager->HasComponent(e))
+        {
+            return false;
+        }
+        Array<byte> before = CopyComponent(entity, componentType); // the value before
+        if (before.IsEmpty())
+        {
+            return false;
+        }
+        mutate(manager->GetComponentInstance(e));
+        Array<byte> after = CopyComponent(entity, componentType);
+        // Restore the live value (a non-undoable read), then PASTE the mutated one: the paste
+        // command captures the value before, so the whole mutation is one undo step.
+        {
+            MemoryStream buffer;
+            (void)buffer.Write(before.Data(), before.Size());
+            (void)buffer.Seek(0, SeekOrigin::Begin);
+            BinarySerializer ar(buffer, SerializeMode::Read);
+            String typeId;
+            foundation::core::Serialize(ar, "type", typeId);
+            manager->ReadComponent(ar, e);
+        }
+        return !after.IsEmpty() && PasteComponent(entity, Span<const byte>{after.Data(), after.Size()});
+    }
+
     bool SceneEditContext::IsSelfOrAncestor(const Guid& entity, const Guid& possibleAncestor)
     {
         scene::EntityHandle e = Resolve(entity);

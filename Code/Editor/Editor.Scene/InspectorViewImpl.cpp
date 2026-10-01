@@ -1660,27 +1660,6 @@ namespace editor
         // Unsupported reflected type: skipped.
     }
 
-    void SceneInspectorView::MutateMeshMaterials(
-        const Guid& id, const Function<void(engine::render::MeshComponent&)>& mutate)
-    {
-        const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<engine::render::MeshComponentManager>();
-        engine::render::MeshComponent* live =
-            (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-        if (live == nullptr)
-        {
-            return;
-        }
-        const engine::render::MeshComponent before = *live;
-        mutate(*live);
-        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<engine::render::MeshComponent>());
-        *live = before;
-        if (!blob.IsEmpty())
-        {
-            (void)m_edit->PasteComponent(id, Span<const byte>{blob.Data(), blob.Size()});
-        }
-    }
-
     Array<String> SceneInspectorView::MaterialSlotNames(const engine::render::MeshComponent& mc)
     {
         Array<String> names;
@@ -1724,7 +1703,7 @@ namespace editor
         SceneInspectorView* self = this;
         slots->OnAdd = [self, id]()
         {
-            self->MutateMeshMaterials(
+            self->m_edit->MutateComponent<engine::render::MeshComponent>(
                 id,
                 [](engine::render::MeshComponent& c)
                 {
@@ -1733,7 +1712,7 @@ namespace editor
         };
         slots->OnRemoveSlot = [self, id](usize slot)
         {
-            self->MutateMeshMaterials(id,
+            self->m_edit->MutateComponent<engine::render::MeshComponent>(id,
                                       [slot](engine::render::MeshComponent& c)
                                       {
                                           if (slot < c.materials.Size())
@@ -1744,7 +1723,7 @@ namespace editor
         };
         slots->OnMoveSlot = [self, id](usize slot, bool up)
         {
-            self->MutateMeshMaterials(
+            self->m_edit->MutateComponent<engine::render::MeshComponent>(
                 id,
                 [slot, up](engine::render::MeshComponent& c)
                 {
@@ -1770,7 +1749,7 @@ namespace editor
                 self->MemoryAllocator(), *self->m_editor, Move(typeNames));
             picker->OnPicked = [self, id, slot](const Guid& picked)
             {
-                self->MutateMeshMaterials(
+                self->m_edit->MutateComponent<engine::render::MeshComponent>(
                     id,
                     [slot, picked](engine::render::MeshComponent& c)
                     {
@@ -1809,27 +1788,6 @@ namespace editor
                           self->m_forceRebuild = true;
                       }
                   });
-    }
-
-    void SceneInspectorView::MutateScriptComponent(
-        const Guid& id, const Function<void(engine::script::ScriptComponent&)>& mutate)
-    {
-        const scene::EntityHandle e = m_edit->Resolve(id);
-        auto* manager = m_edit->Scene().GetSystem<engine::script::ScriptComponentManager>();
-        engine::script::ScriptComponent* live =
-            (manager != nullptr && e.IsAssigned()) ? manager->Get(e) : nullptr;
-        if (live == nullptr)
-        {
-            return;
-        }
-        const engine::script::ScriptComponent before = *live;
-        mutate(*live);
-        Array<byte> blob = m_edit->CopyComponent(id, &TypeOf<engine::script::ScriptComponent>());
-        *live = before;
-        if (!blob.IsEmpty())
-        {
-            (void)m_edit->PasteComponent(id, Span<const byte>{blob.Data(), blob.Size()});
-        }
     }
 
     foundation::script::ScriptClass*
@@ -1883,7 +1841,7 @@ namespace editor
         }
         list->OnAdd = [self, id]()
         {
-            self->MutateScriptComponent(id, [](engine::script::ScriptComponent& c)
+            self->m_edit->MutateComponent<engine::script::ScriptComponent>(id, [](engine::script::ScriptComponent& c)
                                         { c.behaviors.PushBack(engine::script::ScriptBehavior{}); });
         };
         Array<String> accepted;
@@ -1891,7 +1849,7 @@ namespace editor
         list->SetAcceptedTypes(Move(accepted));
         list->OnAppendDropped = [self, id](const Guid& picked)
         {
-            self->MutateScriptComponent(id,
+            self->m_edit->MutateComponent<engine::script::ScriptComponent>(id,
                                         [picked](engine::script::ScriptComponent& c)
                                         {
                                             engine::script::ScriptBehavior behavior;
@@ -1970,7 +1928,7 @@ namespace editor
                 MemoryAllocator(), index, count,
                 [self, id](usize i, bool up)
                 {
-                    self->MutateScriptComponent(
+                    self->m_edit->MutateComponent<engine::script::ScriptComponent>(
                         id,
                         [i, up](engine::script::ScriptComponent& c)
                         {
@@ -1986,7 +1944,7 @@ namespace editor
                 },
                 [self, id](usize i)
                 {
-                    self->MutateScriptComponent(id,
+                    self->m_edit->MutateComponent<engine::script::ScriptComponent>(id,
                                                 [i](engine::script::ScriptComponent& c)
                                                 {
                                                     if (i < c.behaviors.Size())
@@ -2018,7 +1976,7 @@ namespace editor
             },
             [self, id, index](const Guid& picked)
             {
-                self->MutateScriptComponent(
+                self->m_edit->MutateComponent<engine::script::ScriptComponent>(
                     id,
                     [index, picked](engine::script::ScriptComponent& c)
                     {
@@ -2039,7 +1997,7 @@ namespace editor
             MemoryAllocator(), StringView(u8"Enabled"), behavior.enabled,
             Function<void(bool)>{[self, id, index](bool value)
                                  {
-                                     self->MutateScriptComponent(
+                                     self->m_edit->MutateComponent<engine::script::ScriptComponent>(
                                          id,
                                          [index, value](engine::script::ScriptComponent& c)
                                          {
@@ -2067,7 +2025,7 @@ namespace editor
             static_cast<f64>(behavior.updateInterval), 0.0, 3600.0, 0.05, 3,
             Function<void(f64)>{[self, id, index](f64 value)
                                 {
-                                    self->MutateScriptComponent(
+                                    self->m_edit->MutateComponent<engine::script::ScriptComponent>(
                                         id,
                                         [index, value](engine::script::ScriptComponent& c)
                                         {
@@ -2121,7 +2079,7 @@ namespace editor
             };
             access->setOverride = [self, id, index, hash](const ScriptPropertyValue& value)
             {
-                self->MutateScriptComponent(id,
+                self->m_edit->MutateComponent<engine::script::ScriptComponent>(id,
                                             [index, hash, value](ScriptComponent& c)
                                             {
                                                 if (index < c.behaviors.Size())
@@ -2132,7 +2090,7 @@ namespace editor
             };
             access->removeOverride = [self, id, index, hash]()
             {
-                self->MutateScriptComponent(id,
+                self->m_edit->MutateComponent<engine::script::ScriptComponent>(id,
                                             [index, hash](ScriptComponent& c)
                                             {
                                                 if (index < c.behaviors.Size())
@@ -2554,39 +2512,6 @@ namespace editor
                                                }});
     }
 
-    void SceneInspectorView::MutateComponent(const Guid& id, const TypeInfo* type,
-                                             const Function<void(const Instance&)>& mutate)
-    {
-        const scene::EntityHandle e = m_edit->Resolve(id);
-        scene::ComponentManagerBase* mgr = m_edit->FindManager(type);
-        if (mgr == nullptr || !e.IsAssigned() || !mgr->HasComponent(e))
-        {
-            return;
-        }
-        Array<byte> before = m_edit->CopyComponent(id, type); // snapshot A (current)
-        if (before.IsEmpty())
-        {
-            return;
-        }
-        mutate(mgr->GetComponentInstance(e));                // live -> B
-        Array<byte> after = m_edit->CopyComponent(id, type); // snapshot B
-        // Restore live to A (non-undoable ReadComponent), then PASTE B - the paste command captures
-        // the pre-state (A), so the whole mutation is one undo step, exactly like the typed helpers.
-        {
-            MemoryStream buffer;
-            (void)buffer.Write(before.Data(), before.Size());
-            (void)buffer.Seek(0, SeekOrigin::Begin);
-            BinarySerializer ar(buffer, SerializeMode::Read);
-            String typeId;
-            foundation::core::Serialize(ar, "type", typeId);
-            mgr->ReadComponent(ar, e);
-        }
-        if (!after.IsEmpty())
-        {
-            (void)m_edit->PasteComponent(id, Span<const byte>{after.Data(), after.Size()});
-        }
-    }
-
     void SceneInspectorView::BuildContainerRows(const Guid& id, const TypeInfo* type,
                                                 const PropertyInfo& prop, StringView category)
     {
@@ -2687,7 +2612,7 @@ namespace editor
         // Add a default element (homogeneous). The polymorphic add-by-type menu is the next pass.
         rawList->OnAdd = [self, id, type, propPtr]()
         {
-            self->MutateComponent(id, type,
+            (void)self->m_edit->MutateComponent(id, type,
                                   [propPtr](const Instance& comp)
                                   {
                                       const Instance container(propPtr->address(comp), propPtr->type);
@@ -2699,7 +2624,7 @@ namespace editor
         };
         rawList->OnRemoveSlot = [self, id, type, propPtr](usize i)
         {
-            self->MutateComponent(id, type,
+            (void)self->m_edit->MutateComponent(id, type,
                                   [propPtr, i](const Instance& comp)
                                   {
                                       const Instance container(propPtr->address(comp), propPtr->type);
@@ -2709,7 +2634,7 @@ namespace editor
         };
         rawList->OnMoveSlot = [self, id, type, propPtr](usize i, bool up)
         {
-            self->MutateComponent(id, type,
+            (void)self->m_edit->MutateComponent(id, type,
                                   [propPtr, i, up](const Instance& comp)
                                   {
                                       const Instance container(propPtr->address(comp), propPtr->type);
@@ -2733,7 +2658,7 @@ namespace editor
             // One write for a slot, whether the entity came from the picker or a hierarchy drag.
             auto assignEntity = [self, id, type, propPtr](usize i, const Guid& target)
             {
-                self->MutateComponent(
+                (void)self->m_edit->MutateComponent(
                     id, type,
                     [propPtr, i, target](const Instance& comp)
                     {
@@ -2792,7 +2717,7 @@ namespace editor
             rawList->OnAssignSlot = assignEntity;
             rawList->OnAppendDropped = [self, id, type, propPtr](const Guid& target)
             {
-                self->MutateComponent(
+                (void)self->m_edit->MutateComponent(
                     id, type,
                     [propPtr, target](const Instance& comp)
                     {
@@ -2838,7 +2763,7 @@ namespace editor
         // One write for a material slot, whether the material came from the picker or a drop.
         auto assignSlot = [self, id, type, propPtr](usize i, const Guid& target)
         {
-            self->MutateComponent(
+            (void)self->m_edit->MutateComponent(
                 id, type,
                 [propPtr, i, target](const Instance& comp)
                 {
@@ -2881,7 +2806,7 @@ namespace editor
             rawList->OnAssignSlot = assignSlot;
             rawList->OnAppendDropped = [self, id, type, propPtr](const Guid& target)
             {
-                self->MutateComponent(
+                (void)self->m_edit->MutateComponent(
                     id, type,
                     [propPtr, target](const Instance& comp)
                     {

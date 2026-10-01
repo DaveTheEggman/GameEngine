@@ -447,11 +447,6 @@ export namespace editor
         // are a follow-up.
         void BuildContainerRows(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,
                                 StringView category);
-        // One undoable mutation of a component via a generic snapshot/restore/paste (any component type
-        // - unlike the typed Mutate*Component helpers): copy the live value, mutate live, snapshot,
-        // restore (non-undoable ReadComponent), PASTE (the paste command captures the pre-state).
-        void MutateComponent(const Guid& id, const TypeInfo* type,
-                             const Function<void(const Instance&)>& mutate);
 
         // Current target Guid of a Ref<T> property (nil when unset/unresolvable).
         template <typename T>
@@ -468,11 +463,6 @@ export namespace editor
                                         : Guid{};
         }
 
-        // One undoable mutation of the selected entity's MeshComponent materials: copy the
-        // live value, mutate live, snapshot to a clipboard blob, restore, PASTE (the paste
-        // command captures the pre-state, so every slot action is one undo step).
-        void MutateMeshMaterials(const Guid& id,
-                                 const Function<void(engine::render::MeshComponent&)>& mutate);
 
         /// The display names the slots editor renders - recomputed by its refresher to
         /// detect shape/content changes (the inspector Signature only sees selection +
@@ -482,12 +472,6 @@ export namespace editor
 
         void BuildMaterialSlots(const Guid& id, StringView category);
 
-        // One undoable mutation of the selected entity's ScriptComponent (the mesh-
-        // materials pattern: mutate live, snapshot to a clipboard blob, restore, PASTE
-        // - the paste command captures the pre-state, so every action is one undo step).
-        void
-        MutateScriptComponent(const Guid& id,
-                              const Function<void(engine::script::ScriptComponent&)>& mutate);
 
         // The cooked ScriptClass a behavior references (bound through the editor's
         // resource manager so the harvested metadata is available; null when unset or

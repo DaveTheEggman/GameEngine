@@ -1086,3 +1086,30 @@ TEST_CASE("scene-edit: a property path edits a struct element inside a reflected
     commands.Undo();
     CHECK(layer(0).name == String(u8"Grass"));
 }
+
+// A component mutates in one undo step through the edit context, typed (the value before kept by
+// copy) or through its instance (kept by its serialized form): what the inspector's lists and
+// the MCP edit tools both run.
+TEST_CASE("scene-edit: a component mutates in one undo step, typed or through its instance")
+{
+    scene::Scene scene{DefaultAllocator()};
+    auto* health = scene.AddSystem<HealthManager>();
+    EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const Guid hero = edit.CreateEntity(u8"Hero");
+    health->Add(edit.Resolve(hero)).amount = 5;
+
+    CHECK(edit.MutateComponent<HealthComponent>(hero, [](HealthComponent& c) { c.amount = 9; }));
+    CHECK(health->Get(edit.Resolve(hero))->amount == 9);
+    CHECK(edit.MutateComponent(hero, &TypeOf<HealthComponent>(),
+                               [](const Instance& instance)
+                               { static_cast<HealthComponent*>(instance.Pointer())->amount = 12; }));
+    CHECK(health->Get(edit.Resolve(hero))->amount == 12);
+    commands.Undo();
+    CHECK(health->Get(edit.Resolve(hero))->amount == 9);
+    commands.Undo();
+    CHECK(health->Get(edit.Resolve(hero))->amount == 5);
+
+    const Guid bare = edit.CreateEntity(u8"Bare");
+    CHECK_FALSE(edit.MutateComponent<HealthComponent>(bare, [](HealthComponent&) {}));
+}
