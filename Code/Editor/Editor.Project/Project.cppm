@@ -209,22 +209,10 @@ export namespace editor
                   (*m_allocator), (*m_allocator), *m_cookedMount,
                   BinarySerializerFactory(), kCookedAssetExtension))
         {
-            // Per-field move (ISerializable deletes copy/move) - EVERY ProjectSettings field
-            // must appear here; a missed one silently drops manifest data on Open.
-            m_settings.name = Move(settings.name);
-            m_settings.engineVersion = Move(settings.engineVersion);
-            m_settings.defaultSceneId = settings.defaultSceneId;
-            m_settings.defaultScene = Move(settings.defaultScene);
-            m_settings.startupScript = Move(settings.startupScript);
-            m_settings.startupScriptId =
-                settings.startupScriptId; // authoritative game-script asset (v6)
-            m_settings.nativeModule = Move(settings.nativeModule);
-            m_settings.defaultInputMapId =
-                settings.defaultInputMapId; // was MISSING: Open dropped it
-            m_settings.defaultBusLayoutId =
-                settings.defaultBusLayoutId; // was ALSO missing: Open dropped it (v5)
-            m_settings.defaultUiThemeId = settings.defaultUiThemeId;
-            m_settings.defaultUiFontId = settings.defaultUiFontId; // fonts triad (v7)
+            // The manifest's one copy (ISerializable deletes copy/move): through its Serialize
+            // body, so no field can be left behind. A hand list here dropped the input map, the
+            // bus layout, then the loading document and the MSAA, each in turn.
+            (void)engine::project::CopyProjectSettings(settings, m_settings);
 
             // The "Always Export" set is a separate committed sidecar (export_roots.xml). Absent =
             // no explicit roots (the empty set), which is the common case; only a project that has

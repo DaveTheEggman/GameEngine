@@ -243,13 +243,17 @@ TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) 
 
     Guid fontId;
     Guid busId;
+    Guid loadingId;
     REQUIRE(Guid::TryParse(u8"6ba7b810-9dad-11d1-80b4-00c04fd430c8", fontId));
     REQUIRE(Guid::TryParse(u8"6ba7b811-9dad-11d1-80b4-00c04fd430c8", busId));
+    REQUIRE(Guid::TryParse(u8"6ba7b812-9dad-11d1-80b4-00c04fd430c8", loadingId));
     {
         UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
         REQUIRE(project);
         project->Settings().defaultUiFontId = fontId;
         project->Settings().defaultBusLayoutId = busId; // the per-field move must not DROP this
+        project->Settings().loadingDocumentId = loadingId; // nor these two, which it did drop
+        project->Settings().renderMsaaSamples = 4;
         REQUIRE(project->SaveSettings().IsOk());
     }
     {
@@ -257,6 +261,8 @@ TEST_CASE("project manifest v7: defaultUiFontId (and the once-dropped defaults) 
         REQUIRE(project);
         CHECK(project->Settings().defaultUiFontId == fontId);
         CHECK(project->Settings().defaultBusLayoutId == busId);
+        CHECK(project->Settings().loadingDocumentId == loadingId);
+        CHECK(project->Settings().renderMsaaSamples == 4u);
     }
     RemoveProjectTree(dir);
 }

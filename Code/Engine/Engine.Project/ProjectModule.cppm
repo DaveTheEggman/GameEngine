@@ -130,6 +130,27 @@ export namespace engine::project
         return ctx->serializer->IsOk() ? Status{} : ctx->serializer->GetStatus();
     }
 
+    /// The one copy of a manifest (a ProjectSettings is serializable, so it has no copy): through
+    /// its own Serialize body, so every field written there is copied. The project open and the
+    /// dist manifest each kept a hand list of fields, and both drifted (loadingDocumentId and
+    /// renderMsaaSamples were dropped by one, then the other).
+    [[nodiscard]] inline Status CopyProjectSettings(const ProjectSettings& from, ProjectSettings& to)
+    {
+        MemoryStream buffer;
+        {
+            BinarySerializer writer(buffer, SerializeMode::Write);
+            const_cast<ProjectSettings&>(from).Serialize(writer); // a write only reads the fields
+            if (!writer.IsOk())
+            {
+                return writer.GetStatus();
+            }
+        }
+        (void)buffer.Seek(0, SeekOrigin::Begin);
+        BinarySerializer reader(buffer, SerializeMode::Read);
+        to.Serialize(reader);
+        return reader.IsOk() ? Status{} : reader.GetStatus();
+    }
+
     /// Write a manifest to `root`.
     [[nodiscard]] inline Status SaveProjectSettings(vfs::IWritableFileSystem& writable,
                                                     ProjectSettings& settings,

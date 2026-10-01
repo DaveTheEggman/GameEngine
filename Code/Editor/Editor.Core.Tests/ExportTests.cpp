@@ -270,6 +270,8 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
         project->Settings().defaultSceneId = sceneId;
         project->Settings().defaultScene = String(u8"Scenes/Main");
         project->Settings().startupScriptId = scriptId;
+        project->Settings().loadingDocumentId = sceneId; // any guid: the dist must carry it
+        project->Settings().renderMsaaSamples = 4;
         REQUIRE(project->SaveSettings().IsOk());
 
         // --- export ---
@@ -307,6 +309,9 @@ TEST_CASE("export: project -> dist pak -> player-style load-back (versioned form
     CHECK(manifest.defaultSceneId == sceneId); // dist manifest carries the guid too
     CHECK(manifest.startupScriptId ==
           scriptId); // the startup script rides as a guid (bound from the DB)
+    // The player reads the loading screen and the MSAA from the dist manifest too.
+    CHECK(manifest.loadingDocumentId == sceneId);
+    CHECK(manifest.renderMsaaSamples == 4u);
 
     foundation::vfs::PakFileSystem pak(PathJoin(distDir, project::kDistContentPak).AsView());
     REQUIRE(pak.IsValid());

@@ -218,6 +218,7 @@ namespace editor
         add(settings.defaultBusLayoutId, ExportRootReason::ManifestDefault);
         add(settings.defaultUiThemeId, ExportRootReason::ManifestDefault);
         add(settings.defaultUiFontId, ExportRootReason::ManifestDefault);
+        add(settings.loadingDocumentId, ExportRootReason::ManifestDefault); // the boot splash
 
         // Phase 2 "Always Export": explicit instance flags, then group subtrees (dynamic membership -
         // whatever is under the flagged folder now). A group that also contains the default scene /
@@ -581,19 +582,15 @@ namespace editor
         }
         {
             foundation::vfs::NativeFileSystem outMount(outDir, editor::EditorRootAllocator());
+            // The player reads the same manifest the project writes: every default it binds at
+            // startup (theme, input map, bus layout, font, loading screen, MSAA) rides along. A
+            // hand list here once left the loading screen and the MSAA behind.
             engine::project::ProjectSettings dist;
-            dist.name = String(project.Settings().name.AsView());
-            dist.defaultSceneId = project.Settings().defaultSceneId;
-            dist.defaultScene = String(project.Settings().defaultScene.AsView());
-            dist.startupScriptId = project.Settings().startupScriptId;
-            dist.startupScript =
-                String(project.Settings().startupScript.AsView()); // display mirror
-            // The manifest defaults the player binds at startup - without them the
-            // theme/input-map/bus-layout bindings could never fire in an exported build.
-            dist.defaultInputMapId = project.Settings().defaultInputMapId;
-            dist.defaultBusLayoutId = project.Settings().defaultBusLayoutId;
-            dist.defaultUiThemeId = project.Settings().defaultUiThemeId;
-            dist.defaultUiFontId = project.Settings().defaultUiFontId;
+            if (!engine::project::CopyProjectSettings(project.Settings(), dist).IsOk())
+            {
+                LOG_ERROR(u8"Export", u8"failed to copy the project manifest for the dist");
+                return Status{ErrorCode::Internal};
+            }
             if (!engine::project::SaveProjectSettings(*outMount.AsWritable(), dist,
                                                         engine::project::kDistManifestFile)
                      .IsOk())
