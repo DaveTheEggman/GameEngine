@@ -534,6 +534,11 @@ export namespace editor::mcp
             return Optional<CookOutcome>(outcome);
         }
 
+        /// After an import has landed: what the host's pipeline makes of it, a model's prefab
+        /// among them (pipeline::AfterImport), as the editor's import does. Unset, an import
+        /// creates only what its importer makes.
+        Function<void(content::Instance&, const pipeline::ImportOptions*)> onImported;
+
         [[nodiscard]] OperationStep<ImportOutcome> Import(const ImportRequest& request) override
         {
             editor::EditorProject& project = *m_session->project;
@@ -576,6 +581,10 @@ export namespace editor::mcp
             outcome.type = String(inst->TypeName());
             outcome.typeNamespace = String(inst->TypeNamespace());
             outcome.importer = String(importer.Label());
+            if (onImported)
+            {
+                onImported(*inst, request.options.Get());
+            }
             return Optional<ImportOutcome>(Move(outcome));
         }
 

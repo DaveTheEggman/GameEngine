@@ -17,6 +17,7 @@
 import foundation.core;
 import foundation.vfs; // ResolveDataRoot (--data-root / the Data/.dataroot walk)
 import foundation.json;
+import foundation.content; // the after-import seam's primary
 import foundation.mcp;
 import pipeline.core;
 import pipeline.importer;
@@ -116,6 +117,10 @@ int main(int argc, char** argv)
     // beside this executable and cooks shaders from the data root.
     editor::mcp::InlineProjectOperations operations(session, builders, GetExecutableDirectory(),
                                                     dataRoot);
+    // What the pipeline makes after an import (a model's prefab), as the editor's import has.
+    operations.onImported = [](foundation::content::Instance& primary,
+                               const pipeline::ImportOptions* options)
+    { pipeline::AfterImport(editor::EditorRootAllocator(), primary, options); };
     editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
                                      paths, operations);
     // This host's additions: an agent opens (or scaffolds) the project it wants to work on.

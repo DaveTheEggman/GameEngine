@@ -107,7 +107,8 @@ is normal - clear it with `asset_cook`.
 (incremental; `force` for full). `options` sets the importer's toggles, the import dialog's
 checkboxes by label (`{"Generate collision": true}` gives an imported model's prefab colliders);
 an unknown one is refused with the importer's list, and the result lists every toggle's value.
-In the editor an imported model gets its prefab, the `Prefab` asset beside its manifest.
+An imported model gets its prefab, the `Prefab` asset beside its manifest, in both hosts (and
+a scene with `Generate scene`).
 `asset_list`/`asset_info` to inspect either database. What File > New makes comes from
 `asset_create` (`asset_creators` lists them). A data asset's content (an input map's actions
 and bindings, a material, a physics material, a sound cue) is edited through its envelope:

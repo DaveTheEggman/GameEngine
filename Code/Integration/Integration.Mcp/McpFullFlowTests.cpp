@@ -13,6 +13,7 @@
 import foundation.core;
 import foundation.json;
 import foundation.content;
+import foundation.vfs; // FindDataRoot (the Duck sample model)
 import foundation.scene;
 import foundation.scene.resource;
 import foundation.mcp;
@@ -784,4 +785,72 @@ TEST_CASE("integration.mcp: an agent sets the project's settings")
     owner.project.Reset();
     session.project = nullptr;
     (void)RemoveDirectoryRecursive(u8"mcp_settings");
+}
+
+// Sedulous 6b33743b: a model imported through the headless host gets its prefab, as in the
+// editor: the host runs pipeline::AfterImport after every import. With the prefab option off it
+// gets none, and the scene option adds a scene.
+TEST_CASE("integration.mcp: a headless model import generates its prefab")
+{
+    const String dataRoot = foundation::vfs::FindDataRoot();
+    REQUIRE_FALSE(dataRoot.IsEmpty());
+    const String duck = PathJoin(dataRoot.AsView(), u8"Assets/models/Duck/glTF/Duck.gltf");
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllImporters(importers);
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    operations.onImported = [](foundation::content::Instance& primary,
+                               const pipeline::ImportOptions* options)
+    { pipeline::AfterImport(DefaultAllocator(), primary, options); };
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    (void)RemoveDirectoryRecursive(u8"mcp_model_prefab");
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_model_prefab"), u8"name",
+                       u8"Models"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_model_prefab"));
+
+    const auto countOf = [&](StringView group, StringView type)
+    {
+        const JsonValue assets = FfCall(server, u8"asset_list", JsonValue::MakeObject()).Get(u8"assets");
+        u32 count = 0;
+        for (i64 i = 0; i < assets.Count(); ++i)
+        {
+            const JsonValue entry = assets.At(i);
+            if (entry.Get(u8"type").AsString() == type &&
+                entry.Get(u8"group").AsString().AsView().StartsWith(group))
+            {
+                ++count;
+            }
+        }
+        return count;
+    };
+
+    (void)FfCall(server, u8"asset_import",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"source", duck.AsView()), u8"group", u8"Plain"));
+    CHECK(countOf(u8"Plain", u8"PrefabDocument") == 1u); // the default: a prefab
+    CHECK(countOf(u8"Plain", u8"SceneDocument") == 0u);
+
+    JsonValue options = JsonValue::MakeObject();
+    options.Set(u8"Generate prefab", JsonValue::MakeBool(false));
+    options.Set(u8"Generate scene", JsonValue::MakeBool(true));
+    JsonValue arguments = FfStr(FfStr(JsonValue::MakeObject(), u8"source", duck.AsView()), u8"group",
+                                u8"Staged");
+    arguments.Set(u8"options", Move(options));
+    (void)FfCall(server, u8"asset_import", Move(arguments));
+    CHECK(countOf(u8"Staged", u8"PrefabDocument") == 0u); // asked for none
+    CHECK(countOf(u8"Staged", u8"SceneDocument") == 1u);
+
+    owner.project.Reset();
+    session.project = nullptr;
+    (void)RemoveDirectoryRecursive(u8"mcp_model_prefab");
 }

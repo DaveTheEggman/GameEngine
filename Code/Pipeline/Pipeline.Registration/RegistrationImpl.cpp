@@ -198,6 +198,14 @@ namespace pipeline
         AddImporter<VegetationMaskFileImporter>(registry);
     }
 
+    void AfterImport(IAllocator& allocator, foundation::content::Instance& primary,
+                     const ImportOptions* options)
+    {
+        ModelPrefabResult prefab;
+        ModelPrefabResult generatedScene;
+        (void)GenerateForImport(allocator, primary, options, prefab, generatedScene);
+    }
+
     usize RegisterAllCreators(AssetCreatorRegistry& registry)
     {
         RegisterSceneCreators(registry);
