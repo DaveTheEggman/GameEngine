@@ -158,3 +158,35 @@ TEST_CASE("editor-logview: selected rows copy one per line, in order")
     CHECK(clipboard.stored == u8"kept");
     root->RemoveView(view.Get());
 }
+
+// Sedulous aa579970: the search shows the lines containing it, ignoring case, together with the
+// level filters, and applies to lines that arrive while it is set.
+TEST_CASE("editor-logview: the search narrows to matching lines")
+{
+    auto view = MakeRef<LogView>(DefaultAllocator());
+    view->AddEntry(LogLevel::Info, u8"Editor", u8"opened scene 'Main'");
+    view->AddEntry(LogLevel::Warning, u8"Resource", u8"bind failed for 6c26");
+    view->AddEntry(LogLevel::Error, u8"Editor", u8"Cook FAILED");
+
+    view->SetSearch(u8"failed");
+    CHECK(view->VisibleEntryCount() == 2u); // either case
+    CHECK(view->VisibleEntryText(0) == u8"[Resource] bind failed for 6c26");
+
+    // Together with the level filters.
+    view->SetBucketVisible(LogView::Bucket::Warning, false);
+    CHECK(view->VisibleEntryCount() == 1u);
+    CHECK(view->VisibleEntryText(0) == u8"[Editor] Cook FAILED");
+    view->SetBucketVisible(LogView::Bucket::Warning, true);
+
+    // A new line shows only when it matches; the category is part of the line.
+    view->AddEntry(LogLevel::Info, u8"Editor", u8"saved");
+    CHECK(view->VisibleEntryCount() == 2u);
+    view->AddEntry(LogLevel::Info, u8"Editor", u8"retry failed");
+    CHECK(view->VisibleEntryCount() == 3u);
+    view->SetSearch(u8"resource]");
+    CHECK(view->VisibleEntryCount() == 1u);
+
+    // Empty shows everything again.
+    view->SetSearch(u8"");
+    CHECK(view->VisibleEntryCount() == 5u);
+}

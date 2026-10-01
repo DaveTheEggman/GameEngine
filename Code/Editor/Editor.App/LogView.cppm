@@ -5,8 +5,8 @@
 //
 // LogView: the Console panel content - a log view on foundation.ui, with category display
 // (core logs carry categories). A
-// filter/action toolbar (per-level CheckBoxes + Clear) over a recycled ListView of level-colored
-// rows; bounded entry count; auto-scroll to the newest entry. Fed once per frame by
+// filter/action toolbar (per-level CheckBoxes, a search box matching anywhere in a line ignoring
+// case, + Clear) over a recycled ListView of level-colored rows; bounded entry count; auto-scroll to the newest entry. Fed once per frame by
 // EditorApplication draining the EditorLogBuffer. Rows select like any list (click, Ctrl click,
 // Shift click, Ctrl+A), and Ctrl+C or the context menu's Copy puts the selected rows on the
 // clipboard, oldest first, one per line.
@@ -78,6 +78,14 @@ export namespace editor::app
                 m_filterBoxes[i] = box.Get();
                 toolbar->AddView(box.Get());
             }
+            m_searchEdit = MakeRef<ui::EditText>(MemoryAllocator());
+            m_searchEdit->SetPlaceholder(u8"Search...");
+            m_searchEdit->OnTextChanged.Add([this](ui::EditText* edit) { SetSearch(edit->Text()); });
+            {
+                ui::LayoutStyle grow;
+                grow.FlexGrow = 1.0f;
+                toolbar->AddView(m_searchEdit.Get(), grow);
+            }
             auto clear = MakeRef<ui::Button>(MemoryAllocator(), StringView(u8"Clear"));
             clear->OnClick.Add([this](ui::ButtonBase*) { Clear(); });
             toolbar->AddView(clear.Get());
@@ -127,7 +135,7 @@ export namespace editor::app
             i32 trimmedVisible = 0;
             while (m_entries.Size() > MaxEntries)
             {
-                if (IsBucketVisible(m_entries[0].bucket))
+                if (Shows(m_entries[0]))
                 {
                     ++trimmedVisible;
                 }
@@ -140,7 +148,7 @@ export namespace editor::app
                 m_list->Selection.ShiftIndices(0, -trimmedVisible);
                 RebuildFilter();
             }
-            else if (IsBucketVisible(m_entries.Back().bucket))
+            else if (Shows(m_entries.Back()))
             {
                 m_filtered.PushBack(m_entries.Size() - 1);
                 m_adapter->NotifyDataSetChanged();
@@ -228,6 +236,22 @@ export namespace editor::app
         {
             return m_visible[static_cast<usize>(bucket)];
         }
+
+        /// Shows only the lines containing `text`, ignoring case (the category is part of the
+        /// line); empty shows them all. The search box calls it as the user types.
+        void SetSearch(StringView text)
+        {
+            if (m_search.AsView() == text)
+            {
+                return;
+            }
+            m_search = String(text);
+            // The rows re-number, so the selection goes.
+            m_list->Selection.ClearSelection();
+            RebuildFilter();
+            ScrollToNewest();
+        }
+        [[nodiscard]] StringView Search() const noexcept { return m_search.AsView(); }
 
         [[nodiscard]] usize EntryCount() const noexcept { return m_entries.Size(); }
         [[nodiscard]] usize VisibleEntryCount() const noexcept { return m_filtered.Size(); }
@@ -364,12 +388,19 @@ export namespace editor::app
             LogView* m_owner;
         };
 
+        // Whether a line passes the level filters and the search.
+        [[nodiscard]] bool Shows(const Entry& entry) const
+        {
+            return IsBucketVisible(entry.bucket) &&
+                   (m_search.IsEmpty() || entry.text.AsView().ContainsIgnoreCase(m_search.AsView()));
+        }
+
         void RebuildFilter()
         {
             m_filtered.Clear();
             for (usize i = 0; i < m_entries.Size(); ++i)
             {
-                if (IsBucketVisible(m_entries[i].bucket))
+                if (Shows(m_entries[i]))
                 {
                     m_filtered.PushBack(i);
                 }
@@ -388,6 +419,8 @@ export namespace editor::app
         Array<Entry> m_entries;
         Array<usize> m_filtered; // indices into m_entries passing the filter
         bool m_visible[kBucketCount] = {true, true, true, true};
+        String m_search; // what a line must contain to show; empty shows every line
+        RefPtr<ui::EditText> m_searchEdit;
 
         UniquePtr<Adapter> m_adapter;
         RefPtr<EntryList> m_list;
