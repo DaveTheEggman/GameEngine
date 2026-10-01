@@ -171,6 +171,12 @@ TEST_CASE("mcp: tools/list emits every tool's annotations - a read-only tool and
     CHECK_FALSE(clobber.Get(u8"readOnlyHint").AsBool());
     CHECK(clobber.Get(u8"destructiveHint").AsBool());
     CHECK(clobber.Get(u8"idempotentHint").AsBool());
+
+    // A delete is destructive, and again finds nothing more to remove (Sedulous ac63071d).
+    const ToolAnnotations deletes = ToolAnnotations::Deletes();
+    CHECK_FALSE(deletes.readOnly);
+    CHECK(deletes.destructive);
+    CHECK(deletes.idempotent);
 }
 
 TEST_CASE("mcp: tools/call round-trips through the registry (result is JSON-stringified text)")

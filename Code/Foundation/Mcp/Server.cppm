@@ -133,6 +133,8 @@ export namespace foundation::mcp
         [[nodiscard]] static ToolAnnotations Creates() { return {false, false, false, false}; }
         /// Replaces existing data (a scene's source); the same call again lands the same state.
         [[nodiscard]] static ToolAnnotations Overwrites() { return {false, true, true, false}; }
+        /// Removes what exists (an asset); calling again finds nothing more to remove.
+        [[nodiscard]] static ToolAnnotations Deletes() { return {false, true, true, false}; }
         /// Regenerates derived output (a cook, a dist, the open project); nothing authored is lost.
         [[nodiscard]] static ToolAnnotations Rebuilds() { return {false, false, true, false}; }
         /// Changes the editor's SESSION (a page opened, a selection) and no authored data.
