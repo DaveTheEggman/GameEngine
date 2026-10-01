@@ -3,8 +3,9 @@
 
 // UI Toolkit - :bottom_dock partition
 //
-// BottomDock: a Godot-style collapsible bottom strip. A thin tab bar is ALWAYS visible; above it sits a
-// content region that is shown only when a tab is expanded. Clicking the active tab collapses back to
+// BottomDock: a Godot-style collapsible bottom strip. A thin tab bar is visible unless
+// HideWhenCollapsed and nothing is open; above it sits a content region that is shown only when a
+// tab is expanded. Tabs come and go at run time (AddTab, RemoveTab). Clicking the active tab collapses back to
 // just the bar; clicking another tab switches to it and expands. The dock itself does not resize the
 // viewport - it emits OnExpandedChanged, and the host (which places the dock as one pane of a SplitView)
 // collapses/expands that pane via SplitView::SetPaneCollapsed, so the stored split ratio survives.
@@ -38,15 +39,29 @@ export namespace foundation::ui::toolkit
 
         BottomDock() { BuildChrome(); }
 
+        /// Collapsed means GONE, the tab bar included, rather than down to the bar: a host that
+        /// opens tabs from elsewhere (a toolbar toggle, a tool that docks a panel) gives the
+        /// whole height back while nothing is open. A collapsed dock then measures nothing, so a
+        /// split pane holding it takes no space.
+        [[nodiscard]] bool HideWhenCollapsed() const noexcept { return m_hideWhenCollapsed; }
+        void SetHideWhenCollapsed(bool hide)
+        {
+            m_hideWhenCollapsed = hide;
+            SyncBar();
+        }
+
+        [[nodiscard]] bool HasTab(StringView id) const noexcept { return IndexOf(id) >= 0; }
+
         /// Register a tab. `content` is BORROWED (the caller owns the RefPtr and outlives the dock).
         /// The first tab added becomes the default target of an expand when none is active.
         void AddTab(StringView id, StringView label, View* content)
         {
             auto button = MakeRef<::foundation::ui::Button>(MemoryAllocator(), label);
             button->FontSize.SetValue(Optional<f32>{11.0f});
-            const i32 index = static_cast<i32>(m_tabs.Size());
+            // By id, not index: a removed tab shifts the ones after it.
             BottomDock* self = this;
-            button->OnClick.Add([self, index](::foundation::ui::ButtonBase*) { self->OnTabClicked(index); });
+            button->OnClick.Add([self, tabId = String(id)](::foundation::ui::ButtonBase*)
+                                { self->OnTabClicked(self->IndexOf(tabId.AsView())); });
             {
                 ::foundation::ui::LayoutStyle lp;
                 lp.Width = ::foundation::ui::SizeSpec::Fixed(::foundation::ui::Unit::Dp(96.0f));
@@ -68,6 +83,35 @@ export namespace foundation::ui::toolkit
             tab.content = content;
             tab.button = button;
             m_tabs.PushBack(Move(tab));
+        }
+
+        /// Takes a tab away, its button and the dock's hold on its content. Removing the active
+        /// tab collapses the dock. Unknown ids are a no-op.
+        void RemoveTab(StringView id)
+        {
+            const i32 index = IndexOf(id);
+            if (index < 0)
+            {
+                return;
+            }
+            const bool wasActive = index == m_activeIndex;
+            Tab& tab = m_tabs[static_cast<usize>(index)];
+            m_tabBar->RemoveView(tab.button.Get());
+            if (tab.content != nullptr)
+            {
+                m_contentHost->RemoveView(tab.content);
+            }
+            m_tabs.RemoveAt(static_cast<usize>(index));
+            if (wasActive)
+            {
+                m_activeIndex = -1;
+                SetExpanded(false);
+            }
+            else if (m_activeIndex > index)
+            {
+                --m_activeIndex;
+            }
+            Invalidate();
         }
 
         [[nodiscard]] bool IsExpanded() const noexcept { return m_expanded; }
@@ -114,6 +158,10 @@ export namespace foundation::ui::toolkit
             {
                 m_activeIndex = 0;
             }
+            if (expanded && m_activeIndex < 0)
+            {
+                return; // nothing to open
+            }
             if (m_expanded == expanded)
             {
                 SyncContent(); // still sync (e.g. ActivateTab switched the active tab while expanded)
@@ -126,6 +174,7 @@ export namespace foundation::ui::toolkit
                     expanded ? ::foundation::ui::Visibility::Visible : ::foundation::ui::Visibility::Gone;
             }
             SyncContent();
+            SyncBar();
             Invalidate();
             OnExpandedChanged.Invoke(m_expanded);
         }
@@ -182,6 +231,30 @@ export namespace foundation::ui::toolkit
             SetExpanded(true); // switch to it + expand
         }
 
+        [[nodiscard]] i32 IndexOf(StringView id) const noexcept
+        {
+            for (usize i = 0; i < m_tabs.Size(); ++i)
+            {
+                if (m_tabs[i].id.AsView() == id)
+                {
+                    return static_cast<i32>(i);
+                }
+            }
+            return -1;
+        }
+
+        // The bar shows unless collapsed means gone.
+        void SyncBar()
+        {
+            if (m_tabBar.Get() != nullptr)
+            {
+                m_tabBar->Visibility = (m_hideWhenCollapsed && !m_expanded)
+                                           ? ::foundation::ui::Visibility::Gone
+                                           : ::foundation::ui::Visibility::Visible;
+            }
+            Invalidate();
+        }
+
         // Only the active tab's content is visible, and only while expanded.
         void SyncContent()
         {
@@ -205,6 +278,7 @@ export namespace foundation::ui::toolkit
         Array<Tab> m_tabs;
         i32 m_activeIndex = -1;
         bool m_expanded = false;
+        bool m_hideWhenCollapsed = false;
     };
 
     RTTI_DEFINE_OBJECT(BottomDock, "rtti::ui::toolkit")

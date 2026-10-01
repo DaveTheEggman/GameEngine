@@ -81,6 +81,8 @@ export namespace editor
 
     class SceneEditorPage final : public app::UIEditorPage, public ISceneEditorPage
     {
+        static constexpr StringView kAnimationTab = u8"animation"; // the bottom dock's tab
+
     public:
         SceneEditorPage(EditorContext& context, runtime::IApplicationHost& host,
                         ui::runtime::UIHost& uiHost, foundation::content::Instance& instance)
@@ -305,22 +307,18 @@ export namespace editor
                 Allocator(), *m_context, m_editContext->Scene(), m_editContext->Commands(),
                 m_editContext->EntitySelection());
 
-            // Godot-style bottom dock: a persistent tab bar
-            // under the viewport; the "Animation" tab expands the property-animation panel above it
-            // (draggable splitter between the two) and collapses back to just the bar. The panel view
-            // lives for the page's whole life either way (the F1 invariant). Per-scene-page - editor
+            // Godot-style bottom dock under the viewport. It opens from elsewhere (the toolbar's
+            // Animation toggle, a viewport tool that docks its panel under its domain's name), and
+            // with nothing open it takes no space, tab bar included. The animation panel view lives
+            // for the page's whole life either way (the F1 invariant). Per-scene-page - editor
             // singletons (Console/Output) stay in the shell docking and never migrate here.
             m_bottomDock = MakeRef<foundation::ui::toolkit::BottomDock>(Allocator());
-            m_bottomDock->AddTab(u8"animation", u8"Animation", m_propAnimPanel.Get());
+            m_bottomDock->SetHideWhenCollapsed(true);
+            m_bottomDock->AddTab(kAnimationTab, u8"Animation", m_propAnimPanel.Get());
 
-            // Viewport-tool PANEL seam wired to the bottom dock (the parked editor.app:tool_panel
-            // framework's FIRST consumer - terrain brushes). A persistent "Brush" tab holds a content
-            // slot; the ViewportToolPanelHost watches the active viewport tool and, on a change, swaps
-            // the slot to that tool's registered panel (or empties it). BottomDock is append-only, so
-            // we mount/clear the slot's child rather than adding/removing a tab.
-            m_toolPanelSlot = MakeRef<foundation::ui::FlexLayout>(Allocator());
-            m_toolPanelSlot->Direction = foundation::ui::Orientation::Vertical;
-            m_bottomDock->AddTab(u8"tool", u8"Brush", m_toolPanelSlot.Get());
+            // Viewport-tool PANEL seam: the ViewportToolPanelHost watches the active viewport tool
+            // and mounts its registered panel (or unmounts it); a docked panel is a bottom dock tab
+            // of its own (MountToolPanel).
             {
                 SceneEditorPage* page = this;
                 ViewportToolHostContext panelCtx;
@@ -402,7 +400,7 @@ export namespace editor
                         {
                             return false;
                         }
-                        page->m_bottomDock->ActivateTab(u8"animation"); // expand the bar
+                        page->m_bottomDock->ActivateTab(kAnimationTab); // open the panel
                         const Guid* primary =
                             page->m_editContext->EntitySelection().Primary();
                         page->m_propAnimPanel->RequestEditClip(
@@ -505,6 +503,12 @@ export namespace editor
         [[nodiscard]] bool CameraOwnsInput() const noexcept override;
         [[nodiscard]] bool MarkersShown() const noexcept override { return m_showMarkers; }
         void SetMarkersShown(bool shown) override { m_showMarkers = shown; }
+        [[nodiscard]] bool AnimationPanelShown() const noexcept override
+        {
+            return m_bottomDock.Get() != nullptr && m_bottomDock->IsExpanded() &&
+                   m_bottomDock->ActiveTabId() == kAnimationTab;
+        }
+        void SetAnimationPanelShown(bool shown) override;
         [[nodiscard]] EditorCamera* ViewportCamera() noexcept override { return &m_camera; }
         [[nodiscard]] Status RequestViewportCapture(StringView path) override
         {
@@ -645,6 +649,7 @@ export namespace editor
         ui::toolkit::ToolbarToggle* m_rotateToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_scaleToggle = nullptr;
         ui::toolkit::ToolbarToggle* m_spaceToggle = nullptr;
+        ui::toolkit::ToolbarToggle* m_animationToggle = nullptr; // the bottom dock's Animation tab
         // The Overlays dropdown's state (per-scene persisted): grid, LOD overlay, edit-time
         // physics collider gizmos, the origin cross on every entity.
         ui::toolkit::ToolbarMenuButton* m_overlaysButton = nullptr; // borrowed (toolbar-owned)
@@ -701,7 +706,9 @@ export namespace editor
         // The viewport-tool PANEL seam (first consumer: terrain brushes). A persistent "Brush" tab
         // whose content the host swaps to the active tool's settings panel; empty when the active
         // tool has no panel (Select). Synced from OnUpdate.
-        RefPtr<foundation::ui::FlexLayout> m_toolPanelSlot;
+        // The bottom dock tab a docked tool panel has, named for the tool's domain; empty when no
+        // tool panel is docked.
+        String m_dockedToolTab;
         // ViewportOverlay placement (experiment): a themed panel floating over the viewport (top-right),
         // holding the active tool's settings as a HUD. Visibility::Gone unless a ViewportOverlay panel
         // is mounted. The dock slot above is the Dock placement; MountToolPanel routes between them.

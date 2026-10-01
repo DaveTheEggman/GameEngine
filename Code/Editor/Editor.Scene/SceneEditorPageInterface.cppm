@@ -75,6 +75,11 @@ export namespace editor
         [[nodiscard]] virtual bool MarkersShown() const noexcept = 0;
         virtual void SetMarkersShown(bool shown) = 0;
 
+        /// The property animation panel under the viewport. Hidden, with no other tab open, the
+        /// bottom dock takes no space at all.
+        [[nodiscard]] virtual bool AnimationPanelShown() const noexcept = 0;
+        virtual void SetAnimationPanelShown(bool shown) = 0;
+
         /// The viewport's free-fly camera - the pose the scene is looked at from, which an agent
         /// moves to look from somewhere specific; null on a page without a viewport.
         [[nodiscard]] virtual EditorCamera* ViewportCamera() noexcept = 0;

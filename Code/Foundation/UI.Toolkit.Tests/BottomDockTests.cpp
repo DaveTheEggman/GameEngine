@@ -92,3 +92,42 @@ TEST_CASE("toolkit-bottomdock: ActivateTab expands the named tab")
     CHECK(dock->ActiveTabId() == StringView(u8"a"));
     CHECK(a->Visibility == Visibility::Visible);
 }
+
+// Sedulous 5e7d4e94: opened from elsewhere, the dock is GONE while nothing is open, bar and all,
+// so the pane holding it takes no height; a tab added for a docked tool panel comes and goes
+// with it, and the remaining tabs' buttons still find their tabs by id.
+TEST_CASE("toolkit-bottomdock: hidden when collapsed, and tabs come and go")
+{
+    auto dock = core::MakeRef<BottomDock>(core::DefaultAllocator());
+    dock->SetHideWhenCollapsed(true);
+    auto animation = core::MakeRef<Panel>(core::DefaultAllocator());
+    dock->AddTab(u8"animation", u8"Animation", animation.Get());
+
+    // Collapsed: nothing to measure.
+    dock->Measure(BoxConstraints{0, 400, 0, 300});
+    CHECK(dock->MeasuredSize.y == 0.0f); // no bar while nothing is open
+
+    // A docked tool's tab opens it, and removing the open tab closes it again.
+    auto terrain = core::MakeRef<Panel>(core::DefaultAllocator());
+    dock->AddTab(u8"tool:Terrain", u8"Terrain", terrain.Get());
+    dock->ActivateTab(u8"tool:Terrain");
+    CHECK(dock->IsExpanded());
+    CHECK(terrain->Visibility == Visibility::Visible);
+    dock->Measure(BoxConstraints{0, 400, 0, 300});
+    CHECK(dock->MeasuredSize.y > 0.0f);
+    dock->RemoveTab(u8"tool:Terrain");
+    CHECK_FALSE(dock->IsExpanded());
+    CHECK_FALSE(dock->HasTab(u8"tool:Terrain"));
+    CHECK(dock->TabCount() == 1u);
+    dock->Measure(BoxConstraints{0, 400, 0, 300});
+    CHECK(dock->MeasuredSize.y == 0.0f);
+
+    // The remaining tab's button still toggles it, by id after the removal.
+    dock->AddTab(u8"tool:Terrain", u8"Terrain", terrain.Get());
+    dock->RemoveTab(u8"animation");
+    dock->ClickTab(u8"tool:Terrain");
+    CHECK(dock->IsExpanded());
+    CHECK(dock->ActiveTabId() == u8"tool:Terrain");
+    dock->ClickTab(u8"tool:Terrain");
+    CHECK_FALSE(dock->IsExpanded());
+}

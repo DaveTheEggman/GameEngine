@@ -58,6 +58,8 @@ namespace
         [[nodiscard]] const ViewportCapture& LastViewportCapture() const noexcept override { return capture; }
         [[nodiscard]] bool MarkersShown() const noexcept override { return markers; }
         void SetMarkersShown(bool shown) override { markers = shown; }
+        [[nodiscard]] bool AnimationPanelShown() const noexcept override { return animation; }
+        void SetAnimationPanelShown(bool shown) override { animation = shown; }
         void CreatePrefabFromEntity(const Guid& entity) override { prefabFrom = entity; }
         void PickAndSpawnPrefab(const Guid& parent) override
         {
@@ -70,6 +72,7 @@ namespace
         bool simulating = false;
         bool paused = false;
         bool markers = true;
+        bool animation = false;
         bool cameraOwnsInput = false;
         ViewportCapture capture;
         GizmoController* gizmos = nullptr;
@@ -141,6 +144,14 @@ TEST_CASE("scene-actions: registered once, disabled off a scene page; simulate, 
     CHECK(actions.Execute(kMarkers, page).IsOk());
     CHECK_FALSE(page->markers);
     CHECK_FALSE(actions.IsChecked(kMarkers, page));
+
+    // The animation panel: a toggle over the page's bottom panel, off to start.
+    CHECK_FALSE(actions.IsChecked(kAnimationPanel, page));
+    CHECK(actions.Execute(kAnimationPanel, page).IsOk());
+    CHECK(page->animation);
+    CHECK(actions.IsChecked(kAnimationPanel, page));
+    CHECK(actions.Execute(kAnimationPanel, page).IsOk());
+    CHECK_FALSE(page->animation);
 
     // Gizmo: disabled without a gizmo (a headless page); with one, the mode toggles are
     // exclusive and the space toggle flips.

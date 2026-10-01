@@ -919,19 +919,26 @@ namespace editor
         case ToolPanelPlacement::Dock:
         default:
         {
-            foundation::ui::FlexLayout* slot = m_toolPanelSlot.Get();
-            if (slot == nullptr)
+            // A docked panel is a tab of its own, named for the tool's domain (its category,
+            // "Terrain"), else the tool; it goes when the panel does.
+            if (m_bottomDock.Get() == nullptr)
             {
                 return;
             }
-            while (slot->ChildCount() > 0)
+            if (!m_dockedToolTab.IsEmpty())
             {
-                slot->RemoveView(slot->GetChildAt(0), true);
+                m_bottomDock->RemoveTab(m_dockedToolTab.AsView());
+                m_dockedToolTab = String{};
             }
             if (view != nullptr)
             {
-                slot->AddView(view);
-                m_bottomDock->ActivateTab(u8"tool"); // reveal the brush settings
+                IViewportTool* tool = m_viewportTools.ActiveTool();
+                const StringView label = tool == nullptr             ? StringView(u8"Tool")
+                                         : tool->Category().IsEmpty() ? tool->DisplayName()
+                                                                      : tool->Category();
+                m_dockedToolTab = Format(u8"tool:{}", label);
+                m_bottomDock->AddTab(m_dockedToolTab.AsView(), label, view);
+                m_bottomDock->ActivateTab(m_dockedToolTab.AsView());
             }
             break;
         }
@@ -1390,6 +1397,20 @@ namespace editor
             }
         }
 
+        // The bottom panels that open from the bar: the Animation toggle is the
+        // scene.view.animationPanel action over THIS page.
+        m_toolbar->AddSeparator();
+        m_animationToggle = m_toolbar->AddToggle(u8"Animation");
+        m_animationToggle->OnCheckedChanged.Add(
+            [page, actions](ui::toolkit::ToolbarToggle*, bool value)
+            {
+                if (actions->IsChecked(SceneActionIds::kAnimationPanel, page) != value)
+                {
+                    (void)actions->Execute(SceneActionIds::kAnimationPanel, page);
+                }
+                page->SyncToolbar();
+            });
+
         // Spacer pushes the simulation cluster to the right edge (Sedulous toolbar shape).
         {
             auto spacer = MakeRef<foundation::ui::Panel>(Allocator());
@@ -1612,6 +1633,32 @@ namespace editor
         }
     }
 
+    void SceneEditorPage::SetAnimationPanelShown(bool shown)
+    {
+        if (m_bottomDock.Get() == nullptr)
+        {
+            return;
+        }
+        if (shown)
+        {
+            m_bottomDock->ActivateTab(kAnimationTab);
+            return;
+        }
+        if (!AnimationPanelShown())
+        {
+            return;
+        }
+        // Hidden: to the docked tool's tab when there is one, else the dock goes altogether.
+        if (!m_dockedToolTab.IsEmpty())
+        {
+            m_bottomDock->ActivateTab(m_dockedToolTab.AsView());
+        }
+        else
+        {
+            m_bottomDock->SetExpanded(false);
+        }
+    }
+
     void SceneEditorPage::SyncToolbar()
     {
         if (m_toolbar.Get() == nullptr || m_selectTool == nullptr)
@@ -1625,6 +1672,10 @@ namespace editor
         const bool world = actions.IsChecked(SceneActionIds::kGizmoWorldSpace, this);
         m_spaceToggle->SetIsChecked(world);
         m_spaceToggle->SetText(world ? StringView(u8"World") : StringView(u8"Local"));
+        if (m_animationToggle != nullptr)
+        {
+            m_animationToggle->SetIsChecked(actions.IsChecked(SceneActionIds::kAnimationPanel, this));
+        }
 
         IViewportTool* activeTool = m_viewportTools.ActiveTool();
         const StringView activeId = activeTool != nullptr ? activeTool->Id() : StringView{};

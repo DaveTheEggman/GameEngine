@@ -40,6 +40,7 @@ export namespace editor
         inline constexpr StringView kGizmoScale = u8"scene.gizmo.scale";
         inline constexpr StringView kGizmoWorldSpace = u8"scene.gizmo.worldSpace";
         inline constexpr StringView kMarkers = u8"scene.view.markers";
+        inline constexpr StringView kAnimationPanel = u8"scene.view.animationPanel";
         inline constexpr StringView kEntityCreate = u8"scene.entity.create";
         inline constexpr StringView kEntityCreateChild = u8"scene.entity.createChild";
         inline constexpr StringView kEntityDuplicate = u8"scene.entity.duplicate";
@@ -233,6 +234,25 @@ export namespace editor
             {
                 ISceneEditorPage* scene = scenePage(page);
                 scene->SetMarkersShown(!scene->MarkersShown());
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(kAnimationPanel, u8"Animation",
+                        u8"Show the property animation panel under the viewport",
+                        u8"Scene/Animation Panel", 301);
+            d.kind = EditorActionKind::Toggle;
+            d.enabled = [scenePage](EditorPage* page) { return scenePage(page) != nullptr; };
+            d.checked = [scenePage](EditorPage* page)
+            {
+                ISceneEditorPage* scene = scenePage(page);
+                return scene != nullptr && scene->AnimationPanelShown();
+            };
+            d.execute = [scenePage](EditorPage* page)
+            {
+                ISceneEditorPage* scene = scenePage(page);
+                scene->SetAnimationPanelShown(!scene->AnimationPanelShown());
             };
             (void)actions.Register(Move(d));
         }
