@@ -29,12 +29,22 @@ namespace editor
         /// Frames: ten seconds at 60 Hz, then pie_screenshot gives up.
         constexpr u32 kCapturePumpLimit = 600;
 
-        /// The pie_start in flight: the tool is re-entered every pump with the same arguments
+        /// A pie_start in flight: the tool is re-entered every pump with the same arguments
         /// until the instance answers, or it gives up.
         struct PendingPie
         {
             EditorPage* page = nullptr; // borrowed; null while nothing is in flight
             u32 pumps = 0;
+        };
+
+        /// The pie_start calls in flight: a primary start and a new instance's are kept apart, so
+        /// one of each can run at once. Two new-instance starts at once cannot be: the host
+        /// re-enters a call with nothing but its arguments, and theirs are the same, so they
+        /// queue.
+        struct StartWaits
+        {
+            PendingPie primary;
+            PendingPie newInstance;
         };
 
         /// The pie_screenshot calls in flight, one per instance: the HTTP host re-enters every
@@ -104,8 +114,10 @@ namespace editor
             return nullptr;
         }
 
-        ToolOutcome Start(EditorContext& context, PendingPie& pending, const JsonValue& args)
+        ToolOutcome Start(EditorContext& context, StartWaits& waits, const JsonValue& args)
         {
+            const bool newInstance = args.Get(u8"newInstance").AsBool();
+            PendingPie& pending = newInstance ? waits.newInstance : waits.primary;
             if (pending.page != nullptr)
             {
                 // Re-entered: the same call, one pump later.
@@ -141,7 +153,6 @@ namespace editor
                 return ToolOutcome::NotFinished();
             }
 
-            const bool newInstance = args.Get(u8"newInstance").AsBool();
             if (!newInstance)
             {
                 if (EditorPage* primary = FindPie(context, kPrimaryPieId))
@@ -332,8 +343,8 @@ namespace editor
     {
         EditorContext* ctx = &context;
 
-        auto starting = MakeUnique<PendingPie>(context.Allocator());
-        PendingPie* startingPtr = starting.Get();
+        auto starting = MakeUnique<StartWaits>(context.Allocator());
+        StartWaits* startingPtr = starting.Get();
         server.RegisterTool(
             u8"pie_start",
             u8"Start playing the project in the editor (PIE): the primary Game tab, or with "

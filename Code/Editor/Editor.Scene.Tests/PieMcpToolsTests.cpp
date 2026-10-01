@@ -317,6 +317,28 @@ TEST_CASE("pie-tools: a start that does not start is an error")
     CHECK(got.error.AsView().ContainsIgnoreCase(u8"did not start"));
 }
 
+// Sedulous 216c8322: a primary start and a new instance's run at once, re-entered in turn, and
+// each answers with its own tab.
+TEST_CASE("pie-tools: a primary start and a new instance's interleave")
+{
+    PlayRig rig;
+    CHECK_FALSE(Pump(rig.server, u8"pie_start", u8"{}").finished);
+    CHECK_FALSE(Pump(rig.server, u8"pie_start", u8"{\"newInstance\":true}").finished);
+    REQUIRE(rig.primary != nullptr);
+    HeadlessGamePage* client = rig.Page(u8"game-page-1");
+    REQUIRE(client != nullptr); // both tabs opened, neither start taken for the other's re-entry
+    CHECK(rig.primary->plays == 1u);
+    CHECK(client->plays == 1u);
+    rig.primary->Run();
+    client->Run();
+    Answer clientAnswer = Pump(rig.server, u8"pie_start", u8"{\"newInstance\":true}");
+    Answer primaryAnswer = Pump(rig.server, u8"pie_start", u8"{}");
+    REQUIRE(clientAnswer.finished);
+    REQUIRE(primaryAnswer.finished);
+    CHECK(primaryAnswer.payload.Get(u8"pie").AsString() == StringView(u8"game-page"));
+    CHECK(clientAnswer.payload.Get(u8"pie").AsString() == StringView(u8"game-page-1"));
+}
+
 TEST_CASE("pie-tools: a screenshot waits for its frame, and a stopped instance is refused")
 {
     PlayRig rig;
