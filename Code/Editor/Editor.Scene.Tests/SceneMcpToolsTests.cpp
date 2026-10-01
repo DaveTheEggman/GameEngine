@@ -16,6 +16,8 @@ import foundation.scene;
 import foundation.resource;
 import foundation.materials;
 import engine.render;
+import engine.script;
+import foundation.script.resource;
 import editor.core;
 import editor.scene;
 import editor.camera;
@@ -348,7 +350,7 @@ TEST_CASE("scene-mcp-tools: entity_inspect reads an entity and its components th
                       pageGuid.AsView())
                    .AsView());
     CHECK_FALSE(got.ok);
-    CHECK(got.error.AsView().StartsWith(u8"no entity with guid"));
+    CHECK(got.error.AsView().StartsWith(u8"no entity '00000000-0000-0000-0000-000000000001' in page 'Bistro'"));
 
     context.ClosePage(page);
 }
@@ -396,6 +398,57 @@ TEST_CASE("scene-mcp-tools: an entity found by guid, path or name, and its field
     refused = read(lamp, u8"position.q");
     REQUIRE_FALSE(refused.HasValue());
     CHECK(refused.Error().AsView() == StringView(u8"'position.q' of entity 'it': nothing at 'q'"));
+}
+
+// Sedulous fb32ee69: every scene tool takes an entity by guid, name or slash path, and a Script
+// component lists its behaviours (a hidden list the reflected properties leave out), each
+// override by its class's name for it, or by hash when the class is not at hand.
+TEST_CASE("scene-mcp-tools: an entity by name or path, and a Script component's behaviours")
+{
+    Random rng(33);
+    EditorContext context{DefaultAllocator()};
+    const Guid arenaId = Guid::Generate(rng);
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Arena", arenaId), DefaultAllocator())));
+    SceneEditContext& edit = page->EditContext();
+    const String arena = GuidText(arenaId);
+    auto* scripts = edit.Scene().AddSystem<engine::script::ScriptComponentManager>();
+    const Guid player = edit.CreateEntity(u8"Player");
+    const Guid weapon = edit.CreateEntity(u8"Weapon", player);
+    engine::script::ScriptComponent& component = scripts->Add(edit.Resolve(weapon));
+    engine::script::ScriptBehavior behavior;
+    const Guid script = Guid::Generate(rng);
+    behavior.script.SetId(script);
+    foundation::script::ScriptPropertyValue speed;
+    speed.kind = foundation::script::ScriptPropertyType::Float;
+    speed.number = 4.0;
+    behavior.SetOverride(foundation::script::ScriptPropertyNameHash(u8"speed"), speed);
+    component.behaviors.PushBack(Move(behavior));
+
+    McpServer server;
+    RegisterSceneLiveTools(server, context);
+    Answer got = Call(server, u8"entity_inspect",
+                      Format(u8"{{\"page\":\"{}\",\"entity\":\"Player/Weapon\"}}", arena.AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"entity").Get(u8"name").AsString() == StringView(u8"Weapon"));
+    const JsonValue scriptJson = got.payload.Get(u8"entity").Get(u8"components").At(0);
+    const JsonValue behaviors = scriptJson.Get(u8"behaviors");
+    REQUIRE(behaviors.Count() == 1);
+    CHECK(behaviors.At(0).Get(u8"script").AsString() == GuidText(script).AsView());
+    CHECK(behaviors.At(0).Get(u8"class").IsNull()); // not cooked here
+    CHECK(behaviors.At(0).Get(u8"enabled").AsBool());
+    const JsonValue properties = behaviors.At(0).Get(u8"properties");
+    REQUIRE(properties.Count() == 1);
+    CHECK(properties.Items()[0].AsNumber() == doctest::Approx(4.0)); // by hash, #n, uncooked
+
+    got = Call(server, u8"entity_inspect",
+               Format(u8"{{\"page\":\"{}\",\"entity\":\"Player\"}}", arena.AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"entity").Get(u8"name").AsString() == StringView(u8"Player"));
+    got = Call(server, u8"entity_inspect",
+               Format(u8"{{\"page\":\"{}\",\"entity\":\"Ghost\"}}", arena.AsView()).AsView());
+    CHECK(got.error.AsView().StartsWith(u8"no entity 'Ghost' in page 'Arena'"));
+    context.ClosePage(page);
 }
 
 TEST_CASE("scene-mcp-tools: component_set writes one property through the undo path - leaves, an "

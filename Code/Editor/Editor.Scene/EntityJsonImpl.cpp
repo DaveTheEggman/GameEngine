@@ -10,6 +10,9 @@ import foundation.core;
 import foundation.json;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.resource;
+import foundation.script.resource; // ScriptClass, ScriptPropertyValue (a behaviour's overrides)
+import engine.script;              // ScriptComponent (its behaviours, a hidden list)
 
 using namespace foundation::core;
 using foundation::json::JsonValue;
@@ -214,7 +217,70 @@ namespace editor
 
     /// The entity as the agent sees it: identity, hierarchy, transform, and every
     /// component the scene holds for it with its reflected properties.
-    JsonValue EntityJson(scene::Scene& scene, scene::EntityHandle handle)
+    namespace
+    {
+        JsonValue ScriptValueJson(const foundation::script::ScriptPropertyValue& value)
+        {
+            using foundation::script::ScriptPropertyType;
+            switch (value.kind)
+            {
+            case ScriptPropertyType::Float:
+            case ScriptPropertyType::Int:
+                return JsonValue::MakeNumber(value.number);
+            case ScriptPropertyType::Bool:
+                return JsonValue::MakeBool(value.boolean);
+            case ScriptPropertyType::String:
+                return JsonValue::MakeString(value.text);
+            case ScriptPropertyType::Vec3:
+                return Float3Json(value.vector);
+            case ScriptPropertyType::Color:
+                return QuadJson(value.color.r, value.color.g, value.color.b, value.color.a);
+            case ScriptPropertyType::Entity:
+            case ScriptPropertyType::Asset:
+                return value.guid.IsNil() ? JsonValue::MakeNull() : GuidJson(value.guid);
+            case ScriptPropertyType::None:
+                break;
+            }
+            return JsonValue::MakeNull();
+        }
+
+        /// A Script component's behaviours: each one's script (its guid, and its class when the
+        /// class is cooked), whether it runs, and its property overrides by name.
+        JsonValue BehaviorsJson(const engine::script::ScriptComponent& component,
+                                foundation::resource::ResourceManager* resources)
+        {
+            JsonValue list = JsonValue::MakeArray();
+            for (const engine::script::ScriptBehavior& behavior : component.behaviors)
+            {
+                JsonValue entry = JsonValue::MakeObject();
+                const Guid id = behavior.script.id;
+                entry.Set(u8"script", id.IsNil() ? JsonValue::MakeNull() : GuidJson(id));
+                const foundation::script::ScriptClass* scriptClass = behavior.script.Get();
+                if (scriptClass == nullptr && resources != nullptr && !id.IsNil())
+                {
+                    scriptClass = resources->Bind<foundation::script::ScriptClass>(id).Get();
+                }
+                entry.Set(u8"class", scriptClass != nullptr
+                                         ? JsonValue::MakeString(scriptClass->className)
+                                         : JsonValue::MakeNull());
+                entry.Set(u8"enabled", JsonValue::MakeBool(behavior.enabled));
+                JsonValue properties = JsonValue::MakeObject();
+                for (const engine::script::ScriptPropertyOverride& o : behavior.overrides)
+                {
+                    const foundation::script::ScriptPropertyDesc* desc =
+                        scriptClass != nullptr ? scriptClass->FindProperty(o.nameHash) : nullptr;
+                    properties.Set(desc != nullptr ? desc->name : Format(u8"#{}", o.nameHash),
+                                   ScriptValueJson(o.value));
+                }
+                entry.Set(u8"properties", Move(properties));
+                list.Add(Move(entry));
+            }
+            return list;
+        }
+    }
+
+    JsonValue EntityJson(scene::Scene& scene, scene::EntityHandle handle,
+                         foundation::resource::ResourceManager* resources)
     {
         JsonValue out = JsonValue::MakeObject();
         out.Set(u8"guid", GuidJson(scene.GetEntityId(handle)));
@@ -260,6 +326,15 @@ namespace editor
                 else
                 {
                     component.Set(u8"properties", JsonValue::MakeNull()); // unreflected
+                }
+                // The behaviours are a hidden list the reflected properties leave out.
+                if (type == &TypeOf<engine::script::ScriptComponent>() &&
+                    instance.Pointer() != nullptr)
+                {
+                    component.Set(u8"behaviors",
+                                  BehaviorsJson(*static_cast<const engine::script::ScriptComponent*>(
+                                                    instance.Pointer()),
+                                                resources));
                 }
                 components.Add(Move(component));
             });

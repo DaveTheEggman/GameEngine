@@ -19,8 +19,10 @@ module;
 export module editor.scene:mcp_tools;
 
 import foundation.core;
+import foundation.json;
 import foundation.mcp;
 import editor.core;
+import :scene_page_interface; // ISceneEditorPage (AddressedPage)
 
 using namespace foundation::core;
 
@@ -32,4 +34,27 @@ export namespace editor
     inline constexpr usize kSceneLiveToolCount = 9;
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context);
+}
+
+namespace editor
+{
+    // Inside the module: what the live tools and the edit tools (SceneMcpEditToolsImpl.cpp)
+    // share.
+
+    /// The scene page a call addresses: `page` (a guid) when given, else the active page.
+    struct AddressedPage
+    {
+        EditorPage* page = nullptr;
+        ISceneEditorPage* scene = nullptr;
+    };
+    /// The page, or the reason it is not a scene page, for the agent to read.
+    [[nodiscard]] Result<AddressedPage, String> ResolveScenePage(EditorContext& context,
+                                                                 const foundation::json::JsonValue& args);
+    [[nodiscard]] foundation::json::JsonValue PageJson(const EditorPage& page);
+    /// [x, y, z] as a Float3; false on any other shape.
+    [[nodiscard]] bool ReadFloat3(const foundation::json::JsonValue& value, Float3& out);
+    /// The entity the `key` argument names in the page's scene: a guid, a name or a slash path;
+    /// the reason when it names none.
+    [[nodiscard]] Result<Guid, String> ResolveSceneEntity(const AddressedPage& addressed,
+                                                          StringView text);
 }

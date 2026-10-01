@@ -26,67 +26,6 @@ namespace editor
     namespace
     {
 
-        /// The scene page a call addresses: `page` (a guid) when given, else the active page -
-        /// and the reason when it is not a scene page, for the agent to read.
-        struct AddressedPage
-        {
-            EditorPage* page = nullptr;
-            ISceneEditorPage* scene = nullptr;
-        };
-        Result<AddressedPage, String> ResolveScenePage(EditorContext& context, const JsonValue& args)
-        {
-            AddressedPage addressed;
-            const JsonValue pageArg = args.Get(u8"page");
-            if (pageArg.IsString())
-            {
-                const String text = pageArg.AsString();
-                Guid id;
-                if (!Guid::TryParse(text.AsView(), id))
-                {
-                    return Err(Format(u8"invalid page guid '{}'", text.AsView()));
-                }
-                for (const UniquePtr<EditorPage>& open : context.OpenPages())
-                {
-                    if (open->InstanceId() == id)
-                    {
-                        addressed.page = open.Get();
-                        break;
-                    }
-                }
-                if (addressed.page == nullptr)
-                {
-                    return Err(Format(u8"no open page for guid '{}' (page_list shows the open ones; "
-                                      u8"page_open opens one)",
-                                      text.AsView()));
-                }
-            }
-            else
-            {
-                addressed.page = context.ActivePage();
-                if (addressed.page == nullptr)
-                {
-                    return Err(String(u8"no page is active - page_open a scene first, or pass "
-                                      u8"`page`"));
-                }
-            }
-            addressed.scene = addressed.page->Service<ISceneEditorPage>();
-            if (addressed.scene == nullptr)
-            {
-                return Err(Format(u8"page '{}' is not a scene or prefab page - pass `page` with a "
-                                  u8"scene's guid, or page_open one",
-                                  addressed.page->Title()));
-            }
-            return addressed;
-        }
-
-        JsonValue PageJson(const EditorPage& page)
-        {
-            JsonValue out = JsonValue::MakeObject();
-            out.Set(u8"guid", GuidJson(page.InstanceId()));
-            out.Set(u8"title", JsonValue::MakeString(String(page.Title())));
-            return out;
-        }
-
         /// The page's selection as the agent sees it: the page, the entities in order (the first
         /// is the primary, the gizmo pivot), each with its name.
         JsonValue SelectionJson(const AddressedPage& addressed)
@@ -153,7 +92,7 @@ namespace editor
             JsonValue out = JsonValue::MakeObject();
             out.Set(u8"pie", JsonValue::MakeString(String(pie->PieId())));
             out.Set(u8"scene", JsonValue::MakeString(String(running->Name())));
-            out.Set(u8"entity", EntityJson(*running, handle));
+            out.Set(u8"entity", EntityJson(*running, handle, context.Resources()));
             return out;
         }
 
@@ -358,24 +297,6 @@ namespace editor
             return out;
         }
 
-        bool ReadFloat3(const JsonValue& value, Float3& out)
-        {
-            if (!value.IsArray() || value.Count() != 3)
-            {
-                return false;
-            }
-            for (i64 i = 0; i < 3; ++i)
-            {
-                if (!value.At(i).IsNumber())
-                {
-                    return false;
-                }
-            }
-            out = Float3{static_cast<f32>(value.At(0).AsNumber()), static_cast<f32>(value.At(1).AsNumber()),
-                         static_cast<f32>(value.At(2).AsNumber())};
-            return true;
-        }
-
         /// A page title as a file stem: letters, digits, '-' and '_' kept, the rest '_'.
         String FileStemOf(StringView title)
         {
@@ -400,6 +321,91 @@ namespace editor
             u32 serial = 0; // per host, so two captures of one page never share a default name
         };
         constexpr u32 kCapturePumpLimit = 600; // frames: ten seconds at 60 Hz, then the tool gives up
+    }
+
+    Result<AddressedPage, String> ResolveScenePage(EditorContext& context, const JsonValue& args)
+    {
+        AddressedPage addressed;
+        const JsonValue pageArg = args.Get(u8"page");
+        if (pageArg.IsString())
+        {
+            const String text = pageArg.AsString();
+            Guid id;
+            if (!Guid::TryParse(text.AsView(), id))
+            {
+                return Err(Format(u8"invalid page guid '{}'", text.AsView()));
+            }
+            for (const UniquePtr<EditorPage>& open : context.OpenPages())
+            {
+                if (open->InstanceId() == id)
+                {
+                    addressed.page = open.Get();
+                    break;
+                }
+            }
+            if (addressed.page == nullptr)
+            {
+                return Err(Format(u8"no open page for guid '{}' (page_list shows the open ones; "
+                                  u8"page_open opens one)",
+                                  text.AsView()));
+            }
+        }
+        else
+        {
+            addressed.page = context.ActivePage();
+            if (addressed.page == nullptr)
+            {
+                return Err(String(u8"no page is active - page_open a scene first, or pass "
+                                  u8"`page`"));
+            }
+        }
+        addressed.scene = addressed.page->Service<ISceneEditorPage>();
+        if (addressed.scene == nullptr)
+        {
+            return Err(Format(u8"page '{}' is not a scene or prefab page - pass `page` with a "
+                              u8"scene's guid, or page_open one",
+                              addressed.page->Title()));
+        }
+        return addressed;
+    }
+
+    JsonValue PageJson(const EditorPage& page)
+    {
+        JsonValue out = JsonValue::MakeObject();
+        out.Set(u8"guid", GuidJson(page.InstanceId()));
+        out.Set(u8"title", JsonValue::MakeString(String(page.Title())));
+        return out;
+    }
+
+    bool ReadFloat3(const JsonValue& value, Float3& out)
+    {
+        if (!value.IsArray() || value.Count() != 3)
+        {
+            return false;
+        }
+        for (i64 i = 0; i < 3; ++i)
+        {
+            if (!value.At(i).IsNumber())
+            {
+                return false;
+            }
+        }
+        out = Float3{static_cast<f32>(value.At(0).AsNumber()), static_cast<f32>(value.At(1).AsNumber()),
+                     static_cast<f32>(value.At(2).AsNumber())};
+        return true;
+    }
+
+    Result<Guid, String> ResolveSceneEntity(const AddressedPage& addressed, StringView text)
+    {
+        scene::Scene& scene = addressed.scene->EditContext().Scene();
+        const scene::EntityHandle handle = FindEntity(scene, text);
+        if (!scene.IsValid(handle))
+        {
+            return Err(Format(u8"no entity '{}' in page '{}' (a guid, a name or a slash path; "
+                              u8"scene_read shows the scene's entities)",
+                              text, addressed.page->Title()));
+        }
+        return scene.GetEntityId(handle);
     }
 
     void RegisterSceneLiveTools(foundation::mcp::McpServer& server, EditorContext& context)
@@ -506,8 +512,8 @@ namespace editor
                 .Str(u8"page", kPageArgument)
                 .Str(u8"pie", u8"instead of a page: a running PIE instance's id (pie_list), "
                               u8"reading the scene that game is in")
-                .Str(u8"entity", u8"the entity's guid (default: the page's primary selection); "
-                                 u8"with `pie`, a guid, a name or a slash path, required")
+                .Str(u8"entity", u8"the entity: a guid, a name or a slash path (default: the "
+                                 u8"page's primary selection; with `pie`, required)")
                 .Build(),
             ToolAnnotations::ReadOnly(),
             [ctx](const JsonValue& args) -> ToolResult
@@ -526,11 +532,13 @@ namespace editor
                 const JsonValue entityArg = args.Get(u8"entity");
                 if (entityArg.IsString())
                 {
-                    const String text = entityArg.AsString();
-                    if (!Guid::TryParse(text.AsView(), id))
+                    Result<Guid, String> named =
+                        ResolveSceneEntity(addressed.Value(), entityArg.AsString().AsView());
+                    if (!named.HasValue())
                     {
-                        return Err(Format(u8"invalid entity guid '{}'", text.AsView()));
+                        return Err(Move(named.Error()));
                     }
+                    id = named.Value();
                 }
                 else
                 {
@@ -553,7 +561,7 @@ namespace editor
                 }
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"page", PageJson(*addressed.Value().page));
-                out.Set(u8"entity", EntityJson(edit.Scene(), edit.Resolve(id)));
+                out.Set(u8"entity", EntityJson(edit.Scene(), edit.Resolve(id), ctx->Resources()));
                 return out;
             });
 
@@ -570,7 +578,8 @@ namespace editor
             u8"Returns the property as entity_inspect reads it after the write.",
             SchemaBuilder()
                 .Str(u8"page", kPageArgument)
-                .Str(u8"entity", u8"the entity's guid (default: the page's primary selection)")
+                .Str(u8"entity", u8"the entity: a guid, a name or a slash path (default: the "
+                                 u8"page's primary selection)")
                 .Str(u8"component", u8"the component, as entity_inspect names it: its `type` "
                                     u8"(\"light\", \"physics.RigidBody\") or `typeName`",
                      true)
@@ -597,11 +606,13 @@ namespace editor
                 const JsonValue entityArg = args.Get(u8"entity");
                 if (entityArg.IsString())
                 {
-                    const String text = entityArg.AsString();
-                    if (!Guid::TryParse(text.AsView(), id))
+                    Result<Guid, String> named =
+                        ResolveSceneEntity(addressed.Value(), entityArg.AsString().AsView());
+                    if (!named.HasValue())
                     {
-                        return Err(Format(u8"invalid entity guid '{}'", text.AsView()));
+                        return Err(Move(named.Error()));
                     }
+                    id = named.Value();
                 }
                 else
                 {

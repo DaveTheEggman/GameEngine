@@ -14,6 +14,7 @@ export module editor.scene:entity_json;
 import foundation.core;
 import foundation.json;
 import foundation.scene;
+import foundation.resource;
 
 using namespace foundation::core;
 
@@ -35,9 +36,12 @@ export namespace editor
                                                              const Instance& instance);
 
     /// The entity as the agent sees it: identity, hierarchy, transform, and every component the
-    /// scene holds for it with its reflected properties.
-    [[nodiscard]] foundation::json::JsonValue EntityJson(foundation::scene::Scene& scene,
-                                                         foundation::scene::EntityHandle handle);
+    /// scene holds for it with its reflected properties; a Script component also lists its
+    /// behaviours, each override named from its cooked class (bound through `resources` when the
+    /// behaviour holds none; by hash, #n, when neither has it).
+    [[nodiscard]] foundation::json::JsonValue
+    EntityJson(foundation::scene::Scene& scene, foundation::scene::EntityHandle handle,
+               foundation::resource::ResourceManager* resources = nullptr);
 
     /// The manager holding `component` for the entity: by serialization id ("light",
     /// "physics.RigidBody") or by the reflected type's name ("LightComponent"); null when none.
