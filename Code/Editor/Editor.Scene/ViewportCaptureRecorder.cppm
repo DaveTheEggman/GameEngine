@@ -43,13 +43,15 @@ export namespace editor
         /// armed; a failure to record is the request's failure, logged by the capture.
         void Record(foundation::rhi::Device* device, foundation::rhi::CommandEncoder* encoder,
                     foundation::rhi::Texture* target, foundation::rhi::TextureFormat format,
-                    u32 width, u32 height, foundation::rhi::ResourceState targetState)
+                    u32 width, u32 height, foundation::rhi::ResourceState targetState, u32 originX = 0,
+                    u32 originY = 0, u32 outputWidth = 0, u32 outputHeight = 0)
         {
             if (!m_screenshot.Armed() || device == nullptr || encoder == nullptr)
             {
                 return;
             }
-            if (!m_screenshot.Record(*device, *encoder, target, format, width, height, targetState))
+            if (!m_screenshot.Record(*device, *encoder, target, format, width, height, targetState, originX,
+                                     originY, outputWidth, outputHeight))
             {
                 m_state.state = ViewportCaptureState::Failed; // logged by the capture
             }

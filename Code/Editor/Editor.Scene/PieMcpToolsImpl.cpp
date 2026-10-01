@@ -437,8 +437,10 @@ namespace editor
         CaptureSerial* serialPtr = serial.Get();
         server.RegisterTool(
             u8"pie_screenshot",
-            u8"What one running PIE instance's Game tab renders, as a PNG at the viewport's size: "
-            u8"the game through its own camera, with its UI and overlays. Brings the tab to front "
+            u8"What one running PIE instance's Game tab renders, as a PNG: the game through its own "
+            u8"camera, with its UI and overlays, at the resolution the tab draws it at (the project's "
+            u8"render resolution by default, the tab's size for Fit to panel), without the letterbox "
+            u8"bars - the pixels pie_run's mouse positions are in. Brings the tab to front "
             u8"(a hidden viewport never renders), waits for the next frame and the GPU, then "
             u8"returns {pie, path, width, height}; read the file. `path` is where to write (an "
             u8"existing directory; default: <user-data>/screenshots/<pie>-<pid>-<n>.png). Refused "

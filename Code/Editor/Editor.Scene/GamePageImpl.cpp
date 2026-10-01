@@ -682,16 +682,38 @@ namespace editor
         targetState.texture = m_viewport->ColorTexture();
         targetState.currentState = m_viewport->ColorState();
         targetState.finalState = rhi::ResourceState::ShaderRead;
-        m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w,
-                              h, render::ViewportRect{0, 0, w, h}, nullptr, targetState);
+        m_captureX = 0;
+        m_captureY = 0;
+        m_captureWidth = w;
+        m_captureHeight = h;
+        if (m_renderWidth > 0 && m_renderHeight > 0)
+        {
+            // At the render resolution, fitted into the panel as the player fits its window; the
+            // capture is the game's image, without the bars.
+            const ContentFit fit = RenderFitIn(w, h);
+            const Rectangle dst = fit.DstRect();
+            const render::ViewportRect viewport{static_cast<i32>(dst.x), static_cast<i32>(dst.y),
+                                                static_cast<u32>(Max(dst.width, 1.0f)),
+                                                static_cast<u32>(Max(dst.height, 1.0f))};
+            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
+                                  viewport, nullptr, targetState, nullptr, nullptr, nullptr,
+                                  render::SceneSize::FromFit(fit));
+            m_captureX = static_cast<u32>(Max(viewport.x, 0));
+            m_captureY = static_cast<u32>(Max(viewport.y, 0));
+            m_captureWidth = Min(viewport.width, w - m_captureX);
+            m_captureHeight = Min(viewport.height, h - m_captureY);
+        }
+        else
+        {
+            m_render->RenderScene(*m_scene, m_viewport->ColorTargetView(), m_viewport->ColorFormat(), w, h,
+                                  render::ViewportRect{0, 0, w, h}, nullptr, targetState);
+        }
         m_viewport->SetColorState(rhi::ResourceState::ShaderRead);
         if (m_running)
         {
             ++m_frameCount;
         }
-        m_renderedThisFrame = true; // OnAfterSceneRender captures this frame, at:
-        m_captureWidth = w;
-        m_captureHeight = h;
+        m_renderedThisFrame = true; // OnAfterSceneRender captures this frame, at the above
     }
 
     void GameEditorPage::OnAfterSceneRender(runtime::IApplicationHost& host,
@@ -728,6 +750,12 @@ namespace editor
         }
         frame.encoder->TransitionTexture(m_viewport->ColorTexture(), m_viewport->ColorState(),
                                          rhi::ResourceState::RenderTarget);
+        // The UI is shared between the Game tabs; each lays its screen tier out at its own render
+        // resolution as it draws.
+        if (m_app != nullptr && m_app->UI() != nullptr)
+        {
+            m_app->UI()->SetScreenDesign(m_renderWidth, m_renderHeight, m_renderFit);
+        }
         render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
                                m_viewport->ColorFormat(), w, h, frame.frameIndex);
         frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
@@ -740,7 +768,8 @@ namespace editor
         {
             m_capture.Record(host.Graphics()->Raw(), frame.encoder, m_viewport->ColorTexture(),
                              m_viewport->ColorFormat(), m_captureWidth, m_captureHeight,
-                             rhi::ResourceState::ShaderRead);
+                             rhi::ResourceState::ShaderRead, m_captureX, m_captureY, m_renderWidth,
+                             m_renderHeight);
         }
     }
 
@@ -1207,12 +1236,17 @@ namespace editor
         {
             return;
         }
+        // Fitted into the panel by the project's render fit, as the player fits it into its window:
+        // the scene draws at it into the fitted rectangle of a panel-sized target, the screen UI
+        // lays out at it and draws crisp, and the pointer maps into it.
         const GameResolutionChoice& choice = m_resolutionChoices[static_cast<usize>(index)];
-        m_viewport->SetFixedResolution(choice.width, choice.height);
         EditorProject* project = m_context->Project();
-        m_viewport->SetFitMode(choice.width == 0  ? FitMode::Stretch
-                               : project != nullptr ? project->Settings().renderFit
-                                                    : FitMode::Letterbox);
+        m_renderWidth = choice.width;
+        m_renderHeight = choice.height;
+        m_renderFit = project != nullptr ? project->Settings().renderFit : FitMode::Letterbox;
+        m_viewport->SetFixedResolution(0, 0);
+        m_viewport->SetFitMode(FitMode::Stretch);
+        m_viewport->SetContentResolution(m_renderWidth, m_renderHeight, m_renderFit);
     }
 
     void GameEditorPage::LoadResolutionKey()

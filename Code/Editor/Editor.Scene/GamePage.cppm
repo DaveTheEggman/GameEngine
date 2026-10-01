@@ -483,6 +483,13 @@ export namespace editor
         // there being nothing to fit.
         void ApplyResolution();
         void LoadResolutionKey();
+        // The render resolution fitted into a panel-sized target.
+        [[nodiscard]] ContentFit RenderFitIn(u32 width, u32 height) const noexcept
+        {
+            return ContentFit{Rectangle{0.0f, 0.0f, static_cast<f32>(width), static_cast<f32>(height)},
+                              Float2{static_cast<f32>(m_renderWidth), static_cast<f32>(m_renderHeight)},
+                              m_renderFit};
+        }
         void SaveResolutionKey();
 
         void RefreshToolbar();
@@ -530,6 +537,10 @@ export namespace editor
         String m_resolutionKey;       // the chosen entry, kept across rebuilds, saved per project
         f32 m_resolutionRefresh = 0.0f;
         bool m_resolutionRebuilding = false; // the rebuild's own selection is not a user's
+        // What the game draws at, fitted into the panel by m_renderFit; nought draws at the panel's.
+        u32 m_renderWidth = 0;
+        u32 m_renderHeight = 0;
+        FitMode m_renderFit = FitMode::Letterbox;
         GameScriptErrorSink m_scriptErrors;
         DebuggerPanel m_debuggerPanel;      // the debugger UI (contract-only)
         GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)
@@ -553,6 +564,8 @@ export namespace editor
         // OnAfterSceneRender after the overlays, completed in the next OnUpdate.
         ViewportCaptureRecorder m_capture;
         bool m_renderedThisFrame = false; // the scene rendered into the viewport this frame, at:
+        u32 m_captureX = 0; // where in the target the capture starts: the fitted image's corner
+        u32 m_captureY = 0;
         u32 m_captureWidth = 0;
         u32 m_captureHeight = 0;
         bool m_running = false;
