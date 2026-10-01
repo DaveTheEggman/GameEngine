@@ -343,6 +343,16 @@ namespace editor::app
             ShowToast(kind, message);
             m_context.SetStatus(message);
         };
+        // The console's copy says so, like every other copy.
+        if (LogView* console = m_shell.Console())
+        {
+            console->OnCopied = [this](usize lines)
+            {
+                const String text = lines == 1 ? String(u8"Copied 1 log line")
+                                               : Format(u8"Copied {} log lines", lines);
+                m_context.Notify(editor::NoticeKind::Success, text.AsView());
+            };
+        }
 
         // ---- the EMBEDDED RUNTIME ----
         // The editor owns a second, persistent runtime Context populated by the SAME

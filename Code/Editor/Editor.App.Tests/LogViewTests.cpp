@@ -2,13 +2,15 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 // LogView tests (headless): entry accumulation with category-prefixed text, level-bucket
-// filtering (fold Trace+Debug / Error+Fatal), entry cap trimming, and Clear.
+// filtering (fold Trace+Debug / Error+Fatal), entry cap trimming, Clear, and copying a
+// multi-row selection.
 
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.ui;
 import editor.app;
 
 using namespace foundation::core;
@@ -72,4 +74,87 @@ TEST_CASE("editor-logview: entry cap trims oldest; Clear empties")
     view->Clear();
     CHECK(view->EntryCount() == 0);
     CHECK(view->VisibleEntryCount() == 0);
+}
+
+namespace
+{
+    class TestClipboard final : public foundation::ui::IClipboard
+    {
+    public:
+        [[nodiscard]] Status GetText(String& outText) override
+        {
+            outText = stored;
+            return Status{};
+        }
+        [[nodiscard]] Status SetText(StringView text) override
+        {
+            stored = String(text);
+            return Status{};
+        }
+        [[nodiscard]] bool HasText() override { return !stored.IsEmpty(); }
+        String stored;
+    };
+
+    void Press(foundation::ui::ListView& list, foundation::ui::KeyCode key,
+               foundation::ui::KeyModifiers modifiers)
+    {
+        foundation::ui::KeyEventArgs e;
+        e.Key = key;
+        e.Modifiers = modifiers;
+        list.OnKeyDown(e);
+        CHECK(e.Handled);
+    }
+}
+
+// Sedulous 20bf699e and 714bfd5f: the console's rows select many; Ctrl+C copies them oldest
+// first, one per line, and says how many; Ctrl+A selects every row; the cap's trim keeps the
+// selection on its rows; a filter change clears it.
+TEST_CASE("editor-logview: selected rows copy one per line, in order")
+{
+    namespace ui = foundation::ui;
+    ui::UIContext context{DefaultAllocator()};
+    TestClipboard clipboard;
+    context.SetClipboard(&clipboard);
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800, 600};
+    context.AddRootView(root.Get());
+    auto view = MakeRef<LogView>(DefaultAllocator());
+    root->AddView(view.Get());
+    usize copied = 0;
+    view->OnCopied = [&](usize lines) { copied = lines; };
+
+    view->AddEntry(LogLevel::Info, u8"A", u8"one");
+    view->AddEntry(LogLevel::Warning, u8"A", u8"two");
+    view->AddEntry(LogLevel::Error, u8"A", u8"three");
+
+    // Several rows, picked out of order, copy oldest first.
+    CHECK(view->List().Selection.Mode == ui::SelectionMode::Multiple);
+    view->List().Selection.Toggle(2);
+    view->List().Selection.Toggle(0);
+    Press(view->List(), ui::KeyCode::C, ui::KeyModifiers::Ctrl);
+    CHECK(clipboard.stored == u8"[A] one\n[A] three");
+    CHECK(copied == 2u);
+
+    // Ctrl+A selects every row, and copies them all.
+    Press(view->List(), ui::KeyCode::A, ui::KeyModifiers::Ctrl);
+    CHECK(view->SelectedCount() == 3u);
+    Press(view->List(), ui::KeyCode::C, ui::KeyModifiers::Ctrl);
+    CHECK(clipboard.stored == u8"[A] one\n[A] two\n[A] three");
+    CHECK(copied == 3u);
+
+    // The cap trims the oldest: the selection follows its rows, a trimmed one is gone.
+    view->MaxEntries = 3;
+    view->List().Selection.ClearSelection();
+    view->List().Selection.Toggle(2); // "three"
+    view->AddEntry(LogLevel::Info, u8"A", u8"four");
+    CHECK(view->SelectedCount() == 1u);
+    CHECK(view->SelectedText() == u8"[A] three");
+
+    // A filter change re-numbers the rows, so the selection goes; nothing copies nothing.
+    view->SetBucketVisible(LogView::Bucket::Warning, false);
+    CHECK(view->SelectedCount() == 0u);
+    clipboard.stored = String(u8"kept");
+    Press(view->List(), ui::KeyCode::C, ui::KeyModifiers::Ctrl);
+    CHECK(clipboard.stored == u8"kept");
+    root->RemoveView(view.Get());
 }
