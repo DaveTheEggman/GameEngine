@@ -171,34 +171,18 @@ export namespace foundation::ui
                 const f32 trackY = (Height() - trackHeight) * 0.5f;
                 const f32 trackLeft = thumbHalf;
                 const f32 trackW = (Width() - thumbHalf) - trackLeft;
-                const Rectangle trackRect{trackLeft, trackY, trackW, trackHeight};
-                if (trackDrawable)
-                {
-                    trackDrawable->Draw(ctx, trackRect);
-                }
-                else
-                {
-                    ctx.VG().FillRect(trackRect, trackCol);
-                }
+                DrawPart(ctx, trackDrawable, Rectangle{trackLeft, trackY, trackW, trackHeight}, trackCol, state);
                 const f32 fillW = trackW * progress;
                 if (fillW > 0)
                 {
-                    const Rectangle fr{trackLeft, trackY, fillW, trackHeight};
-                    if (fillDrawable)
-                    {
-                        fillDrawable->Draw(ctx, fr);
-                    }
-                    else
-                    {
-                        ctx.VG().FillRect(fr, fillCol);
-                    }
+                    DrawPart(ctx, fillDrawable, Rectangle{trackLeft, trackY, fillW, trackHeight}, fillCol, state);
                 }
                 const f32 thumbX = trackLeft + trackW * progress;
                 const Rectangle thumbRect{thumbX - thumbHalf, Height() * 0.5f - thumbHalf,
                                           thumbSize, thumbSize};
                 if (thumbDrawable)
                 {
-                    thumbDrawable->Draw(ctx, thumbRect);
+                    thumbDrawable->Draw(ctx, thumbRect, state);
                 }
                 else
                 {
@@ -210,34 +194,21 @@ export namespace foundation::ui
                 const f32 trackX = (Width() - trackHeight) * 0.5f;
                 const f32 trackTop = thumbHalf;
                 const f32 trackH = (Height() - thumbHalf) - trackTop;
-                const Rectangle trackRect{trackX, trackTop, trackHeight, trackH};
-                if (trackDrawable)
-                {
-                    trackDrawable->Draw(ctx, trackRect);
-                }
-                else
-                {
-                    ctx.VG().FillRect(trackRect, trackCol);
-                }
+                DrawPart(ctx, trackDrawable, Rectangle{trackX, trackTop, trackHeight, trackH}, trackCol, state);
+                // Vertical runs bottom to top: the fill grows UP from the low end, where a vertical
+                // slider's minimum sits.
                 const f32 fillH = trackH * progress;
                 if (fillH > 0)
                 {
-                    const Rectangle fr{trackX, (trackTop + trackH) - fillH, trackHeight, fillH};
-                    if (fillDrawable)
-                    {
-                        fillDrawable->Draw(ctx, fr);
-                    }
-                    else
-                    {
-                        ctx.VG().FillRect(fr, fillCol);
-                    }
+                    DrawPart(ctx, fillDrawable, Rectangle{trackX, (trackTop + trackH) - fillH, trackHeight, fillH},
+                             fillCol, state);
                 }
                 const f32 thumbY = (trackTop + trackH) - trackH * progress;
                 const Rectangle thumbRect{Width() * 0.5f - thumbHalf, thumbY - thumbHalf, thumbSize,
                                           thumbSize};
                 if (thumbDrawable)
                 {
-                    thumbDrawable->Draw(ctx, thumbRect);
+                    thumbDrawable->Draw(ctx, thumbRect, state);
                 }
                 else
                 {
@@ -247,6 +218,21 @@ export namespace foundation::ui
         }
 
     private:
+        // With the control's state, so a state-list part (a thumb that lights up when focused)
+        // draws the entry for it; without, a state list only ever draws its normal entry.
+        static void DrawPart(UIDrawContext& ctx, Drawable* drawable, const Rectangle& rect, const Color& fallback,
+                             ControlState state)
+        {
+            if (drawable != nullptr)
+            {
+                drawable->Draw(ctx, rect, state);
+            }
+            else
+            {
+                ctx.VG().FillRect(rect, fallback);
+            }
+        }
+
         void Init()
         {
             IsFocusable = true;

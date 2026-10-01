@@ -6,6 +6,7 @@ add_executable(UI.Tests
     ViewIdTests.cpp
     PropertyTests.cpp
     DrawableTests.cpp
+    SliderFocusTests.cpp
     UnitTests.cpp
     SizeSpecTests.cpp
     BoxConstraintsTests.cpp
