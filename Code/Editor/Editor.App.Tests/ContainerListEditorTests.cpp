@@ -16,6 +16,7 @@ import foundation.ui;
 import foundation.ui.toolkit; // TreeDragData: a hierarchy row
 import editor.core;
 import editor.app;
+import engine.project; // the reflected asset settings the dialog builds rows from
 
 using namespace foundation::core;
 using namespace editor;
@@ -284,6 +285,58 @@ TEST_CASE("resource-row: the settings dialog and a compact slot build and releas
         CHECK(slot->OnDrop(skeleton.Get(), 0, 0) == ui::DragDropEffects::Link);
         CHECK(current == kMaterial);
     }
+}
+
+namespace
+{
+    usize CountSlots(ui::View& view)
+    {
+        // Through the visual children: a dialog's layout and a scroll view's content are those.
+        usize count = Cast<app::AssetPickerSlot>(&view) != nullptr ? 1u : 0u;
+        if (auto* group = Cast<ui::ViewGroup>(&view))
+        {
+            for (usize i = 0; i < group->VisualChildCount(); ++i)
+            {
+                if (ui::View* child = group->GetVisualChild(i))
+                {
+                    count += CountSlots(*child);
+                }
+            }
+        }
+        return count;
+    }
+}
+
+// Sedulous 39147576: an asset list setting (the other UI fonts) is a list row of slots, one per
+// entry the manifest holds, beside a slot per single asset setting.
+TEST_CASE("resource-row: the settings dialog lists an asset list setting as slots")
+{
+    const StringView dir = u8"scratch_settings_dialog_lists";
+    (void)RemoveDirectoryRecursive(dir);
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir, u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
+    REQUIRE(static_cast<bool>(project));
+    EditorContext context{DefaultAllocator()};
+    context.SetProject(project.Get());
+
+    usize single = 0;
+    for (const PropertyInfo& property : Properties(engine::project::ProjectSettings::StaticType()))
+    {
+        single += engine::project::IsAssetSetting(property) ? 1u : 0u;
+    }
+    {
+        auto dialog = MakeRef<app::ProjectSettingsDialog>(DefaultAllocator(), context);
+        CHECK(CountSlots(*dialog) == single); // the list is empty
+    }
+    project->Settings().uiFontIds.PushBack(kMaterial);
+    project->Settings().uiFontIds.PushBack(kTexture);
+    {
+        auto dialog = MakeRef<app::ProjectSettingsDialog>(DefaultAllocator(), context);
+        CHECK(CountSlots(*dialog) == single + 2u); // a slot per listed font
+    }
+    context.SetProject(nullptr);
+    project.Reset();
+    (void)RemoveDirectoryRecursive(dir);
 }
 
 // editor-lists-and-asset-slots P3 (Sedulous 0fac1640): an entity reference takes a hierarchy row

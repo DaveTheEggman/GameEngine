@@ -10,7 +10,8 @@
 //
 // [Save] writes the fields back into EditorProject::Settings() and persists the manifest;
 // [Cancel]/Escape discards. Every asset setting is a ResourceRefEditor row: pick, drop and clear
-// set the instance GUID (rename/move-proof); Save keeps the path alongside as a mirror.
+// set the instance GUID (rename/move-proof); Save keeps the path alongside as a mirror. An asset
+// list setting (the other UI fonts) is a ContainerListEditor row of slots.
 
 module;
 #include "Core/Prelude.h"
@@ -26,6 +27,8 @@ import engine.render; // the canonical MSAA level table (kMsaaLevels + index<->s
 import engine.project; // ProjectSettings' reflected settings
 import editor.core;
 import :resource_ref_editor;
+import :container_list_editor;
+import :asset_picker_dialog;
 
 using namespace foundation::core;
 
@@ -120,6 +123,14 @@ export namespace editor::app
         void AddAssetRow(ui::FlexLayout& column, StringView label, Guid& id, StringView typeName,
                          StringView emptyText);
 
+        /// An asset list setting's row: a list of slots (add, pick, drop, reorder, remove) over
+        /// `m_assetLists[index]`, rebuilt after every change.
+        void AddAssetListRow(ui::FlexLayout& column, StringView label, usize index);
+        void RebuildAssetList(usize index);
+        /// After the gesture that changed list `index`: its editor is running the callback, so it
+        /// is replaced once the dispatch is over.
+        void AssetListChanged(usize index);
+
         void Apply();
 
         /// A string setting's row and the reflected property Save writes it to.
@@ -135,10 +146,22 @@ export namespace editor::app
             Guid id;
         };
 
+        /// An asset list setting: the reflected property, the list as edited (nil entries are
+        /// slots not yet picked; Save drops them), the cell its editor sits in, and the editor.
+        struct AssetListSetting
+        {
+            const PropertyInfo* property = nullptr;
+            String assetType;
+            Array<Guid> ids;
+            ui::FlexLayout* host = nullptr;
+            RefPtr<ContainerListEditor> list;
+        };
+
         editor::EditorContext* m_context;
         Array<TextSetting> m_texts;
         Array<AssetSetting> m_assets; // sized before the rows bind to it: never reallocates after
         Array<RefPtr<ResourceRefEditor>> m_assetRows; // the rows' editors; their views sit in rows
+        Array<AssetListSetting> m_assetLists; // sized before the rows build: indices stay put
         RefPtr<ui::ComboBox> m_msaaCombo; // scene-pass MSAA: Off/2x/4x -> renderMsaaSamples 1/2/4
     };
 

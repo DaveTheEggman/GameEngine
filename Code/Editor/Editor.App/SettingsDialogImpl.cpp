@@ -26,6 +26,8 @@ import engine.render; // MsaaSamplesForIndex (the canonical MSAA level mapping)
 import engine.project; // ProjectSettings' reflected settings
 import editor.core;
 import :resource_ref_editor;
+import :container_list_editor;
+import :asset_picker_dialog;
 
 using namespace foundation::core;
 namespace content = foundation::content;
@@ -86,8 +88,20 @@ namespace editor::app
                 }
                 m_assets.PushBack(entry);
             }
+            else if (proj::IsAssetListSetting(property))
+            {
+                AssetListSetting entry;
+                entry.property = &property;
+                entry.assetType = *proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute);
+                if (project != nullptr)
+                {
+                    entry.ids = *static_cast<const Array<Guid>*>(property.address(settings));
+                }
+                m_assetLists.PushBack(Move(entry));
+            }
         }
         usize asset = 0;
+        usize list = 0;
         for (const PropertyInfo& property : Properties(type))
         {
             const String* label = proj::SettingAttribute(property, proj::kSettingLabelAttribute);
@@ -97,7 +111,8 @@ namespace editor::app
             }
             if (proj::IsAssetListSetting(property))
             {
-                continue; // a list of assets: edited over MCP until the dialog has a list row
+                AddAssetListRow(column, label->AsView(), list++);
+                continue;
             }
             if (const String* assetType =
                     proj::SettingAttribute(property, proj::kSettingAssetTypeAttribute))
@@ -137,6 +152,118 @@ namespace editor::app
         m_assetRows.PushBack(Move(editor));
     }
 
+    void ProjectSettingsDialog::AddAssetListRow(ui::FlexLayout& column, StringView label, usize index)
+    {
+        ui::FlexLayout* row = AddRow(column, label);
+        auto host = MakeRef<ui::FlexLayout>(MemoryAllocator());
+        host->Direction = ui::Orientation::Vertical;
+        ui::LayoutStyle grow;
+        grow.FlexGrow = 1.0f;
+        row->AddView(host.Get(), grow);
+        m_assetLists[index].host = host.Get();
+        RebuildAssetList(index);
+    }
+
+    void ProjectSettingsDialog::AssetListChanged(usize index)
+    {
+        if (Context == nullptr)
+        {
+            return;
+        }
+        RefPtr<ProjectSettingsDialog> self(this); // alive until the rebuild runs
+        Context->MutationQueueRef().QueueAction(Function<void()>{[self, index]() { self->RebuildAssetList(index); }});
+    }
+
+    void ProjectSettingsDialog::RebuildAssetList(usize index)
+    {
+        AssetListSetting& setting = m_assetLists[index];
+        if (setting.list.Get() != nullptr)
+        {
+            setting.host->RemoveView(setting.list->EditorView());
+        }
+        const String* label = engine::project::SettingAttribute(*setting.property,
+                                                                engine::project::kSettingLabelAttribute);
+        auto list = MakeRef<ContainerListEditor>(MemoryAllocator(), label->AsView(), StringView(u8"Project"));
+        for (const Guid& id : setting.ids)
+        {
+            list->slotNames.PushBack(id.IsNil() ? String(Format(u8"(pick a {})", setting.assetType.AsView()))
+                                                : String(m_context->AssetNameFor(id)));
+        }
+        Array<String> accepted;
+        accepted.PushBack(setting.assetType);
+        list->SetAcceptedTypes(Move(accepted));
+        ProjectSettingsDialog* self = this;
+        list->OnAdd = [self, index]()
+        {
+            self->m_assetLists[index].ids.PushBack(Guid());
+            self->AssetListChanged(index);
+        };
+        list->OnRemoveSlot = [self, index](usize slot)
+        {
+            Array<Guid>& ids = self->m_assetLists[index].ids;
+            if (slot < ids.Size())
+            {
+                ids.RemoveAt(slot);
+                self->AssetListChanged(index);
+            }
+        };
+        list->OnMoveSlot = [self, index](usize slot, bool up)
+        {
+            Array<Guid>& ids = self->m_assetLists[index].ids;
+            if ((up && slot == 0) || slot >= ids.Size())
+            {
+                return;
+            }
+            const usize other = up ? slot - 1 : slot + 1;
+            if (other >= ids.Size())
+            {
+                return;
+            }
+            const Guid moved = ids[slot];
+            ids[slot] = ids[other];
+            ids[other] = moved;
+            self->AssetListChanged(index);
+        };
+        list->OnAssignSlot = [self, index](usize slot, const Guid& picked)
+        {
+            Array<Guid>& ids = self->m_assetLists[index].ids;
+            if (slot < ids.Size())
+            {
+                ids[slot] = picked;
+                self->AssetListChanged(index);
+            }
+        };
+        list->OnAppendDropped = [self, index](const Guid& picked)
+        {
+            self->m_assetLists[index].ids.PushBack(picked);
+            self->AssetListChanged(index);
+        };
+        list->OnPickSlot = [self, index](usize slot)
+        {
+            if (self->Context == nullptr)
+            {
+                return;
+            }
+            Array<String> types;
+            types.PushBack(self->m_assetLists[index].assetType);
+            auto dialog = MakeRef<AssetPickerDialog>(self->MemoryAllocator(), *self->m_context, Move(types));
+            dialog->OnPicked = [self, index, slot](const Guid& picked)
+            {
+                Array<Guid>& ids = self->m_assetLists[index].ids;
+                if (slot < ids.Size())
+                {
+                    ids[slot] = picked;
+                    self->AssetListChanged(index);
+                }
+            };
+            dialog->Show(self->Context);
+        };
+        ui::LayoutStyle match;
+        match.Width = ui::SizeSpec::Match();
+        setting.host->AddView(list->EditorView(), match);
+        setting.list = Move(list);
+    }
+
     void ProjectSettingsDialog::Apply()
     {
         editor::EditorProject* project = m_context->Project();
@@ -154,6 +281,24 @@ namespace editor::app
         for (const AssetSetting& asset : m_assets)
         {
             *static_cast<Guid*>(asset.property->address(settings)) = asset.id;
+        }
+        for (const AssetListSetting& list : m_assetLists)
+        {
+            // Picked slots only, each once.
+            Array<Guid>& ids = *static_cast<Array<Guid>*>(list.property->address(settings));
+            ids.Clear();
+            for (const Guid& id : list.ids)
+            {
+                bool listed = id.IsNil();
+                for (const Guid& other : ids)
+                {
+                    listed = listed || other == id;
+                }
+                if (!listed)
+                {
+                    ids.PushBack(id);
+                }
+            }
         }
         const i32 msaaIdx = (m_msaaCombo.Get() != nullptr) ? m_msaaCombo->SelectedIndex() : 0;
         project->Settings().renderMsaaSamples = engine::render::MsaaSamplesForIndex(msaaIdx);
