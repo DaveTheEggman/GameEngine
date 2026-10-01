@@ -41,6 +41,7 @@ namespace
                               StringView readScript, StringView pushScript)
     {
         REQUIRE(manager.Get() != nullptr);
+        RegisterCoreTypes(); // Float2, which value2D returns
         engine::input::RegisterInputScriptFacade();
 
         // Two runtimes, two contexts - each script reads ITS OWN bound runtime (players /
@@ -71,6 +72,8 @@ namespace
         REQUIRE(ctxA->Load(readScript, u8"main").IsOk());
         CHECK(ctxA->GetGlobal(u8"Down").Get<bool>() == true);
         CHECK(ctxA->GetGlobal(u8"MoveY").Get<f64>() == doctest::Approx(1.0));
+        CHECK(ctxA->GetGlobal(u8"Move2DY").Get<f64>() == doctest::Approx(1.0));
+        CHECK(ctxA->GetGlobal(u8"Move2DX").Get<f64>() == doctest::Approx(0.0));
 
         REQUIRE(ctxB->Load(readScript, u8"main").IsOk());
         CHECK(ctxB->GetGlobal(u8"Down").Get<bool>() == false); // B's runtime saw nothing
@@ -93,10 +96,13 @@ namespace
 TEST_CASE("input: the Input facade resolves PER-CONTEXT services (AngelScript)")
 {
     DrivePerContextInput(foundation::script::angelscript::CreateScriptManager(foundation::core::DefaultAllocator()),
-                         u8"bool Down; double MoveY;\n"
+                         u8"bool Down; double MoveY; double Move2DX; double Move2DY;\n"
                          u8"void main() {\n"
                          u8"  Down = Input::isDown(\"Jump\");\n"
                          u8"  MoveY = Input::valueY(\"Move\");\n"
+                         u8"  Float2 move = Input::value2D(\"Move\");\n"
+                         u8"  Move2DX = move.x;\n"
+                         u8"  Move2DY = move.y;\n"
                          u8"}\n",
                          u8"void main() { Input::pushSet(\"Menu\"); }\n");
 }
@@ -107,7 +113,10 @@ TEST_CASE("input: the Input facade resolves PER-CONTEXT services (Luau)")
 {
     DrivePerContextInput(foundation::script::CreateLuauScriptManager(DefaultAllocator()),
                          u8"Down = Input.isDown(\"Jump\")\n"
-                         u8"MoveY = Input.valueY(\"Move\")\n",
+                         u8"MoveY = Input.valueY(\"Move\")\n"
+                         u8"local move = Input.value2D(\"Move\")\n"
+                         u8"Move2DX = move.x\n"
+                         u8"Move2DY = move.y\n",
                          u8"Input.pushSet(\"Menu\")\n");
 }
 #endif // OPTION_HAS_LUAU

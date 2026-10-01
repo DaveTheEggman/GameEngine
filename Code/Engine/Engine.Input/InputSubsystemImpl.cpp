@@ -31,6 +31,7 @@ namespace engine::input
         builder.Method<&Input::value>("value");
         builder.Method<&Input::valueX>("valueX");
         builder.Method<&Input::valueY>("valueY");
+        builder.Method<&Input::value2D>("value2D", {"action"});
         builder.Method<&Input::pushSet>("pushSet");
         builder.Method<&Input::popSet>("popSet");
         builder.Method<&Input::enableSet>("enableSet");

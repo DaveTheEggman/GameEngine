@@ -189,6 +189,12 @@ export namespace engine::input
             ActionRuntime* rt = Resolve();
             return rt != nullptr ? rt->Value2D(rt->Resolve(name.AsView())).y : 0.0f;
         }
+        /// A 2D action's value as one Float2 (Sedulous's Value2D): valueX and valueY together.
+        [[nodiscard]] static Float2 value2D(String name)
+        {
+            ActionRuntime* rt = Resolve();
+            return rt != nullptr ? rt->Value2D(rt->Resolve(name.AsView())) : Float2{0.0f, 0.0f};
+        }
         static void pushSet(String name)
         {
             if (ActionRuntime* rt = Resolve())
