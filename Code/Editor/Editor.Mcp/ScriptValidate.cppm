@@ -9,9 +9,9 @@
 // file/line, and on success the harvested metadata (class name, declared handlers, editor
 // properties, coroutine use) so the agent sees what the engine RECOGNIZED, not just "ok".
 //
-// Honesty: this is a compile check. Type errors against the bound engine API (a misspelled
-// method, wrong argument types) are NOT detected - that requires the TYPED version, built
-// on the Luau analyzer toolchain. The description says so.
+// Honesty: this is a compile check. A misspelled engine method is a compile error only where
+// the language sees the call (AngelScript compiles against the bound API; Luau resolves a member
+// at run time) - the typed check needs the Luau analyzer toolchain. The description says so.
 
 module;
 #include "Core/Prelude.h"
@@ -54,8 +54,8 @@ export namespace editor::mcp
             u8"and on success the harvested metadata (className, handlers, properties, "
             u8"usesCoroutines) - confirm the engine recognized what you wrote. Use as the "
             u8"validation loop while authoring scripts, BEFORE creating the asset. Limits: "
-            u8"compile only - calls against the engine API are NOT type-checked (a misspelled "
-            u8"method compiles fine and fails at runtime); check signatures with script_api.",
+            u8"compile only - a misspelled engine method is a compile error only where the "
+            u8"language sees the call; check signatures with script_api.",
             SchemaBuilder()
                 .Str(u8"source", u8"the full script source text", true)
                 .Enum(u8"language", detail::ScriptLanguageChoices(),

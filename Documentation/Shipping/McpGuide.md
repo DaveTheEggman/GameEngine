@@ -171,9 +171,9 @@ here has; its templateId need not, since presets travel with the project and tem
 
 ## Per-tool gotchas
 
-- `script_validate` is a COMPILE check (`checkLevel: "compile"`): engine-API calls are not
-  type-checked - a misspelled method compiles and fails at runtime. Cross-check with
-  `script_api`.
+- `script_validate` is a COMPILE check (`checkLevel: "compile"`): a call the language cannot
+  see through, a misspelled member on a handle say, compiles and fails at runtime. Cross
+  check against `script_api`.
 - `scene_validate` warnings mean component records of a type the engine does not know, or
   prefab instances whose prefab is not in the project - they would be SKIPPED on load. Treat
   warnings as breakage to fix, not noise.
