@@ -20,6 +20,7 @@ export import :operations;
 export import :asset_create;
 export import :asset_data;
 export import :project_settings;
+export import :reflected_fields;
 export import :scene_tools;
 export import :asset_uses;
 export import :project_health;
