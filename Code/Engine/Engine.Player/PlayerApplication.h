@@ -351,6 +351,9 @@ namespace engine::player
                 }
             }
 
+            // The resolution the game draws at, fitted into whatever window it got.
+            SetRenderResolution(m_settings.renderWidth, m_settings.renderHeight, m_settings.renderFit);
+
             // Game script launches FIRST (task #123 boot reorder): the orchestrator's launch()/
             // update(dt) run from frame 1, scene or none, with the engine-service bindings above
             // already in place. A game whose launch() needs a scene waits `while (!Game.sceneReady())`.

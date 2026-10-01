@@ -134,6 +134,13 @@ export namespace engine::runtime
         void SetAudioEngineSettings(const foundation::audio::AudioEngineSettings& settings);
         [[nodiscard]] engine::ui::UISubsystem* UI() const noexcept { return m_ui; }
 
+        /// The game draws at `width` x `height`, fitted into the window by `fit` (the bars black),
+        /// and its screen UI lays out at that size and draws crisp at the window's; its pointer
+        /// reads in render pixels. Nought on either axis draws at the window's own size. After
+        /// Configure.
+        void SetRenderResolution(core::u32 width, core::u32 height, core::FitMode fit);
+        [[nodiscard]] bool HasRenderResolution() const noexcept { return m_renderWidth > 0 && m_renderHeight > 0; }
+
         /// Preset BEFORE Configure: an explicit data-root directory (from `--data-root`);
         /// empty = discover it (the `Data/.dataroot` walk from the executable, then the cwd).
         /// Configure resolves it ONCE, mounts a filesystem over it, and hands that mount to
@@ -269,6 +276,15 @@ export namespace engine::runtime
         core::UniquePtr<foundation::resource::ResourceManager> m_ownedResources;
         engine::input::InputSubsystem* m_input = nullptr;
         engine::ui::UISubsystem* m_ui = nullptr;
+        // The resolution the game draws at, fitted into the window by m_renderFit; nought draws at
+        // the window's size. With it, the pointer the game and its screen UI read is in render
+        // pixels (m_fittedInput).
+        core::u32 m_renderWidth = 0;
+        core::u32 m_renderHeight = 0;
+        core::FitMode m_renderFit = core::FitMode::Letterbox;
+        core::UniquePtr<engine::input::FittedInputSource> m_fittedInput;
+        // The source a game instance reads: the fitted one with a render resolution, else the shell's.
+        [[nodiscard]] foundation::input::IInputSourceProvider* GameInputSource() noexcept;
         // Backs the `ui` script facade: a binding pointing at the UISubsystem's
         // screen-tier root + ScreenStack + a cooked-UIDocument instantiator, installed on every run
         // context by the context configurator. App-owned (the screen tier is app-wide).

@@ -20,6 +20,10 @@ import foundation.graphics;
 import foundation.script.facades;
 import engine.composition;
 import engine.defaultapp;
+import foundation.input; // IInputSourceProvider
+import engine.input;  // FittedInputSource (the render resolution's pointer)
+import engine.ui;     // the screen tier's design
+import engine.gameinstance;
 
 using namespace foundation::core;
 namespace runtime = foundation::runtime;
@@ -76,4 +80,39 @@ TEST_CASE("defaultapp: Configure registers the COMPLETE facade surface (the run 
 
     // The specific regression pin: the exported game's `run::loadScene` gap.
     CHECK(SurfaceHasName(u8"run"));
+}
+
+// Sedulous f9b1feb7: a render resolution fits the game into the window: its instances read the
+// pointer through a fitted source (render pixels), and the screen UI lays out at that size.
+// Nought goes back to the window's own size and the shell's devices.
+TEST_CASE("defaultapp: a render resolution fits the game's pointer and its screen UI")
+{
+    StubHost host;
+    engine::runtime::DefaultApplication app;
+    app.Configure(host);
+    REQUIRE(app.Input() != nullptr);
+    REQUIRE(app.UI() != nullptr);
+    foundation::input::IInputSourceProvider* shell = &app.Input()->ShellSource();
+    CHECK(app.Instance().InputSource() == shell);
+    CHECK_FALSE(app.HasRenderResolution());
+
+    app.SetRenderResolution(320, 180, FitMode::Letterbox);
+    CHECK(app.HasRenderResolution());
+    CHECK(app.UI()->HasScreenDesign());
+    foundation::input::IInputSourceProvider* fitted = app.Instance().InputSource();
+    REQUIRE(fitted != nullptr);
+    CHECK(fitted != shell);
+    CHECK(&app.Input()->ActiveSource() == fitted);
+    // An instance made after reads the fitted source too.
+    engine::runtime::GameInstance* extra = app.CreateInstance();
+    REQUIRE(extra != nullptr);
+    CHECK(extra->InputSource() == fitted);
+
+    app.SetRenderResolution(0, 0, FitMode::Letterbox);
+    CHECK_FALSE(app.HasRenderResolution());
+    CHECK_FALSE(app.UI()->HasScreenDesign());
+    CHECK(app.Instance().InputSource() == shell);
+    CHECK(extra->InputSource() == shell);
+    CHECK(&app.Input()->ActiveSource() == shell);
+    app.ReleaseInstance(extra);
 }

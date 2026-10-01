@@ -325,6 +325,53 @@ namespace engine::runtime
         return m_instance.Scenes();
     }
 
+    foundation::input::IInputSourceProvider* DefaultApplication::GameInputSource() noexcept
+    {
+        if (m_input == nullptr)
+        {
+            return nullptr;
+        }
+        return m_fittedInput ? static_cast<foundation::input::IInputSourceProvider*>(m_fittedInput.Get())
+                             : &m_input->ShellSource();
+    }
+
+    void DefaultApplication::SetRenderResolution(core::u32 width, core::u32 height, core::FitMode fit)
+    {
+        const bool fixedSize = width > 0 && height > 0;
+        m_renderWidth = fixedSize ? width : 0;
+        m_renderHeight = fixedSize ? height : 0;
+        m_renderFit = fit;
+        if (m_ui != nullptr)
+        {
+            m_ui->SetScreenDesign(m_renderWidth, m_renderHeight, fit);
+        }
+        if (m_input == nullptr)
+        {
+            return;
+        }
+        if (fixedSize)
+        {
+            if (!m_fittedInput)
+            {
+                m_fittedInput = core::MakeUnique<engine::input::FittedInputSource>(core::DefaultAllocator(),
+                                                                                    m_input->ShellSource());
+            }
+            m_fittedInput->fit = core::ContentFit{core::Rectangle{0.0f, 0.0f, 1.0f, 1.0f},
+                                                  core::Float2{static_cast<core::f32>(width),
+                                                               static_cast<core::f32>(height)},
+                                                  fit};
+            m_input->SetSourceProvider(m_fittedInput.Get());
+        }
+        else if (m_fittedInput)
+        {
+            m_input->ClearSourceProviderIf(m_fittedInput.Get());
+            ForEachInstance([this](GameInstance& instance) { instance.SetInputSource(&m_input->ShellSource()); });
+            m_fittedInput.Reset();
+            return;
+        }
+        ForEachInstance([this](GameInstance& instance) { instance.SetInputSource(GameInputSource()); });
+    }
+
     GameInstance* DefaultApplication::CreateInstance(bool headless)
     {
         if (m_scenes == nullptr || m_scripts == nullptr || m_host == nullptr)
@@ -342,7 +389,7 @@ namespace engine::runtime
             [this] { return MakeSpawnResolver(); });
         if (m_input != nullptr)
         {
-            gi->SetInputSource(&m_input->ShellSource());
+            gi->SetInputSource(GameInputSource());
         } // editor tabs override to their viewport
         m_extraInstances.PushBack(Move(owned));
         return gi;
@@ -676,8 +723,30 @@ namespace engine::runtime
                 }
                 for (foundation::scene::Scene* scene : gi.Scenes().ActiveScenes())
                 {
-                    render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width,
-                                        frame.height);
+                    if (!HasRenderResolution())
+                    {
+                        render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width,
+                                            frame.height);
+                        continue;
+                    }
+                    // At the render resolution fitted into the window, the pointer's fit following
+                    // the window as it resizes.
+                    const core::ContentFit fit{
+                        core::Rectangle{0.0f, 0.0f, static_cast<core::f32>(frame.width),
+                                        static_cast<core::f32>(frame.height)},
+                        core::Float2{static_cast<core::f32>(m_renderWidth), static_cast<core::f32>(m_renderHeight)},
+                        m_renderFit};
+                    if (m_fittedInput)
+                    {
+                        m_fittedInput->fit = fit;
+                    }
+                    const core::Rectangle dst = fit.DstRect();
+                    const foundation::render::ViewportRect viewport{static_cast<core::i32>(dst.x), static_cast<core::i32>(dst.y),
+                                                        static_cast<core::u32>(core::Max(dst.width, 1.0f)),
+                                                        static_cast<core::u32>(core::Max(dst.height, 1.0f))};
+                    render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width, frame.height,
+                                        viewport, nullptr, {}, nullptr, nullptr, nullptr,
+                                        foundation::render::SceneSize::FromFit(fit));
                 }
             });
         render->EndRendering(); // scene-tier overlays (HUD/billboards) draw inside the compose

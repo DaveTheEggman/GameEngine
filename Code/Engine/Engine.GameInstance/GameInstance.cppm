@@ -557,6 +557,7 @@ export namespace engine::runtime
         {
             m_inputSource = source;
         }
+        [[nodiscard]] input::IInputSourceProvider* InputSource() const noexcept { return m_inputSource; }
 
         /// Install the action map (the game's controls, from the project's input-map asset) on this
         /// instance's runtime. Each instance has its own runtime + map copy.
