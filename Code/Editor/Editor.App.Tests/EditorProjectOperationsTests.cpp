@@ -251,3 +251,52 @@ TEST_CASE("editor-operations: an export cooks first, then runs the export job, a
     CHECK(bench.cook.Revision() == 1u); // the export's cook went through the cook service
     CHECK_FALSE(bench.jobs.IsBusy());
 }
+
+// agent-playtesting-and-asset-creation.md P2 (Sedulous 14d6d524): asset_create on the editor
+// waits while a cook or an export holds the databases, then creates, names it exactly or
+// refuses a taken name, and runs the host's after-create effects.
+TEST_CASE("editor-operations: a creation waits for the cook gate, then creates and runs the "
+          "host's effects")
+{
+    Bench bench(u8"mcp_ops_create");
+    bool locked = true;
+    bench.cook.ExternalMutationLock = [&locked]() { return locked; };
+    usize effects = 0;
+    app::EditorProjectOperationsSeams seams = bench.Seams();
+    seams.onCreated = [&effects](const pipeline::AssetCreator&, content::Instance&) { ++effects; };
+    app::EditorProjectOperations ops(Move(seams));
+
+    pipeline::AssetCreator creator;
+    creator.label = String(u8"Options");
+    creator.type = &pipeline::ImportOptions::StaticType();
+    creator.defaultGroup = String(u8"Settings");
+    creator.run = [](const pipeline::AssetCreationContext& context)
+    {
+        pipeline::ImportOptions options;
+        return pipeline::CreateWrittenInstance(context.Target(), context.NameOr(u8"Options"),
+                                               pipeline::ImportOptions::StaticType(), options);
+    };
+    editor::mcp::CreateRequest request;
+    request.creator = &creator;
+    request.name = String(u8"Exact");
+
+    // Held: not finished, nothing written.
+    editor::mcp::OperationStep<editor::mcp::CreateOutcome> step = ops.Create(request);
+    REQUIRE(step.HasValue());
+    CHECK_FALSE(step.Value().HasValue());
+    CHECK(effects == 0u);
+
+    // Released: created under the exact name in the creator's group, with the effects.
+    locked = false;
+    step = ops.Create(request);
+    REQUIRE(step.HasValue());
+    REQUIRE(step.Value().HasValue());
+    CHECK(step.Value().Value().path == u8"Settings/Exact");
+    CHECK(effects == 1u);
+
+    // The same exact name again is refused, and no effect runs.
+    step = ops.Create(request);
+    REQUIRE_FALSE(step.HasValue());
+    CHECK(step.Error().AsView().ContainsIgnoreCase(u8"already exists"));
+    CHECK(effects == 1u);
+}

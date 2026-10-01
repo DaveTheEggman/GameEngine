@@ -84,6 +84,9 @@ int main(int argc, char** argv)
     pipeline::ImporterRegistry importers{foundation::core::DefaultAllocator()};
     pipeline::RegisterAllBuilders(builders);
     pipeline::RegisterAllImporters(importers);
+    // File > New's creators, every pipeline domain's (asset_creators / asset_create).
+    pipeline::AssetCreatorRegistry creators{foundation::core::DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
 
     McpServer server;
     server.SetServerInfo(u8"engine-mcp", u8"0.1.0");
@@ -113,8 +116,8 @@ int main(int argc, char** argv)
     // beside this executable and cooks shaders from the data root.
     editor::mcp::InlineProjectOperations operations(session, builders, GetExecutableDirectory(),
                                                     dataRoot);
-    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer, paths,
-                                     operations);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     paths, operations);
     // This host's additions: an agent opens (or scaffolds) the project it wants to work on.
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
     // host_info (ops hygiene): pid + build stamp + versions + the open-project state.

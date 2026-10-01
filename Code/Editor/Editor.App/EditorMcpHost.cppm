@@ -48,6 +48,7 @@ export namespace editor::app
         EditorMcpHost(IAllocator& allocator, editor::EditorContext& context,
                       editor::mcp::ProjectSession& session, editor::EditorLogBuffer& logBuffer,
                       pipeline::BuilderRegistry& builders, pipeline::ImporterRegistry& importers,
+                      const pipeline::AssetCreatorRegistry& creators,
                       const editor::mcp::EngineToolPaths& paths,
                       editor::mcp::IProjectOperations& operations, String buildStamp);
         /// Stops, and takes back what the host wired on the session: the session outlives

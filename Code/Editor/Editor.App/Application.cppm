@@ -219,6 +219,11 @@ export namespace editor::app
         // File > New <creator>: create the source instance, remember it as the project's default
         // document if none is set yet (so a fresh project reopens where you left off), open it.
         void CreateAndOpen(const pipeline::AssetCreator& creator, foundation::content::Group* group = nullptr);
+        /// What follows every creation, File > New's and asset_create's alike: a first scene
+        /// becomes the project's default, the browser shows the new row, and a type a builder
+        /// cooks is cooked so it is pickable at once.
+        void AfterCreate(const pipeline::AssetCreator& creator,
+                         foundation::content::Instance& instance);
 
         // True = nothing dirty, exit may proceed. Otherwise shows the exit prompt and returns
         // false; its buttons finish the job (save-all -> exit / discard -> exit / cancel).

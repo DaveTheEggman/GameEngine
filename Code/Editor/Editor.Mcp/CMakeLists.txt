@@ -20,6 +20,7 @@ target_sources(Editor.Mcp
         FILE_SET editor_mcp_modules TYPE CXX_MODULES FILES
             McpSession.cppm
             ProjectOperations.cppm
+            AssetCreate.cppm
             SceneTools.cppm
             AssetUses.cppm
             ProjectHealth.cppm

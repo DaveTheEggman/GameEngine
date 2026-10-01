@@ -27,13 +27,15 @@ namespace editor::app
                                  editor::EditorLogBuffer& logBuffer,
                                  pipeline::BuilderRegistry& builders,
                                  pipeline::ImporterRegistry& importers,
+                                 const pipeline::AssetCreatorRegistry& creators,
                                  const editor::mcp::EngineToolPaths& paths,
                                  editor::mcp::IProjectOperations& operations, String buildStamp)
         : m_allocator(&allocator), m_http(allocator, m_server), m_session(&session)
     {
         // Distinct from the stdio host's "engine-mcp": an agent talking to both tells them apart.
         m_server.SetServerInfo(u8"engine-editor-mcp", u8"0.1.0");
-        editor::mcp::RegisterEngineTools(m_server, *m_session, builders, importers, logBuffer, paths,
+        editor::mcp::RegisterEngineTools(m_server, *m_session, builders, importers, creators, logBuffer,
+                                         paths,
                                          operations);
         context.ApplyMcpToolContributions(m_server); // the domains' live tools
         // An agent's write over a source asset is a change made outside its page, like an

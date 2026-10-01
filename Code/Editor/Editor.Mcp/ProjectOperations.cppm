@@ -2,7 +2,8 @@
 // Copyright (c) 2026-Present Robert Campbell
 // Editor::Mcp - :operations partition
 //
-// IProjectOperations: how a HOST runs the work behind asset_cook / asset_import / project_export.
+// IProjectOperations: how a HOST runs the work behind asset_cook / asset_import / asset_create /
+// project_export.
 // The tools themselves are shared - their arguments, refusals and result shapes are the same on
 // every host - but WHERE the work runs is the host's: the stdio host runs it inline on the
 // calling thread (every step answers at once), the editor on its own background services (the
@@ -20,6 +21,8 @@ module;
 export module editor.mcp:operations;
 
 import foundation.core;
+import foundation.content;
+import pipeline.core; // AssetCreator (asset_create)
 import pipeline.importer;
 import editor.project;
 
@@ -82,6 +85,25 @@ export namespace editor::mcp
         editor::ExportResult result;
     };
 
+    /// asset_create's resolved request: the creator the tool found, the group path (made when
+    /// missing; empty is the creator's own folder) and the exact name (empty is the creator's
+    /// own, made unique). The creator is borrowed from the host's registry.
+    struct CreateRequest
+    {
+        const pipeline::AssetCreator* creator = nullptr;
+        String groupPath;
+        String name;
+    };
+
+    /// What asset_create reports: the new asset's identity and where it landed.
+    struct CreateOutcome
+    {
+        Guid guid;
+        String name;
+        String type;
+        String path;
+    };
+
     class IProjectOperations
     {
     public:
@@ -92,5 +114,68 @@ export namespace editor::mcp
         [[nodiscard]] virtual OperationStep<ImportOutcome> Import(const ImportRequest& request) = 0;
         /// A shippable dist of the open project through the one export entry point.
         [[nodiscard]] virtual OperationStep<ExportOutcome> Export(const ExportRequest& request) = 0;
+        /// One new asset from a creator (RunAssetCreation), and whatever the host does after a
+        /// creation: the editor's cook request and default scene; nothing on the stdio host,
+        /// whose agent cooks next.
+        [[nodiscard]] virtual OperationStep<CreateOutcome> Create(const CreateRequest& request) = 0;
     };
+
+    /// asset_create's work, the same on every host: the group resolved (made when missing), a
+    /// taken name refused (an agent that names an asset means that name), the creator run.
+    /// Main thread: it writes the source database.
+    [[nodiscard]] inline Result<foundation::content::Instance*, String>
+    RunAssetCreation(editor::EditorProject& project, const CreateRequest& request)
+    {
+        foundation::content::Group* root = project.SourceDb().RootGroup();
+        foundation::content::Group* picked = nullptr;
+        if (!request.groupPath.IsEmpty())
+        {
+            // A slash-joined path, each part made when missing.
+            picked = root;
+            usize start = 0;
+            const StringView path = request.groupPath.AsView();
+            for (usize i = 0; i <= path.Size(); ++i)
+            {
+                if (i < path.Size() && path[i] != utf8char('/'))
+                {
+                    continue;
+                }
+                const StringView part = path.SubStr(start, i - start);
+                if (!part.IsEmpty())
+                {
+                    picked = picked->CreateGroup(part);
+                }
+                start = i + 1;
+            }
+        }
+        if (!request.name.IsEmpty())
+        {
+            foundation::content::Group* target = request.creator->TargetFor(picked, root);
+            if (target != nullptr && target->GetInstance(request.name.AsView()) != nullptr)
+            {
+                return Err(Format(u8"an asset named '{}' already exists in '{}'",
+                                  request.name.AsView(), target->Path().AsView()));
+            }
+        }
+        const String sourcesRoot = project.SourcesRoot();
+        foundation::content::Instance* instance = request.creator->Create(
+            picked, root, sourcesRoot.AsView(), request.name.AsView());
+        if (instance == nullptr)
+        {
+            return Err(Format(u8"the {} creator made nothing (a write was refused)",
+                              request.creator->label.AsView()));
+        }
+        return instance;
+    }
+
+    /// The outcome asset_create reports for `instance`.
+    [[nodiscard]] inline CreateOutcome CreateOutcomeOf(const foundation::content::Instance& instance)
+    {
+        CreateOutcome outcome;
+        outcome.guid = instance.Id();
+        outcome.name = String(instance.Name());
+        outcome.type = String(instance.TypeName());
+        outcome.path = instance.Path();
+        return outcome;
+    }
 }

@@ -78,7 +78,9 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     editor::mcp::ProjectSession session;
     editor::mcp::ProjectOwner owner;
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
                                      editor::mcp::EngineToolPaths{}, operations);
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
 
@@ -154,7 +156,9 @@ TEST_CASE("integration.mcp: RegisterEngineTools registers exactly kEngineToolCou
 
     McpServer server;
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
                                      editor::mcp::EngineToolPaths{}, operations);
     CHECK(server.ToolCount() == editor::mcp::kEngineToolCount);
 
@@ -288,6 +292,11 @@ namespace
             outcome.cooked = outcome.planned;
             return Optional<editor::mcp::CookOutcome>(outcome);
         }
+        editor::mcp::OperationStep<editor::mcp::CreateOutcome>
+        Create(const editor::mcp::CreateRequest&) override
+        {
+            return Err(String(u8"this host creates nothing"));
+        }
         editor::mcp::OperationStep<editor::mcp::ImportOutcome>
         Import(const editor::mcp::ImportRequest& request) override
         {
@@ -406,3 +415,88 @@ TEST_CASE("integration.mcp: the write tools ride a host's operations - not finis
     std::filesystem::remove_all("mcp_slow_project", ec);
 }
 
+
+// agent-playtesting-and-asset-creation.md P2 (Sedulous 14d6d524): asset_creators lists what
+// File > New offers, and asset_create makes one by label or by type, under a group or the
+// creator's own, with an exact name refused when taken.
+TEST_CASE("integration.mcp: asset_creators and asset_create make what File > New makes")
+{
+    pipeline::RegisterPipelineTypes();
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    McpServer server;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    (void)RemoveDirectoryRecursive(u8"mcp_create_project");
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_create_project"),
+                       u8"name", u8"Create"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_create_project"));
+
+    // The list is the registry, with each creator's default group.
+    JsonValue listed = FfCall(server, u8"asset_creators", JsonValue::MakeObject());
+    CHECK(listed.Get(u8"count").AsNumber() == doctest::Approx(static_cast<f64>(creators.Count())));
+    bool sawMaterials = false;
+    for (usize i = 0; i < listed.Get(u8"creators").Items().Size(); ++i)
+    {
+        const JsonValue& item = listed.Get(u8"creators").At(i);
+        if (item.Get(u8"label").AsString() == StringView(u8"PBR Material"))
+        {
+            sawMaterials = item.Get(u8"defaultGroup").AsString() == StringView(u8"Materials");
+        }
+    }
+    CHECK(sawMaterials);
+
+    // By label (any case), named: it lands in the creator's default group under that name.
+    JsonValue scene = FfCall(server, u8"asset_create",
+                             FfStr(FfStr(JsonValue::MakeObject(), u8"creator", u8"scene"),
+                                   u8"name", u8"Arena"));
+    CHECK(scene.Get(u8"name").AsString() == StringView(u8"Arena"));
+    CHECK(scene.Get(u8"path").AsString() == StringView(u8"Scenes/Arena"));
+    CHECK(scene.Get(u8"type").AsString() == StringView(u8"SceneDocument"));
+
+    // By type, into a group made for it.
+    JsonValue map = FfCall(server, u8"asset_create",
+                           FfStr(FfStr(JsonValue::MakeObject(), u8"type", u8"InputMapAsset"),
+                                 u8"group", u8"Input/Maps"));
+    CHECK(map.Get(u8"path").AsString() == StringView(u8"Input/Maps/InputMap"));
+
+    // A taken exact name is refused, a type two creators make needs a label.
+    const auto refusal = [&](JsonValue arguments)
+    {
+        JsonValue params = JsonValue::MakeObject();
+        params.Set(u8"name", JsonValue::MakeString(String(u8"asset_create")));
+        params.Set(u8"arguments", Move(arguments));
+        JsonValue req = JsonValue::MakeObject();
+        req.Set(u8"jsonrpc", JsonValue::MakeString(u8"2.0"));
+        req.Set(u8"id", JsonValue::MakeNumber(2));
+        req.Set(u8"method", JsonValue::MakeString(u8"tools/call"));
+        req.Set(u8"params", Move(params));
+        LineOutcome line = server.HandleLine(req.ToString().AsView());
+        JsonValue resp = json::Parse(line.response.AsView()).value;
+        CHECK(resp.Get(u8"result").Get(u8"isError").AsBool());
+        return String(resp.Get(u8"result").Get(u8"content").At(0).Get(u8"text").AsString());
+    };
+    CHECK(refusal(FfStr(FfStr(JsonValue::MakeObject(), u8"creator", u8"Scene"), u8"name",
+                        u8"Arena"))
+              .AsView()
+              .ContainsIgnoreCase(u8"already exists"));
+    CHECK(refusal(FfStr(JsonValue::MakeObject(), u8"type", u8"MaterialAsset"))
+              .AsView()
+              .ContainsIgnoreCase(u8"no single creator"));
+    CHECK(refusal(FfStr(JsonValue::MakeObject(), u8"creator", u8"Nope"))
+              .AsView()
+              .ContainsIgnoreCase(u8"no creator labelled"));
+
+    owner.project.Reset();
+    session.project = nullptr;
+    (void)RemoveDirectoryRecursive(u8"mcp_create_project");
+}

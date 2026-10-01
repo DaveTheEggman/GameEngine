@@ -40,6 +40,9 @@ export namespace editor::app
         String templatesRoot; ///< the resolved templates root (reads settings: main thread)
         String dataRoot;      ///< the engine data root (the shader cook reads <dataRoot>/Shaders)
         f64 timeoutSeconds = 600.0; ///< a step still running past this answers with an error
+        /// After a creation: the editor's effects (a first scene as the default, the browser,
+        /// the cook), the ones File > New has.
+        Function<void(const pipeline::AssetCreator&, foundation::content::Instance&)> onCreated;
     };
 
     class EditorProjectOperations final : public editor::mcp::IProjectOperations
@@ -55,6 +58,10 @@ export namespace editor::app
         Import(const editor::mcp::ImportRequest& request) override;
         [[nodiscard]] editor::mcp::OperationStep<editor::mcp::ExportOutcome>
         Export(const editor::mcp::ExportRequest& request) override;
+        /// On the main thread, never while a cook or an export reads the databases (it waits,
+        /// as an import's placement does); then the host's effects through onCreated.
+        [[nodiscard]] editor::mcp::OperationStep<editor::mcp::CreateOutcome>
+        Create(const editor::mcp::CreateRequest& request) override;
 
     private:
         /// A cook requested and awaited: finished once the service's revision has moved past
@@ -131,5 +138,6 @@ export namespace editor::app
         CookWait m_cook;
         ImportJob m_import;
         ExportJob m_export;
+        u64 m_createStarted = 0; ///< when a creation first waited on the cook gate; 0 = none
     };
 }

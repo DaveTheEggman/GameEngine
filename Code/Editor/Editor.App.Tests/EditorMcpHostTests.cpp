@@ -120,7 +120,8 @@ TEST_CASE("editor-mcp-host: serves the engine surface over the live project on l
                                 { return JsonValue::MakeObject(); });
         });
     app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders, importers,
-                            editor::mcp::EngineToolPaths{}, operations, String(u8"test-stamp"));
+                            context.Creators(), editor::mcp::EngineToolPaths{}, operations,
+                            String(u8"test-stamp"));
     // The host wires a tool's write over a source asset to the open pages editing it, the way
     // any change made outside a page reaches them.
     {
@@ -238,8 +239,8 @@ TEST_CASE("editor-mcp-host: an empty token never serves")
     EditorContext context{DefaultAllocator()};
     {
         app::EditorMcpHost host(DefaultAllocator(), context, session, logBuffer, builders,
-                                importers, editor::mcp::EngineToolPaths{}, operations,
-                                String(u8"test-stamp"));
+                                importers, context.Creators(), editor::mcp::EngineToolPaths{},
+                                operations, String(u8"test-stamp"));
         app::EditorMcpHostConfig config; // no token
         CHECK_FALSE(host.Start(config));
         CHECK_FALSE(host.IsRunning());

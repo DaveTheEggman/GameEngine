@@ -1104,11 +1104,18 @@ namespace editor::app
                                  .AsView());
             return;
         }
+        AfterCreate(creator, *instance);
+        (void)OpenInstancePage(*instance);
+    }
+
+    void EditorApplication::AfterCreate(const pipeline::AssetCreator& creator,
+                                        foundation::content::Instance& instance)
+    {
         if (creator.setsDefaultScene && m_project && m_project->Settings().defaultSceneId.IsNil() &&
             m_project->Settings().defaultScene.IsEmpty())
         {
-            m_project->Settings().defaultSceneId = instance->Id();
-            m_project->Settings().defaultScene = instance->Path();
+            m_project->Settings().defaultSceneId = instance.Id();
+            m_project->Settings().defaultScene = instance.Path();
             (void)m_project->SaveSettings();
         }
         // Surface the new row immediately (the File-menu path bypasses the assets view's own
@@ -1118,11 +1125,10 @@ namespace editor::app
         {
             m_assetsView->Rebuild();
         }
-        if (m_builders.FindByTypeName(instance->TypeName()) != nullptr)
+        if (m_builders.FindByTypeName(instance.TypeName()) != nullptr)
         {
             m_cookService.RequestCook(false);
         }
-        (void)OpenInstancePage(*instance);
     }
 
     bool EditorApplication::ConfirmExitAllowed()
@@ -2831,10 +2837,13 @@ namespace editor::app
         seams.hostToolDir = GetExecutableDirectory();
         seams.templatesRoot = TemplatesRoot();
         seams.dataRoot = m_config.dataRoot;
+        seams.onCreated = [this](const pipeline::AssetCreator& creator,
+                                 foundation::content::Instance& instance)
+        { AfterCreate(creator, instance); };
         m_mcpOperations = MakeUnique<EditorProjectOperations>(m_editorAllocator, Move(seams));
         m_mcpHost = MakeUnique<EditorMcpHost>(
             m_editorAllocator, m_editorAllocator, m_context, m_mcpSession, *m_config.logBuffer,
-            m_builders, m_context.Importers(), paths, *m_mcpOperations,
+            m_builders, m_context.Importers(), m_context.Creators(), paths, *m_mcpOperations,
             String(reinterpret_cast<const char8_t*>(BuildStamp())));
         m_mcpHost->OnToolFinished = [this](StringView tool, bool isError)
         { m_context.SetStatus(Format(u8"MCP: {} {}", tool, isError ? u8"failed" : u8"done")); };

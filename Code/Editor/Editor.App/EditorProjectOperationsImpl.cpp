@@ -390,4 +390,37 @@ namespace editor::app
         job = ExportJob{};
         return Optional<ExportOutcome>(Move(outcome));
     }
+
+    OperationStep<editor::mcp::CreateOutcome>
+    EditorProjectOperations::Create(const editor::mcp::CreateRequest& request)
+    {
+        if (m_seams.cook->MutationLocked())
+        {
+            if (m_createStarted == 0)
+            {
+                m_createStarted = GetTicks();
+            }
+            if (TimedOut(m_createStarted))
+            {
+                m_createStarted = 0;
+                return Err(Format(u8"create of a {}: the databases stayed locked by a cook or "
+                                  u8"export for {} s",
+                                  request.creator->label.AsView(),
+                                  static_cast<i64>(m_seams.timeoutSeconds)));
+            }
+            return Optional<editor::mcp::CreateOutcome>{};
+        }
+        m_createStarted = 0;
+        Result<content::Instance*, String> created =
+            editor::mcp::RunAssetCreation(*m_seams.project, request);
+        if (!created.HasValue())
+        {
+            return Err(Move(created.Error()));
+        }
+        if (m_seams.onCreated)
+        {
+            m_seams.onCreated(*request.creator, *created.Value());
+        }
+        return Optional<editor::mcp::CreateOutcome>(editor::mcp::CreateOutcomeOf(*created.Value()));
+    }
 }

@@ -355,7 +355,9 @@ TEST_CASE("integration.mcp: scene reference - RegisterEngineTools serves both ge
 
     McpServer server;
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
-    editor::mcp::RegisterEngineTools(server, session, builders, importers, logBuffer,
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
                                      editor::mcp::EngineToolPaths{}, operations);
 
     const JsonValue resources =
