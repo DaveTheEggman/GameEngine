@@ -474,13 +474,25 @@ export namespace engine::runtime
     public:
 
         [[nodiscard]] bool ScriptRunning() const noexcept { return m_game.Get() != nullptr; }
+        /// Reads a property of the running game script (a score, a lives count). NotFound with
+        /// no script running or no such property.
+        [[nodiscard]] core::Result<core::Variant> GetScriptProperty(core::StringView name) const
+        {
+            if (m_game.Get() == nullptr)
+            {
+                return core::Err(core::ErrorCode::NotFound);
+            }
+            return m_game->GetProperty(name);
+        }
 
         /// Why the game script stopped on its own: the handler it faulted in and the error the
         /// run reported, or that it did not compile or instantiate. Empty while it runs or after
         /// a clean stop; a start clears it.
         [[nodiscard]] core::StringView ScriptFault() const noexcept { return m_scriptFault.AsView(); }
-        /// Gameplay seconds since ResetRunClock: the scaled time the game script moved by,
-        /// standing still while the debugger holds the run.
+        /// Seconds of frames since ResetRunClock: the host's delta, NOT scaled by the context's,
+        /// the instance's or the scene's time scale, so a menu that stops gameplay time (scene
+        /// time scale 0) does not stop it; a scripted playtest times its input by it. Stands
+        /// still while the debugger holds the run.
         [[nodiscard]] f64 RunTime() const noexcept { return m_runTime; }
         void ResetRunClock() noexcept { m_runTime = 0.0; }
         [[nodiscard]] script::IScriptContext* ScriptContext() const noexcept
@@ -575,7 +587,7 @@ export namespace engine::runtime
             m_scriptContext; // the game script's ref to the run host's context
         core::RefPtr<script::ScriptObject> m_game;
         core::String m_scriptFault; // why the game script stopped on its own (ScriptFault)
-        f64 m_runTime = 0.0;        // gameplay seconds the game script moved by (RunTime)
+        f64 m_runTime = 0.0;        // unscaled seconds of script frames (RunTime)
         engine::script::ScriptEventSubscriptions m_gameEventSubs; // Game tier's run-bus on<Event> inbox
 
         NetworkController m_network; // this run's networking (endpoint + INetworkController), composed

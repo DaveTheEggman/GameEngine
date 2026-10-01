@@ -392,7 +392,7 @@ namespace engine::runtime
         const f32 sceneScale = m_scene != nullptr ? m_scene->TimeScale() : 1.0f;
         const scene::FrameTime frame(hostDeltaTime, contextTimeScale, m_instanceTimeScale,
                                      sceneScale);
-        m_runTime += static_cast<f64>(frame.SceneDt());
+        m_runTime += static_cast<f64>(hostDeltaTime);
         core::Variant dt = core::Variant::From(frame.SceneDt());
         if (auto result = m_game->Invoke(u8"update", core::Span<core::Variant>{&dt, 1});
             !result.HasValue())
