@@ -192,6 +192,8 @@ export namespace foundation::ui
         }
         /// The header band's laid-out height (>= HeaderHeight once measured).
         [[nodiscard]] f32 HeaderBandHeight() const { return m_header->MeasuredSize.y; }
+        /// The section's body (null when none is set).
+        [[nodiscard]] View* Content() const noexcept { return m_content; }
 
         void OnKeyDown(KeyEventArgs& e) override
         {

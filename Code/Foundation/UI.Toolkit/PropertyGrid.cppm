@@ -90,6 +90,54 @@ export namespace foundation::ui::toolkit
             Invalidate();
         }
 
+        /// The actions registered for `category`'s header (null when none): what a test drives a
+        /// section's icons through.
+        [[nodiscard]] View* GetCategoryHeaderActions(StringView category) const
+        {
+            for (usize i = 0; i < m_actionCategories.Size(); ++i)
+            {
+                if (StringView(m_actionCategories[i]) == category)
+                {
+                    return m_actionViews[i].Get();
+                }
+            }
+            return nullptr;
+        }
+
+        /// Places `category`'s section INSIDE `parent`'s body, after the parent's own rows, rather
+        /// than beside it (a script component's behaviours inside the component). A parent that
+        /// never appears, or a nesting that would loop, leaves the section at the top level.
+        void SetCategoryParent(StringView category, StringView parent)
+        {
+            for (usize i = 0; i < m_nestedCategories.Size(); ++i)
+            {
+                if (StringView(m_nestedCategories[i]) == category)
+                {
+                    m_nestedParents[i] = String(parent);
+                    m_needsRebuild = true;
+                    Invalidate();
+                    return;
+                }
+            }
+            m_nestedCategories.PushBack(String(category));
+            m_nestedParents.PushBack(String(parent));
+            m_needsRebuild = true;
+            Invalidate();
+        }
+
+        /// The category `category` nests in, or empty.
+        [[nodiscard]] StringView CategoryParent(StringView category) const
+        {
+            for (usize i = 0; i < m_nestedCategories.Size(); ++i)
+            {
+                if (StringView(m_nestedCategories[i]) == category)
+                {
+                    return m_nestedParents[i].AsView();
+                }
+            }
+            return {};
+        }
+
         /// Remove a property by name.
         void RemoveProperty(StringView name)
         {
@@ -143,6 +191,8 @@ export namespace foundation::ui::toolkit
             m_actionCategories.Clear();
             m_actionViews.Clear();
             m_collapsedCategories.Clear();
+            m_nestedCategories.Clear();
+            m_nestedParents.Clear();
             m_needsRebuild = true;
             Invalidate();
         }
@@ -201,13 +251,7 @@ export namespace foundation::ui::toolkit
             // rebuild (undo/redo, shape change) must not slam shut a group the user opened - or
             // reopen one they collapsed. The remembered state wins over the default-collapsed
             // list; the default applies only to categories seen for the first time.
-            for (usize i = 0; i < m_content->ChildCount(); ++i)
-            {
-                if (auto* expander = Cast<Expander>(m_content->GetChildAt(i)))
-                {
-                    RememberExpansion(expander->HeaderText(), expander->IsExpanded());
-                }
-            }
+            RememberExpansions(*m_content);
 
             // Clear existing content.
             while (m_content->ChildCount() > 0)
@@ -254,7 +298,10 @@ export namespace foundation::ui::toolkit
                 AddEditorRowTo(m_content, uncategorized[i]);
             }
 
-            // Add categorized in Expanders.
+            // Every section is built first, then placed: inside its parent's body when it names a
+            // parent that is here (after the parent's own rows), else at the top level.
+            Array<RefPtr<Expander>> expanders;
+            Array<FlexLayout*> bodies;
             for (usize c = 0; c < categoryOrder.Size(); ++c)
             {
                 RefPtr<Expander> expander = MakeRef<Expander>(MemoryAllocator());
@@ -301,9 +348,86 @@ export namespace foundation::ui::toolkit
                     }
                 }
 
+                bodies.PushBack(catContent.Get());
+                expanders.PushBack(Move(expander));
+            }
+            for (usize c = 0; c < categoryOrder.Size(); ++c)
+            {
                 LayoutStyle expLp;
                 expLp.Width = SizeSpec::Match();
-                m_content->AddView(expander.Get(), expLp);
+                const i32 parent = NestingParent(categoryOrder, c);
+                if (parent >= 0)
+                {
+                    bodies[static_cast<usize>(parent)]->AddView(expanders[c].Get(), expLp);
+                }
+                else
+                {
+                    m_content->AddView(expanders[c].Get(), expLp);
+                }
+            }
+        }
+
+        /// The index of the section category `c` nests in, or -1 for the top level: no parent, a
+        /// parent that is not here, or a chain that loops back to `c`.
+        [[nodiscard]] i32 NestingParent(const Array<String>& categoryOrder, usize c) const
+        {
+            const auto indexOf = [&categoryOrder](StringView name) -> i32
+            {
+                for (usize i = 0; i < categoryOrder.Size(); ++i)
+                {
+                    if (StringView(categoryOrder[i]) == name)
+                    {
+                        return static_cast<i32>(i);
+                    }
+                }
+                return -1;
+            };
+            const StringView parentName = CategoryParent(categoryOrder[c].AsView());
+            if (parentName.IsEmpty())
+            {
+                return -1;
+            }
+            const i32 parent = indexOf(parentName);
+            if (parent < 0 || static_cast<usize>(parent) == c)
+            {
+                return -1;
+            }
+            // Walk up from the parent: meeting `c` again is a loop, and the section stays on top.
+            i32 at = parent;
+            for (usize guard = 0; guard < categoryOrder.Size(); ++guard)
+            {
+                const StringView up = CategoryParent(categoryOrder[static_cast<usize>(at)].AsView());
+                if (up.IsEmpty())
+                {
+                    return parent;
+                }
+                const i32 next = indexOf(up);
+                if (next < 0)
+                {
+                    return parent;
+                }
+                if (static_cast<usize>(next) == c)
+                {
+                    return -1;
+                }
+                at = next;
+            }
+            return -1;
+        }
+
+        /// What every expander, nested ones included, has open, before the tree is torn down.
+        void RememberExpansions(ViewGroup& container)
+        {
+            for (usize i = 0; i < container.ChildCount(); ++i)
+            {
+                if (auto* expander = Cast<Expander>(container.GetChildAt(i)))
+                {
+                    RememberExpansion(expander->HeaderText(), expander->IsExpanded());
+                    if (auto* body = Cast<ViewGroup>(expander->Content()))
+                    {
+                        RememberExpansions(*body);
+                    }
+                }
             }
         }
 
@@ -378,6 +502,9 @@ export namespace foundation::ui::toolkit
         Array<String> m_actionCategories;   // parallel: category -> header-action view
         Array<RefPtr<View>> m_actionViews;
         Array<String> m_collapsedCategories; // categories whose expanders build collapsed
+        // Parallel: a category and the category whose body it sits in (SetCategoryParent).
+        Array<String> m_nestedCategories;
+        Array<String> m_nestedParents;
         bool m_needsRebuild = true;
         // Per-category expansion memory across rebuilds (parallel arrays, keyed by header text).
         Array<String> m_expansionNames;

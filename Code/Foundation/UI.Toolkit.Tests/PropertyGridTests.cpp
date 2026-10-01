@@ -160,3 +160,87 @@ TEST_CASE("toolkit-propertyeditor: display-name changes reach the bound label si
     CHECK(seen == StringView(u8"Revert to Prefab \u25cf"));
     CHECK(editor->DisplayName() == StringView(u8"Revert to Prefab \u25cf"));
 }
+
+namespace
+{
+    // The expander headed `header`, anywhere in the tree, or null.
+    Expander* FindSection(View* view, StringView header)
+    {
+        if (auto* expander = Cast<Expander>(view); expander != nullptr && expander->HeaderText() == header)
+        {
+            return expander;
+        }
+        if (auto* group = Cast<ViewGroup>(view))
+        {
+            for (usize i = 0; i < group->ChildCount(); ++i)
+            {
+                if (Expander* found = FindSection(group->GetChildAt(i), header))
+                {
+                    return found;
+                }
+            }
+        }
+        return nullptr;
+    }
+
+    // The section a section sits in, through its body, or null at the top level.
+    Expander* SectionAround(Expander* section)
+    {
+        return section->Parent != nullptr ? Cast<Expander>(section->Parent->Parent) : nullptr;
+    }
+
+    RefPtr<FloatEditor> Row(StringView name, StringView category)
+    {
+        return core::MakeRef<FloatEditor>(core::DefaultAllocator(), name, 1.0, 0.0, 10.0, 1.0, 2,
+                                          Function<void(f64)>{}, category);
+    }
+}
+
+// A category can sit inside another's body (a component's behaviours inside the component); a
+// parent that is not there, or a loop, leaves it at the top level, and a nested section keeps
+// whether it was open across a rebuild (Sedulous 593d0a36).
+TEST_CASE("toolkit-propertygrid: a category nests inside its parent's body")
+{
+    auto grid = core::MakeRef<PropertyGrid>(core::DefaultAllocator());
+    grid->AddProperty(Row(u8"a", u8"Script"));
+    grid->AddProperty(Row(u8"b", u8"Behavior 1"));
+    grid->AddProperty(Row(u8"c", u8"Orphan"));
+    grid->AddProperty(Row(u8"e", u8"E"));
+    grid->AddProperty(Row(u8"f", u8"F"));
+    grid->SetCategoryParent(u8"Behavior 1", u8"Script");
+    grid->SetCategoryParent(u8"Orphan", u8"Missing");
+    grid->SetCategoryParent(u8"E", u8"F");
+    grid->SetCategoryParent(u8"F", u8"E");
+    CHECK(grid->CategoryParent(u8"Behavior 1") == StringView(u8"Script"));
+    grid->Measure(BoxConstraints::Tight(400, 600));
+
+    Expander* script = FindSection(grid.Get(), u8"Script");
+    Expander* behavior = FindSection(grid.Get(), u8"Behavior 1");
+    REQUIRE(script != nullptr);
+    REQUIRE(behavior != nullptr);
+    CHECK(SectionAround(behavior) == script); // inside the parent's body
+    CHECK(SectionAround(script) == nullptr);
+    CHECK(SectionAround(FindSection(grid.Get(), u8"Orphan")) == nullptr); // missing parent: top
+    CHECK(SectionAround(FindSection(grid.Get(), u8"E")) == nullptr);      // a loop: top level
+    CHECK(SectionAround(FindSection(grid.Get(), u8"F")) == nullptr);
+
+    // Closed, then rebuilt: it stays closed, where it was.
+    behavior->SetIsExpanded(false);
+    grid->AddProperty(Row(u8"g", u8"Script"));
+    grid->Measure(BoxConstraints::Tight(400, 600));
+    Expander* rebuilt = FindSection(grid.Get(), u8"Behavior 1");
+    REQUIRE(rebuilt != nullptr);
+    CHECK_FALSE(rebuilt->IsExpanded());
+    CHECK(SectionAround(rebuilt) == FindSection(grid.Get(), u8"Script"));
+}
+
+TEST_CASE("toolkit-propertygrid: a category's header actions read back")
+{
+    auto grid = core::MakeRef<PropertyGrid>(core::DefaultAllocator());
+    auto actions = core::MakeRef<FlexLayout>(core::DefaultAllocator());
+    CHECK(grid->GetCategoryHeaderActions(u8"Section") == nullptr);
+    grid->SetCategoryHeaderActions(u8"Section", RefPtr<View>(actions.Get()));
+    CHECK(grid->GetCategoryHeaderActions(u8"Section") == actions.Get());
+    grid->Clear();
+    CHECK(grid->GetCategoryHeaderActions(u8"Section") == nullptr);
+}
