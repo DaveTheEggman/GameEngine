@@ -498,11 +498,14 @@ namespace engine::player
         }
 
         // A script-loaded level (Game.loadSceneAsync/loadScene) gets the player's full activation:
-        // a default camera so it renders, then the base Start + SetSimulationEnabled.
+        // a default camera so it renders, then the base Start + SetSimulationEnabled. The load's
+        // scene is the run's current one from here: the instance destroys the scene it lands over,
+        // so the boot scene the player held is gone (and stopping it at exit would read freed memory).
         void ApplyLoadedSceneActivation(scene::Scene* scene) override
         {
             EnsureCameraOn(scene);
             DefaultApplication::ApplyLoadedSceneActivation(scene);
+            m_scene = scene;
         }
 
         // Resolves the startup-script SOURCE (project file / pak entry); the lifecycle
