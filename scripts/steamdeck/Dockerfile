@@ -16,11 +16,23 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Base tooling + the engine's X11/Wayland/Vulkan/audio build deps (mirrors the CI dependency list).
 RUN apt-get update && apt-get install -y --no-install-recommends \
         ca-certificates wget gnupg lsb-release software-properties-common \
-        cmake ninja-build git pkg-config \
+        git pkg-config python3-pip \
         libvulkan-dev vulkan-tools mesa-vulkan-drivers \
         libx11-dev libxext-dev libxrandr-dev libxcursor-dev libxi-dev libxss-dev \
         libxtst-dev libwayland-dev wayland-protocols libxkbcommon-dev libasound2-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# CMake and Ninja new enough for C++ modules (22.04's own CMake is 3.22; the build needs 3.28+):
+# the host's versions, from PyPI.
+RUN pip3 install --no-cache-dir "cmake==4.2.3" "ninja==1.13.0"
+
+# Vulkan headers at the host's version: 22.04's libvulkan-dev is 1.3.204, older than the mesh
+# shader EXT names the RHI uses. Header-only, into /usr/local (searched before /usr); the loader stays
+# the system one and the Deck's driver supplies its own at run time.
+ARG VULKAN_HEADERS=v1.4.341
+RUN git clone --depth 1 --branch ${VULKAN_HEADERS} https://github.com/KhronosGroup/Vulkan-Headers.git /tmp/vkh \
+    && cp -r /tmp/vkh/include/. /usr/local/include/ \
+    && rm -rf /tmp/vkh
 
 # GCC 14 for a modern libstdc++ (std::print et al.). This PPA ships a newer compiler/libstdc++ but
 # NOT a newer glibc, so the 2.35 floor is preserved. libstdc++-14-dev also provides libstdc++.a,

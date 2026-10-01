@@ -44,8 +44,16 @@ log "Build all targets (-j$JOBS)"
 cmake --build "$BUILD" -j"$JOBS"
 
 # --- 3. cook the engine shader pack ----------------------------------------------------------
-log "Cook shaders.dpak ($FORMATS)"
-"$BIN/Tools.ShaderPack" "Data/Shaders" "/tmp/shaders.dpak" $FORMATS
+# The pack is platform-independent SPIR-V, but DXC (the compiler it cooks with) needs glibc 2.38,
+# which this 22.04 container does not have - so build-steamdeck.sh cooks it on the HOST into
+# build/steamdeck-shaders.dpak, and this stages that. Cooked here only when that is absent.
+if [ -f "build/steamdeck-shaders.dpak" ]; then
+    log "Shaders: the host-cooked build/steamdeck-shaders.dpak"
+    cp "build/steamdeck-shaders.dpak" "/tmp/shaders.dpak"
+else
+    log "Cook shaders.dpak ($FORMATS)"
+    "$BIN/Tools.ShaderPack" "Data/Shaders" "/tmp/shaders.dpak" $FORMATS
+fi
 
 # --- 4. stage runnable bundles ---------------------------------------------------------------
 # SDL3 is linked statically (vendored source), so there is no libSDL3.so to bundle - it lives inside
