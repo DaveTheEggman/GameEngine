@@ -1357,6 +1357,104 @@ namespace foundation::script
             return nullptr;
         }
 
+        // Whether a reflected operator's method binds as a Luau metamethod: a static whose first
+        // parameter is the type (the left operand), one parameter for Negate, two otherwise.
+        [[nodiscard]] bool IsBindableOperator(const TypeInfo& type, const MethodInfo& method)
+        {
+            const bool unary = method.op == MethodOperator::Negate;
+            return method.op != MethodOperator::None && method.isStatic &&
+                   method.paramCount == (unary ? 1u : 2u) && method.params[0].type != nullptr &&
+                   method.params[0].type() == &type;
+        }
+
+        // The metamethod a reflected operator binds as; null for None.
+        [[nodiscard]] const char* OperatorMetamethod(MethodOperator op)
+        {
+            switch (op)
+            {
+            case MethodOperator::Add:
+                return "__add";
+            case MethodOperator::Subtract:
+                return "__sub";
+            case MethodOperator::Multiply:
+                return "__mul";
+            case MethodOperator::Divide:
+                return "__div";
+            case MethodOperator::Negate:
+                return "__unm";
+            case MethodOperator::Equals:
+                return "__eq";
+            case MethodOperator::None:
+                break;
+            }
+            return nullptr;
+        }
+
+        // A reflected operator's metamethod (__add ...): of the type's statics marked with the
+        // operator, the one whose right operand fits the call's (a number, or a value of the
+        // parameter's type), invoked with the left operand first. Luau's `a += b` is `a = a + b`.
+        // Upvalues: type* (light), context* (light), op (integer).
+        int OperatorThunk(lua_State* state)
+        {
+            auto* type =
+                static_cast<const TypeInfo*>(lua_tolightuserdata(state, lua_upvalueindex(1)));
+            auto* context = static_cast<LuauScriptContext*>(
+                lua_tolightuserdata(state, lua_upvalueindex(2)));
+            const auto op = static_cast<MethodOperator>(lua_tointeger(state, lua_upvalueindex(3)));
+            Variant* left = VariantAt(state, 1);
+            if (left == nullptr || left->Type() != type)
+            {
+                lua_pushstring(state, "the left operand of this operator is not the type that "
+                                      "defines it");
+                lua_error(state);
+            }
+            const bool unary = op == MethodOperator::Negate;
+            const MethodInfo* chosen = nullptr;
+            for (const MethodInfo& method : Methods(*type))
+            {
+                if (method.op != op || !IsBindableOperator(*type, method))
+                {
+                    continue;
+                }
+                if (unary)
+                {
+                    chosen = &method;
+                    break;
+                }
+                const TypeInfo* right = method.params[1].type();
+                const Variant* boxed = VariantAt(state, 2);
+                const bool fits = (boxed != nullptr) ? boxed->Type() == right
+                                                     : lua_isnumber(state, 2) &&
+                                                           (right == &TypeOf<f32>() ||
+                                                            right == &TypeOf<f64>());
+                if (fits)
+                {
+                    chosen = &method;
+                    break;
+                }
+            }
+            if (chosen == nullptr)
+            {
+                lua_pushstring(state, "no operator of this type takes that right operand");
+                lua_error(state);
+            }
+            Variant args[2];
+            args[0] = *left;
+            if (!unary)
+            {
+                args[1] = context->ToVariantForParam(state, 2, chosen->params[1].type());
+            }
+            ScriptCallScope scope(context);
+            Result<Variant> result = InvokeStatic(*chosen, Span<Variant>{args, unary ? 1u : 2u});
+            if (!result.HasValue())
+            {
+                lua_pushstring(state, "reflected operator invocation failed");
+                lua_error(state);
+            }
+            context->PushVariant(state, result.Value());
+            return 1;
+        }
+
         int MethodThunk(lua_State* state)
         {
             auto* method = static_cast<const MethodInfo*>(
@@ -1770,6 +1868,29 @@ namespace foundation::script
         lua_pushvalue(state, methodsIndex);
         lua_pushcclosure(state, NewIndexThunk, "reflected_newindex", 3);
         lua_rawset(state, -3);
+        // The operators reflection marks, one metamethod each (OperatorThunk picks the overload).
+        for (const MethodInfo& method : Methods(type))
+        {
+            const char* metamethod = OperatorMetamethod(method.op);
+            if (metamethod == nullptr || !IsBindableOperator(type, method))
+            {
+                continue;
+            }
+            lua_pushstring(state, metamethod);
+            lua_rawget(state, -2);
+            const bool bound = !lua_isnil(state, -1);
+            lua_pop(state, 1);
+            if (bound)
+            {
+                continue; // an overload set binds once
+            }
+            lua_pushstring(state, metamethod);
+            lua_pushlightuserdata(state, const_cast<TypeInfo*>(&type));
+            lua_pushlightuserdata(state, this);
+            lua_pushinteger(state, static_cast<int>(method.op));
+            lua_pushcclosure(state, OperatorThunk, "reflected_operator", 3);
+            lua_rawset(state, -3);
+        }
 
         lua_pushlightuserdata(state, const_cast<TypeInfo*>(&type));
         lua_pushvalue(state, -2);
@@ -2718,6 +2839,37 @@ namespace foundation::script
                     }
                     member.signature += u8")";
                     api.members.PushBack(Move(member));
+                    // The operator it also binds as (OperatorThunk), as a script writes it.
+                    if (t == type && IsBindableOperator(*type, method))
+                    {
+                        ScriptApiMember op;
+                        op.name = String(OperatorSymbol(method.op));
+                        op.kind = ScriptApiMemberKind::Operator;
+                        const bool unary = method.op == MethodOperator::Negate;
+                        const TypeInfo* result =
+                            method.returnType != nullptr ? method.returnType() : nullptr;
+                        if (unary)
+                        {
+                            op.signature = Format(u8"-{}", api.scriptName.AsView());
+                        }
+                        else
+                        {
+                            const TypeInfo* right = method.params[1].type();
+                            const bool number = right == &TypeOf<f32>() || right == &TypeOf<f64>();
+                            op.signature = Format(u8"{} {} {}", api.scriptName.AsView(),
+                                                  OperatorSymbol(method.op),
+                                                  number ? StringView(u8"number")
+                                                         : (right != nullptr ? ViewOf(right->name)
+                                                                             : StringView(u8"?")));
+                        }
+                        op.signature += Format(u8" -> {}", result != nullptr ? ViewOf(result->name)
+                                                                             : StringView(u8"?"));
+                        if (!unary && method.op != MethodOperator::Equals && result == type)
+                        {
+                            op.signature += Format(u8" (and {}=)", OperatorSymbol(method.op));
+                        }
+                        api.members.PushBack(Move(op));
+                    }
                 }
                 for (u32 p = 0; p < t->propertyCount; ++p)
                 {

@@ -1190,3 +1190,59 @@ TEST_CASE("script.luau: an instance's own fields read as properties, its methods
     CHECK_FALSE(counter->GetProperty(u8"add").HasValue());
     CHECK_FALSE(counter->GetProperty(u8"missing").HasValue());
 }
+
+// Sedulous 22a73e31: the reflected operators bind as metamethods on the reflected value types
+// (Float3 is Luau's native vector, which has its own): a + b, v * 2, -v, a == b, q * r, and
+// Luau's a += b through __add.
+TEST_CASE("script.luau: reflected operators bind as metamethods")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    manager->RegisterType(TypeOf<Float2>());
+    manager->RegisterType(TypeOf<Color>());
+    manager->RegisterType(TypeOf<Quaternion>());
+    manager->FinalizeTypes();
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(u8R"lua(
+Ops = {}
+Ops.__index = Ops
+function Ops.new() return setmetatable({}, Ops) end
+function Ops:sumY() return (Float2.new(1, 2) + Float2.new(3, 4)).y end
+function Ops:scaled() return (Float2.new(1, 2) * 3).y end
+function Ops:negated() return (-Float2.new(1, 2)).x end
+function Ops:same() return Float2.new(1, 2) == Float2.new(1, 2) end
+function Ops:differ() return Float2.new(1, 2) ~= Float2.new(2, 1) end
+function Ops:moved() local p = Float2.new(1, 1); p += Float2.new(2, 3); return p.y end
+function Ops:hue() return (Color.new(0.25, 0, 0, 1) + Color.new(0.5, 0, 0, 0)).r end
+function Ops:qw() return (Quaternion.new(0, 0, 0, 1) * Quaternion.new(0, 0, 0, 1)).w end
+)lua",
+                          u8"luau.ops")
+                .IsOk());
+    RefPtr<ScriptObject> ops = context->CreateInstance(u8"Ops", Span<Variant>{});
+    REQUIRE(ops.Get() != nullptr);
+    const auto call = [&](StringView method) { return ops->Invoke(method, Span<Variant>{}); };
+    CHECK(call(u8"sumY").Value().Get<f64>() == doctest::Approx(6.0));
+    CHECK(call(u8"scaled").Value().Get<f64>() == doctest::Approx(6.0));
+    CHECK(call(u8"negated").Value().Get<f64>() == doctest::Approx(-1.0));
+    CHECK(call(u8"same").Value().Get<bool>());
+    CHECK(call(u8"differ").Value().Get<bool>());
+    CHECK(call(u8"moved").Value().Get<f64>() == doctest::Approx(4.0));
+    CHECK(call(u8"hue").Value().Get<f64>() == doctest::Approx(0.75));
+    CHECK(call(u8"qw").Value().Get<f64>() == doctest::Approx(1.0));
+
+    // script_api lists them as operators.
+    bool listed = false;
+    for (const ScriptApiType& type : manager->DescribeBoundApi())
+    {
+        if (type.scriptName != u8"Float2")
+        {
+            continue;
+        }
+        for (const ScriptApiMember& member : type.members)
+        {
+            listed = listed || (member.kind == ScriptApiMemberKind::Operator &&
+                                member.signature == u8"Float2 * number -> Float2 (and *=)");
+        }
+    }
+    CHECK(listed);
+}
