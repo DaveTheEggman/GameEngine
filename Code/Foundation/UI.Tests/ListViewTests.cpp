@@ -228,3 +228,40 @@ TEST_CASE("damage: visual-only invalidation redraws WITHOUT layout damage")
     view->Invalidate();
     CHECK(ctx.NeedsLayout());
 }
+
+// Shift+arrow grows and shrinks ONE range from the anchor; before, each press re-ranged from an
+// arbitrary selected row, so the selection collapsed to two rows (Sedulous 5482ab11).
+TEST_CASE("list-view: Shift+Down and Shift+Up extend one range from the anchor")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
+    SimpleListAdapter adapter(20);
+    auto lv = MakeList();
+    lv->ItemHeight.SetValue(30);
+    lv->Selection.Mode = SelectionMode::Multiple;
+    lv->SetAdapter(&adapter);
+    root->AddView(lv.Get());
+    LayoutPass(ctx, root.Get());
+
+    lv->Selection.Select(3);
+    const auto press = [&](KeyCode key, bool shift)
+    {
+        KeyEventArgs e{};
+        e.Key = key;
+        e.Modifiers = shift ? KeyModifiers::Shift : KeyModifiers::None;
+        lv->OnKeyDown(e);
+    };
+    press(KeyCode::Down, true);
+    press(KeyCode::Down, true);
+    press(KeyCode::Down, true);
+    CHECK(lv->Selection.SelectedCount() == 4u); // 3..6
+    CHECK(lv->Selection.IsSelected(3));
+    CHECK(lv->Selection.IsSelected(6));
+    press(KeyCode::Up, true);
+    CHECK(lv->Selection.SelectedCount() == 3u); // shrinks to 3..5
+    CHECK_FALSE(lv->Selection.IsSelected(6));
+    press(KeyCode::Down, false); // a plain arrow moves from the caret
+    CHECK(lv->Selection.SelectedCount() == 1u);
+    CHECK(lv->Selection.IsSelected(6));
+}

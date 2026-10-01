@@ -123,6 +123,52 @@ TEST_CASE("data: SelectionModel_SelectRange")
     CHECK(sel.IsSelected(5));
 }
 
+// Shift extends from the ANCHOR (the last plain or Ctrl pick), so repeated extension grows or
+// shrinks one range; the caret is where navigation continues from (Sedulous 5482ab11).
+TEST_CASE("data: SelectionModel_ExtendTo grows and shrinks one range from the anchor")
+{
+    SelectionModel sel;
+    sel.Mode = SelectionMode::Multiple;
+    sel.Select(4);
+    CHECK(sel.Anchor() == 4);
+    sel.ExtendTo(6);
+    CHECK(sel.SelectedCount() == 3u);
+    CHECK(sel.Caret() == 6);
+    sel.ExtendTo(7); // grows the same range
+    CHECK(sel.SelectedCount() == 4u);
+    sel.ExtendTo(5); // shrinks it, still from 4
+    CHECK(sel.SelectedCount() == 2u);
+    CHECK(sel.IsSelected(4));
+    CHECK(sel.IsSelected(5));
+    sel.ExtendTo(2); // across the anchor: 2..4
+    CHECK(sel.SelectedCount() == 3u);
+    CHECK(sel.IsSelected(2));
+    CHECK(sel.Anchor() == 4);
+    CHECK(sel.NavigationOrigin() == 2);
+
+    sel.Toggle(9); // a Ctrl pick moves the anchor
+    CHECK(sel.Anchor() == 9);
+
+    // A data change keeps both on their rows: an insert above shifts them, a trim drops them.
+    sel.Select(3);
+    sel.ShiftIndices(0, 2);
+    CHECK(sel.Anchor() == 5);
+    CHECK(sel.Caret() == 5);
+    sel.PruneFrom(4);
+    CHECK(sel.Anchor() == -1);
+    CHECK(sel.Caret() == -1);
+
+    // No anchor: a plain pick. Single mode: always a plain pick.
+    sel.ClearSelection();
+    sel.ExtendTo(1);
+    CHECK(sel.SelectedCount() == 1u);
+    SelectionModel single;
+    single.Select(0);
+    single.ExtendTo(3);
+    CHECK(single.SelectedCount() == 1u);
+    CHECK(single.IsSelected(3));
+}
+
 TEST_CASE("data: SelectionModel_ClearSelection")
 {
     SelectionModel sel;

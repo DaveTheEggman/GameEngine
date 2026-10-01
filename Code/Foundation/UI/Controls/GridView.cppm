@@ -199,7 +199,7 @@ export namespace foundation::ui
                     }
                     else if (HasFlag(e.Modifiers, KeyModifiers::Shift))
                     {
-                        Selection.SelectRange(Selection.FirstSelected(), pos);
+                        Selection.ExtendTo(pos);
                     }
                     else
                     {
@@ -217,7 +217,7 @@ export namespace foundation::ui
             {
                 return;
             }
-            const i32 sel = Selection.FirstSelected();
+            const i32 sel = Selection.NavigationOrigin(); // from the caret, the last pick
             const i32 count = m_adapter->ItemCount();
 
             // Item-scoped keys first (F2 rename, Delete, ...), same contract as ListView.
@@ -237,7 +237,7 @@ export namespace foundation::ui
                 {
                     Selection.Select(sel + 1);
                 }
-                ScrollToPosition(Selection.FirstSelected());
+                ScrollToPosition(Selection.NavigationOrigin());
                 e.Handled = true;
                 break;
             case KeyCode::Left:
@@ -245,7 +245,7 @@ export namespace foundation::ui
                 {
                     Selection.Select(sel - 1);
                 }
-                ScrollToPosition(Selection.FirstSelected());
+                ScrollToPosition(Selection.NavigationOrigin());
                 e.Handled = true;
                 break;
             case KeyCode::Down:

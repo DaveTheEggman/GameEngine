@@ -237,7 +237,7 @@ export namespace foundation::ui
                     }
                     else if (HasFlag(e.Modifiers, KeyModifiers::Shift))
                     {
-                        Selection.SelectRange(Selection.FirstSelected(), itemIndex);
+                        Selection.ExtendTo(itemIndex);
                     }
                     else
                     {
@@ -298,7 +298,9 @@ export namespace foundation::ui
             {
                 return;
             }
-            const i32 sel = Selection.FirstSelected();
+            // Navigation moves from the caret (the last pick or range end); Shift extends from the
+            // anchor, so repeated presses grow or shrink one range.
+            const i32 sel = Selection.NavigationOrigin();
             const i32 count = m_adapter->ItemCount();
 
             if (sel >= 0)
@@ -318,7 +320,7 @@ export namespace foundation::ui
                 const i32 next = Min(sel + 1, count - 1);
                 if (shift)
                 {
-                    Selection.SelectRange(sel, next);
+                    Selection.ExtendTo(next);
                 }
                 else
                 {
@@ -333,7 +335,7 @@ export namespace foundation::ui
                 const i32 prev = Max(sel - 1, 0);
                 if (shift)
                 {
-                    Selection.SelectRange(sel, prev);
+                    Selection.ExtendTo(prev);
                 }
                 else
                 {
@@ -347,7 +349,7 @@ export namespace foundation::ui
             {
                 if (shift)
                 {
-                    Selection.SelectRange(sel, 0);
+                    Selection.ExtendTo(0);
                 }
                 else
                 {
@@ -361,7 +363,7 @@ export namespace foundation::ui
             {
                 if (shift)
                 {
-                    Selection.SelectRange(sel, count - 1);
+                    Selection.ExtendTo(count - 1);
                 }
                 else
                 {
@@ -377,7 +379,7 @@ export namespace foundation::ui
                 const i32 n = Min(sel + page, count - 1);
                 if (shift)
                 {
-                    Selection.SelectRange(sel, n);
+                    Selection.ExtendTo(n);
                 }
                 else
                 {
@@ -393,7 +395,7 @@ export namespace foundation::ui
                 const i32 p = Max(sel - page, 0);
                 if (shift)
                 {
-                    Selection.SelectRange(sel, p);
+                    Selection.ExtendTo(p);
                 }
                 else
                 {

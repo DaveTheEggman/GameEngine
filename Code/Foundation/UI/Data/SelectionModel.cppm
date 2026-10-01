@@ -35,6 +35,11 @@ export namespace foundation::ui
         Event<void()> OnSelectionChanged;
 
         [[nodiscard]] usize SelectedCount() const noexcept { return m_selected.Size(); }
+        /// Where a Shift range starts: the last plain or Ctrl pick; -1 when there is none.
+        [[nodiscard]] i32 Anchor() const noexcept { return m_anchor; }
+        /// The row keyboard navigation moves from: the last pick or range end; -1 when there is
+        /// none. (FirstSelected is a set's arbitrary member once several rows are selected.)
+        [[nodiscard]] i32 Caret() const noexcept { return m_caret; }
         [[nodiscard]] bool IsSelected(i32 index) const noexcept
         {
             return m_selected.Contains(index);
@@ -49,6 +54,8 @@ export namespace foundation::ui
             {
                 return;
             }
+            m_anchor = index;
+            m_caret = index;
             if (m_selected.Size() == 1 && m_selected.Contains(index))
             {
                 return;
@@ -72,6 +79,14 @@ export namespace foundation::ui
         /// now occupies that position.
         void PruneFrom(i32 count)
         {
+            if (m_anchor >= count)
+            {
+                m_anchor = -1;
+            }
+            if (m_caret >= count)
+            {
+                m_caret = -1;
+            }
             Array<i32> stale;
             for (i32 index : m_selected)
             {
@@ -113,6 +128,8 @@ export namespace foundation::ui
             {
                 return;
             }
+            m_anchor = index;
+            m_caret = index;
             if (IsSelected(index))
             {
                 Deselect(index);
@@ -152,9 +169,36 @@ export namespace foundation::ui
             OnSelectionChanged.Invoke();
         }
 
+        /// Extends from the anchor to `index` - what Shift+click and Shift+arrow mean: the range
+        /// always runs from where it started, so repeated extension grows or shrinks ONE range.
+        /// Without an anchor (or in Single mode) it is a plain pick.
+        void ExtendTo(i32 index)
+        {
+            if (Mode == SelectionMode::None)
+            {
+                return;
+            }
+            if (m_anchor < 0 || Mode == SelectionMode::Single)
+            {
+                Select(index);
+                return;
+            }
+            SelectRange(m_anchor, index);
+            m_caret = index;
+        }
+
+        /// The row navigation starts from: the caret while it is selected, else any selected row,
+        /// else -1.
+        [[nodiscard]] i32 NavigationOrigin() const
+        {
+            return (m_caret >= 0 && IsSelected(m_caret)) ? m_caret : FirstSelected();
+        }
+
         /// Clear all selections.
         void ClearSelection()
         {
+            m_anchor = -1;
+            m_caret = -1;
             if (m_selected.Size() > 0)
             {
                 m_selected.Clear();
@@ -198,9 +242,19 @@ export namespace foundation::ui
                     m_selected.Insert(idx);
                 }
             }
+            if (m_anchor >= startPos)
+            {
+                m_anchor = Max(m_anchor + delta, -1);
+            }
+            if (m_caret >= startPos)
+            {
+                m_caret = Max(m_caret + delta, -1);
+            }
         }
 
     private:
         HashSet<i32> m_selected;
+        i32 m_anchor = -1;
+        i32 m_caret = -1;
     };
 }
