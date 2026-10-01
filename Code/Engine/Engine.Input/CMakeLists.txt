@@ -8,4 +8,5 @@ target_sources(Engine.Input
         InputSubsystemImpl.cpp   # REFLECT_MEMBERS body (see InputSubsystem.cppm)
     PUBLIC
         FILE_SET input_subsystem_modules TYPE CXX_MODULES FILES
-            InputSubsystem.cppm)
+            InputSubsystem.cppm
+            FittedInputSource.cppm)

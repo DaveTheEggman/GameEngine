@@ -15,6 +15,8 @@ module;
 
 export module engine.input;
 
+export import :fitted_input; // FittedInputSource: a game's pointer in its render pixels
+
 import foundation.core;
 import engine.domain;
 import foundation.shell;

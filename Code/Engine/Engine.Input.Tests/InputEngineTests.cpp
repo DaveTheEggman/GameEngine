@@ -169,3 +169,65 @@ TEST_CASE("input.subsystem: ClearSourceProviderIf drops only its own dangling ov
     input.ClearSourceProviderIf(&tabA);
     CHECK(&input.ActiveSource() != static_cast<IInputSourceProvider*>(&tabA));
 }
+
+namespace
+{
+    // A mouse at a set window position with a set motion, and a provider over it.
+    struct PointMouse final : foundation::shell::IMouse
+    {
+        f32 x = 0.0f, y = 0.0f, dx = 0.0f, dy = 0.0f;
+        bool left = false;
+        [[nodiscard]] f32 X() const override { return x; }
+        [[nodiscard]] f32 Y() const override { return y; }
+        [[nodiscard]] f32 GlobalX() const override { return x; }
+        [[nodiscard]] f32 GlobalY() const override { return y; }
+        [[nodiscard]] f32 DeltaX() const override { return dx; }
+        [[nodiscard]] f32 DeltaY() const override { return dy; }
+        [[nodiscard]] f32 ScrollX() const override { return 0.0f; }
+        [[nodiscard]] f32 ScrollY() const override { return 0.0f; }
+        [[nodiscard]] bool IsButtonDown(foundation::shell::MouseButton) const override { return left; }
+        [[nodiscard]] bool IsButtonPressed(foundation::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool IsButtonReleased(foundation::shell::MouseButton) const override { return false; }
+        [[nodiscard]] bool RelativeMode() const override { return false; }
+        void SetRelativeMode(bool) override {}
+        [[nodiscard]] bool CursorVisible() const override { return true; }
+        void SetCursorVisible(bool) override {}
+        void SetCursor(foundation::shell::CursorType) override {}
+        void SetGlobalCapture(bool) override {}
+    };
+    struct PointSource final : foundation::input::IInputSourceProvider
+    {
+        PointMouse mouse;
+        bool hasMouse = true;
+        [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override { return hasMouse ? &mouse : nullptr; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+    };
+}
+
+TEST_CASE("input: a fitted source reads the pointer in render pixels, through the bars too")
+{
+    // Sedulous f9b1feb7: a 320x180 game letterboxed into a 1280x1080 window (scale 4, bars of
+    // 180 above and below): the window's centre is the render's, a bar maps outside it rather
+    // than vanishing, motion scales to render pixels, and the buttons pass through.
+    PointSource inner;
+    FittedInputSource fitted(inner);
+    fitted.fit = ContentFit{Rectangle{0, 0, 1280, 1080}, Float2{320, 180}, FitMode::Letterbox};
+    foundation::shell::IMouse* mouse = fitted.Mouse();
+    REQUIRE(mouse != nullptr);
+
+    inner.mouse.x = 640.0f;
+    inner.mouse.y = 540.0f;
+    CHECK(mouse->X() == doctest::Approx(160.0f));
+    CHECK(mouse->Y() == doctest::Approx(90.0f));
+    inner.mouse.y = 90.0f; // in the top bar
+    CHECK(mouse->Y() < 0.0f);
+    inner.mouse.dx = 8.0f;
+    CHECK(mouse->DeltaX() == doctest::Approx(2.0f));
+    inner.mouse.left = true;
+    CHECK(mouse->IsButtonDown(foundation::shell::MouseButton::Left));
+
+    inner.hasMouse = false; // no mouse below, none here
+    CHECK(fitted.Mouse() == nullptr);
+}
