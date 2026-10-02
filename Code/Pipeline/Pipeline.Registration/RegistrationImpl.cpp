@@ -156,6 +156,7 @@ namespace pipeline
     void RegisterAllBuilders(BuilderRegistry& registry)
     {
         AddBuilder<TextureAssetBuilder>(registry);
+        AddBuilder<RenderTextureAssetBuilder>(registry);
         AddBuilder<FontAssetBuilder>(registry);
         AddBuilder<ImageAssetBuilder>(registry);
         AddBuilder<HeightfieldAssetBuilder>(registry);
@@ -210,6 +211,7 @@ namespace pipeline
     {
         RegisterSceneCreators(registry);
         RegisterInputCreators(registry);
+        RegisterTextureCreators(registry);
         RegisterNavigationCreators(registry);
         RegisterParticleCreators(registry);
         RegisterGeometryCreators(registry);

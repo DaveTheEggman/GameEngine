@@ -1220,8 +1220,9 @@ namespace editor
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
         {
-            BuildResourceRefRow<foundation::texture::Texture>(id, type, prop, category,
-                                                            {u8"TextureAsset"}, path);
+            // A render texture is a texture too: a sprite, a decal or a camera's target takes one.
+            BuildResourceRefRow<foundation::texture::Texture>(
+                id, type, prop, category, {u8"TextureAsset", u8"RenderTextureAsset"}, path);
             return;
         }
         if (prop.type ==

@@ -1128,3 +1128,70 @@ TEST_CASE("texture-import: a DDS imports with the facts its header names")
     (void)RemoveDirectoryRecursive(dir);
 }
 
+
+TEST_CASE("texture.pipeline: a render texture asset cooks to a record its factory makes a target of")
+{
+    RegisterTextureAsset();
+    FileDelete(u8"scratch_rt_pipe_db/minimap.rasset");
+    FileDelete(u8"scratch_rt_pipe_db/huge.rasset");
+    RemoveDirectory(u8"scratch_rt_pipe_db");
+    NativeFileSystem mount(u8"scratch_rt_pipe_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+
+    RenderTextureAssetBuilder builder;
+    CHECK(builder.AssetType() == &RenderTextureAsset::StaticType());
+    CHECK(builder.ProductType() == &RenderTextureResource::StaticType());
+
+    auto* minimap =
+        db.RootGroup()->CreateInstance(u8"minimap", RenderTextureResource::StaticType());
+    RenderTextureAsset asset;
+    asset.width = 512;
+    asset.height = 128;
+    asset.format = RenderTextureFormat::Hdr;
+    {
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.output = minimap;
+        ctx.db = &db;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    }
+
+    // A side past the limit is refused at the cook, not at the first frame.
+    auto* huge = db.RootGroup()->CreateInstance(u8"huge", RenderTextureResource::StaticType());
+    RenderTextureAsset tooBig;
+    tooBig.width = RenderTextureResource::kMaxSize * 2;
+    {
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.output = huge;
+        ctx.db = &db;
+        CHECK_FALSE(builder.Build(tooBig, ctx).IsOk());
+    }
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    TextureFactory factory(DefaultAllocator(), device);
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+    Proxy<Texture> tex = manager.Bind<Texture>(minimap->Id());
+    REQUIRE(tex);
+    CHECK(tex->Width() == 512u);
+    CHECK(tex->Height() == 128u);
+    CHECK(tex->Format() == rhi::TextureFormat::RGBA16Float);
+
+    // The asset itself round-trips (what the editor saves and the asset form edits).
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        asset.Serialize(writer);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    RenderTextureAsset read;
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        read.Serialize(reader);
+        REQUIRE(reader.IsOk());
+    }
+    CHECK(read.width == 512u);
+    CHECK(read.height == 128u);
+    CHECK(read.format == RenderTextureFormat::Hdr);
+}

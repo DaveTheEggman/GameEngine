@@ -66,4 +66,27 @@ namespace pipeline{
             .PropAttribute("description",
                            String(u8"Model-import embedded pixels (0 for file-backed textures)"));
     }
+
+    REFLECT_ENUM(RenderTextureFormat, "rtti::pipeline::texture")
+    {
+        builder.Value("Ldr", RenderTextureFormat::Ldr);
+        builder.Value("Hdr", RenderTextureFormat::Hdr);
+    }
+
+    REFLECT_MEMBERS(RenderTextureAsset, "rtti::pipeline::texture")
+    {
+        builder.Attribute("displayName", String(u8"Render Texture"))
+            .Attribute("category", String(u8"Textures"))
+            .Property<&RenderTextureAsset::width>("width")
+            .PropAttribute("displayName", String(u8"Width"))
+            .PropAttribute("range", Float4{1.0f, 4096.0f, 1.0f, 0.0f})
+            .Property<&RenderTextureAsset::height>("height")
+            .PropAttribute("displayName", String(u8"Height"))
+            .PropAttribute("range", Float4{1.0f, 4096.0f, 1.0f, 0.0f})
+            .Property<&RenderTextureAsset::format>("format")
+            .PropAttribute("displayName", String(u8"Format"))
+            .PropAttribute("description",
+                           String(u8"Ldr for what a camera shows on screen or in UI; Hdr keeps "
+                                  u8"linear values for a material"));
+    }
 }
