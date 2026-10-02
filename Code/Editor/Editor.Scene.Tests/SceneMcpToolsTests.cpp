@@ -25,7 +25,8 @@ import editor.camera;
 import engine.navigation;     // NavMeshZoneComponent (navigation_bake)
 import foundation.content;    // Instance (the zone asset)
 import navigation.pipeline;   // NavigationZoneAsset
-import foundation.geometry;   // Primitives::Plane (the ground navigation_bake collects)
+import engine.physics;        // RigidBodyComponent (the static ground navigation_bake collects)
+import foundation.physics;    // MotionKind
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -908,13 +909,18 @@ TEST_CASE("scene-mcp-tools: navigation_bake bakes a page's zone into its asset, 
     SceneEditContext& edit = page->EditContext();
     scene::Scene& sceneRef = edit.Scene();
     engine::navigation::AddNavigationSceneManagers(sceneRef);
-    auto* meshes = sceneRef.AddSystem<engine::render::MeshComponentManager>();
+    if (!sceneRef.HasSystem<engine::physics::RigidBodyComponentManager>())
+    {
+        sceneRef.AddSystem<engine::physics::RigidBodyComponentManager>();
+    }
 
-    // A 20 x 20 ground and a zone over it.
+    // A 20 x 20 static ground slab (its top at y 0; the bake reads static bodies) and a zone over it.
     const Guid groundId = edit.CreateEntity(u8"Ground");
-    meshes->Add(edit.Resolve(groundId)).mesh =
-        foundation::resource::Ref<foundation::geometry::StaticMesh>(
-            foundation::geometry::Primitives::Plane(DefaultAllocator(), 20.0f, 20.0f));
+    sceneRef.SetLocalPosition(edit.Resolve(groundId), Float3{0, -0.5f, 0});
+    engine::physics::RigidBodyComponent& ground =
+        sceneRef.GetSystem<engine::physics::RigidBodyComponentManager>()->Add(edit.Resolve(groundId));
+    ground.motion = foundation::physics::MotionKind::Static;
+    ground.halfExtents = Float3{10, 0.5f, 10};
     const Guid zoneId = edit.CreateEntity(u8"Zone");
     engine::navigation::NavMeshZoneComponent& zone =
         sceneRef.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(
@@ -943,7 +949,7 @@ TEST_CASE("scene-mcp-tools: navigation_bake bakes a page's zone into its asset, 
     bake = Call(server, u8"navigation_bake", u8"{}");
     REQUIRE(bake.ok);
     CHECK(bake.payload.Get(u8"baked").AsBool());
-    CHECK(bake.payload.Get(u8"triangles").AsNumber() == doctest::Approx(2.0));
+    CHECK(bake.payload.Get(u8"triangles").AsNumber() == doctest::Approx(12.0)); // the slab's box
     CHECK(bake.payload.Get(u8"asset").AsString() == Format(u8"{}", asset->Id()));
     pipeline::NavigationZoneAsset readBack;
     {
