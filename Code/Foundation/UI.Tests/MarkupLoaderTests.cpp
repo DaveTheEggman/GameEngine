@@ -307,6 +307,27 @@ TEST_CASE("markup: OldParentTypedAttributes_AreUnknown")
     CHECK(Cast<FlexLayout>(view.Get())->GetChildAt(0)->Layout().FlexGrow == 0);
 }
 
+TEST_CASE("markup: an unknown gravity name is surfaced, the known ones still apply")
+{
+    // Gravity names are PascalCase and matched exactly: `top|right` places nothing, which used
+    // to pass in silence (a HUD panel left in the wrong corner).
+    EnsureInit();
+    Array<String> warnings;
+    auto view = MarkupLoader::LoadFromString(
+        DefaultAllocator(), u8"<FrameLayout><Panel gravity=\"top|Right\"/></FrameLayout>", nullptr,
+        &warnings);
+    REQUIRE(view.Get() != nullptr);
+    REQUIRE(warnings.Size() == 1);
+    CHECK(warnings[0].AsView().StartsWith(u8"unknown gravity 'top' on <Panel>"));
+    CHECK(Cast<ViewGroup>(view.Get())->GetChildAt(0)->Layout().Gravity == Gravity::Right);
+
+    warnings.Clear();
+    (void)MarkupLoader::LoadFromString(
+        DefaultAllocator(), u8"<FrameLayout><Panel gravity=\"Top|Right\"/></FrameLayout>", nullptr,
+        &warnings);
+    CHECK(warnings.IsEmpty());
+}
+
 TEST_CASE("markup: LayoutAttributeNames_CoverTheVocabulary")
 {
     Array<String> names;
