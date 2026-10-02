@@ -12,6 +12,13 @@
 
 ## Queued 2026-10-02 (user, PaperKid)
 
+- **pie_screenshot hides a downscaled Game tab**: the Game tab draws the game at its chosen
+  resolution into the panel's fitted rectangle (`GamePageImpl.cpp` OnRenderWindow), and the
+  capture is resampled back up to that resolution (`ScreenshotCapture.cppm`, `m_outputWidth`).
+  With the tab on Full HD in a panel about half that size, the PaperKid HUD looked soft to the
+  user, and the screenshot showed a blurred 1920x1080 image that read as a font problem. Fix:
+  write the image at the size it was captured, or report the captured size and the scale beside
+  the written one, with a test and McpGuide. Scheduled for 2026-10-03.
 - **Post-process and environment as shared assets**: today each scene carries its own
   `postprocess` and `environment` settings blocks (`PostProcessSettings` / `EnvironmentSettings`,
   `Engine.Render/RenderComponents.cppm`), so a game with several levels sets its look in every
