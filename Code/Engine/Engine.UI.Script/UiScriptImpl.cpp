@@ -137,7 +137,23 @@ namespace engine::uiscript
     }                                                                                                   \
     f32 H::opacity() const { return view ? view->Opacity : 0.0f; }                                      \
     void H::setOpacity(f32 value) { SetViewOpacity(view.Get(), value); }                                \
-    void H::fadeTo(f32 target, f32 seconds) { FadeViewTo(view.Get(), target, seconds); }
+    void H::fadeTo(f32 target, f32 seconds) { FadeViewTo(view.Get(), target, seconds); }                \
+    Float2 H::translation() const { return view ? view->Transform.Translation : Float2{0.0f, 0.0f}; }  \
+    void H::setTranslation(f32 x, f32 y)                                                                \
+    {                                                                                                   \
+        if (view)                                                                                       \
+        {                                                                                               \
+            view->Transform.Translation = Float2{x, y};                                                 \
+        }                                                                                               \
+    }                                                                                                   \
+    f32 H::rotation() const { return view ? RadiansToDegrees(view->Transform.Rotation) : 0.0f; }        \
+    void H::setRotation(f32 degrees)                                                                    \
+    {                                                                                                   \
+        if (view)                                                                                       \
+        {                                                                                               \
+            view->Transform.Rotation = DegreesToRadians(degrees);                                       \
+        }                                                                                               \
+    }
 
     UI_SCRIPT_DEFINE_COMMON(View)
     UI_SCRIPT_DEFINE_COMMON(Label)
@@ -480,6 +496,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&View::opacity>("opacity");
         builder.Method<&View::setOpacity>("setOpacity", {"value"});
         builder.Method<&View::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&View::translation>("translation");
+        builder.Method<&View::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&View::rotation>("rotation");
+        builder.Method<&View::setRotation>("setRotation", {"degrees"});
         builder.Constructor();
     }
     REFLECT_VALUE(Label, "rtti::engine.ui.script")
@@ -494,6 +514,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Label::opacity>("opacity");
         builder.Method<&Label::setOpacity>("setOpacity", {"value"});
         builder.Method<&Label::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Label::translation>("translation");
+        builder.Method<&Label::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Label::rotation>("rotation");
+        builder.Method<&Label::setRotation>("setRotation", {"degrees"});
         builder.Method<&Label::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -509,6 +533,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Button::opacity>("opacity");
         builder.Method<&Button::setOpacity>("setOpacity", {"value"});
         builder.Method<&Button::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Button::translation>("translation");
+        builder.Method<&Button::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Button::rotation>("rotation");
+        builder.Method<&Button::setRotation>("setRotation", {"degrees"});
         builder.Method<&Button::setText>("setText", {"value"});
         builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
@@ -527,6 +555,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Slider::opacity>("opacity");
         builder.Method<&Slider::setOpacity>("setOpacity", {"value"});
         builder.Method<&Slider::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Slider::translation>("translation");
+        builder.Method<&Slider::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Slider::rotation>("rotation");
+        builder.Method<&Slider::setRotation>("setRotation", {"degrees"});
         builder.Method<&Slider::setValue>("setValue", {"value"});
         builder.Method<&Slider::setRange>("setRange", {"min", "max"});
         builder.Method<&Slider::setStep>("setStep", {"step"});
@@ -546,6 +578,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&ProgressBar::opacity>("opacity");
         builder.Method<&ProgressBar::setOpacity>("setOpacity", {"value"});
         builder.Method<&ProgressBar::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&ProgressBar::translation>("translation");
+        builder.Method<&ProgressBar::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&ProgressBar::rotation>("rotation");
+        builder.Method<&ProgressBar::setRotation>("setRotation", {"degrees"});
         builder.Method<&ProgressBar::setValue>("setValue", {"value"});
         builder.Constructor();
     }
@@ -561,6 +597,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&TextBox::opacity>("opacity");
         builder.Method<&TextBox::setOpacity>("setOpacity", {"value"});
         builder.Method<&TextBox::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&TextBox::translation>("translation");
+        builder.Method<&TextBox::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&TextBox::rotation>("rotation");
+        builder.Method<&TextBox::setRotation>("setRotation", {"degrees"});
         builder.Method<&TextBox::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -576,6 +616,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Image::opacity>("opacity");
         builder.Method<&Image::setOpacity>("setOpacity", {"value"});
         builder.Method<&Image::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Image::translation>("translation");
+        builder.Method<&Image::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Image::rotation>("rotation");
+        builder.Method<&Image::setRotation>("setRotation", {"degrees"});
         builder.Method<&Image::setSource>("setSource", {"value"});
         builder.Constructor();
     }
@@ -591,6 +635,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&ViewGroup::opacity>("opacity");
         builder.Method<&ViewGroup::setOpacity>("setOpacity", {"value"});
         builder.Method<&ViewGroup::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&ViewGroup::translation>("translation");
+        builder.Method<&ViewGroup::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&ViewGroup::rotation>("rotation");
+        builder.Method<&ViewGroup::setRotation>("setRotation", {"degrees"});
         builder.Method<&ViewGroup::childAt>("childAt", {"index"});
         builder.Method<&ViewGroup::find>("find", {"name"});
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
@@ -615,6 +663,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Screen::opacity>("opacity");
         builder.Method<&Screen::setOpacity>("setOpacity", {"value"});
         builder.Method<&Screen::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Screen::translation>("translation");
+        builder.Method<&Screen::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Screen::rotation>("rotation");
+        builder.Method<&Screen::setRotation>("setRotation", {"degrees"});
         builder.Method<&Screen::childAt>("childAt", {"index"});
         builder.Method<&Screen::find>("find", {"name"});
         builder.Method<&Screen::findLabel>("findLabel", {"name"});

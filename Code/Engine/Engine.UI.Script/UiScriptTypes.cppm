@@ -50,7 +50,14 @@ export namespace engine::uiscript
     void setOpacity(f32 value);                                                                         \
     /* From where it is to `target` over `seconds` of UI frame time, which runs while the game is */    \
     /* paused (time scale 0); zero seconds, or a view in no tree yet, is a set. */                      \
-    void fadeTo(f32 target, f32 seconds);
+    void fadeTo(f32 target, f32 seconds);                                                               \
+    /* The offset in pixels from where layout put the view, applied as it draws and hit tests, so */    \
+    /* moving it costs no relayout (a marker on a minimap). */                                          \
+    [[nodiscard]] Float2 translation() const;                                                           \
+    void setTranslation(f32 x, f32 y);                                                                  \
+    /* Degrees, clockwise on screen, about the view's centre. */                                        \
+    [[nodiscard]] f32 rotation() const;                                                                 \
+    void setRotation(f32 degrees);
 
     /// A bare view - identity + visibility/enabled. What find / childAt return.
     struct View

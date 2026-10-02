@@ -212,6 +212,33 @@ TEST_CASE("ui-facade: AngelScript sets what an image shows by texture asset id, 
     CHECK(map->Source.Value() == Format(u8"{}", Guid{5, 6})); // what the provider resolves
 }
 
+TEST_CASE("ui-facade: AngelScript moves and turns a view (a minimap marker), and reads it back")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status = ctx->Load(u8"bool readBack = false;\n"
+                                    u8"void main() {\n"
+                                    u8"  ui::push(Guid(17, 34));\n"
+                                    u8"  Image marker = ui::findImage(\"minimap\");\n"
+                                    u8"  marker.setTranslation(64.0f, 32.0f);\n"
+                                    u8"  marker.setRotation(180.0f);\n"
+                                    u8"  readBack = marker.translation.x == 64.0f && marker.rotation > 179.0f;\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"readBack").template Get<bool>());
+    ui::ImageView* marker = bed.root->FindByName<ui::ImageView>(u8"minimap");
+    REQUIRE(marker != nullptr);
+    CHECK(marker->Transform.Translation.y == doctest::Approx(32.0f));
+    CHECK(marker->Transform.Rotation == doctest::Approx(DegreesToRadians(180.0f)));
+}
+
 TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; firing runs the handler")
 {
     RegisterCoreTypes();
@@ -316,6 +343,30 @@ TEST_CASE("ui-facade: Luau sets what an image shows, and a nil id clears it")
     REQUIRE(ctx->Load(u8"ui.findImage(\"minimap\"):setSource(Guid.new(0, 0))\n", u8"clear")
                 .IsOk());
     CHECK(map->Source.Value().IsEmpty());
+}
+
+TEST_CASE("ui-facade: Luau moves and turns a view (a minimap marker)")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status = ctx->Load(u8"ui.push(Guid.new(17, 34))\n"
+                                    u8"local marker = ui.findImage(\"minimap\")\n"
+                                    u8"marker:setTranslation(-8, 20)\n"
+                                    u8"marker:setRotation(-45)\n"
+                                    u8"moved = marker.translation.y == 20 and marker.rotation < -44\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"moved").template Get<bool>());
+    ui::ImageView* marker = bed.root->FindByName<ui::ImageView>(u8"minimap");
+    REQUIRE(marker != nullptr);
+    CHECK(marker->Transform.Translation.x == doctest::Approx(-8.0f));
+    CHECK(marker->Transform.Rotation == doctest::Approx(DegreesToRadians(-45.0f)));
 }
 
 TEST_CASE("ui-facade: Luau binds a button click to a script function; firing runs the handler")

@@ -213,7 +213,10 @@ The UI already has the seam: `IResourceProvider::LoadImage(path)` returns a borr
   clears it.
 - A UI `Image` handle (`UiScriptTypes.cppm`) with a `findImage` finder and a `source` property
   (a Guid; `setSource` swaps it, a nil id clears it, and so does its image).
-- Markers on a minimap need nothing new: they are views in the HUD whose position a script sets.
+- Markers on a minimap are views in the HUD whose position a script sets. That turned out to need
+  one addition (found building PaperKid, 2026-10-02): the handles had no way to move a view, so
+  every handle gained `setTranslation(x, y)` and `setRotation(degrees)` over the view's post-layout
+  transform (Systems/game-ui.md).
   With an orthographic top-down camera, world to map is a scale and an offset; the spec's sample
   includes that helper in the game script, not the engine.
 
