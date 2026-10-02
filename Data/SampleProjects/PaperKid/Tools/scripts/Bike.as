@@ -1,0 +1,260 @@
+// Bike - the player's ride, on the Bike entity (a Character component: a kinematic capsule).
+//
+// "Move": Y is throttle and brake, X steers. The bike keeps a heading and a signed speed, turns
+// the heading (harder the faster it goes, and reversed while backing up), drives the character
+// along it, and points the entity the same way.
+//
+// "Throw" launches a paper along the aim: the bike's forward, biased toward the nearest delivery
+// zone in front (the soft auto-aim), with an upward arc. The Level owns the paper count: each
+// throw is "PaperThrown", and the Level answers with "PapersLeft".
+//
+// A crash ("Crashed", sent by an Obstacle) knocks the bike back against the way it was going and
+// leaves the steering and throttle weak for a moment; the Level takes the time penalty.
+
+Guid kPaper = Guid("{{Prefab:Newspaper}}");
+
+class Bike
+{
+    private Entity@ self;
+
+    [11.0, "Top forward speed (m/s)"] float maxSpeed;
+    [3.5, "Top reverse speed (m/s)"] float reverseSpeed;
+    [10.0, "Throttle ramp (m/s^2)"] float acceleration;
+    [22.0, "Brake ramp (m/s^2)"] float braking;
+    [5.0, "Roll-down when coasting (m/s^2)"] float coastDeceleration;
+    [120.0, "Turn rate at full speed (deg/s)"] float turnSpeedDegrees;
+    [0.3, "Steering authority at a crawl (0..1)"] float minSteerFraction;
+
+    [9.0, "Throw speed (m/s)"] float throwSpeed;
+    [0.55, "Throw arc (upward share)"] float throwArc;
+    [0.85, "Auto-aim strength (0 = straight ahead, 1 = lands on the zone)"] float autoAim;
+    [16.0, "Auto-aim reach (m)"] float aimRange;
+    [2, "The delivery zones' collision group"] int zoneGroup;
+
+    [1.5, "After a crash, how long the controls stay weak (s)"] float crashTime;
+    [0.25, "The controls' strength while recovering (0..1)"] float crashControl;
+    [4.0, "The speed a crash knocks the bike back at (m/s)"] float knockback;
+
+    private float m_heading = 0.0f; // radians; 0 faces +Z
+    private float m_speed = 0.0f;
+    private int m_papers = -1;      // -1: the Level has not said yet
+    private float m_aimX = 0.0f;
+    private float m_aimZ = 1.0f;
+    private bool m_hasTarget = false;
+    private Float3 m_target = Float3(0.0f, 0.0f, 0.0f);
+    private float m_recovering = 0.0f; // seconds of weak controls left after a crash
+
+    Bike(Entity@ entity) { @self = entity; }
+
+    void onStart()
+    {
+        // Start facing the way the scene placed the bike.
+        Float3 forward = Quaternion::RotateVector(self.rotation(), Float3(0.0f, 0.0f, 1.0f));
+        m_heading = Math::Atan2(forward.x, forward.z);
+    }
+
+    void onPapersLeft(int papers)
+    {
+        m_papers = papers;
+    }
+
+    void onCrashed(int unused)
+    {
+        if (m_recovering > 0.0f)
+        {
+            return; // still down from the last one
+        }
+        m_recovering = crashTime;
+        // Bounce back against the way the bike was going: off whatever it ran into.
+        m_speed = (m_speed >= 0.0f) ? -knockback : knockback;
+        self.scene.events.emit("BikeCrashed", 1);
+    }
+
+    void onUpdate(double dt)
+    {
+        float d = float(dt);
+        if (d <= 0.0f)
+        {
+            return;
+        }
+        Float2 move = Input::value2D("Move");
+        if (m_recovering > 0.0f)
+        {
+            m_recovering -= d;
+            move = move * crashControl;
+        }
+        updateSpeed(move.y, d);
+        updateHeading(move.x, d);
+        Float3 forward = facing();
+        CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);
+        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
+
+        if (m_papers != 0)
+        {
+            computeAim();
+            drawAim();
+            if (Input::wasPressed("Throw") && throwPaper())
+            {
+                self.scene.events.emit("PaperThrown", 1);
+            }
+        }
+    }
+
+    private Float3 facing()
+    {
+        return Float3(Math::Sin(m_heading), 0.0f, Math::Cos(m_heading));
+    }
+
+    private void updateSpeed(float throttle, float d)
+    {
+        if (throttle > 0.0f)
+        {
+            m_speed += throttle * ((m_speed < 0.0f) ? braking : acceleration) * d;
+        }
+        else if (throttle < 0.0f)
+        {
+            m_speed += throttle * ((m_speed > 0.0f) ? braking : acceleration) * d;
+        }
+        else if (m_speed > 0.0f)
+        {
+            m_speed -= coastDeceleration * d;
+            if (m_speed < 0.0f) { m_speed = 0.0f; }
+        }
+        else if (m_speed < 0.0f)
+        {
+            m_speed += coastDeceleration * d;
+            if (m_speed > 0.0f) { m_speed = 0.0f; }
+        }
+        if (m_speed > maxSpeed) { m_speed = maxSpeed; }
+        if (m_speed < -reverseSpeed) { m_speed = -reverseSpeed; }
+    }
+
+    // A positive yaw turns +Z toward +X, which is screen left from behind: right steer lowers it.
+    private void updateHeading(float steer, float d)
+    {
+        if (steer == 0.0f || m_speed == 0.0f)
+        {
+            return;
+        }
+        float authority = Math::Abs(m_speed) / maxSpeed;
+        if (authority > 1.0f) { authority = 1.0f; }
+        if (authority < minSteerFraction) { authority = minSteerFraction; }
+        float direction = (m_speed >= 0.0f) ? 1.0f : -1.0f;
+        m_heading -= steer * direction * Math::DegreesToRadians(turnSpeedDegrees) * authority * d;
+    }
+
+    // The throw's horizontal aim: forward, pulled toward the nearest zone in front.
+    private void computeAim()
+    {
+        Float3 pos = self.worldPosition();
+        Float3 f = facing();
+        float aimX = f.x;
+        float aimZ = f.z;
+        m_hasTarget = false;
+        array<Entity@>@ zones = ScenePhysics::of(self.scene).overlapSphere(pos.x, pos.y, pos.z, aimRange,
+                                                                          1 << zoneGroup);
+        float best = aimRange * aimRange + 1.0f;
+        for (uint i = 0; i < zones.length(); i++)
+        {
+            Float3 z = zones[i].worldPosition();
+            float dx = z.x - pos.x;
+            float dz = z.z - pos.z;
+            float dist2 = dx * dx + dz * dz;
+            if (dist2 < 0.0001f)
+            {
+                continue;
+            }
+            float len = Math::Sqrt(dist2);
+            if ((dx / len) * f.x + (dz / len) * f.z > 0.1f && dist2 < best)
+            {
+                best = dist2;
+                aimX = f.x + (dx / len - f.x) * autoAim;
+                aimZ = f.z + (dz / len - f.z) * autoAim;
+                m_hasTarget = true;
+                m_target = z;
+            }
+        }
+        float l = Math::Sqrt(aimX * aimX + aimZ * aimZ);
+        m_aimX = aimX / l;
+        m_aimZ = aimZ / l;
+    }
+
+    private Float3 launchPoint()
+    {
+        Float3 pos = self.worldPosition();
+        Float3 f = facing();
+        // Above the rider's head, so the paper never meets the bike's own capsule on the way out.
+        return Float3(pos.x + f.x * 0.6f, pos.y + 1.6f, pos.z + f.z * 0.6f);
+    }
+
+    // The paper's launch velocity: along the aim at the throw speed, plus the bike's own speed.
+    // With a zone locked, the ground part leans (by autoAim) toward the velocity that lands the
+    // paper on the zone in its flight time - the soft auto-aim corrects the range as well as the
+    // direction, so a throw at a marked porch from a moving bike usually lands.
+    private Float3 launchVelocity()
+    {
+        float mag = Math::Sqrt(1.0f + throwArc * throwArc);
+        Float3 carry = facing() * m_speed;
+        float vx = m_aimX / mag * throwSpeed + carry.x;
+        float vy = throwArc / mag * throwSpeed;
+        float vz = m_aimZ / mag * throwSpeed + carry.z;
+        if (m_hasTarget)
+        {
+            Float3 from = launchPoint();
+            float g = -ScenePhysics::of(self.scene).gravity().y;
+            float drop = from.y - (m_target.y + 0.4f);
+            float flight = (vy + Math::Sqrt(vy * vy + 2.0f * g * drop)) / g;
+            if (flight > 0.05f)
+            {
+                vx += ((m_target.x - from.x) / flight - vx) * autoAim;
+                vz += ((m_target.z - from.z) / flight - vz) * autoAim;
+            }
+        }
+        return Float3(vx, vy, vz);
+    }
+
+    // The throw's path, under the scene's gravity; a ring on the zone it is pulled toward.
+    private void drawAim()
+    {
+        Float3 p = launchPoint();
+        Float3 v = launchVelocity();
+        float g = ScenePhysics::of(self.scene).gravity().y;
+        DebugDraw@ dbg = DebugDraw::of(self.scene);
+        float px = p.x;
+        float py = p.y;
+        float pz = p.z;
+        for (int i = 1; i <= 20; i++)
+        {
+            float t = 0.06f * float(i);
+            float x = p.x + v.x * t;
+            float y = p.y + v.y * t + 0.5f * g * t * t;
+            float z = p.z + v.z * t;
+            dbg.line(px, py, pz, x, y, z, 1.0f, 0.85f, 0.1f);
+            px = x;
+            py = y;
+            pz = z;
+            if (y < 0.0f)
+            {
+                break;
+            }
+        }
+        if (m_hasTarget)
+        {
+            dbg.sphere(m_target.x, m_target.y, m_target.z, 0.8f, 0.2f, 1.0f, 0.3f);
+        }
+    }
+
+    private bool throwPaper()
+    {
+        Entity@ paper = ScenePrefabs::of(self.scene).spawn(kPaper, launchPoint());
+        if (paper is null || !paper.isValid())
+        {
+            return false;
+        }
+        // An impulse is mass times the change in speed; the paper's mass is its rigid body's.
+        RigidBodyComponent@ body = RigidBodyComponent::of(paper);
+        float mass = (body !is null && body.mass > 0.0f) ? body.mass : 1.0f;
+        ScenePhysics::of(self.scene).applyImpulse(paper, launchVelocity() * mass);
+        return true;
+    }
+}

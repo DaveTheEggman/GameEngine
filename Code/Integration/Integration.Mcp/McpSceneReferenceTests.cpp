@@ -164,6 +164,24 @@ TEST_CASE("integration.mcp: scene reference - an EntityRef field is `ref: entity
     CHECK(meshField.Get(u8"ref").Get(u8"resource").AsString() == StringView(u8"StaticMesh"));
     CHECK(meshField.Get(u8"ref").Get(u8"asset").AsString() == StringView(u8"StaticMeshAsset"));
     CHECK_FALSE(Lists(mesh.Get(u8"unreflected"), u8"mesh"));
+    CHECK_FALSE(meshField.Get(u8"ref").Has(u8"assets")); // one cooked form, one asset type
+
+    // camera.target: Ref<Texture>, whose factory reads two cooked forms - a texture's and a
+    // render texture's - so the field lists both asset types (a camera draws into the second).
+    const JsonValue camera = editor::mcp::FindSchemaEntry(reference.schema, u8"camera");
+    REQUIRE(camera.IsObject());
+    const JsonValue target = Field(camera.Get(u8"fields"), u8"target");
+    REQUIRE(target.IsObject());
+    CHECK(target.Get(u8"ref").Get(u8"asset").AsString() == StringView(u8"TextureAsset"));
+    const JsonValue targetAssets = target.Get(u8"ref").Get(u8"assets");
+    REQUIRE(targetAssets.Count() == 2u);
+    CHECK(targetAssets.At(0).AsString() == StringView(u8"TextureAsset"));
+    CHECK(targetAssets.At(1).AsString() == StringView(u8"RenderTextureAsset"));
+    // The projection is an enum by name, so an agent writing the number knows what it means.
+    const JsonValue projection = Field(camera.Get(u8"fields"), u8"projection");
+    REQUIRE(projection.IsObject());
+    REQUIRE(projection.Get(u8"enum").Count() == 2u);
+    CHECK(projection.Get(u8"enum").At(1).Get(u8"name").AsString() == StringView(u8"Orthographic"));
 
     // Entity references are `ref: entity`: a single one is a guid field, a list of them an array
     // annotated through its element type (the animator's mesh targets).

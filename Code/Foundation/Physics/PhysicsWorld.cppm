@@ -290,6 +290,16 @@ export namespace foundation::physics
     /// False if the blob doesn't restore.
     [[nodiscard]] bool ExtractShapeTriangles(Span<const byte> blob, Array<Float3>& outTriangles);
 
+    /// The world-space triangles of bodies' collision shapes that touch `bounds`, appended to
+    /// `outTriangles` (3 positions per triangle, counter-clockwise seen from outside). Each shape
+    /// is built as CreateBody builds it (compounds, scale, cooked meshes, a plane as wide as its
+    /// half extent, heightfields without their holes), so a consumer such as the navigation bake
+    /// sees exactly what the bodies collide with. Triangles are not cut at `bounds`: one that
+    /// touches it comes whole (Recast clips to its own bounds as it rasterizes). Needs no world.
+    /// Returns the number of bodies whose shape did not build.
+    usize AppendBodyTriangles(Span<const BodyDesc> bodies, const AABB& bounds,
+                              Array<Float3>& outTriangles);
+
     class PhysicsWorld
     {
     public:

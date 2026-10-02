@@ -841,6 +841,26 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     REQUIRE(range != nullptr);
     CHECK(range->value.TryGet<Float4>() != nullptr);
 
+    // Camera: the field of view shows for a perspective camera, the height for an orthographic.
+    const TypeInfo& camera = TypeOf<engine::render::CameraComponent>();
+    const PropertyInfo* fov = FindProperty(camera, "fovYRadians");
+    REQUIRE(fov != nullptr);
+    const foundation::core::Attribute* fovVis = FindAttribute(*fov, u8"visibleWhen");
+    REQUIRE(fovVis != nullptr);
+    REQUIRE(ParsePropertyCondition(fovVis->value.TryGet<String>()->AsView(), c));
+    CHECK(c.prop.AsView() == StringView(u8"projection"));
+    // ...and the mode itself is an enum by name (the inspector's dropdown, the schema's list).
+    CHECK(TypeOf<engine::render::CameraProjection>().enumeratorCount == 2u);
+    CHECK(MatchesPropertyCondition(c, 0));  // Perspective
+    CHECK(!MatchesPropertyCondition(c, 1)); // Orthographic
+    const PropertyInfo* orthoHeight = FindProperty(camera, "orthoHeight");
+    REQUIRE(orthoHeight != nullptr);
+    const foundation::core::Attribute* orthoVis = FindAttribute(*orthoHeight, u8"visibleWhen");
+    REQUIRE(orthoVis != nullptr);
+    REQUIRE(ParsePropertyCondition(orthoVis->value.TryGet<String>()->AsView(), c));
+    CHECK(MatchesPropertyCondition(c, 1));
+    CHECK(!MatchesPropertyCondition(c, 0));
+
     // Environment: turbidity is Analytic-only with a bounded slider.
     const TypeInfo& env = TypeOf<engine::render::EnvironmentSettings>();
     const PropertyInfo* turbidity = FindProperty(env, "turbidity");

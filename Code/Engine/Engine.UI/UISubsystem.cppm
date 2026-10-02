@@ -42,6 +42,7 @@ import foundation.ui;
 import foundation.ui.shell; // UiInputBridge (key/text mapping + IME lifecycle)
 import foundation.ui.gamekit; // ScreenStack over the screen-tier RootView
 import foundation.ui.resource;
+import foundation.image; // ImageData (the texture images an ImageView names)
 import foundation.script;         // Object / IScriptContext / IScriptDelegate / the run-context service
 import foundation.script.facades; // RegisterExtraFacadeName (the behavior-module prelude hook)
 
@@ -390,6 +391,11 @@ export namespace engine::ui
         /// picks by `font-family` (a title face over the body text). Held like the default. They
         /// need a default font bound: the TTF fallback serves only its built-in face.
         void SetExtraFonts(Span<const foundation::fonts::Font* const> fonts);
+        /// Where the game UI's images come from: an ImageView's `source` (and a stylesheet's
+        /// image()) is a texture asset id, bound through `resources`; a render texture a camera
+        /// draws into is a texture like any other. The application points it at its resource
+        /// manager; null (between projects) resolves nothing. Borrowed.
+        void SetResourceManager(foundation::resource::ResourceManager* resources);
         /// The screen tier at the game's render resolution: it lays out at `width` x `height` and
         /// draws, at the target's own resolution, into the rectangle `fit` puts that size in, so
         /// its text stays crisp at any window size. The pointer then arrives in render space, as
@@ -584,6 +590,10 @@ export namespace engine::ui
         /// True when any interactive canvas is under the pointer or holds text focus -
         /// mirrors the published consumption mask (tests + gameplay diagnostics).
         [[nodiscard]] bool PointerOverUI() const noexcept { return m_pointerConsumed; }
+        /// How many UI renderers (one per target format) draw `image` from a texture: an image
+        /// source, once drawn, is registered on every renderer that has drawn since (tests +
+        /// diagnostics).
+        [[nodiscard]] usize RenderersShowing(const foundation::image::ImageData* image) const;
 
     private:
         // Per-scene UI state: the scene tier's root + its billboard layer.
@@ -698,6 +708,9 @@ export namespace engine::ui
         // impl-side render state (VG contexts/renderers/shaders), opaque here
         struct RenderState;
         UniquePtr<RenderState> m_render;
+        // impl-side: the context's resource provider (texture asset id -> a UI image)
+        struct TextureImages;
+        UniquePtr<TextureImages> m_images;
     };
 }
 

@@ -1,0 +1,15 @@
+{
+ "HouseRed": "db4439d5-a881-4079-81f3-46e6ad30caae",
+ "HouseBlue": "cb6dc74e-e253-4166-a77a-51aa790d1abc",
+ "HouseCream": "8653e773-0379-4b3c-8fd9-edda835938dd",
+ "Road": "3b34fcb6-eb22-44cb-9222-0b72434d6aef",
+ "Kerb": "25a0f569-c515-4559-b9d4-b907245bb299",
+ "Car": "f1bcd35a-0378-49bf-8a67-8c73a4eaae94",
+ "CarOuter": "224e2b23-3ae1-4a19-a0d7-1bf5243f01b3",
+ "Pedestrian": "f197cbb0-c29c-4c33-83c4-5a8273fdd22e",
+ "Bin": "703fb679-6f79-49ce-a12b-c2a7ac645956",
+ "Hydrant": "4f886e26-47fa-43d4-8fef-1f4557525611",
+ "TrafficCone": "26d645e8-2db7-4697-81cb-3505b3373a69",
+ "Newspaper": "6aa57026-4f4a-44ae-835d-2d2905746210",
+ "DeliveryZone": "1266117f-676c-4851-a06c-5a81943b12dc"
+}

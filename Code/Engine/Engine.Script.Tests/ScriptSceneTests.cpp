@@ -3807,6 +3807,58 @@ TEST_CASE("script.scene: SceneRender.setMesh / setMaterial swap a component's re
     CHECK(bed.scene.GetEntityName(e) == StringView(u8"swapped"));
 }
 
+TEST_CASE("script.scene: SceneRender.setCameraTarget points a camera at a render texture; nil "
+          "clears it")
+{
+    engine::render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* cameras = bed.scene.AddSystem<engine::render::CameraComponentManager>();
+
+    RefPtr<ScriptClass> minimap =
+        MakeClass(u8"Minimap",
+                  u8"class Minimap {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Guid@ texture;\n"
+                  u8"    int frames = 0;\n"
+                  u8"    Minimap(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() {\n"
+                  u8"        if (SceneRender::of(self.scene).setCameraTarget(self, texture)) {\n"
+                  u8"            self.setName(\"targeted\");\n"
+                  u8"        }\n"
+                  u8"    }\n"
+                  u8"    void onUpdate(double dt) {\n"
+                  u8"        frames += 1;\n"
+                  u8"        if (frames == 2) {\n"
+                  u8"            SceneRender::of(self.scene).setCameraTarget(self, Guid(0, 0));\n"
+                  u8"        }\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart", u8"onUpdate"});
+    const Guid textureId{0x5555, 0x6666};
+    ScriptPropertyDesc textureProp;
+    textureProp.name = String(u8"texture");
+    textureProp.hash = ScriptPropertyNameHash(u8"texture");
+    textureProp.type = ScriptPropertyType::Asset;
+    textureProp.assetType = String(u8"RenderTexture");
+    textureProp.defaultValue.kind = ScriptPropertyType::Asset;
+    textureProp.defaultValue.guid = textureId;
+    minimap->properties.PushBack(textureProp);
+
+    const scene::EntityHandle e = bed.AddScripted(minimap, u8"e");
+    cameras->Add(e);
+
+    bed.Start();
+    bed.Frame(); // onStart: the camera now draws into the texture
+    REQUIRE(cameras->Get(e) != nullptr);
+    CHECK(cameras->Get(e)->target.id == textureId);
+    CHECK(cameras->Get(e)->HasTarget()); // never the screen camera now
+    CHECK(bed.scene.GetEntityName(e) == StringView(u8"targeted"));
+
+    bed.Frame();
+    bed.Frame(); // the second update clears it: the screen's camera again
+    CHECK_FALSE(cameras->Get(e)->HasTarget());
+}
+
 // ---- audio surface: AudioSourceComponent.of (live volume/pitch/loop - DATA) +
 //      SceneAudio.of(scene) (play/stop/pause/isPlaying/setClip - WORLD ops keyed by entity, reaching
 //      the scene's AudioEngine). No engine is wired here (the ops are null-safe), so this proves the

@@ -611,3 +611,35 @@ TEST_CASE("partial rebake: patched tiles equal a full rebake, and the live mesh 
     const Status refused = unloaded.ReplaceTile(0, 0, Span<const byte>{dummy.Data(), 0});
     CHECK_FALSE(refused.IsOk());
 }
+
+// A level's ground plane reaches far past the region baked (a physics plane 2000 m across):
+// with bounds, the grid is the region's, not the plane's, and the navmesh loads and paths. The
+// whole plane once made a 2000 m grid whose navmesh did not load at runtime (PaperKid).
+TEST_CASE("tiled bake: bounds clip the grid to the region; geometry reaching past it does not widen it")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -1000.0f, 1000.0f, -1000.0f, 1000.0f);
+    const Span<const Float3> vspan{verts.Data(), verts.Size()};
+    const Span<const u32> ispan{indices.Data(), indices.Size()};
+    NavigationBakeParams params;
+    params.bounds = AABB{Float3{-20.0f, -5.0f, -20.0f}, Float3{20.0f, 5.0f, 20.0f}};
+
+    Array<byte> blob;
+    REQUIRE(NavigationMeshBuilder::BuildTiled(vspan, ispan, params, blob).IsOk());
+    NavigationTileGridDesc grid;
+    REQUIRE(ReadTiledBlobGrid(Span<const byte>{blob.Data(), blob.Size()}, grid));
+    CHECK(grid.countX == 3); // 40 m over 19.2 m tiles, not 2000 m
+    CHECK(grid.countY == 3);
+    NavigationMesh mesh(DefaultAllocator());
+    REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
+    NavigationPath path;
+    REQUIRE(query.FindPath(Float3{-15, 0, -15}, Float3{15, 0, 15}, path).IsOk());
+    CHECK(path.complete);
+
+    // Geometry entirely outside the region is nothing to bake.
+    params.bounds = AABB{Float3{5000.0f, -5.0f, 5000.0f}, Float3{5040.0f, 5.0f, 5040.0f}};
+    Array<byte> none;
+    CHECK_FALSE(NavigationMeshBuilder::BuildTiled(vspan, ispan, params, none).IsOk());
+}

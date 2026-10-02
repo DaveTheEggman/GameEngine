@@ -307,3 +307,106 @@ TEST_CASE("navigation.scene: per-agent speed applies live and stopDistance arriv
     scene.Stop();
     RemoveTree(u8"scratch_navspeed_db");
 }
+
+namespace
+{
+    struct NavigationWarnings : ILogSink
+    {
+        Array<String> messages;
+        void Write(LogLevel level, StringView category, StringView message) noexcept override
+        {
+            if (level == LogLevel::Warning && category == u8"Navigation")
+            {
+                messages.PushBack(String(message));
+            }
+        }
+    };
+}
+
+// An agent that cannot join the navmesh never moves; it used to say nothing (a PaperKid car
+// placed where the bake had left a hole stood still with no clue why). Outside every zone, or
+// with no navmesh where it stands, it now warns; a well-placed agent says nothing.
+TEST_CASE("navigation.scene: an agent that cannot join the navmesh says so")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navwarn_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navwarn_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(DefaultAllocator(), u8"navwarn");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zoneComp.extents = Float3{15, 10, 15};
+    zoneComp.zone.SetId(zoneInstance->Id());
+    zoneComp.zone.Bind(manager);
+    REQUIRE(zoneComp.zone.Get() != nullptr);
+
+    auto* agents = scene.GetSystem<NavAgentComponentManager>();
+    const auto place = [&](StringView name, Float3 at)
+    {
+        scene::EntityHandle e = scene.CreateEntity(name);
+        scene.SetLocalPosition(e, at);
+        (void)agents->Add(e);
+        return e;
+    };
+    const scene::EntityHandle good = place(u8"walker", Float3{-5, 0, 0});
+    const scene::EntityHandle outside = place(u8"stray", Float3{100, 0, 0});
+    const scene::EntityHandle floating = place(u8"floater", Float3{0, 5, 0}); // over the mesh, far above it
+
+    NavigationWarnings warnings;
+    Logger& logger = GlobalLogger();
+    logger.AddSink(&warnings);
+    scene.UpdateTransforms();
+    scene.Start();
+    logger.RemoveSink(&warnings);
+
+    CHECK(agents->Get(good)->agentId >= 0);
+    CHECK(agents->Get(outside)->zoneIndex < 0);
+    (void)floating; // Detour gives it a slot, in a state that never moves: the warning says so
+    REQUIRE(warnings.messages.Size() == 2);
+    CHECK(warnings.messages[0].AsView().StartsWith(u8"agent 'stray' at"));
+    CHECK(warnings.messages[0].AsView().EndsWith(u8"is in no navigation zone; it will not move"));
+    CHECK(warnings.messages[1].AsView().StartsWith(u8"agent 'floater' at"));
+    CHECK(warnings.messages[1].AsView().EndsWith(u8"was the zone baked?)"));
+
+    scene.Stop();
+    RemoveTree(u8"scratch_navwarn_db");
+}
+
+// A zone with no usable navmesh is skipped; it used to be silent, and every agent in it then
+// reported standing in no zone, which points the wrong way. The zone itself says so now.
+TEST_CASE("navigation.scene: a zone with no usable navmesh says so")
+{
+    RegisterNavigationComponentReflection();
+    scene::Scene scene(DefaultAllocator(), u8"navzone");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"Block zone");
+    scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity).extents = Float3{15, 10, 15};
+
+    NavigationWarnings warnings;
+    Logger& logger = GlobalLogger();
+    logger.AddSink(&warnings);
+    scene.UpdateTransforms();
+    scene.Start();
+    logger.RemoveSink(&warnings);
+
+    REQUIRE(warnings.messages.Size() == 1);
+    CHECK(warnings.messages[0].AsView().StartsWith(u8"navigation zone 'Block zone' has no usable navmesh"));
+    CHECK(scene.GetSystem<NavMeshZoneComponentManager>()->Get(zoneEntity)->runtimeIndex < 0);
+    scene.Stop();
+}

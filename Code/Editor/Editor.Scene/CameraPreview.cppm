@@ -27,7 +27,7 @@ export namespace editor
 
     // Build the CameraOverride a camera-preview renders through, from the target CameraComponent and
     // the entity's WORLD matrix. Matches the runtime primary-camera extraction (Engine.Render
-    // ExtractImpl): view = inverse(world), a right-handed perspective from the lens fields, and the
+    // ExtractImpl): view = inverse(world), the projection from MakeCameraProjection, and the
     // eye position from the world origin. Aspect comes from the component (the preview panel is
     // sized to match, so the framing shown is the camera's real framing).
     [[nodiscard]] inline render::CameraOverride
@@ -35,8 +35,7 @@ export namespace editor
     {
         render::ViewCamera view;
         view.view = Inverse(world);
-        view.projection =
-            Float4x4::PerspectiveFovRH(camera.fovYRadians, camera.aspect, camera.nearZ, camera.farZ);
+        view.projection = engine::render::MakeCameraProjection(camera, camera.aspect);
         view.position = TransformPoint(Float3{0, 0, 0}, world);
         view.farZ = camera.farZ;
 

@@ -6,5 +6,6 @@ target_link_libraries(Texture.Pipeline PUBLIC
 target_sources(Texture.Pipeline
     PRIVATE
         TextureAssetImpl.cpp
+        TextureCreatorsImpl.cpp
     PUBLIC FILE_SET texture_editor_modules TYPE CXX_MODULES FILES TextureAsset.cppm)
 

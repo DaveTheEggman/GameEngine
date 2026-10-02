@@ -545,6 +545,10 @@ namespace engine::runtime
     DefaultApplication::SetResourceManager(foundation::resource::ResourceManager* borrowed) noexcept
     {
         m_borrowedResources = borrowed;
+        if (m_ui != nullptr)
+        {
+            m_ui->SetResourceManager(Resources()); // the game UI's images bind through it
+        }
     }
 
     void
@@ -595,6 +599,10 @@ namespace engine::runtime
         }
         foundation::resource::ResourceManager* resources = Resources();
         PointSpawnersAtContent(); // the manager exists now; scenes composed earlier learn of it
+        if (m_ui != nullptr)
+        {
+            m_ui->SetResourceManager(resources); // the game UI's images bind through it
+        }
         if (resources == nullptr)
         {
             return;
@@ -626,6 +634,10 @@ namespace engine::runtime
                                                    IApplicationHost& host)
     {
         m_borrowedResources = borrowed;
+        if (m_ui != nullptr)
+        {
+            m_ui->SetResourceManager(Resources()); // the game UI's images bind through it
+        }
         if (borrowed != nullptr)
         {
             RegisterStandardFactories(*borrowed, host);

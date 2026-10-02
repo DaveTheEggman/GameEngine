@@ -563,6 +563,27 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
     }
 }
 
+TEST_CASE("LimitPostForOrthographic drops the passes that assume a perspective depth")
+{
+    ViewPostConfig vp;
+    vp.aoMode = 1u;
+    vp.ssrEnabled = true;
+    vp.ssgiEnabled = true;
+    vp.taaEnabled = true;
+    vp.bloomEnabled = true;
+    vp.fxaaEnabled = true;
+    vp.autoExposure = true;
+    LimitPostForOrthographic(vp);
+    CHECK(vp.aoMode == 0u);
+    CHECK_FALSE(vp.ssrEnabled);
+    CHECK_FALSE(vp.ssgiEnabled);
+    CHECK_FALSE(vp.taaEnabled);
+    // What reads only the colour stays.
+    CHECK(vp.bloomEnabled);
+    CHECK(vp.fxaaEnabled);
+    CHECK(vp.autoExposure);
+}
+
 TEST_CASE("ApplyViewPostOverride strips effects per view without touching the authored config")
 {
     // Start from a fully-enabled config (exposure/tonemap preserved by every override).
@@ -799,6 +820,209 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
         CHECK(restored.ReflectionProbes().Size() == 1);
     }
     (void)sprites;
+}
+
+TEST_CASE("camera: MakeCameraProjection builds a perspective or an orthographic matrix")
+{
+    CameraComponent cam;
+    cam.fovYRadians = 1.2f;
+    cam.nearZ = 0.5f;
+    cam.farZ = 300.0f;
+    cam.orthoHeight = 40.0f;
+
+    const Float4x4 perspective = MakeCameraProjection(cam, 2.0f);
+    const Float4x4 expectedPerspective = Float4x4::PerspectiveFovRH(1.2f, 2.0f, 0.5f, 300.0f);
+    cam.projection = CameraProjection::Orthographic;
+    const Float4x4 orthographic = MakeCameraProjection(cam, 2.0f);
+    // The height is authored; the width follows the aspect.
+    const Float4x4 expectedOrthographic = Float4x4::OrthographicRH(80.0f, 40.0f, 0.5f, 300.0f);
+    for (usize r = 0; r < 4; ++r)
+    {
+        for (usize c = 0; c < 4; ++c)
+        {
+            CHECK(Near(perspective(r, c), expectedPerspective(r, c)));
+            CHECK(Near(orthographic(r, c), expectedOrthographic(r, c)));
+        }
+    }
+    CHECK_FALSE(projection::IsOrthographic(perspective));
+    CHECK(projection::IsOrthographic(orthographic));
+}
+
+TEST_CASE("extract: an orthographic primary camera renders orthographic at the view's aspect")
+{
+    scene::Scene scene(DefaultAllocator(), u8"cam-ortho");
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+    const scene::EntityHandle e = scene.CreateEntity(u8"top");
+    CameraComponent& cam = cameras->Add(e);
+    cam.projection = CameraProjection::Orthographic;
+    cam.orthoHeight = 20.0f;
+    scene.UpdateTransforms();
+
+    ViewCamera vc;
+    REQUIRE(ExtractPrimaryCamera(scene, vc, nullptr, 1.5f));
+    CHECK(projection::IsOrthographic(vc.projection));
+    CHECK(Near(vc.projection(0, 0), 2.0f / 30.0f)); // width = 20 x 1.5
+    CHECK(Near(vc.projection(1, 1), 2.0f / 20.0f));
+}
+
+TEST_CASE("camera: the projection mode and the orthographic height round-trip with the scene")
+{
+    scene::Scene a{DefaultAllocator()};
+    CameraComponentManager* camerasA = a.AddSystem<CameraComponentManager>();
+    CameraComponent& written = camerasA->Add(a.CreateEntity(u8"map"));
+    written.projection = CameraProjection::Orthographic;
+    written.orthoHeight = 64.0f;
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    scene::Scene b{DefaultAllocator()};
+    CameraComponentManager* camerasB = b.AddSystem<CameraComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b);
+        REQUIRE(reader.IsOk());
+    }
+    const CameraComponent* read = nullptr;
+    camerasB->ForEach([&](CameraComponent& c, scene::EntityHandle) { read = &c; });
+    REQUIRE(read != nullptr);
+    CHECK(read->projection == CameraProjection::Orthographic);
+    CHECK(Near(read->orthoHeight, 64.0f));
+}
+
+namespace
+{
+    // A live render-texture product on the null device, the way the factory makes one.
+    RefPtr<foundation::texture::Texture> MakeTargetTexture(rhi::Device& device, u32 width,
+                                                           u32 height)
+    {
+        rhi::Texture* gpu = nullptr;
+        REQUIRE(device
+                    .CreateTexture(rhi::TextureDesc::RenderTarget(
+                                       rhi::TextureFormat::RGBA8UnormSrgb, width, height),
+                                   gpu)
+                    .IsOk());
+        rhi::TextureView* view = nullptr;
+        REQUIRE(device.CreateTextureView(gpu, rhi::TextureViewDesc{}, view).IsOk());
+        RefPtr<foundation::texture::Texture> texture =
+            MakeRef<foundation::texture::Texture>(DefaultAllocator());
+        texture->Adopt(&device, gpu, view, nullptr, width, height,
+                       rhi::TextureFormat::RGBA8UnormSrgb);
+        return texture;
+    }
+}
+
+TEST_CASE("extract: a camera with a target is never the screen camera, primary or not")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    scene::Scene scene(DefaultAllocator(), u8"cam-target-pick");
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+    const scene::EntityHandle minimap = scene.CreateEntity(u8"minimap");
+    scene.SetLocalPosition(minimap, Float3{0, 50, 0});
+    cameras->Add(minimap).target = MakeTargetTexture(device, 64, 64); // primary by default
+    const scene::EntityHandle player = scene.CreateEntity(u8"player");
+    scene.SetLocalPosition(player, Float3{0, 2, 0});
+    cameras->Add(player);
+    scene.UpdateTransforms();
+
+    ViewCamera vc;
+    REQUIRE(ExtractPrimaryCamera(scene, vc));
+    CHECK(Near(vc.position.y, 2.0f)); // the player's camera, though the minimap comes first
+
+    // An asset target that has not loaded still marks the camera as a target camera.
+    CameraComponent unloaded;
+    unloaded.target.SetId(Guid{0x1234, 0x5678});
+    CHECK(unloaded.HasTarget());
+    CHECK_FALSE(CameraComponent{}.HasTarget());
+}
+
+TEST_CASE("extract: target cameras render at their texture's aspect, active and on their interval")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    scene::Scene scene(DefaultAllocator(), u8"cam-targets");
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+
+    const scene::EntityHandle map = scene.CreateEntity(u8"map");
+    scene.SetLocalPosition(map, Float3{0, 40, 0});
+    CameraComponent& mapCam = cameras->Add(map);
+    mapCam.projection = CameraProjection::Orthographic;
+    mapCam.orthoHeight = 30.0f;
+    mapCam.clearColor = Color{0.0f, 0.5f, 0.0f, 1.0f};
+    mapCam.target = MakeTargetTexture(device, 200, 100);
+
+    const scene::EntityHandle monitor = scene.CreateEntity(u8"monitor");
+    CameraComponent& monitorCam = cameras->Add(monitor);
+    monitorCam.target = MakeTargetTexture(device, 64, 64);
+    monitorCam.targetInterval = 3;
+
+    const scene::EntityHandle screen = scene.CreateEntity(u8"screen");
+    cameras->Add(screen); // no target: the screen's camera, never collected
+    scene.UpdateTransforms();
+
+    Array<TargetCameraView> views;
+    CollectTargetCameras(scene, 3, views); // frame 3: both are due
+    REQUIRE(views.Size() == 2u);
+    CHECK(views[0].target == mapCam.target.Get()); // manager order, stable frame to frame
+    CHECK(views[1].target == monitorCam.target.Get());
+    // The map renders orthographic at its texture's 2:1 aspect, from where its entity is.
+    const Float4x4 expected = Float4x4::OrthographicRH(60.0f, 30.0f, mapCam.nearZ, mapCam.farZ);
+    for (usize r = 0; r < 4; ++r)
+    {
+        for (usize c = 0; c < 4; ++c)
+        {
+            CHECK(Near(views[0].camera.camera.projection(r, c), expected(r, c)));
+        }
+    }
+    CHECK(Near(views[0].camera.camera.position.y, 40.0f));
+    CHECK(Near(views[0].camera.clearColor.g, 0.5f));
+
+    CollectTargetCameras(scene, 4, views); // the monitor draws every third frame only
+    REQUIRE(views.Size() == 1u);
+    CHECK(views[0].target == mapCam.target.Get());
+
+    scene.SetActive(map, false);
+    CollectTargetCameras(scene, 6, views);
+    REQUIRE(views.Size() == 1u);
+    CHECK(views[0].target == monitorCam.target.Get());
+
+    // A target whose texture is gone (a failed load) is skipped, not drawn into.
+    monitorCam.target = RefPtr<foundation::texture::Texture>{};
+    CollectTargetCameras(scene, 6, views);
+    CHECK(views.IsEmpty());
+}
+
+TEST_CASE("camera: the target and its interval round-trip with the scene")
+{
+    const Guid texture{0xABCD, 0x1234};
+    scene::Scene a{DefaultAllocator()};
+    CameraComponentManager* camerasA = a.AddSystem<CameraComponentManager>();
+    CameraComponent& written = camerasA->Add(a.CreateEntity(u8"monitor"));
+    written.target.SetId(texture);
+    written.targetInterval = 2;
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    scene::Scene b{DefaultAllocator()};
+    CameraComponentManager* camerasB = b.AddSystem<CameraComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b);
+        REQUIRE(reader.IsOk());
+    }
+    const CameraComponent* read = nullptr;
+    camerasB->ForEach([&](CameraComponent& c, scene::EntityHandle) { read = &c; });
+    REQUIRE(read != nullptr);
+    CHECK(read->target.id == texture);
+    CHECK(read->targetInterval == 2u);
 }
 
 TEST_CASE("extract: an inactive primary camera falls through to the next primary")

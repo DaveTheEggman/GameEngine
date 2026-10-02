@@ -137,7 +137,23 @@ namespace engine::uiscript
     }                                                                                                   \
     f32 H::opacity() const { return view ? view->Opacity : 0.0f; }                                      \
     void H::setOpacity(f32 value) { SetViewOpacity(view.Get(), value); }                                \
-    void H::fadeTo(f32 target, f32 seconds) { FadeViewTo(view.Get(), target, seconds); }
+    void H::fadeTo(f32 target, f32 seconds) { FadeViewTo(view.Get(), target, seconds); }                \
+    Float2 H::translation() const { return view ? view->Transform.Translation : Float2{0.0f, 0.0f}; }  \
+    void H::setTranslation(f32 x, f32 y)                                                                \
+    {                                                                                                   \
+        if (view)                                                                                       \
+        {                                                                                               \
+            view->Transform.Translation = Float2{x, y};                                                 \
+        }                                                                                               \
+    }                                                                                                   \
+    f32 H::rotation() const { return view ? RadiansToDegrees(view->Transform.Rotation) : 0.0f; }        \
+    void H::setRotation(f32 degrees)                                                                    \
+    {                                                                                                   \
+        if (view)                                                                                       \
+        {                                                                                               \
+            view->Transform.Rotation = DegreesToRadians(degrees);                                       \
+        }                                                                                               \
+    }
 
     UI_SCRIPT_DEFINE_COMMON(View)
     UI_SCRIPT_DEFINE_COMMON(Label)
@@ -145,6 +161,7 @@ namespace engine::uiscript
     UI_SCRIPT_DEFINE_COMMON(ProgressBar)
     UI_SCRIPT_DEFINE_COMMON(Slider)
     UI_SCRIPT_DEFINE_COMMON(TextBox)
+    UI_SCRIPT_DEFINE_COMMON(Image)
     UI_SCRIPT_DEFINE_COMMON(ViewGroup)
     UI_SCRIPT_DEFINE_COMMON(Screen)
 #undef UI_SCRIPT_DEFINE_COMMON
@@ -299,6 +316,31 @@ namespace engine::uiscript
         }
     }
 
+    // ------------------------------------------------------------------------------------- Image ---
+    Guid Image::source() const
+    {
+        auto* i = As<ui::ImageView>(view);
+        Guid id;
+        if (i == nullptr)
+        {
+            return id;
+        }
+        StringView text = i->Source.Value().AsView();
+        if (text.Size() == 38 && text[0] == utf8char('{') && text[37] == utf8char('}'))
+        {
+            text = text.SubStr(1, 36);
+        }
+        (void)Guid::TryParse(text, id);
+        return id;
+    }
+    void Image::setSource(Guid value)
+    {
+        if (auto* i = As<ui::ImageView>(view))
+        {
+            i->Source.SetValue(value.IsNil() ? String{} : Format(u8"{}", value));
+        }
+    }
+
     // --------------------------------------------------------- ViewGroup / Screen finders (shared) ---
 #define UI_SCRIPT_DEFINE_FINDERS(H)                                                                     \
     i32 H::childCount() const                                                                           \
@@ -329,6 +371,10 @@ namespace engine::uiscript
     TextBox H::findTextBox(String name) const                                                           \
     {                                                                                                   \
         return FindAs<ui::EditText, TextBox>(view, name.AsView());                                      \
+    }                                                                                                   \
+    Image H::findImage(String name) const                                                               \
+    {                                                                                                   \
+        return FindAs<ui::ImageView, Image>(view, name.AsView());                                       \
     }                                                                                                   \
     ViewGroup H::findGroup(String name) const                                                           \
     {                                                                                                   \
@@ -385,6 +431,7 @@ namespace engine::uiscript
     ProgressBar Ui::findProgressBar(String name) { return root().findProgressBar(Move(name)); }
     Slider Ui::findSlider(String name) { return root().findSlider(Move(name)); }
     TextBox Ui::findTextBox(String name) { return root().findTextBox(Move(name)); }
+    Image Ui::findImage(String name) { return root().findImage(Move(name)); }
     ViewGroup Ui::findGroup(String name) { return root().findGroup(Move(name)); }
 
     Screen Ui::push(Guid document)
@@ -449,6 +496,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&View::opacity>("opacity");
         builder.Method<&View::setOpacity>("setOpacity", {"value"});
         builder.Method<&View::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&View::translation>("translation");
+        builder.Method<&View::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&View::rotation>("rotation");
+        builder.Method<&View::setRotation>("setRotation", {"degrees"});
         builder.Constructor();
     }
     REFLECT_VALUE(Label, "rtti::engine.ui.script")
@@ -463,6 +514,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Label::opacity>("opacity");
         builder.Method<&Label::setOpacity>("setOpacity", {"value"});
         builder.Method<&Label::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Label::translation>("translation");
+        builder.Method<&Label::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Label::rotation>("rotation");
+        builder.Method<&Label::setRotation>("setRotation", {"degrees"});
         builder.Method<&Label::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -478,6 +533,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Button::opacity>("opacity");
         builder.Method<&Button::setOpacity>("setOpacity", {"value"});
         builder.Method<&Button::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Button::translation>("translation");
+        builder.Method<&Button::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Button::rotation>("rotation");
+        builder.Method<&Button::setRotation>("setRotation", {"degrees"});
         builder.Method<&Button::setText>("setText", {"value"});
         builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
@@ -496,6 +555,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Slider::opacity>("opacity");
         builder.Method<&Slider::setOpacity>("setOpacity", {"value"});
         builder.Method<&Slider::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Slider::translation>("translation");
+        builder.Method<&Slider::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Slider::rotation>("rotation");
+        builder.Method<&Slider::setRotation>("setRotation", {"degrees"});
         builder.Method<&Slider::setValue>("setValue", {"value"});
         builder.Method<&Slider::setRange>("setRange", {"min", "max"});
         builder.Method<&Slider::setStep>("setStep", {"step"});
@@ -515,6 +578,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&ProgressBar::opacity>("opacity");
         builder.Method<&ProgressBar::setOpacity>("setOpacity", {"value"});
         builder.Method<&ProgressBar::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&ProgressBar::translation>("translation");
+        builder.Method<&ProgressBar::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&ProgressBar::rotation>("rotation");
+        builder.Method<&ProgressBar::setRotation>("setRotation", {"degrees"});
         builder.Method<&ProgressBar::setValue>("setValue", {"value"});
         builder.Constructor();
     }
@@ -530,7 +597,30 @@ namespace engine::uiscript
         builder.ComputedProperty<&TextBox::opacity>("opacity");
         builder.Method<&TextBox::setOpacity>("setOpacity", {"value"});
         builder.Method<&TextBox::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&TextBox::translation>("translation");
+        builder.Method<&TextBox::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&TextBox::rotation>("rotation");
+        builder.Method<&TextBox::setRotation>("setRotation", {"degrees"});
         builder.Method<&TextBox::setText>("setText", {"value"});
+        builder.Constructor();
+    }
+    REFLECT_VALUE(Image, "rtti::engine.ui.script")
+    {
+        builder.Method<&Image::isValid>("isValid");
+        builder.ComputedProperty<&Image::name>("name");
+        builder.ComputedProperty<&Image::visible>("visible");
+        builder.ComputedProperty<&Image::enabled>("enabled");
+        builder.ComputedProperty<&Image::source>("source");
+        builder.Method<&Image::setVisible>("setVisible", {"value"});
+        builder.Method<&Image::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Image::opacity>("opacity");
+        builder.Method<&Image::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Image::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Image::translation>("translation");
+        builder.Method<&Image::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Image::rotation>("rotation");
+        builder.Method<&Image::setRotation>("setRotation", {"degrees"});
+        builder.Method<&Image::setSource>("setSource", {"value"});
         builder.Constructor();
     }
     REFLECT_VALUE(ViewGroup, "rtti::engine.ui.script")
@@ -545,6 +635,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&ViewGroup::opacity>("opacity");
         builder.Method<&ViewGroup::setOpacity>("setOpacity", {"value"});
         builder.Method<&ViewGroup::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&ViewGroup::translation>("translation");
+        builder.Method<&ViewGroup::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&ViewGroup::rotation>("rotation");
+        builder.Method<&ViewGroup::setRotation>("setRotation", {"degrees"});
         builder.Method<&ViewGroup::childAt>("childAt", {"index"});
         builder.Method<&ViewGroup::find>("find", {"name"});
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
@@ -552,6 +646,7 @@ namespace engine::uiscript
         builder.Method<&ViewGroup::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&ViewGroup::findSlider>("findSlider", {"name"});
         builder.Method<&ViewGroup::findTextBox>("findTextBox", {"name"});
+        builder.Method<&ViewGroup::findImage>("findImage", {"name"});
         builder.Method<&ViewGroup::findGroup>("findGroup", {"name"});
         builder.Method<&ViewGroup::findScreen>("findScreen", {"name"});
         builder.Constructor();
@@ -568,6 +663,10 @@ namespace engine::uiscript
         builder.ComputedProperty<&Screen::opacity>("opacity");
         builder.Method<&Screen::setOpacity>("setOpacity", {"value"});
         builder.Method<&Screen::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.ComputedProperty<&Screen::translation>("translation");
+        builder.Method<&Screen::setTranslation>("setTranslation", {"x", "y"});
+        builder.ComputedProperty<&Screen::rotation>("rotation");
+        builder.Method<&Screen::setRotation>("setRotation", {"degrees"});
         builder.Method<&Screen::childAt>("childAt", {"index"});
         builder.Method<&Screen::find>("find", {"name"});
         builder.Method<&Screen::findLabel>("findLabel", {"name"});
@@ -575,6 +674,7 @@ namespace engine::uiscript
         builder.Method<&Screen::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&Screen::findSlider>("findSlider", {"name"});
         builder.Method<&Screen::findTextBox>("findTextBox", {"name"});
+        builder.Method<&Screen::findImage>("findImage", {"name"});
         builder.Method<&Screen::findGroup>("findGroup", {"name"});
         builder.Constructor();
     }
@@ -591,6 +691,7 @@ namespace engine::uiscript
         builder.Method<&Ui::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&Ui::findSlider>("findSlider", {"name"});
         builder.Method<&Ui::findTextBox>("findTextBox", {"name"});
+        builder.Method<&Ui::findImage>("findImage", {"name"});
         builder.Method<&Ui::findGroup>("findGroup", {"name"});
         builder.Method<&Ui::push>("push", {"document"});
         builder.Method<&Ui::pop>("pop");
@@ -610,6 +711,7 @@ namespace engine::uiscript
             RttiRegisterValue_ProgressBar();
             RttiRegisterValue_Slider();
             RttiRegisterValue_TextBox();
+            RttiRegisterValue_Image();
             RttiRegisterValue_ViewGroup();
             RttiRegisterValue_Screen();
             GlobalTypeRegistry().Register(TypeOf<View>());
@@ -618,6 +720,7 @@ namespace engine::uiscript
             GlobalTypeRegistry().Register(TypeOf<ProgressBar>());
             GlobalTypeRegistry().Register(TypeOf<Slider>());
             GlobalTypeRegistry().Register(TypeOf<TextBox>());
+            GlobalTypeRegistry().Register(TypeOf<Image>());
             GlobalTypeRegistry().Register(TypeOf<ViewGroup>());
             GlobalTypeRegistry().Register(TypeOf<Screen>());
             return true;

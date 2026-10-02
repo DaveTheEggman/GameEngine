@@ -58,6 +58,7 @@ import :idrop_target;      // pattern-A drop target (View::AsDropTarget())
 import :drag_drop_manager; // by-value member of UIContext
 import :animation_manager; // by-value member of UIContext
 import :iclipboard;        // clipboard seam (injected by the app; nullable)
+import :iresource_provider; // image/text seam (injected by the app; nullable)
 import :input_manager;
 import :focus_manager;
 import :shortcut_manager;
@@ -1571,6 +1572,18 @@ export namespace foundation::ui
         [[nodiscard]] IClipboard* Clipboard() const noexcept { return m_clipboard; }
         void SetClipboard(IClipboard* clipboard) noexcept { m_clipboard = clipboard; }
 
+        // What resolves an image a view names by a string (an ImageView's Source), set by the
+        // application (non-owning, nullable). The UI never interprets the string: the engine's
+        // provider answers asset ids, a sample's answers file paths.
+        [[nodiscard]] IResourceProvider* ResourceProvider() const noexcept
+        {
+            return m_resourceProvider;
+        }
+        void SetResourceProvider(IResourceProvider* provider) noexcept
+        {
+            m_resourceProvider = provider;
+        }
+
         // Font service, set by the application (non-owning, nullable). Controls resolve fonts through it
         // for measuring (Context->FontService()) and DrawRootView feeds it into the draw context + VG.
         [[nodiscard]] fonts::IFontService* FontService() const noexcept { return m_fontService; }
@@ -1805,6 +1818,7 @@ export namespace foundation::ui
         RefPtr<StyleSheet> m_styleSheet;
         u32 m_styleGeneration = 1;
         IClipboard* m_clipboard = nullptr;
+        IResourceProvider* m_resourceProvider = nullptr;
         fonts::IFontService* m_fontService = nullptr;
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;

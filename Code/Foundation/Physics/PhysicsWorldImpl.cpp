@@ -26,6 +26,7 @@ module;
 #include <Jolt/Physics/Collision/Shape/ScaledShape.h>
 #include <Jolt/Physics/Collision/Shape/PlaneShape.h>
 #include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
+#include <Jolt/Physics/Collision/TransformedShape.h> // AppendBodyTriangles
 #include <Jolt/Core/StreamIn.h>
 #include <Jolt/Core/StreamOut.h>
 #include <Jolt/Physics/Collision/RayCast.h>
@@ -580,6 +581,70 @@ namespace foundation::physics
         }
         ReleaseJolt();
         return ok;
+    }
+
+    usize AppendBodyTriangles(Span<const BodyDesc> bodies, const AABB& bounds,
+                              Array<Float3>& outTriangles)
+    {
+        usize failed = 0;
+        AcquireJolt();
+        {
+            const JPH::AABox box(ToJph(bounds.min), ToJph(bounds.max));
+            JPH::Float3 buffer[3 * JPH::Shape::cGetTrianglesMinTrianglesRequested];
+            for (const BodyDesc& body : bodies)
+            {
+                JPH::Ref<JPH::Shape> shape = BuildShape(body);
+                if (shape == nullptr)
+                {
+                    ++failed;
+                    continue;
+                }
+                // A compound only yields triangles through its leaves, so every shape goes
+                // through CollectTransformedShapes first (a leaf collects itself). The body's
+                // origin is its centre of mass, as CreateBody places it.
+                const JPH::Quat rotation = ToJph(body.rotation);
+                const JPH::TransformedShape whole(
+                    JPH::RVec3(ToJph(body.position)) + rotation * shape->GetCenterOfMass(),
+                    rotation, shape, JPH::BodyID());
+                JPH::AllHitCollisionCollector<JPH::TransformedShapeCollector> leaves;
+                whole.CollectTransformedShapes(box, leaves);
+                for (const JPH::TransformedShape& leaf : leaves.mHits)
+                {
+                    JPH::Shape::GetTrianglesContext context;
+                    leaf.GetTrianglesStart(context, box, JPH::RVec3::sZero());
+                    for (;;)
+                    {
+                        const int count = leaf.GetTrianglesNext(
+                            context, JPH::Shape::cGetTrianglesMinTrianglesRequested, buffer);
+                        if (count <= 0)
+                        {
+                            break;
+                        }
+                        // The box only culls inside meshes and heightfields; a convex shape or a
+                        // plane gives all of itself, so each triangle is tested here.
+                        for (int t = 0; t < count; ++t)
+                        {
+                            const JPH::Float3* corner = &buffer[3 * t];
+                            AABB extent = AABB::Empty();
+                            for (int v = 0; v < 3; ++v)
+                            {
+                                extent.Expand(Float3{corner[v].x, corner[v].y, corner[v].z});
+                            }
+                            if (!extent.Intersects(bounds))
+                            {
+                                continue;
+                            }
+                            for (int v = 0; v < 3; ++v)
+                            {
+                                outTriangles.PushBack(Float3{corner[v].x, corner[v].y, corner[v].z});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ReleaseJolt();
+        return failed;
     }
 
     struct PhysicsWorld::Impl

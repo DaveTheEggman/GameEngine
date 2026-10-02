@@ -1307,3 +1307,17 @@ TEST_CASE("ssgi: enabling the per-view flag declares trace + resolve; the chain 
         CHECK_FALSE(hasPass(u8"ssgi.resolve"));
     }
 }
+
+TEST_CASE("mesh renderer: the per-frame rings hold the shadow casters, not only the camera's draws")
+{
+    // A town block seen down one street: the camera draws 150 meshes, the shadow cascades draw
+    // all 330 casters (the camera does not cull them). Sized by the camera's draws, the shadows
+    // filled the rings and the camera's own prepass and forward lost their meshes.
+    const u32 cascades = 4;
+    const u32 slots = MeshRenderer::InstanceSlotsPerFrame(150, 330, cascades, 0);
+    CHECK(slots >= 150u * 2u + 330u * cascades);
+    // Many draws and few casters (an interior): the camera passes still fit.
+    CHECK(MeshRenderer::InstanceSlotsPerFrame(500, 20, cascades, 1) >= 500u * 3u + 20u * cascades);
+    // Nothing to draw needs nothing.
+    CHECK(MeshRenderer::InstanceSlotsPerFrame(0, 0, cascades, 0) == 0u);
+}

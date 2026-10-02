@@ -37,6 +37,8 @@ import foundation.vg;
 import foundation.vg.renderer;
 import foundation.ui;
 import foundation.ui.resource;
+import foundation.image;            // ImageDataRef: the key a texture image draws under
+import foundation.texture.resource; // texture::Texture: what an image source names
 import foundation.render.api;
 import engine.render; // RenderSubsystem (overlay-role registration)
 import foundation.script;         // the Ui facade reflection body
@@ -479,11 +481,199 @@ namespace engine::ui
         }
     };
 
+    // The game UI's resource provider: an image source is a texture asset id ("{guid}" or the
+    // bare guid), a render texture included. A texture gets ONE key for the subsystem's life (an
+    // ImageView keeps the pointer it was given), and the key is registered on every VG renderer:
+    // the renderers are per format, and a texture registered on one is invisible to the others.
+    struct UISubsystem::TextureImages final : public IResourceProvider
+    {
+        struct Entry
+        {
+            Guid id;
+            foundation::resource::Proxy<foundation::texture::Texture> texture;
+            UniquePtr<foundation::image::ImageDataRef> key;
+            u64 uid = 0; // the texture product the key stands for; 0 = none (yet)
+        };
+
+        explicit TextureImages(IAllocator& alloc) : allocator(&alloc) {}
+
+        bool LoadText(StringView, String&) override { return false; }
+
+        const foundation::image::ImageData* LoadImage(StringView path) override
+        {
+            if (path.Size() == 38 && path[0] == utf8char('{') && path[37] == utf8char('}'))
+            {
+                path = path.SubStr(1, 36);
+            }
+            Guid id;
+            if (!Guid::TryParse(path, id) || id.IsNil())
+            {
+                return nullptr;
+            }
+            Entry* entry = Find(id);
+            if (entry == nullptr)
+            {
+                if (resources == nullptr)
+                {
+                    return nullptr;
+                }
+                UniquePtr<Entry> made = MakeUnique<Entry>(*allocator);
+                made->id = id;
+                made->texture = resources->Bind<foundation::texture::Texture>(id);
+                entry = made.Get();
+                entries.PushBack(Move(made));
+            }
+            Refresh(*entry);
+            return (entry->uid != 0) ? entry->key.Get() : nullptr;
+        }
+
+        // Bring every key in line with its texture's current product (a reload, a failed load).
+        void Poll()
+        {
+            for (UniquePtr<Entry>& entry : entries)
+            {
+                Refresh(*entry);
+            }
+        }
+
+        // Bring `renderer` in line before it draws: every key registered, the ones whose texture
+        // is gone dropped. Once per change, not per frame (a registration rebuilds bind groups).
+        void SyncOn(vg::renderer::VGRenderer& renderer, u64 frameSerial)
+        {
+            if (polledSerial != frameSerial)
+            {
+                polledSerial = frameSerial;
+                Poll();
+            }
+            u64* synced = syncedGeneration.Find(&renderer);
+            if (synced != nullptr && *synced == generation)
+            {
+                return;
+            }
+            RegisterOn(renderer);
+            syncedGeneration.InsertOrAssign(&renderer, generation);
+        }
+
+        // Register every key on `renderer`, or drop the ones whose texture is gone.
+        void RegisterOn(vg::renderer::VGRenderer& renderer) const
+        {
+            for (const UniquePtr<foundation::image::ImageDataRef>& key : retired)
+            {
+                renderer.UnregisterExternalTexture(key.Get());
+            }
+            for (const UniquePtr<Entry>& entry : entries)
+            {
+                if (entry->key.Get() == nullptr)
+                {
+                    continue;
+                }
+                foundation::texture::Texture* texture = entry->texture.Get();
+                if (entry->uid != 0 && texture != nullptr)
+                {
+                    renderer.RegisterExternalTexture(entry->key.Get(), texture->View());
+                }
+                else
+                {
+                    renderer.UnregisterExternalTexture(entry->key.Get());
+                }
+            }
+        }
+
+        // A new resource manager (another project, or none): what was bound goes, while every
+        // key stays alive (views may still hold them) and stops showing anything.
+        void Reset(foundation::resource::ResourceManager* manager)
+        {
+            if (manager == resources)
+            {
+                return;
+            }
+            resources = manager;
+            for (UniquePtr<Entry>& entry : entries)
+            {
+                if (entry->key.Get() != nullptr)
+                {
+                    retired.PushBack(Move(entry->key));
+                }
+            }
+            entries.Clear();
+            ++generation;
+        }
+
+        IAllocator* allocator;
+        foundation::resource::ResourceManager* resources = nullptr;
+        Array<UniquePtr<Entry>> entries;
+        Array<UniquePtr<foundation::image::ImageDataRef>> retired; // keys no texture backs now
+        u64 generation = 1; // bumps whenever what a key stands for changes
+        u64 polledSerial = 0;
+        HashMap<const void*, u64> syncedGeneration; // per renderer: the generation it holds
+
+    private:
+        [[nodiscard]] Entry* Find(const Guid& id) const
+        {
+            for (const UniquePtr<Entry>& entry : entries)
+            {
+                if (entry->id == id)
+                {
+                    return entry.Get();
+                }
+            }
+            return nullptr;
+        }
+
+        void Refresh(Entry& entry)
+        {
+            foundation::texture::Texture* texture = entry.texture.Get();
+            const u64 uid = (texture != nullptr && texture->View() != nullptr) ? texture->Uid() : 0;
+            if (uid == entry.uid)
+            {
+                return;
+            }
+            if (texture != nullptr && uid != 0 &&
+                (entry.key.Get() == nullptr || entry.key->Width() != texture->Width() ||
+                 entry.key->Height() != texture->Height()))
+            {
+                // A key's size is the image's natural size; a reload at another size gets a new
+                // key (views resolving afresh find it), the old one kept for views that hold it.
+                if (entry.key.Get() != nullptr)
+                {
+                    retired.PushBack(Move(entry.key));
+                }
+                entry.key = MakeUnique<foundation::image::ImageDataRef>(*allocator, texture->Width(),
+                                                                        texture->Height());
+            }
+            entry.uid = uid;
+            ++generation;
+        }
+    };
+
     UISubsystem::UISubsystem(IAllocator& allocator, foundation::vfs::IFileSystem& dataFileSystem)
         : m_allocator(allocator, RegisterMemoryTag("GameUI")), m_dataFileSystem(&dataFileSystem)
     {
+        m_images = MakeUnique<TextureImages>(m_allocator, m_allocator);
+        m_context.SetResourceProvider(m_images.Get());
     }
     UISubsystem::~UISubsystem() = default;
+
+    void UISubsystem::SetResourceManager(foundation::resource::ResourceManager* resources)
+    {
+        m_images->Reset(resources);
+    }
+
+    usize UISubsystem::RenderersShowing(const foundation::image::ImageData* image) const
+    {
+        usize count = 0;
+        if (m_render.Get() != nullptr)
+        {
+            for (const RenderState::FormatRenderer& entry : m_render->renderers)
+            {
+                if (entry.renderer->IsExternalTextureRegistered(image))
+                {
+                    ++count;
+                }
+            }
+        }
+        return count;
+    }
 
     // Whole-file read through the data mount (false when absent or unreadable).
     bool UISubsystem::ReadDataFile(StringView path, Array<u8>& outBytes) const
@@ -751,6 +941,7 @@ namespace engine::ui
                         {
                             StyleSheetLoader loader(m_context.Allocator());
                             loader.SetPalette(GameTheme::Palette());
+                            loader.ResourceProvider = m_images.Get(); // image(): texture ids
                             c.themeSheet = loader.Load(theme->stylesheet.AsView());
                         }
                         if (c.root.Get() != nullptr)
@@ -901,6 +1092,7 @@ namespace engine::ui
                             {
                                 StyleSheetLoader loader(m_context.Allocator());
                                 loader.SetPalette(GameTheme::Palette());
+                                loader.ResourceProvider = m_images.Get(); // image(): texture ids
                                 c.themeSheet = loader.Load(theme->stylesheet.AsView());
                             }
                             if (c.root.Get() != nullptr)
@@ -1717,6 +1909,8 @@ namespace engine::ui
         {
             return;
         }
+        // The texture images the tree names (resolved as it drew) registered on this renderer.
+        m_images->SyncOn(*renderer, m_frameSerial);
         const vg::renderer::VGRenderSlice slice =
             renderer->Prepare(batch, frameIndex, width, height);
         renderer->Render(encoder, viewportX, viewportY, width, height, frameIndex, slice);
@@ -2131,6 +2325,7 @@ namespace engine::ui
         {
             StyleSheetLoader loader(m_context.Allocator());
             loader.SetPalette(GameTheme::Palette());
+            loader.ResourceProvider = m_images.Get(); // image(): texture ids
             sheet = loader.Load(theme->stylesheet.AsView());
             if (sheet.Get() == nullptr)
             {

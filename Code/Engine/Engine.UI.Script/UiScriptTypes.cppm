@@ -32,6 +32,7 @@ export namespace engine::uiscript
     struct ProgressBar;
     struct Slider;
     struct TextBox;
+    struct Image;
     struct ViewGroup;
     struct Screen;
 
@@ -49,7 +50,14 @@ export namespace engine::uiscript
     void setOpacity(f32 value);                                                                         \
     /* From where it is to `target` over `seconds` of UI frame time, which runs while the game is */    \
     /* paused (time scale 0); zero seconds, or a view in no tree yet, is a set. */                      \
-    void fadeTo(f32 target, f32 seconds);
+    void fadeTo(f32 target, f32 seconds);                                                               \
+    /* The offset in pixels from where layout put the view, applied as it draws and hit tests, so */    \
+    /* moving it costs no relayout (a marker on a minimap). */                                          \
+    [[nodiscard]] Float2 translation() const;                                                           \
+    void setTranslation(f32 x, f32 y);                                                                  \
+    /* Degrees, clockwise on screen, about the view's centre. */                                        \
+    [[nodiscard]] f32 rotation() const;                                                                 \
+    void setRotation(f32 degrees);
 
     /// A bare view - identity + visibility/enabled. What find / childAt return.
     struct View
@@ -113,6 +121,15 @@ export namespace engine::uiscript
         void setText(String value);
     };
 
+    /// An image. `image.source` is the texture asset it shows (a render texture a camera draws
+    /// into included); `image.setSource(id)` swaps it, a nil id clears it.
+    struct Image
+    {
+        UI_SCRIPT_COMMON_HANDLE_MEMBERS
+        [[nodiscard]] Guid source() const;
+        void setSource(Guid value);
+    };
+
     /// A container - the search surface. Every finder searches this group's subtree recursively, first
     /// match, and returns a null-but-valid handle when the name is missing or is the wrong control type.
     struct ViewGroup
@@ -126,6 +143,7 @@ export namespace engine::uiscript
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
         [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
+        [[nodiscard]] Image findImage(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
         [[nodiscard]] Screen findScreen(String name) const;
     };
@@ -143,6 +161,7 @@ export namespace engine::uiscript
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
         [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
+        [[nodiscard]] Image findImage(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
     };
 

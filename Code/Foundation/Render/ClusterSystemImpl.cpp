@@ -199,6 +199,7 @@ namespace foundation::render
         bp->lightOffset = lightOffset;
         bp->viewMatrix = view.Camera().view;
         bp->invProjection = Inverse(view.Camera().projection);
+        bp->orthographic = projection::IsOrthographic(view.Camera().projection) ? 1u : 0u;
 
         rhi::Buffer* offsets = m_offsets[bufferSlot];
         rhi::Buffer* indices = m_indices[bufferSlot];

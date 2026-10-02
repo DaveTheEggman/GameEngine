@@ -216,6 +216,13 @@ TEST_CASE("math: the depth convention is reverse-Z - near maps to 1, far to 0, n
     CHECK(NearlyEqual(NdcDepthAt(ortho, 26.0f), 0.5f, 1.0e-6f));
 }
 
+TEST_CASE("math: IsOrthographic tells an orthographic projection from a perspective one")
+{
+    CHECK(projection::IsOrthographic(Float4x4::OrthographicRH(40.0f, 22.5f, 0.1f, 100.0f)));
+    CHECK_FALSE(
+        projection::IsOrthographic(Float4x4::PerspectiveFovRH(1.0f, 16.0f / 9.0f, 0.1f, 100.0f)));
+}
+
 TEST_CASE("math: BoundingFrustum extracts the reverse-Z near and far planes where the camera puts them")
 {
     const f32 n = 0.5f, f = 200.0f;

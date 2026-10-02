@@ -108,6 +108,64 @@ TEST_CASE("texture.factory: cooked TextureResource -> live GPU Texture")
     RemoveTree();
 }
 
+TEST_CASE("texture.factory: a cooked RenderTextureResource is a texture a camera can draw into")
+{
+    RegisterTextureResource();
+    FileDelete(u8"scratch_rtfac_db/target.rasset");
+    FileDelete(u8"scratch_rtfac_db/bad.rasset");
+    RemoveDirectory(u8"scratch_rtfac_db");
+    NativeFileSystem mount(u8"scratch_rtfac_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+    Guid targetId;
+    Guid badId;
+    {
+        auto* inst = db.RootGroup()->CreateInstance(u8"target",
+                                                    RenderTextureResource::StaticType());
+        RenderTextureResource res;
+        res.width = 320;
+        res.height = 180;
+        res.format = rhi::TextureFormat::RGBA16Float;
+        REQUIRE(inst->WriteObject(res).IsOk());
+        targetId = inst->Id();
+
+        auto* bad = db.RootGroup()->CreateInstance(u8"bad", RenderTextureResource::StaticType());
+        RenderTextureResource zero;
+        zero.width = 0; // no size: refused, never a zero-extent GPU texture
+        REQUIRE(bad->WriteObject(zero).IsOk());
+        badId = bad->Id();
+    }
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    TextureFactory factory(DefaultAllocator(), device);
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    // The product is an ordinary Texture: a sprite, a material or a UI image take it as is.
+    Proxy<Texture> tex = manager.Bind<Texture>(targetId);
+    REQUIRE(tex);
+    CHECK(tex->Width() == 320u);
+    CHECK(tex->Height() == 180u);
+    CHECK(tex->Format() == rhi::TextureFormat::RGBA16Float);
+    REQUIRE(tex->GpuTexture() != nullptr);
+    const rhi::TextureUsage usage = tex->GpuTexture()->desc.usage;
+    CHECK((usage & rhi::TextureUsage::RenderTarget) == rhi::TextureUsage::RenderTarget);
+    CHECK((usage & rhi::TextureUsage::Sampled) == rhi::TextureUsage::Sampled);
+    CHECK((usage & rhi::TextureUsage::CopySrc) == rhi::TextureUsage::CopySrc);
+    CHECK(tex->View() != nullptr);
+    CHECK(tex->Sampler() != nullptr);
+
+    CHECK_FALSE(manager.Bind<Texture>(badId));
+
+    RenderTextureResource limits;
+    CHECK(limits.IsValid()); // the defaults: 256x256 LDR
+    limits.width = RenderTextureResource::kMaxSize + 1;
+    CHECK_FALSE(limits.IsValid());
+    limits.width = 64;
+    limits.format = rhi::TextureFormat::Depth32Float; // a camera renders colour
+    CHECK_FALSE(limits.IsValid());
+}
+
 TEST_CASE("texture.factory: rejects an instance whose object isn't a TextureResource")
 {
     RegisterTextureResource();

@@ -420,8 +420,11 @@ export namespace foundation::ui
             return {};
         }
 
-        /// Parse a Gravity value: "Center", "Fill", "TopLeft", "Bottom|Right", etc.
-        [[nodiscard]] static Gravity ParseGravity(StringView value)
+        /// Parse a Gravity value: "Center", "Fill", "TopLeft", "Bottom|Right", etc. The names are
+        /// PascalCase and matched exactly; a name that matches none adds nothing, and is listed in
+        /// `unknown` when given (the loader turns them into warnings: "top|right" is a typo that
+        /// otherwise silently leaves a view where it was).
+        [[nodiscard]] static Gravity ParseGravity(StringView value, Array<String>* unknown = nullptr)
         {
             Gravity result = Gravity::None;
             const char8_t* data = value.Data();
@@ -487,6 +490,10 @@ export namespace foundation::ui
                     else if (s == u8"BottomRight")
                     {
                         result = result | Gravity::BottomRight;
+                    }
+                    else if (unknown != nullptr && s.Size() > 0)
+                    {
+                        unknown->PushBack(String(s));
                     }
                     start = i + 1;
                 }
@@ -1186,6 +1193,16 @@ export namespace foundation::ui
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ColorView>(allocator); });
         RegisterView(u8"ImageView",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ImageView>(allocator); });
+        // What the image shows, resolved by the context's resource provider (an asset id in the
+        // engine): <ImageView source="{guid}"/>.
+        RegisterProperty(u8"ImageView", u8"source",
+                         [](View* v, StringView val)
+                         {
+                             if (ImageView* c = Cast<ImageView>(v))
+                             {
+                                 c->Source.SetValue(String(val));
+                             }
+                         });
         RegisterView(u8"DrawableView",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DrawableView>(allocator); });
         RegisterView(u8"ListView",

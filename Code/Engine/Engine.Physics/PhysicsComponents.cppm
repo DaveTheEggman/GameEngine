@@ -145,14 +145,24 @@ export namespace engine::physics
         c.heightfield.Bind(manager);
     }
 
+    // The rigid bodies, and the static level geometry they make: the static, non-trigger bodies'
+    // collision shapes, which the navigation bake reads.
     class RigidBodyComponentManager final
-        : public foundation::scene::SerializableComponentManager<RigidBodyComponent>
+        : public foundation::scene::SerializableComponentManager<RigidBodyComponent>,
+          public foundation::scene::IStaticGeometrySource
     {
     public:
         RigidBodyComponentManager()
             : SerializableComponentManager<RigidBodyComponent>(u8"physics.RigidBody")
         {
         }
+
+        [[nodiscard]] foundation::scene::IStaticGeometrySource* AsStaticGeometrySource() noexcept override
+        {
+            return this;
+        }
+        void CollectStaticGeometry(foundation::scene::Scene& scene, const AABB& bounds, f32 detail,
+                                   Array<Float3>& outTriangles) override;
     };
 
     class ColliderComponentManager final

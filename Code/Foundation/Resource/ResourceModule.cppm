@@ -1239,6 +1239,24 @@ export namespace foundation::resource
         const TypeInfo* (*cooked)();
         const TypeInfo* (*service)();
         UniquePtr<IResourceFactory> (*create)(IAllocator& allocator, const IResourceServices& services);
+        /// The further cooked forms the factory reads beside `cooked`, by index, null past the
+        /// last (a render texture's record beside a texture's): each is another asset type the
+        /// product is made from. Null when there are none.
+        const TypeInfo* (*alsoCooked)(usize index) = nullptr;
+
+        /// `cooked`, then every `alsoCooked` form.
+        template <typename Visit>
+        void ForEachCooked(Visit&& visit) const
+        {
+            visit(cooked());
+            if (alsoCooked != nullptr)
+            {
+                for (usize i = 0; const TypeInfo* type = alsoCooked(i); ++i)
+                {
+                    visit(type);
+                }
+            }
+        }
     };
 
     /// A description for a factory constructed from the allocator alone (`Factory(IAllocator&)`).

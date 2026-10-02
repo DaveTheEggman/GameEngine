@@ -222,6 +222,26 @@ namespace foundation::render
         return Span<const RenderCategory>{kCats, 3};
     }
 
+    namespace
+    {
+        // A draw the instance ring could not take is dropped; say so (rate-limited) rather than
+        // leave a mesh silently missing from a pass.
+        void WarnInstanceRingFull(const char* pass, u32 wanted, u32 used)
+        {
+            static u32 s_warned = 0;
+            constexpr u32 kWarnLimit = 8;
+            if (s_warned >= kWarnLimit)
+            {
+                return;
+            }
+            ++s_warned;
+            rhi::LogWarningf("[MeshRenderer] the instance ring is full: a %s batch of %u instances "
+                             "was dropped (%u slots already used this frame).%s",
+                             pass, wanted, used,
+                             s_warned == kWarnLimit ? " Further such warnings suppressed." : "");
+        }
+    }
+
     void MeshRenderer::PrepareFrame(u32 maxDraws, u32 frameIndex)
     {
         m_ready = false;
@@ -232,13 +252,15 @@ namespace foundation::render
         {
             return;
         }
-        // Per-frame ring capacity = draws x (passes that re-emit them): the depth PREPASS + the forward
-        // (2 camera passes) + per-cascade CSM re-emit + per-spot-tile local-atlas re-emit. Under-counting
-        // overflows the object/instance/offset rings at high draw counts -> Allocate() fails -> dropped
-        // draws (was missing the prepass, so the stress tests lost their spheres).
-        const u32 drawCap =
-            maxDraws * (2u + ShadowCascades::kCount + m_localShadowPassCount + m_captureFacePasses +
-                        m_pickPasses);
+        // Per-frame ring capacity: every pass that re-emits draws - the depth PREPASS + the forward,
+        // per-cascade CSM, per-spot-tile local atlas, probe faces, picks. Under-counting overflows the
+        // object/instance/offset rings -> Allocate() fails -> dropped draws (the prepass once went
+        // uncounted and the stress tests lost their spheres; sizing the shadow passes by the VIEW's
+        // draws let a block's off-camera casters starve the camera's own draws, so meshes vanished
+        // with their shadows still drawn, from wherever the camera saw few of them).
+        const u32 drawCap = InstanceSlotsPerFrame(
+            maxDraws, m_shadowCasterDraws, ShadowCascades::kCount + m_localShadowPassCount,
+            m_captureFacePasses + m_pickPasses);
         // Pick passes take shadow-view slots too: one per pass + one per MultiMesh set they id.
         const u32 shadowViewCap = kMaxShadowPasses + m_pickPasses * (1u + kMaxPickMultiMeshSets) +
                                   kMaxFadedSetSlots;
@@ -1341,6 +1363,7 @@ namespace foundation::render
             const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
             if (!inst.ok || !offs.ok)
             {
+                WarnInstanceRingFull("forward", count, m_instanceRing.FrameAllocatedSlots());
                 return;
             }
             InstanceData* id = static_cast<InstanceData*>(inst.ptr);
@@ -1599,6 +1622,7 @@ namespace foundation::render
         const DynamicUniformRing::Range offs = m_offsetsRing.AllocateRange(count);
         if (!inst.ok || !offs.ok)
         {
+            WarnInstanceRingFull("depth/shadow", count, m_instanceRing.FrameAllocatedSlots());
             return;
         }
 

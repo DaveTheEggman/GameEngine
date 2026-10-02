@@ -668,10 +668,11 @@ namespace editor
             }
             return Guid{};
         };
-        const StringView textureTypes[] = {u8"TextureAsset"};
+        // A render texture samples like any texture (a monitor's screen, a mirror).
+        const StringView textureTypes[] = {u8"TextureAsset", u8"RenderTextureAsset"};
         auto editor = MakeRef<ResourceRefEditor>(Allocator(), slot.AsView(),
                                                  AssetNameFor(target()), StringView(u8"Textures"),
-                                                 Span<const StringView>{textureTypes, 1});
+                                                 Span<const StringView>{textureTypes, 2});
         editor->SetDisplayName(PrettifyPropertyName(slot.AsView()).AsView());
         ResourceRefEditor* raw = editor.Get();
         // Pick, drop and clear are one write: nil removes the slot's binding.

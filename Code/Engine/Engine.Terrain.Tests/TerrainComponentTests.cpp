@@ -348,3 +348,51 @@ TEST_CASE("engine.terrain: the extracted snapshot outlives the scene it came fro
         frustum, Span<const f32>{rd->thresholds, rd->thresholdCount}, 0.0f, draws);
     CHECK(!draws.IsEmpty()); // the snapshot culls correctly with no living producer
 }
+
+// Navigation bakes from the scene's static geometry sources; a terrain's is its surface: faces
+// up, sampled no finer than the detail asked for, holes left open, nothing when the entity is
+// inactive or the box misses it.
+TEST_CASE("engine.terrain: the surface is static geometry, holes open, faces up")
+{
+    scene::Scene sceneObj{DefaultAllocator()};
+    engine::terrain::AddTerrainSceneManagers(sceneObj);
+    auto* mgr = sceneObj.GetSystem<engine::terrain::TerrainComponentManager>();
+    REQUIRE(mgr != nullptr);
+    RefPtr<hf::Heightfield> grid =
+        MakeRef<hf::Heightfield>(DefaultAllocator(), 17, Float2{16.0f, 16.0f}, 0.0f, 10.0f);
+    auto res = MakeRef<foundation::terrain::TerrainResource>(DefaultAllocator());
+    res->heightfield = grid.Get();
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"terrain");
+    mgr->Add(e).terrain = res.Get();
+    sceneObj.UpdateTransforms();
+
+    foundation::scene::IStaticGeometrySource* source = mgr->AsStaticGeometrySource();
+    REQUIRE(source != nullptr);
+    const AABB all{Float3{-20, -20, -20}, Float3{20, 20, 20}};
+    Array<Float3> triangles;
+    source->CollectStaticGeometry(sceneObj, all, 0.3f, triangles); // finer than the 1 m samples
+    CHECK(triangles.Size() == 16u * 16u * 2u * 3u);
+    for (usize i = 0; i < triangles.Size(); i += 3)
+    {
+        const Float3 a = triangles[i + 1] - triangles[i];
+        const Float3 b = triangles[i + 2] - triangles[i];
+        CHECK(a.z * b.x - a.x * b.z > 0.0f); // the y of cross(a, b): up
+    }
+
+    triangles.Clear();
+    source->CollectStaticGeometry(sceneObj, all, 2.0f, triangles); // coarser: every 2 samples
+    CHECK(triangles.Size() == 8u * 8u * 2u * 3u);
+
+    grid->SetHole(8, 8, true);
+    triangles.Clear();
+    source->CollectStaticGeometry(sceneObj, all, 0.3f, triangles);
+    CHECK(triangles.Size() < 16u * 16u * 2u * 3u);
+    CHECK(triangles.Size() >= (16u * 16u - 4u) * 2u * 3u); // only the blocks round the hole
+
+    triangles.Clear();
+    source->CollectStaticGeometry(sceneObj, AABB{Float3{30, -5, 30}, Float3{40, 5, 40}}, 0.3f, triangles);
+    CHECK(triangles.IsEmpty());
+    sceneObj.SetActive(e, false);
+    source->CollectStaticGeometry(sceneObj, all, 0.3f, triangles);
+    CHECK(triangles.IsEmpty());
+}

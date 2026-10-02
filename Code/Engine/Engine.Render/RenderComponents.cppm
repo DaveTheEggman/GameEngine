@@ -188,6 +188,13 @@ export namespace engine::render
         }
     };
 
+    // How a camera maps view space to the screen.
+    enum class CameraProjection : u32
+    {
+        Perspective = 0,  // a frustum widening with depth (fovYRadians)
+        Orthographic = 1, // a box of fixed size (orthoHeight): a top-down map, an isometric view
+    };
+
     // A camera frustum. The view transform is the inverse of the entity's world matrix;
     // these fields define the projection. `primary` marks the camera the renderer uses.
     // `clearColor` is the backdrop the view is cleared to (per-camera, like Unity/Godot);
@@ -200,7 +207,32 @@ export namespace engine::render
         f32 farZ = 1000.0f;
         Color clearColor = Color{0.392f, 0.584f, 0.929f, 1.0f}; // cornflower sentinel
         bool primary = true;
+        CameraProjection projection = CameraProjection::Perspective;
+        f32 orthoHeight = 10.0f; // Orthographic: the world-space height the view spans
+        // A camera with a target renders into that texture (a render texture asset) instead of
+        // the screen, every `targetInterval` frames; it is never the screen camera, `primary` or
+        // not. A texture made at run time is assigned straight to the Ref and is never saved.
+        foundation::resource::Ref<texture::Texture> target;
+        u32 targetInterval = 1;
+
+        [[nodiscard]] bool HasTarget() const noexcept
+        {
+            return !target.id.IsNil() || target.Get() != nullptr;
+        }
     };
+
+    // The projection matrix of `camera` at `aspect` (width over height). The one place a camera's
+    // fields become a matrix: the renderer's camera pick and the editor's camera preview both
+    // build through it, so the preview frames what the game draws.
+    [[nodiscard]] inline Float4x4 MakeCameraProjection(const CameraComponent& camera, f32 aspect)
+    {
+        if (camera.projection == CameraProjection::Orthographic)
+        {
+            const f32 height = Max(camera.orthoHeight, 1.0e-4f);
+            return Float4x4::OrthographicRH(height * aspect, height, camera.nearZ, camera.farZ);
+        }
+        return Float4x4::PerspectiveFovRH(camera.fovYRadians, aspect, camera.nearZ, camera.farZ);
+    }
 
     // A light on an entity. Directional uses the entity's forward (-Z); Point/Spot use its world
     // position (+ range). Extraction packs these into render::GpuLight shading inputs.
@@ -353,6 +385,16 @@ export namespace engine::render
         foundation::core::Serialize(ar, "farZ", c.farZ);
         foundation::core::Serialize(ar, "clearColor", c.clearColor);
         foundation::core::Serialize(ar, "primary", c.primary);
+        u8 projection = static_cast<u8>(c.projection);
+        foundation::core::Serialize(ar, "projection", projection);
+        foundation::core::Serialize(ar, "orthoHeight", c.orthoHeight);
+        foundation::core::Serialize(ar, "target", c.target);
+        foundation::core::Serialize(ar, "targetInterval", c.targetInterval);
+        c.projection = static_cast<CameraProjection>(projection);
+    }
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, CameraComponent& c)
+    {
+        c.target.Bind(manager);
     }
 
     inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c)
@@ -803,6 +845,17 @@ export namespace engine::render
         }
     }
 
+    // The screen-space passes rebuild view-space positions from depth with perspective math (AO,
+    // SSR, SSGI) or linearize depth as perspective (TAA's rejection), so an orthographic view runs
+    // without them. Like ApplyViewPostOverride, needsMotion is the caller's to finalize after.
+    inline void LimitPostForOrthographic(ViewPostConfig& vp)
+    {
+        vp.aoMode = 0u; // AoMode::Off
+        vp.ssrEnabled = false;
+        vp.ssgiEnabled = false;
+        vp.taaEnabled = false;
+    }
+
     // Live re-resolving handles over the render scene-SYSTEMS' one-per-scene settings:
     // EnvironmentSettings.of(scene) / PostProcessSettings.of(scene) return a handle typed as the
     // settings struct that re-resolves the scene's LIVE settings on every field access - so a
@@ -903,6 +956,29 @@ export namespace engine::render
             if (auto* resources = foundation::script::CurrentRunResources())
             {
                 mesh->materials[static_cast<usize>(slot)].Bind(*resources);
+            }
+            return true;
+        }
+
+        // Point the entity's camera at the texture `id` (a render texture asset): it then draws
+        // into that texture instead of the screen. A nil id clears the target, so the camera may
+        // be the screen's again. Bound through the run's resource manager, like setMesh. False
+        // (a no-op) for an entity without a CameraComponent.
+        bool setCameraTarget(foundation::script::Entity entity, Guid id) const
+        {
+            CameraComponentManager* cameras =
+                (scene != nullptr) ? scene->GetSystem<CameraComponentManager>() : nullptr;
+            CameraComponent* camera = (cameras != nullptr) ? cameras->Get(entity.Handle()) : nullptr;
+            if (camera == nullptr)
+            {
+                return false;
+            }
+            camera->target = foundation::resource::Ref<texture::Texture>{};
+            camera->target.SetId(id);
+            if (auto* resources = foundation::script::CurrentRunResources(); resources != nullptr &&
+                                                                             !id.IsNil())
+            {
+                camera->target.Bind(*resources);
             }
             return true;
         }

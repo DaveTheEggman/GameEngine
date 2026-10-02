@@ -74,6 +74,7 @@ export namespace engine::uiscript
         [[nodiscard]] static ProgressBar findProgressBar(String name);
         [[nodiscard]] static Slider findSlider(String name);
         [[nodiscard]] static TextBox findTextBox(String name);
+        [[nodiscard]] static Image findImage(String name);
         [[nodiscard]] static ViewGroup findGroup(String name);
 
         // Screen management.

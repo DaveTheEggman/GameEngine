@@ -142,3 +142,39 @@ TEST_CASE("uiscript.handle: a view fades on the frame clock, and a set stops the
     missing.fadeTo(0.5f, 1.0f);
     CHECK(missing.opacity() == doctest::Approx(0.0f));
 }
+
+// A minimap marker moves and turns without a relayout: the handle writes the view's post-layout
+// transform (translation in pixels, rotation in degrees stored as radians); a null handle takes
+// nothing.
+TEST_CASE("uiscript.handle: a view is translated and rotated through its transform")
+{
+    auto group = MakeRef<ui::FrameLayout>(DefaultAllocator());
+    auto marker = MakeLabel(u8"marker", u8"^");
+    group->AddView(marker.Get());
+    uis::ViewGroup g = Group(group.Get());
+
+    uis::Label handle = g.findLabel(u8"marker");
+    REQUIRE(handle.isValid());
+    CHECK(handle.translation().x == doctest::Approx(0.0f));
+    CHECK(handle.rotation() == doctest::Approx(0.0f));
+
+    handle.setTranslation(40.0f, -12.5f);
+    handle.setRotation(90.0f);
+    CHECK(marker->Transform.Translation.x == doctest::Approx(40.0f));
+    CHECK(marker->Transform.Translation.y == doctest::Approx(-12.5f));
+    CHECK(marker->Transform.Rotation == doctest::Approx(DegreesToRadians(90.0f)));
+    CHECK(handle.translation().y == doctest::Approx(-12.5f));
+    CHECK(handle.rotation() == doctest::Approx(90.0f));
+
+    // Every handle type has it: the bare view the generic finder returns moves the same way.
+    uis::View bare = g.find(u8"marker");
+    REQUIRE(bare.isValid());
+    bare.setTranslation(1.0f, 2.0f);
+    CHECK(marker->Transform.Translation.x == doctest::Approx(1.0f));
+
+    uis::Label missing = g.findLabel(u8"nope");
+    missing.setTranslation(5.0f, 5.0f);
+    missing.setRotation(45.0f);
+    CHECK(missing.translation().x == doctest::Approx(0.0f));
+    CHECK(missing.rotation() == doctest::Approx(0.0f));
+}

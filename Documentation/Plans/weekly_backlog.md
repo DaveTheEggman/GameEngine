@@ -10,6 +10,80 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
+## Queued 2026-10-02 (user, PaperKid)
+
+- **The DDS test's UBSAN report** (user 2026-10-02: "I keep forgetting to look at it"): every
+  ASAN lane prints `DdsTests.cpp:109: shift exponent 32 is too large for 32-bit type 'u32'`. It
+  is the test's own `BitWriter::Put`, not the DDS reader: `Put(0, 15 * 4)` (line 129, the BC7
+  block's 15 index fields) writes 60 bits of a `u32` value, and `(value >> i)` runs `i` past 31.
+  The bits written are right (the value is 0), but the shift is undefined. Fix: write the wide
+  zero field in pieces of at most 32 bits, or take no bit of `value` past bit 31, then drop the
+  line from the known-noise list in the verification lanes.
+- **`Entity.worldPosition()` is a frame old inside `onUpdate`**: the script facade reads the
+  cached world matrix (`ScriptFacades.cppm`, `worldPosition`), and `Scene::Update` refreshes
+  world matrices only after every script has run (`SceneImpl.cpp`, `UpdateTransforms`), while
+  physics interpolation has already written this frame's pose into the local transform. A
+  chase camera following `worldPosition()` aims one frame behind what it draws, so a fast
+  target shakes against it as frame times vary (PaperKid's bike, fixed in the game by reading
+  the root's local `position()`; Sky Hopper's `FollowCamera.as` reads `worldPosition()` too).
+  Options: compute the world pose from the local chain on demand, mark world matrices dirty
+  when a local changes, or a late-update hook for cameras. Check what Sedulous does first.
+- **TAA jitter in the player**: PaperKid's Start scene (aaMode TAA, auto exposure, bloom) is
+  visibly jittery in the player and not, or far less, in the editor's Game tab (user,
+  2026-10-02, Debug player from the project folder). Unexplained yet. Rule out first: the
+  player runs the Vulkan validation layer regardless of `--no-gpu-validation` (next item), so
+  its frame rate differs from the editor's; the time scale is 0 behind the title menu, so
+  check the jitter sequence and history reprojection when gameplay time is frozen but frames
+  still render; and compare the jitter offsets the two hosts feed for the same render size.
+- **The player ignores `--no-gpu-validation`**: `graphics::ApplyValidationArguments`
+  (`Graphics.cppm`) says every executable that creates a device should run its arguments
+  through it; only `Tools.Editor/Main.cpp` does, so a Debug player always runs the Vulkan
+  layer and its frame times are not comparable with the editor's.
+- **`run::loadScene` misses scenes in a project-folder player**: run on a project folder,
+  the player keeps authored scenes in its source database and hands DefaultApplication only
+  the cooked one (`PlayerApplication.h`, `m_sceneDb` vs `SetContentDatabase(m_contentDb)`),
+  so the script's `loadScene` / `loadSceneAsync` (and the prefab spawner and network prefab
+  lookups that share that database) find no scene and return false without a log line.
+  PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
+  give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
+  log a failed load. Check what Sedulous's player does first.
+- **pie_screenshot hides a downscaled Game tab**: the Game tab draws the game at its chosen
+  resolution into the panel's fitted rectangle (`GamePageImpl.cpp` OnRenderWindow), and the
+  capture is resampled back up to that resolution (`ScreenshotCapture.cppm`, `m_outputWidth`).
+  With the tab on Full HD in a panel about half that size, the PaperKid HUD looked soft to the
+  user, and the screenshot showed a blurred 1920x1080 image that read as a font problem. Fix:
+  write the image at the size it was captured, or report the captured size and the scale beside
+  the written one, with a test and McpGuide. Scheduled for 2026-10-03.
+- **Post-process and environment as shared assets**: today each scene carries its own
+  `postprocess` and `environment` settings blocks (`PostProcessSettings` / `EnvironmentSettings`,
+  `Engine.Render/RenderComponents.cppm`), so a game with several levels sets its look in every
+  scene by hand and re-tunes them one by one (PaperKid: the user tuned Start, the level had to be
+  given the same values). Proposal: a Post Process Profile asset and an Environment Profile
+  asset carrying the same fields; a scene's settings block takes an optional reference to one,
+  and while it is set the asset's values are the scene's (the Unity Volume Profile / Godot
+  Environment resource shape). Tweaking the asset updates every scene that uses it, live in the
+  editor through the resource reload. Open: per-scene overrides on top of a profile (none at
+  first), and the inspector showing the asset's values read-only when referenced. Sedulous has
+  no such asset (checked 2026-10-02); design it here and port.
+
+## Queued 2026-10-02 (user, render-textures review)
+
+- **Post effects for an orthographic camera**: `LimitPostForOrthographic`
+  (`Engine.Render/RenderComponents.cppm`, applied in `RenderSubsystem::RenderScene`) turns off AO,
+  SSR, SSGI and TAA for any orthographic view, because their shaders assume a perspective
+  projection. A target camera (the minimap) renders post-off anyway; this matters for an
+  orthographic MAIN camera (isometric, 2.5D). What each needs:
+  - **AO (GTAO/SSAO)**: view-space position is rebuilt from depth with `ProjXX`/`ProjYY` and
+    perspective depth; an orthographic branch (linear depth, x/y not scaled by distance). Small.
+  - **TAA**: reprojection is matrix-based and fine; the history rejection linearizes depth as
+    perspective (`LinearizeDepth` in `taa.ps.hlsl`). Small.
+  - **SSR, SSGI**: screen-space marches assume rays fanning from an eye point; in orthographic
+    every view ray is parallel, so the ray setup and the step into screen space change. Larger.
+  Do AO and TAA first, then lift them out of `LimitPostForOrthographic`; each with a render
+  test, checked in an orthographic scene by the user. Unity URP supports SSAO in orthographic;
+  Unreal and Godot leave some screen-space effects limited there (from memory - check their
+  current docs before citing).
+
 ## Queued 2026-09-23 (user, during the terrain holes work)
 
 - **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0

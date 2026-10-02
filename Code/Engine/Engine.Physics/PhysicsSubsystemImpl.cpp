@@ -11,6 +11,7 @@ module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 #include "Profiler/Profiler.h"
+#include "Core/Log/Log.h"
 #include <cmath>
 
 module engine.physics;
@@ -164,6 +165,201 @@ namespace engine::physics
                                                color);
                     });
             }
+        }
+    }
+
+    bool DescribeBody(scene::Scene& scene, RigidBodyComponent& c, scene::EntityHandle e, BodyDesc& out,
+                      Array<Array<f32>>& heightBuffers)
+    {
+        auto* colliders = scene.GetSystem<ColliderComponentManager>();
+        out.motion = c.motion;
+        out.layer = c.layer;
+        out.friction = c.friction;
+        out.restitution = c.restitution;
+        out.linearDamping = c.linearDamping;
+        out.angularDamping = c.angularDamping;
+        out.isTrigger = c.isTrigger;
+        out.continuousCollision = c.continuousCollision;
+        out.massOverride = c.mass;
+        out.group = c.collisionGroup;
+
+        // Reverse map: the owning entity handle, packed losslessly into the body user
+        // word (see PackEntity - unique by construction, unlike the guid's low bits).
+        out.userData = PackEntity(e);
+
+        Float3 position, scale;
+        Quaternion rotation;
+        if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
+        {
+            return false;
+        }
+
+        const auto fillHeightfield =
+            [&](ShapeDesc& s, foundation::resource::Ref<Heightfield>& ref) -> bool {
+            Heightfield* hf = ref.Get();
+            if (hf == nullptr || hf->IsEmpty())
+            {
+                return false;
+            }
+            const i32 n = hf->Size();
+            heightBuffers.PushBack(Array<f32>{});
+            Array<f32>& buf = heightBuffers[heightBuffers.Size() - 1];
+            const Span<const foundation::heightfield::Height> src = hf->Samples();
+            const Span<const u8> holes = hf->Holes(); // a cut sample has no surface
+            buf.Resize(src.Size());
+            for (usize i = 0; i < src.Size(); ++i)
+            {
+                buf[i] = (i < holes.Size() && holes[i] != 0)
+                             ? ShapeDesc::kNoCollisionHeight
+                             : hf->SampleToWorldY(static_cast<f32>(src[i]));
+            }
+            s.heightSamples = Span<const f32>(buf.Data(), buf.Size());
+            s.heightSampleCount = static_cast<u32>(n);
+            s.heightWorldSize = hf->WorldSize();
+            return true;
+        };
+
+        ShapeDesc own;
+        own.kind = c.shape;
+        own.halfExtents = c.halfExtents;
+        own.radius = c.radius;
+        own.halfHeight = c.halfHeight;
+        own.planeHalfExtent = c.planeHalfExtent;
+        if (c.shape == ShapeKind::Cooked)
+        {
+            CollisionShape* cooked = c.collisionShape.Get();
+            if (cooked == nullptr)
+            {
+                LOG_WARNING(u8"Physics",
+                                     u8"'{}': cooked shape has no collision-shape "
+                                     u8"resource - body skipped",
+                                     scene.GetEntityName(e));
+                return false;
+            }
+            own.cooked = cooked->Blob();
+            own.scale = scale; // cooked geometry is authored unit-scale
+        }
+        else if (c.shape == ShapeKind::Heightfield)
+        {
+            if (!fillHeightfield(own, c.heightfield))
+            {
+                LOG_WARNING(u8"Physics",
+                                     u8"'{}': heightfield shape has no heightfield "
+                                     u8"resource - body skipped",
+                                     scene.GetEntityName(e));
+                return false;
+            }
+        }
+        // A shape that can only be static (Jolt's MustBeStatic: plane, heightfield,
+        // a cooked triangle mesh) under a moving body: the world demotes it to
+        // static rather than tripping Jolt's mass assert; named HERE, where the
+        // entity is known, so the author can find the component.
+        const bool staticOnly =
+            c.shape == ShapeKind::Plane || c.shape == ShapeKind::Heightfield ||
+            (c.shape == ShapeKind::Cooked && c.collisionShape.Get() != nullptr &&
+             !c.collisionShape->convex);
+        if (c.motion != MotionKind::Static && staticOnly)
+        {
+            LOG_ERROR(u8"Physics",
+                      u8"'{}': a {} body cannot use a {} shape (static only: no mass, "
+                      u8"no mesh-vs-mesh collision) - simulated as static",
+                      scene.GetEntityName(e),
+                      c.motion == MotionKind::Kinematic ? u8"kinematic" : u8"dynamic",
+                      c.shape == ShapeKind::Plane         ? u8"plane"
+                      : c.shape == ShapeKind::Heightfield ? u8"heightfield"
+                                                          : u8"triangle-mesh");
+        }
+        out.shapes.PushBack(own);
+
+        // Hierarchy compounding: descendant ColliderComponents fold in at their
+        // offset relative to THIS entity (captured at start).
+        if (colliders != nullptr)
+        {
+            const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
+            colliders->ForEach(
+                [&](ColliderComponent& extra, scene::EntityHandle child)
+                {
+                    if (!IsDescendantOf(scene, child, e))
+                    {
+                        return;
+                    }
+                    Float3 lp, ls;
+                    Quaternion lr;
+                    if (!Decompose(scene.GetWorldMatrix(child) * bodyInverse, lp, lr,
+                                   ls))
+                    {
+                        return;
+                    }
+                    ShapeDesc shape;
+                    shape.kind = extra.shape;
+                    shape.halfExtents = extra.halfExtents;
+                    shape.radius = extra.radius;
+                    shape.halfHeight = extra.halfHeight;
+                    shape.planeHalfExtent = extra.planeHalfExtent;
+                    if (extra.shape == ShapeKind::Cooked)
+                    {
+                        CollisionShape* cooked = extra.collisionShape.Get();
+                        if (cooked == nullptr)
+                        {
+                            return;
+                        }
+                        shape.cooked = cooked->Blob();
+                        shape.scale = ls;
+                    }
+                    else if (extra.shape == ShapeKind::Heightfield)
+                    {
+                        if (!fillHeightfield(shape, extra.heightfield))
+                        {
+                            return;
+                        }
+                    }
+                    shape.localPosition = lp;
+                    shape.localRotation = lr;
+                    out.shapes.PushBack(shape);
+                });
+        }
+
+        out.position = position;
+        out.rotation = rotation;
+
+        // A referenced PhysicalMaterial wins over the inline surface fields.
+        if (PhysicalMaterial* material = c.material.Get())
+        {
+            out.friction = material->friction;
+            out.restitution = material->restitution;
+            out.density = material->density;
+        }
+
+        return true;
+    }
+
+    void RigidBodyComponentManager::CollectStaticGeometry(scene::Scene& scene, const AABB& bounds, f32,
+                                                          Array<Float3>& outTriangles)
+    {
+        // Static, solid bodies only: a dynamic or kinematic body moves and a trigger lets things
+        // through, so neither is level geometry (a character is no rigid body at all). An inactive
+        // entity has no body, as at scene start.
+        Array<Array<f32>> heightBuffers; // the descs' height samples point in here
+        Array<BodyDesc> bodies;
+        ForEach(
+            [&](RigidBodyComponent& c, scene::EntityHandle e)
+            {
+                if (c.motion != MotionKind::Static || c.isTrigger || !scene.IsEffectivelyActive(e))
+                {
+                    return;
+                }
+                BodyDesc desc;
+                if (DescribeBody(scene, c, e, desc, heightBuffers))
+                {
+                    bodies.PushBack(static_cast<BodyDesc&&>(desc));
+                }
+            });
+        const usize failed =
+            AppendBodyTriangles(Span<const BodyDesc>(bodies.Data(), bodies.Size()), bounds, outTriangles);
+        if (failed > 0)
+        {
+            LOG_WARNING(u8"Physics", u8"{} static bodies have a shape that does not build; they are left out of the static geometry",
+                        failed);
         }
     }
 

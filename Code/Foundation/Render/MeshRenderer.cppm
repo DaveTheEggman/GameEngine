@@ -108,6 +108,19 @@ export namespace foundation::render
         // Reflection-probe capture faces re-emit the draws (one forward pass each) - count them into the ring.
         void SetCaptureFacePasses(u32 passes) override { m_captureFacePasses = passes; }
         void SetPickPasses(u32 passes) override { m_pickPasses = passes; }
+        void SetShadowCasterDraws(u32 draws) override { m_shadowCasterDraws = draws; }
+
+        /// The per-frame slots the object, instance and offset rings need. Each camera pass (the
+        /// depth prepass, the forward, a probe face, a pick) re-emits at most the views' draws;
+        /// each shadow pass (a cascade, a local tile) at most its scene's casters, which the
+        /// camera does not cull. Sized for the larger of the two in every pass, so neither can
+        /// starve the other.
+        [[nodiscard]] static u32 InstanceSlotsPerFrame(u32 maxDraws, u32 casterDraws,
+                                                       u32 shadowPasses, u32 extraCameraPasses) noexcept
+        {
+            const u32 largest = (casterDraws > maxDraws) ? casterDraws : maxDraws;
+            return largest * (2u + shadowPasses + extraCameraPasses);
+        }
 
         // This frame's active reflection probe (single probe): the captured cube-ARRAY view (set-0 t8) +
         // the probe's box/slice/intensity/count for the forward's local-reflection path. null view => dummy
@@ -649,6 +662,7 @@ export namespace foundation::render
         u32 m_localShadowPassCount = 0; // # atlas depth passes (caster re-emits) this frame
         u32 m_captureFacePasses = 0;    // # probe-capture face passes (caster re-emits) this frame
         u32 m_pickPasses = 0;           // # pick passes (id re-emits) this frame
+        u32 m_shadowCasterDraws = 0;    // the shadow passes' caster draws this frame (all views)
         u32 m_objectBGGen = 0, m_instanceBGGen = 0;
 
         // --- MultiMesh (instanced-mesh) persistent buffers ---

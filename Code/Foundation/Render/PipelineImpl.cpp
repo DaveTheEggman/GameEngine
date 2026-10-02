@@ -1311,6 +1311,20 @@ namespace foundation::render
             {
                 r->SetPickPasses(pickPasses);
             }
+            // Each view draws its own cascades from its scene's caster list.
+            u32 casterDraws = 0;
+            for (usize i = 0; i < m_views.ActiveCount(); ++i)
+            {
+                if (m_viewSceneIndex[i] != ~0u)
+                {
+                    casterDraws +=
+                        static_cast<u32>(m_sceneShadowPool[m_viewSceneIndex[i]]->casters.Size());
+                }
+            }
+            for (Renderer* r : m_registry->Unique())
+            {
+                r->SetShadowCasterDraws(casterDraws);
+            }
             // Reflection probes (multi-probe): upload this frame's records + bind the prefiltered cube-
             // array (t8) + the probe-metadata SRV (t9) + count. The forward loops + blends them. 0 -> no probe.
             if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0)
@@ -2231,7 +2245,8 @@ namespace foundation::render
                 // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
                 // draw so gizmos and diagnostic text stay on top (the Sedulous OverlayPass ordering).
                 // Sources match views by SceneKey and draw with the view's REAL camera.
-                if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty())
+                if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty() &&
+                    v->Settings().sceneOverlays)
                 {
                     // Stencil attachment for overlay UI (stencil-then-cover fills): a
                     // transient DS cleared to 0, in a device-probed format the sources

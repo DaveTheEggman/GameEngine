@@ -260,6 +260,24 @@ export namespace foundation::ui
 
                 // === LayoutStyle (width/height/margin/flex-grow/dock/grid-row/...) ===
 
+                // A gravity name that matches none is dropped like an unknown attribute, so it is
+                // surfaced the same way (the names are PascalCase: Top|Right, not top|right).
+                if (name == u8"gravity" && warnings != nullptr)
+                {
+                    Array<String> unknown;
+                    (void)MarkupRegistry::ParseGravity(value, &unknown);
+                    for (const String& gravity : unknown)
+                    {
+                        String w(u8"unknown gravity '");
+                        w.Append(gravity.AsView());
+                        w.Append(u8"' on <");
+                        w.Append(tagName);
+                        w.Append(u8"> (the names are PascalCase: Left, Right, Top, Bottom, Center, "
+                                 u8"Fill, TopRight, ...)");
+                        warnings->PushBack(Move(w));
+                    }
+                }
+
                 if (MarkupRegistry::ApplyLayoutAttribute(layout, name, value))
                 {
                     continue;

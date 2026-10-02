@@ -1,0 +1,12 @@
+<root>
+	<string name="guid">71768445-ffa5-4e5c-9491-50c019ebf1a8</string>
+	<string name="typeNamespace">rtti::pipeline::navigation</string>
+	<string name="typeName">NavigationZoneAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">12100462655186468280</u64>
+		<u32 name="version">2</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName"/>
+	</object>
+</root>

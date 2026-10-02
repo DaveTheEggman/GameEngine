@@ -1,31 +1,47 @@
 # PaperKid
 
-A small arcade game built as the engine's tracked **editor sample project** - a vertical slice that
-exercises the game-ready runtime end to end (scene + navigation + property animation + a scripted
-run/Game tier + game UI), authored in-editor so it dogfoods the whole authoring stack.
+A small arcade paper-route game, built entirely through the engine's MCP tools: the second test,
+after Sky Hopper, of how far an agent gets making a game with them, where every missing or wrong
+tool or engine behaviour was fixed in the engine as part of the work. It replaces an earlier
+PaperKid that stopped after one block, and follows its spec
+(`Documentation/Specs/paperkid.md`).
+
+![PaperKid, riding a block](../../../Documentation/Images/PaperKid-Play.png)
 
 ## The game
 
-Ride a bike around a town block delivering papers against the clock. Each level hands you a stack of
-papers and a countdown: find the marked subscriber houses in free roam, throw papers into their
-delivery zones to hit the level's quota, and avoid traffic, pedestrians, and street junk (a crash
-costs speed and time - arcade-recoverable, not instant death). Clear the quota before the timer runs
-out to advance; blocks get bigger, busier, and tighter on time as you go. Third-person follow camera,
-primitive-blockout art, a score-chasing loop - not a sim.
+Ride a bike round a town block with a stack of papers and a countdown, and throw papers onto the
+porches of the subscriber houses before time runs out. A soft auto-aim leans each throw toward
+the nearest subscriber ahead. Cars and pedestrians move around the block on the navmesh, and bins,
+hydrants and cones stand on the verges: hit any of them and you crash, losing speed and a few
+seconds. Meet the block's quota to clear it; run out of time, or of papers, and you lose a life.
 
-## Status
+Five blocks on a difficulty ramp, from a 48 m ring road to an 80 m one, with more subscribers, a
+higher quota, busier and faster traffic and less time for the distance. Three lives; a failed
+block replays from the score you had when it started. A delivery scores 100 and a clear adds 5
+for every second left. The HUD shows the time, deliveries, papers, score and lives, and a
+minimap: a top-down render texture of the block with the subscribers (dimmed once delivered) and
+the bike, turned to its heading. A title screen with settings (master, music and effect
+volumes, ready for the audio still to come), a pause menu, block cleared and failed screens, and
+a Game over or route complete summary.
 
-PLAN / scaffolding. The gameplay is specced in `Documentation/Specs/paperkid.md`; its scripted run
-tier depends on the `game-ready-scripting2` track landing first. Scripts are **AngelScript** (Luau is
-the other supported backend); obstacles use the navigation system; tells / markers / camera use
-property-animation clips.
+Controls: WASD to ride and steer, Space to throw, Escape to pause; the arrows and Enter drive the
+menus. A gamepad works throughout: the left stick to ride and steer, A (cross) to throw and
+confirm, Start (Options) to pause.
 
 ## Project layout
 
-- `Project.xml` - the project manifest.
-- `Sources/` - raw imported source assets (fonts, textures, ...).
-- `Content/` - the asset envelopes (`*.xasset`) that define the project's assets.
-- `Cooked/`, `.cache/`, `Editor/` - generated output + per-user editor state; **gitignored** (the
-  tools regenerate them from the source above). See `.gitignore`.
+- `Project.xml`: the manifest: the start scene, the Game script, the input map, the fonts and
+  the render resolution (1280x720, letterboxed).
+- `Sources/`: the raw sources: the AngelScript scripts, the UI markup and the fonts.
+- `Content/`: the asset envelopes (`*.xasset`) and their sidecars: the five blocks and the title
+  scene, the blockout kit's prefabs, each block's baked navmesh, the minimap's render texture.
+- `Tools/`: the authoring scripts that drove the editor's MCP tools to build the game (the kit,
+  the block generator, the scripts with their asset ids, a closed-loop playtest). Not game
+  content; `Tools/README.md` says what each does.
+- `export_presets.xml`: the Linux desktop export target.
+- `CREDITS.md` and `Licenses/`: the two fonts and their licences (OFL and Apache 2.0). The art is
+  a primitive blockout made in the project.
+- `Cooked/`, `.cache/`, `Editor/`, `Dist/`: generated, and gitignored; the tools rebuild them.
 
-Open it from the engine's project manager / editor.
+Open the project from the editor's project manager.

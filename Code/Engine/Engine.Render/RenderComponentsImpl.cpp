@@ -44,6 +44,12 @@ namespace engine::render
         builder.Value("Spot", LightType::Spot);
     }
 
+    REFLECT_ENUM(CameraProjection, "rtti::engine::render")
+    {
+        builder.Value("Perspective", CameraProjection::Perspective);
+        builder.Value("Orthographic", CameraProjection::Orthographic);
+    }
+
     REFLECT_ENUM(ShadowUpdateMode, "rtti::engine::render")
     {
         builder.Value("Realtime", ShadowUpdateMode::Realtime);
@@ -103,16 +109,31 @@ namespace engine::render
     {
         builder.Attribute("displayName", String(u8"Camera"))
             .Attribute("category", String(u8"Rendering"))
+            .DataVersion(2) // v1: projection + orthoHeight; v2: target + targetInterval
             .Method<&foundation::script::ComponentOf<CameraComponent>, CameraComponent>("of")
+            // The mode first: the inspector shows only the fields of the chosen projection.
+            .Property<&CameraComponent::projection>("projection")
             .Property<&CameraComponent::fovYRadians>("fovYRadians")
             .PropAttribute("displayName", String(u8"Field Of View"))
             .PropAttribute("description", String(u8"Vertical field of view (radians)"))
             .PropAttribute("range", Float4{0.10f, 3.04f, 0.01f, 0.0f})
+            .PropAttribute("visibleWhen", String(u8"projection=0")) // Perspective only
             .Property<&CameraComponent::aspect>("aspect")
             .Property<&CameraComponent::nearZ>("nearZ")
             .Property<&CameraComponent::farZ>("farZ")
             .Property<&CameraComponent::clearColor>("clearColor")
-            .Property<&CameraComponent::primary>("primary");
+            .Property<&CameraComponent::primary>("primary")
+            .Property<&CameraComponent::orthoHeight>("orthoHeight")
+            .PropAttribute("description",
+                           String(u8"Orthographic: the world-space height the view spans"))
+            .PropAttribute("visibleWhen", String(u8"projection=1")) // Orthographic only
+            .Property<&CameraComponent::target>("target")
+            .PropAttribute("description",
+                           String(u8"A render texture to draw into instead of the screen"))
+            .Property<&CameraComponent::targetInterval>("targetInterval")
+            .PropAttribute("description",
+                           String(u8"Render the target every Nth frame (1 = every frame)"))
+            .PropAttribute("range", Float4{1.0f, 60.0f, 1.0f, 0.0f});
     }
 
     REFLECT_VALUE(LightComponent, "rtti::engine::render")
@@ -153,6 +174,7 @@ namespace engine::render
             &SceneRender::setMaterial)>("setMaterial", {"entity", "resourceId"});
         builder.Method<static_cast<bool (SceneRender::*)(foundation::script::Entity, Guid, i32) const>(
             &SceneRender::setMaterial)>("setMaterial", {"entity", "resourceId", "slot"});
+        builder.Method<&SceneRender::setCameraTarget>("setCameraTarget", {"entity", "textureId"});
         builder.Method<&SceneRender::of>("of", {"scene"});
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }
@@ -580,6 +602,7 @@ namespace engine::render
         static const bool once = []()
         {
             RttiRegisterEnum_LightType();
+            RttiRegisterEnum_CameraProjection();
             RttiRegisterEnum_SpriteOrientation();
             RttiRegisterEnum_ShadowUpdateMode();
             RttiRegisterEnum_ProbeUpdateMode();

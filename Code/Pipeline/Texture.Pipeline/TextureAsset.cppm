@@ -1289,6 +1289,78 @@ export namespace pipeline{
         }
     };
 
+    /// What a render texture holds: Ldr is what a tonemapped view writes and what UI shows; Hdr
+    /// keeps the linear values, for a material that wants them.
+    enum class RenderTextureFormat : u32
+    {
+        Ldr = 0,
+        Hdr = 1,
+    };
+
+    /// An authored render texture: a size and a format, and no source file. A camera's target
+    /// draws into it; a sprite, a material or a UI image shows it (render-textures.md).
+    class RenderTextureAsset final : public pipeline::Asset
+    {
+        RTTI_OBJECT(RenderTextureAsset, pipeline::Asset)
+    public:
+        u32 width = 256;
+        u32 height = 256;
+        RenderTextureFormat format = RenderTextureFormat::Ldr;
+
+        /// Fill the cooked record this asset makes.
+        void Cook(RenderTextureResource& cooked) const
+        {
+            cooked.width = width;
+            cooked.height = height;
+            cooked.format = (format == RenderTextureFormat::Hdr)
+                                ? rhi::TextureFormat::RGBA16Float
+                                : rhi::TextureFormat::RGBA8UnormSrgb;
+        }
+
+        void Serialize(ISerializer& ar) override
+        {
+            pipeline::Asset::Serialize(ar); // fileName (unused: authored in-editor)
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+            foundation::core::Serialize(ar, "format", format);
+        }
+    };
+
+    class RenderTextureAssetBuilder final : public pipeline::DefaultAssetBuilder
+    {
+    public:
+        [[nodiscard]] const TypeInfo* AssetType() const override
+        {
+            return &RenderTextureAsset::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &RenderTextureResource::StaticType();
+        }
+        [[nodiscard]] Status Build(const pipeline::Asset& asset,
+                                   pipeline::AssetBuildContext& ctx) override
+        {
+            if (ctx.output == nullptr)
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            RenderTextureResource cooked;
+            static_cast<const RenderTextureAsset&>(asset).Cook(cooked);
+            if (!cooked.IsValid())
+            {
+                LOG_ERROR(u8"Cook", u8"render texture {}x{}: each side must be 1 to {}",
+                          cooked.width, cooked.height, RenderTextureResource::kMaxSize);
+                return Status{ErrorCode::InvalidArgument};
+            }
+            return ctx.output->WriteObject(cooked);
+        }
+    };
+
+    /// File > New's texture creators (pipeline.registration composes every domain's).
+    void RegisterTextureCreators(AssetCreatorRegistry& registry);
+    /// RenderTextureFormat's names (the asset form's dropdown, the MCP envelopes' enum list).
+    void RegisterRenderTextureReflection();
+
     // Registers TextureAsset for content-DB construction + deserialization. Also registers the
     // enum reflection its properties reference (owning modules; idempotent) so the generic asset
     // page can render enum-by-name dropdowns. TextureAsset's OWN reflection body (properties +
@@ -1300,5 +1372,9 @@ export namespace pipeline{
         texcomp::RegisterCompressionReflection(); // TextureUsage / CompressionChoice names
         GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<TextureAsset>();
+        RegisterTextureResource(); // the cooked records, RenderTextureResource among them
+        RegisterRenderTextureReflection();
+        GlobalTypeRegistry().Register(RenderTextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
+        RegisterSerializable<RenderTextureAsset>();
     }
 }

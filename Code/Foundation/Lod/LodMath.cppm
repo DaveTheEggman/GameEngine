@@ -37,7 +37,7 @@ export namespace foundation::lod
     {
         const f32 proj11 = projection.m[1][1];
         f32 coverage;
-        if (projection.m[3][3] != 0.0f)
+        if (projection::IsOrthographic(projection))
         {
             coverage = worldRadius * proj11; // ortho: screen size is depth-free
         }

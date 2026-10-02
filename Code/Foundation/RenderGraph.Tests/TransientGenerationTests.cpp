@@ -165,3 +165,78 @@ TEST_CASE("rg.transient: distinct transients get distinct generations")
     CHECK(genB != 0);
     CHECK(genA != genB); // two distinct physical allocations -> distinct ids
 }
+
+namespace
+{
+    // The null encoder, logging each barrier into the same list the passes log their runs into.
+    class OrderEncoder final : public rhi::null::NullCommandEncoder
+    {
+    public:
+        explicit OrderEncoder(Array<String>& log) : m_log(&log) {}
+        void Barrier(const rhi::BarrierGroup& group) override
+        {
+            for (usize i = 0; i < group.textureBarriers.Size(); ++i)
+            {
+                const rhi::TextureBarrier& b = group.textureBarriers[i];
+                if (b.newState == rhi::ResourceState::ShaderRead &&
+                    b.oldState == rhi::ResourceState::RenderTarget)
+                {
+                    m_log->PushBack(String(u8"target->shader-read"));
+                }
+            }
+        }
+
+    private:
+        Array<String>* m_log;
+    };
+}
+
+TEST_CASE("rg.graph: an imported target takes its final state right after its last pass")
+{
+    // A camera's render texture: written by one view, then sampled later in the same frame by a
+    // pass that does not declare it (a sprite, a UI image). It must be shader-readable by then,
+    // not only at the end of the graph.
+    Harness h;
+    REQUIRE(h.Init());
+    rhi::Texture* rt = nullptr;
+    rhi::TextureView* rtView = nullptr;
+    REQUIRE(h.device
+                .CreateTexture(rhi::TextureDesc::RenderTarget(rhi::TextureFormat::RGBA8Unorm, 32, 32),
+                               rt)
+                .IsOk());
+    REQUIRE(h.device.CreateTextureView(rt, rhi::TextureViewDesc{}, rtView).IsOk());
+
+    Array<String> log;
+    OrderEncoder encoder(log);
+    RenderGraph graph(DefaultAllocator(), &h.device);
+    graph.SetOutputSize(64, 64);
+    graph.BeginFrame(0);
+    const RGHandle target = graph.ImportTarget(u8"Minimap", rt, rtView,
+                                               rhi::ResourceState::ShaderRead,
+                                               rhi::ResourceState::ShaderRead);
+    const RGHandle bb = graph.ImportTarget(u8"BB", h.bb, h.bbView, rhi::ResourceState::Present);
+    graph.AddRenderPass(u8"DrawMinimap",
+                        [&](PassBuilder& b)
+                        {
+                            b.SetColorTarget(0, target, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+                            b.SetExecute([&](rhi::RenderPassEncoder&)
+                                         { log.PushBack(String(u8"draw minimap")); });
+                        });
+    graph.AddRenderPass(u8"DrawWorld",
+                        [&](PassBuilder& b)
+                        {
+                            b.SetColorTarget(0, bb, rhi::LoadOp::Clear, rhi::StoreOp::Store);
+                            b.SetExecute([&](rhi::RenderPassEncoder&)
+                                         { log.PushBack(String(u8"draw world")); });
+                        });
+    CHECK(graph.Execute(&encoder).IsOk());
+    graph.EndFrame();
+
+    REQUIRE(log.Size() == 3u);
+    CHECK(log[0] == StringView(u8"draw minimap"));
+    CHECK(log[1] == StringView(u8"target->shader-read")); // before the next view samples it
+    CHECK(log[2] == StringView(u8"draw world"));
+
+    h.device.DestroyTextureView(rtView);
+    h.device.DestroyTexture(rt);
+}

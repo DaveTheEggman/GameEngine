@@ -38,6 +38,10 @@ export namespace foundation::navigation
         // Bake tiles across worker threads (tiles are independent; assembly stays row-major,
         // so the OUTPUT IS BYTE-IDENTICAL either way - the toggle trades bake latency only).
         bool parallelBake = true;
+        // The region to bake, in the input's space; the default (an empty box) is the input's own
+        // extent. Geometry reaching past it (a ground plane as wide as a level) is clipped to it
+        // rather than widening the grid: an editor zone passes its box.
+        AABB bounds = AABB::Empty();
     };
 
     // OPT-IN bake-stage capture (Lumix-parity diagnostics): the intermediate Recast data a

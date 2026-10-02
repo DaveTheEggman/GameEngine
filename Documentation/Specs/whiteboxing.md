@@ -47,10 +47,12 @@ Grepped before commissioning anything below; all of this is reused rather than r
   behind it. `PhysicsWorld::CookConvexHull(points, outBlob)` (`PhysicsWorld.cppm:279`) builds
   such a blob IN MEMORY. A box blockout needs no new shape at all; every other shape is a
   compound of boxes or a hull built at runtime the same way (Decision 3).
-- **The nav bake reads mesh components** (`Editor.Navigation/NavigationBakeImpl.cpp:114`): it
-  walks `MeshComponentManager` and `TerrainComponentManager` and transforms their triangles into
-  zone-local space. Anything that presents itself as a `MeshComponent` is in the navmesh for
-  free; anything that does not needs a third collector added here.
+- **The nav bake reads static geometry** (`Editor.Navigation/NavigationBakeImpl.cpp`,
+  `CollectNavigationGeometry`): it asks every scene system that answers
+  `AsStaticGeometrySource` (physics: static, non-trigger bodies; terrain: its surface) and
+  transforms their triangles into zone-local space. Render meshes are not read (since
+  2026-10-02: they baked agents into the navmesh). A whitebox piece is in the navmesh through
+  its static collision body, which it needs anyway to be solid.
 - **Gizmo snapping already exists** (`Editor.Scene/Gizmo.cppm:93-95`): `translateSnap = 1.0f`,
   `rotateSnapDegrees = 15.0f`, `scaleSnap = 0.25f`, with the quantizing documented per drag mode
   at lines 129, 139, 143. Grid-snapped placement is a setting away, not a feature.

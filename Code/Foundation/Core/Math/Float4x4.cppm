@@ -176,6 +176,13 @@ export namespace foundation::core
         {
             return zNear * (zFar - distance) / ((zFar - zNear) * distance);
         }
+
+        // An orthographic projection keeps w = 1 (its last column is 0, 0, 0, 1); a perspective
+        // one moves view depth into w and leaves m[3][3] = 0.
+        [[nodiscard]] constexpr bool IsOrthographic(const Float4x4& matrix) noexcept
+        {
+            return matrix.m[3][3] != 0.0f;
+        }
     } // namespace projection
 
     [[nodiscard]] constexpr Float4x4 operator*(const Float4x4& a, const Float4x4& b) noexcept

@@ -91,6 +91,20 @@ export namespace engine::render
     [[nodiscard]] bool ExtractPrimaryCamera(scene::Scene& scene, ViewCamera& out,
                                             Color* outClear = nullptr, f32 aspect = 0.0f);
 
+    // One target camera to render: the texture it draws into, and the camera to draw with (its
+    // projection at the texture's aspect, its clear color).
+    struct TargetCameraView
+    {
+        texture::Texture* target = nullptr;
+        CameraOverride camera;
+    };
+
+    // The scene's target cameras due on frame `frameNumber`: effectively active, with a live
+    // target texture, and on their `targetInterval`. Manager order, so a fixed set of target
+    // cameras keeps its view order (and so its per-view history) from frame to frame.
+    void CollectTargetCameras(scene::Scene& scene, u64 frameNumber,
+                              Array<TargetCameraView>& out);
+
     // Packs every enabled LightComponent into `out` as a GpuLight shading input (world position +
     // forward direction from the entity's transform). Assumes transforms are current. The FIRST enabled
     // directional light flagged castsShadows becomes the scene's shadow caster (its cascades are fit to

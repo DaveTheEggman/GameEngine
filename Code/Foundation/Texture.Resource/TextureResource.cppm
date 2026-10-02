@@ -71,6 +71,34 @@ export namespace foundation::texture
         }
     };
 
+    // Cooked render-texture record: a texture a camera renders into, with no pixels of its own.
+    // Its product is an ordinary Texture, so whatever samples a texture samples this one.
+    class RenderTextureResource final : public ISerializable
+    {
+        RTTI_OBJECT(RenderTextureResource, ISerializable)
+    public:
+        static constexpr u32 kMaxSize = 4096;
+
+        u32 width = 256;
+        u32 height = 256;
+        rhi::TextureFormat format = rhi::TextureFormat::RGBA8UnormSrgb;
+
+        /// A size the device can make and a format a camera can render to.
+        [[nodiscard]] bool IsValid() const noexcept
+        {
+            return width >= 1 && height >= 1 && width <= kMaxSize && height <= kMaxSize &&
+                   (format == rhi::TextureFormat::RGBA8UnormSrgb ||
+                    format == rhi::TextureFormat::RGBA16Float);
+        }
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "width", width);
+            foundation::core::Serialize(ar, "height", height);
+            foundation::core::Serialize(ar, "format", format);
+        }
+    };
+
     // Runtime product: owns the live GPU texture + sampler.
     class Texture final : public Object
     {
@@ -267,6 +295,10 @@ export namespace foundation::texture
         {
             (void)manager;
             RefPtr<ISerializable> object = instance.ReadObject();
+            if (const RenderTextureResource* target = Cast<RenderTextureResource>(object.Get()))
+            {
+                return BuildRenderTexture(*target);
+            }
             TextureResource* res = Cast<TextureResource>(object.Get());
             if (res == nullptr)
             {
@@ -283,6 +315,10 @@ export namespace foundation::texture
         {
             RefPtr<DecodedTexture> decoded = MakeRef<DecodedTexture>((*m_allocator));
             decoded->record = instance.ReadObject();
+            if (Cast<RenderTextureResource>(decoded->record.Get()) != nullptr)
+            {
+                return decoded; // no pixels: the camera that targets it draws them
+            }
             if (Cast<TextureResource>(decoded->record.Get()) == nullptr)
             {
                 return RefPtr<Object>{}; // not a texture record -> decode failure
@@ -299,6 +335,10 @@ export namespace foundation::texture
             if (d == nullptr)
             {
                 return RefPtr<Object>{};
+            }
+            if (const RenderTextureResource* target = Cast<RenderTextureResource>(d->record.Get()))
+            {
+                return BuildRenderTexture(*target);
             }
             TextureResource* res = Cast<TextureResource>(d->record.Get());
             if (res == nullptr)
@@ -410,6 +450,66 @@ export namespace foundation::texture
             return product;
         }
 
+        // A texture a camera renders into and anything samples: render-target and sampled, plus
+        // CopySrc so a capture can read it out. It starts cleared to transparent black through
+        // an upload, which also leaves it in the shader-read state, so a texture sampled before
+        // its camera has drawn (an inactive camera, the first frame) is defined. MAIN THREAD ONLY.
+        [[nodiscard]] RefPtr<Object> BuildRenderTexture(const RenderTextureResource& record)
+        {
+            if (!record.IsValid())
+            {
+                return RefPtr<Object>{};
+            }
+            rhi::TextureDesc desc = rhi::TextureDesc::RenderTarget(record.format, record.width,
+                                                                   record.height, 1,
+                                                                   u8"RenderTexture");
+            desc.usage = desc.usage | rhi::TextureUsage::CopySrc | rhi::TextureUsage::CopyDst;
+            rhi::Texture* texture = nullptr;
+            if (!m_device->CreateTexture(desc, texture).IsOk())
+            {
+                return RefPtr<Object>{};
+            }
+            rhi::TextureViewDesc vd{};
+            vd.format = record.format;
+            vd.dimension = rhi::TextureViewDimension::Texture2D;
+            rhi::TextureView* view = nullptr;
+            if (!m_device->CreateTextureView(texture, vd, view).IsOk())
+            {
+                m_device->DestroyTexture(texture);
+                return RefPtr<Object>{};
+            }
+
+            const u32 bytesPerPixel = rhi::BytesPerPixel(record.format);
+            Array<u8> clear;
+            clear.Resize(static_cast<usize>(record.width) * record.height * bytesPerPixel, 0);
+            rhi::Queue* queue = m_device->GetQueue(rhi::QueueType::Graphics, 0);
+            rhi::TransferBatch* batch = nullptr;
+            if (queue != nullptr && queue->CreateTransferBatch(batch).IsOk() && batch != nullptr)
+            {
+                rhi::TextureDataLayout layout{};
+                layout.bytesPerRow = record.width * bytesPerPixel;
+                layout.rowsPerImage = record.height;
+                batch->WriteTexture(texture, Span<const u8>(clear.Data(), clear.Size()), layout,
+                                    rhi::Extent3D{record.width, record.height, 1}, 0, 0);
+                (void)batch->Submit();
+                queue->DestroyTransferBatch(batch);
+            }
+
+            rhi::SamplerDesc sd{};
+            sd.minFilter = rhi::FilterMode::Linear;
+            sd.magFilter = rhi::FilterMode::Linear;
+            sd.addressU = rhi::AddressMode::ClampToEdge;
+            sd.addressV = rhi::AddressMode::ClampToEdge;
+            sd.addressW = rhi::AddressMode::ClampToEdge;
+            rhi::Sampler* sampler = nullptr;
+            (void)m_device->CreateSampler(sd, sampler);
+
+            RefPtr<Texture> product = MakeRef<Texture>((*m_allocator));
+            product->Adopt(m_device, texture, view, sampler, record.width, record.height,
+                           record.format);
+            return product;
+        }
+
     private:
         [[nodiscard]] static rhi::FilterMode ToFilterMode(TextureFilter f)
         {
@@ -441,12 +541,15 @@ export namespace foundation::texture
     {
         GlobalTypeRegistry().Register(TextureResource::StaticType());
         RegisterSerializable<TextureResource>();
+        GlobalTypeRegistry().Register(RenderTextureResource::StaticType());
+        RegisterSerializable<RenderTextureResource>();
         // Force the async intermediate's type to initialize on the MAIN thread; DecodeStage
         // MakeRef<DecodedTexture>()s it on a worker, which must only ever read the type.
         (void)DecodedTexture::StaticType();
     }
 
     RTTI_DEFINE_OBJECT(TextureResource, "rtti::texture")
+    RTTI_DEFINE_OBJECT(RenderTextureResource, "rtti::texture")
     RTTI_DEFINE_OBJECT(Texture, "rtti::texture")
     RTTI_DEFINE_OBJECT(DecodedTexture, "rtti::texture")
 }
@@ -455,8 +558,21 @@ export namespace foundation::texture
 {
     /// The texture resource module (engine-composition.md D1): the module the engine
     /// composition composes this library's factories from.
+    /// What the texture factory reads beside a TextureResource: a render texture's record.
+    [[nodiscard]] inline const TypeInfo* TextureAlsoCooked(usize index)
+    {
+        return (index == 0) ? &RenderTextureResource::StaticType() : nullptr;
+    }
+
     inline constexpr foundation::resource::ResourceFactoryDesc kTextureResourceFactories[] = {
-        foundation::resource::FactoryWithService<Texture, TextureResource, TextureFactory, foundation::rhi::Device>(),
+        []() constexpr
+        {
+            foundation::resource::ResourceFactoryDesc desc =
+                foundation::resource::FactoryWithService<Texture, TextureResource, TextureFactory,
+                                                         foundation::rhi::Device>();
+            desc.alsoCooked = &TextureAlsoCooked;
+            return desc;
+        }(),
     };
     inline constexpr foundation::resource::ResourceModule kTextureResourceModule{
         u8"texture", &RegisterTextureResource, kTextureResourceFactories,

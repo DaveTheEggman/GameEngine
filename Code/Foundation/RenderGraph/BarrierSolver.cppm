@@ -228,38 +228,33 @@ export namespace foundation::rendergraph
             FlushBarriers(encoder);
         }
 
-        // Transition imported resources to their requested final state.
+        // Transition imported resources to their requested final state. Run at the end of the
+        // graph for whatever EmitFinalTransition has not already moved (a no-op for those).
         void EmitFinalTransitions(Span<RenderGraphResource* const> resources,
                                   rhi::CommandEncoder& encoder)
         {
             m_textureBarriers.Clear();
             m_bufferBarriers.Clear();
-
             for (i32 i = 0; i < static_cast<i32>(resources.Size()); ++i)
             {
-                RenderGraphResource* res = resources[static_cast<usize>(i)];
-                if (res == nullptr || !res->finalState.HasValue())
-                {
-                    continue;
-                }
-
-                const rhi::ResourceState finalState = res->finalState.Value();
-                if (res->texture != nullptr)
-                {
-                    SubresourceStateTracker** found = m_textureStates.Find(res->texture);
-                    if (found == nullptr)
-                    {
-                        continue;
-                    }
-                    SubresourceStateTracker* tracker = *found;
-
-                    EmitTextureBarriers(*tracker, res->texture, RGSubresourceRange::All(),
-                                        finalState, false);
-                    tracker->SetAll(finalState);
-                    m_resourceStates.InsertOrAssign(i, finalState);
-                }
+                QueueFinalTransition(i, resources[static_cast<usize>(i)]);
             }
+            FlushBarriers(encoder);
+        }
 
+        // Transition one imported resource to its final state now, right after its last pass:
+        // a later view of the same frame may sample it without declaring it (a render texture a
+        // camera drew, shown by a sprite or a UI image in the next view).
+        void EmitFinalTransition(i32 index, Span<RenderGraphResource* const> resources,
+                                 rhi::CommandEncoder& encoder)
+        {
+            if (index < 0 || index >= static_cast<i32>(resources.Size()))
+            {
+                return;
+            }
+            m_textureBarriers.Clear();
+            m_bufferBarriers.Clear();
+            QueueFinalTransition(index, resources[static_cast<usize>(index)]);
             FlushBarriers(encoder);
         }
 
@@ -350,6 +345,23 @@ export namespace foundation::rendergraph
         }
 
     private:
+        void QueueFinalTransition(i32 index, RenderGraphResource* res)
+        {
+            if (res == nullptr || !res->finalState.HasValue() || res->texture == nullptr)
+            {
+                return;
+            }
+            SubresourceStateTracker** found = m_textureStates.Find(res->texture);
+            if (found == nullptr)
+            {
+                return;
+            }
+            const rhi::ResourceState finalState = res->finalState.Value();
+            EmitTextureBarriers(**found, res->texture, RGSubresourceRange::All(), finalState, false);
+            (*found)->SetAll(finalState);
+            m_resourceStates.InsertOrAssign(index, finalState);
+        }
+
         void EmitTextureBarriers(SubresourceStateTracker& tracker, rhi::Texture* texture,
                                  RGSubresourceRange subresource, rhi::ResourceState requiredState,
                                  bool accessIsReadWrite)

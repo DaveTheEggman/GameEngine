@@ -1023,36 +1023,8 @@ namespace editor
                         editor::navigation::BakeNavigationZone(
                             edit->Scene(), entity, *target,
                             editor::navigation::ParallelBakeEnabled(*editor));
-                    if (result.baked)
-                    {
-                        editor->Notify(NoticeKind::Success,
-                                       u8"Navigation baked. Save and cook to apply.");
-                    }
-                    else if (result.triangleCount == 0)
-                    {
-                        // Nothing was collected: the zone box did not overlap any static mesh.
-                        // The bake only gathers Mesh (StaticMesh) geometry whose world bounds
-                        // intersect the zone AABB (centered on THIS entity, sized by Extents).
-                        editor->Notify(
-                            NoticeKind::Warning,
-                            u8"No mesh geometry inside the zone box. Check the zone's Extents "
-                            u8"cover your floor, that the floor entity has a Mesh component, and "
-                            u8"that the zone is placed over it (only static Mesh geometry is "
-                            u8"collected).");
-                    }
-                    else
-                    {
-                        // Geometry was collected but Recast produced no walkable surface - the
-                        // agent/cell parameters did not fit the geometry.
-                        editor->Notify(
-                            NoticeKind::Warning,
-                            Format(u8"Collected {} triangle(s) but Recast produced no walkable "
-                                   u8"surface. Try a larger Cell Size or a smaller Agent "
-                                   u8"Radius/Height, and check the surface is within Agent Max "
-                                   u8"Slope.",
-                                   result.triangleCount)
-                                .AsView());
-                    }
+                    editor->Notify(result.baked ? NoticeKind::Success : NoticeKind::Warning,
+                                   editor::navigation::DescribeBake(result).AsView());
                 },
                 category);
             AddEditor(bake.Get(), []() {});
@@ -1220,8 +1192,9 @@ namespace editor
         }
         if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
         {
-            BuildResourceRefRow<foundation::texture::Texture>(id, type, prop, category,
-                                                            {u8"TextureAsset"}, path);
+            // A render texture is a texture too: a sprite, a decal or a camera's target takes one.
+            BuildResourceRefRow<foundation::texture::Texture>(
+                id, type, prop, category, {u8"TextureAsset", u8"RenderTextureAsset"}, path);
             return;
         }
         if (prop.type ==
