@@ -1172,3 +1172,83 @@ TEST_CASE("physics: triangle meshes cook in parallel with no world keeping Jolt 
     }
     CHECK(cooked.load() == 8 * 25);
 }
+
+// The navigation bake reads level geometry from the bodies themselves: the triangles come out in
+// world space, facing out, a compound through its leaves, only what touches the box asked for,
+// and a body whose shape cannot build is counted rather than dropped silently. No world.
+TEST_CASE("physics: bodies give their world triangles touching a box, compounds and planes included")
+{
+    const auto normalY = [](const Float3* t)
+    {
+        const Float3 a = t[1] - t[0];
+        const Float3 b = t[2] - t[0];
+        return a.z * b.x - a.x * b.z; // the y of cross(a, b)
+    };
+    const AABB everywhere{Float3{-50.0f, -50.0f, -50.0f}, Float3{50.0f, 50.0f, 50.0f}};
+
+    // A 2 m cube raised 1 m: twelve triangles between y 0 and 2, its top facing up.
+    BodyDesc box;
+    box.motion = MotionKind::Static;
+    box.layer = PhysicsLayer::Static;
+    box.position = Float3{3.0f, 1.0f, 0.0f};
+    box.shapes.PushBack(ShapeDesc{});
+    box.shapes[0].halfExtents = Float3{1.0f, 1.0f, 1.0f};
+    Array<Float3> triangles;
+    CHECK(AppendBodyTriangles(Span<const BodyDesc>(&box, 1), everywhere, triangles) == 0);
+    REQUIRE(triangles.Size() == 36);
+    usize upward = 0;
+    for (usize i = 0; i < triangles.Size(); i += 3)
+    {
+        for (usize v = 0; v < 3; ++v)
+        {
+            CHECK(triangles[i + v].x >= 1.999f);
+            CHECK(triangles[i + v].x <= 4.001f);
+            CHECK(triangles[i + v].y >= -0.001f);
+            CHECK(triangles[i + v].y <= 2.001f);
+        }
+        if (triangles[i].y > 1.99f && triangles[i + 1].y > 1.99f && triangles[i + 2].y > 1.99f)
+        {
+            CHECK(normalY(&triangles[i]) > 0.0f);
+            ++upward;
+        }
+    }
+    CHECK(upward == 2);
+
+    // Two boxes as one compound body: both leaves give their triangles.
+    BodyDesc pair = box;
+    pair.shapes.PushBack(box.shapes[0]);
+    pair.shapes[0].localPosition = Float3{-2.0f, 0.0f, 0.0f};
+    pair.shapes[1].localPosition = Float3{2.0f, 0.0f, 0.0f};
+    triangles.Clear();
+    CHECK(AppendBodyTriangles(Span<const BodyDesc>(&pair, 1), everywhere, triangles) == 0);
+    CHECK(triangles.Size() == 72);
+
+    // A ground plane, as wide as a level allows: its triangles touch the box asked for and face up.
+    BodyDesc ground;
+    ground.motion = MotionKind::Static;
+    ground.layer = PhysicsLayer::Static;
+    ground.shapes.PushBack(ShapeDesc{});
+    ground.shapes[0].kind = ShapeKind::Plane;
+    ground.shapes[0].planeHalfExtent = 1000.0f;
+    const AABB patch{Float3{-5.0f, -1.0f, -5.0f}, Float3{5.0f, 1.0f, 5.0f}};
+    triangles.Clear();
+    CHECK(AppendBodyTriangles(Span<const BodyDesc>(&ground, 1), patch, triangles) == 0);
+    REQUIRE(!triangles.IsEmpty());
+    for (usize i = 0; i < triangles.Size(); i += 3)
+    {
+        CHECK(normalY(&triangles[i]) > 0.0f);
+    }
+    for (const Float3& p : triangles)
+    {
+        CHECK(Abs(p.y) < 0.001f);
+    }
+
+    // Nothing of a body outside the box; a shape that does not build is counted.
+    BodyDesc broken = box;
+    broken.shapes[0].halfExtents = Float3{0.0f, 1.0f, 1.0f};
+    const BodyDesc both[] = {box, broken};
+    triangles.Clear();
+    const AABB elsewhere{Float3{-5.0f, -1.0f, 25.0f}, Float3{5.0f, 1.0f, 35.0f}};
+    CHECK(AppendBodyTriangles(Span<const BodyDesc>(both, 2), elsewhere, triangles) == 1);
+    CHECK(triangles.IsEmpty());
+}
