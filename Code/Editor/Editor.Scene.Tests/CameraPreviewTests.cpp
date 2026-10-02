@@ -60,6 +60,18 @@ TEST_CASE("camera-preview: BuildCameraPreviewOverride maps a component + world t
     CHECK(ov.clearColor.a == doctest::Approx(1.0f));
 }
 
+TEST_CASE("camera-preview: an orthographic camera previews orthographic, like the game draws it")
+{
+    engine::render::CameraComponent cam;
+    cam.aspect = 2.0f;
+    cam.projection = engine::render::CameraProjection::Orthographic;
+    cam.orthoHeight = 12.0f;
+    const render::CameraOverride ov = editor::BuildCameraPreviewOverride(cam, Float4x4::Identity());
+    CHECK(MatNear(ov.camera.projection, engine::render::MakeCameraProjection(cam, 2.0f)));
+    CHECK(MatNear(ov.camera.projection,
+                  Float4x4::OrthographicRH(24.0f, 12.0f, cam.nearZ, cam.farZ)));
+}
+
 TEST_CASE("camera-preview: ResolveCameraPreview visibility + pin logic")
 {
     const scene::EntityHandle camEntity{1, 1};

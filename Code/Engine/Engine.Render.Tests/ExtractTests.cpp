@@ -822,6 +822,78 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     (void)sprites;
 }
 
+TEST_CASE("camera: MakeCameraProjection builds a perspective or an orthographic matrix")
+{
+    CameraComponent cam;
+    cam.fovYRadians = 1.2f;
+    cam.nearZ = 0.5f;
+    cam.farZ = 300.0f;
+    cam.orthoHeight = 40.0f;
+
+    const Float4x4 perspective = MakeCameraProjection(cam, 2.0f);
+    const Float4x4 expectedPerspective = Float4x4::PerspectiveFovRH(1.2f, 2.0f, 0.5f, 300.0f);
+    cam.projection = CameraProjection::Orthographic;
+    const Float4x4 orthographic = MakeCameraProjection(cam, 2.0f);
+    // The height is authored; the width follows the aspect.
+    const Float4x4 expectedOrthographic = Float4x4::OrthographicRH(80.0f, 40.0f, 0.5f, 300.0f);
+    for (usize r = 0; r < 4; ++r)
+    {
+        for (usize c = 0; c < 4; ++c)
+        {
+            CHECK(Near(perspective(r, c), expectedPerspective(r, c)));
+            CHECK(Near(orthographic(r, c), expectedOrthographic(r, c)));
+        }
+    }
+    CHECK_FALSE(projection::IsOrthographic(perspective));
+    CHECK(projection::IsOrthographic(orthographic));
+}
+
+TEST_CASE("extract: an orthographic primary camera renders orthographic at the view's aspect")
+{
+    scene::Scene scene(DefaultAllocator(), u8"cam-ortho");
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+    const scene::EntityHandle e = scene.CreateEntity(u8"top");
+    CameraComponent& cam = cameras->Add(e);
+    cam.projection = CameraProjection::Orthographic;
+    cam.orthoHeight = 20.0f;
+    scene.UpdateTransforms();
+
+    ViewCamera vc;
+    REQUIRE(ExtractPrimaryCamera(scene, vc, nullptr, 1.5f));
+    CHECK(projection::IsOrthographic(vc.projection));
+    CHECK(Near(vc.projection(0, 0), 2.0f / 30.0f)); // width = 20 x 1.5
+    CHECK(Near(vc.projection(1, 1), 2.0f / 20.0f));
+}
+
+TEST_CASE("camera: the projection mode and the orthographic height round-trip with the scene")
+{
+    scene::Scene a{DefaultAllocator()};
+    CameraComponentManager* camerasA = a.AddSystem<CameraComponentManager>();
+    CameraComponent& written = camerasA->Add(a.CreateEntity(u8"map"));
+    written.projection = CameraProjection::Orthographic;
+    written.orthoHeight = 64.0f;
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    scene::Scene b{DefaultAllocator()};
+    CameraComponentManager* camerasB = b.AddSystem<CameraComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b);
+        REQUIRE(reader.IsOk());
+    }
+    const CameraComponent* read = nullptr;
+    camerasB->ForEach([&](CameraComponent& c, scene::EntityHandle) { read = &c; });
+    REQUIRE(read != nullptr);
+    CHECK(read->projection == CameraProjection::Orthographic);
+    CHECK(Near(read->orthoHeight, 64.0f));
+}
+
 TEST_CASE("extract: an inactive primary camera falls through to the next primary")
 {
     scene::Scene scene(DefaultAllocator(), u8"cam-fallthrough");

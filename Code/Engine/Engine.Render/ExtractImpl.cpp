@@ -395,8 +395,8 @@ namespace engine::render
                     found = true;
                     const Float4x4 world = scene.GetWorldMatrix(e);
                     out.view = Inverse(world);
-                    out.projection = Float4x4::PerspectiveFovRH(
-                        cam.fovYRadians, aspect > 0.0f ? aspect : cam.aspect, cam.nearZ, cam.farZ);
+                    out.projection =
+                        MakeCameraProjection(cam, aspect > 0.0f ? aspect : cam.aspect);
                     out.position = TransformPoint(Float3{0, 0, 0}, world);
                     out.farZ = cam.farZ;
                     if (outClear != nullptr)

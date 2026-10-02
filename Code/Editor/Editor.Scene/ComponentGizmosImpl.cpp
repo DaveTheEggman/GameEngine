@@ -57,11 +57,13 @@ namespace editor
         const Float3 forward = detail::WorldForward(world);
         const Float3 up = (Abs(forward.y) < 0.99f) ? Float3{0, 1, 0} : Float3{0, 0, 1};
 
-        // Short preview frustum (clamped far) so scene cameras stay readable.
-        const f32 farZ = Min(camera->farZ, 8.0f);
+        // Short preview frustum (clamped far) so scene cameras stay readable; an orthographic
+        // camera draws as the box it sees.
+        engine::render::CameraComponent preview = *camera;
+        preview.nearZ = Max(camera->nearZ, 0.01f);
+        preview.farZ = Min(camera->farZ, 8.0f);
         const Float4x4 view = Float4x4::LookAtRH(position, position + forward, up);
-        const Float4x4 proj = Float4x4::PerspectiveFovRH(camera->fovYRadians, camera->aspect,
-                                                         Max(camera->nearZ, 0.01f), farZ);
+        const Float4x4 proj = engine::render::MakeCameraProjection(preview, camera->aspect);
         ctx.debug->DrawFrustum(Inverse(view * proj), Color{0.9f, 0.9f, 0.9f, 1.0f});
     }
     const TypeInfo* DecalGizmoRenderer::ComponentType() const

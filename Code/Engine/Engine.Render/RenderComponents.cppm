@@ -188,6 +188,13 @@ export namespace engine::render
         }
     };
 
+    // How a camera maps view space to the screen.
+    enum class CameraProjection : u32
+    {
+        Perspective = 0,  // a frustum widening with depth (fovYRadians)
+        Orthographic = 1, // a box of fixed size (orthoHeight): a top-down map, an isometric view
+    };
+
     // A camera frustum. The view transform is the inverse of the entity's world matrix;
     // these fields define the projection. `primary` marks the camera the renderer uses.
     // `clearColor` is the backdrop the view is cleared to (per-camera, like Unity/Godot);
@@ -200,7 +207,22 @@ export namespace engine::render
         f32 farZ = 1000.0f;
         Color clearColor = Color{0.392f, 0.584f, 0.929f, 1.0f}; // cornflower sentinel
         bool primary = true;
+        CameraProjection projection = CameraProjection::Perspective;
+        f32 orthoHeight = 10.0f; // Orthographic: the world-space height the view spans
     };
+
+    // The projection matrix of `camera` at `aspect` (width over height). The one place a camera's
+    // fields become a matrix: the renderer's camera pick and the editor's camera preview both
+    // build through it, so the preview frames what the game draws.
+    [[nodiscard]] inline Float4x4 MakeCameraProjection(const CameraComponent& camera, f32 aspect)
+    {
+        if (camera.projection == CameraProjection::Orthographic)
+        {
+            const f32 height = Max(camera.orthoHeight, 1.0e-4f);
+            return Float4x4::OrthographicRH(height * aspect, height, camera.nearZ, camera.farZ);
+        }
+        return Float4x4::PerspectiveFovRH(camera.fovYRadians, aspect, camera.nearZ, camera.farZ);
+    }
 
     // A light on an entity. Directional uses the entity's forward (-Z); Point/Spot use its world
     // position (+ range). Extraction packs these into render::GpuLight shading inputs.
@@ -353,6 +375,10 @@ export namespace engine::render
         foundation::core::Serialize(ar, "farZ", c.farZ);
         foundation::core::Serialize(ar, "clearColor", c.clearColor);
         foundation::core::Serialize(ar, "primary", c.primary);
+        u8 projection = static_cast<u8>(c.projection);
+        foundation::core::Serialize(ar, "projection", projection);
+        foundation::core::Serialize(ar, "orthoHeight", c.orthoHeight);
+        c.projection = static_cast<CameraProjection>(projection);
     }
 
     inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c)
