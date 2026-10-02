@@ -10,6 +10,24 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
+## Queued 2026-10-02 (user, render-textures review)
+
+- **Post effects for an orthographic camera**: `LimitPostForOrthographic`
+  (`Engine.Render/RenderComponents.cppm`, applied in `RenderSubsystem::RenderScene`) turns off AO,
+  SSR, SSGI and TAA for any orthographic view, because their shaders assume a perspective
+  projection. A target camera (the minimap) renders post-off anyway; this matters for an
+  orthographic MAIN camera (isometric, 2.5D). What each needs:
+  - **AO (GTAO/SSAO)**: view-space position is rebuilt from depth with `ProjXX`/`ProjYY` and
+    perspective depth; an orthographic branch (linear depth, x/y not scaled by distance). Small.
+  - **TAA**: reprojection is matrix-based and fine; the history rejection linearizes depth as
+    perspective (`LinearizeDepth` in `taa.ps.hlsl`). Small.
+  - **SSR, SSGI**: screen-space marches assume rays fanning from an eye point; in orthographic
+    every view ray is parallel, so the ray setup and the step into screen space change. Larger.
+  Do AO and TAA first, then lift them out of `LimitPostForOrthographic`; each with a render
+  test, checked in an orthographic scene by the user. Unity URP supports SSAO in orthographic;
+  Unreal and Godot leave some screen-space effects limited there (from memory - check their
+  current docs before citing).
+
 ## Queued 2026-09-23 (user, during the terrain holes work)
 
 - **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0
