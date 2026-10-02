@@ -287,6 +287,10 @@ export namespace engine::navigation
                     a.agentId = -1;
                     if (a.zoneIndex < 0)
                     {
+                        // Said, not silent: an agent that never moves is otherwise a mystery.
+                        LOG_WARNING(u8"Navigation",
+                                    u8"agent '{}' at ({}, {}, {}) is in no navigation zone; it will not move",
+                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
                         return;
                     }
                     RuntimeZone& rz = m_zones[static_cast<usize>(a.zoneIndex)];
@@ -297,6 +301,21 @@ export namespace engine::navigation
                     ap.maxSpeed = a.maxSpeed;
                     ap.maxAcceleration = a.maxAcceleration;
                     a.agentId = rz.crowd->AddAgent(local, ap);
+                    if (a.agentId < 0)
+                    {
+                        LOG_WARNING(u8"Navigation",
+                                    u8"agent '{}' at ({}, {}, {}): the zone's crowd is full; it will not move",
+                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
+                    }
+                    else if (rz.crowd->AgentState(a.agentId).state == nav::NavAgentCrowdState::Invalid)
+                    {
+                        // Detour still adds an agent it could not place, in a state that never
+                        // moves, so the slot alone says nothing.
+                        LOG_WARNING(u8"Navigation",
+                                    u8"agent '{}' at ({}, {}, {}) found no navmesh where it stands; it "
+                                    u8"will not move (is it on baked ground, and was the zone baked?)",
+                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
+                    }
                     a.appliedSpeed = a.maxSpeed; // the live-change compare starts in sync
                     a.appliedAcceleration = a.maxAcceleration;
                 });
