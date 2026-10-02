@@ -34,6 +34,17 @@ TEST_CASE("markup: CreatesLabel")
     CHECK(label->Text.Value() == u8"Hello");
 }
 
+TEST_CASE("markup: an ImageView's source attribute names what it shows")
+{
+    EnsureInit();
+    auto view =
+        MarkupLoader::LoadFromString(DefaultAllocator(), u8"<ImageView source=\"{0a1b}\"/>");
+    REQUIRE(view);
+    ImageView* image = Cast<ImageView>(view.Get());
+    REQUIRE(image != nullptr);
+    CHECK(image->Source.Value() == u8"{0a1b}");
+}
+
 TEST_CASE("markup: CreatesButton")
 {
     EnsureInit();

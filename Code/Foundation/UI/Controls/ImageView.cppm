@@ -20,6 +20,7 @@ import :view;
 import :property;
 import :box_constraints;
 import :draw_context;
+import :iresource_provider;
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -42,11 +43,18 @@ export namespace foundation::ui
     public:
         Property<::foundation::ui::ScaleType> ScaleType{::foundation::ui::ScaleType::FitCenter};
         Property<core::Color> Tint{core::Color::White};
+        /// What to show, named by a string the context's resource provider resolves (the engine
+        /// takes an asset id: a texture, or a render texture a camera draws into). Resolved when
+        /// the view is measured or drawn in a context that has a provider; until the provider
+        /// answers (an asset still loading), the view shows nothing and asks again. Empty: the
+        /// image SetImage gave.
+        Property<core::String> Source;
 
         ImageView()
         {
             ScaleType.SetOwner(this, InvalidationKind::Visual);
             Tint.SetOwner(this, InvalidationKind::Visual);
+            Source.SetOwner(this, InvalidationKind::Layout);
         }
         explicit ImageView(const image::ImageData* img) : ImageView() { SetImage(img); }
 
@@ -64,6 +72,7 @@ export namespace foundation::ui
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
+            ResolveSource();
             if (m_image != nullptr)
                 MeasuredSize =
                     Float2{constraints.ConstrainWidth(static_cast<f32>(m_image->Width())),
@@ -75,6 +84,7 @@ export namespace foundation::ui
 
         void OnDraw(UIDrawContext& ctx) override
         {
+            ResolveSource();
             if (m_image == nullptr)
             {
                 return;
@@ -116,7 +126,30 @@ export namespace foundation::ui
         }
 
     private:
+        void ResolveSource()
+        {
+            const StringView source = Source.Value().AsView();
+            if (source.IsEmpty() || m_resolvedSource.AsView() == source)
+            {
+                return;
+            }
+            IResourceProvider* provider =
+                (Context != nullptr) ? Context->ResourceProvider() : nullptr;
+            const image::ImageData* image =
+                (provider != nullptr) ? provider->LoadImage(source) : nullptr;
+            if (image == nullptr)
+            {
+                m_image = nullptr;
+                InvalidateVisual(); // not there yet (a loading asset): ask again next frame
+                return;
+            }
+            m_image = image;
+            m_resolvedSource = String(source);
+            Invalidate(); // the image's size is the view's natural size: lay out again
+        }
+
         const image::ImageData* m_image = nullptr;
+        core::String m_resolvedSource; // the Source m_image answers
     };
 
     RTTI_DEFINE_OBJECT(ImageView, "rtti::ui")

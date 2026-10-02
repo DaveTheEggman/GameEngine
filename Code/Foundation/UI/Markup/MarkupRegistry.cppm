@@ -1186,6 +1186,16 @@ export namespace foundation::ui
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ColorView>(allocator); });
         RegisterView(u8"ImageView",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<ImageView>(allocator); });
+        // What the image shows, resolved by the context's resource provider (an asset id in the
+        // engine): <ImageView source="{guid}"/>.
+        RegisterProperty(u8"ImageView", u8"source",
+                         [](View* v, StringView val)
+                         {
+                             if (ImageView* c = Cast<ImageView>(v))
+                             {
+                                 c->Source.SetValue(String(val));
+                             }
+                         });
         RegisterView(u8"DrawableView",
                      [](IAllocator& allocator) -> RefPtr<View> { return MakeRef<DrawableView>(allocator); });
         RegisterView(u8"ListView",

@@ -9,6 +9,7 @@
 #include "Core/Prelude.h"
 import foundation.core;
 import foundation.ui;
+import foundation.image; // ImageDataRef (the provider's answer in the Source tests)
 #include "TestHelpers.h"
 
 using namespace foundation::ui;
@@ -390,6 +391,78 @@ TEST_CASE("control: ImageView_NullImage_ZeroSize")
     CHECK(iv->MeasuredSize.y == 0);
 }
 
+namespace
+{
+    // Answers one name with one image, after `loadingFor` asks (an asset still loading).
+    class LateProvider final : public IResourceProvider
+    {
+    public:
+        foundation::image::ImageDataRef minimap{256, 128};
+        foundation::image::ImageDataRef icon{32, 32};
+        int asks = 0;
+        int loadingFor = 0;
+
+        bool LoadText(StringView, String&) override { return false; }
+        const foundation::image::ImageData* LoadImage(StringView path) override
+        {
+            ++asks;
+            if (asks <= loadingFor)
+            {
+                return nullptr;
+            }
+            if (path == StringView(u8"minimap"))
+            {
+                return &minimap;
+            }
+            return (path == StringView(u8"icon")) ? &icon : nullptr;
+        }
+    };
+}
+
+TEST_CASE("control: ImageView resolves its Source through the context's resource provider")
+{
+    UIContext ctx{DefaultAllocator()};
+    LateProvider provider;
+    provider.loadingFor = 1; // the first ask finds it still loading
+    ctx.SetResourceProvider(&provider);
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    auto iv = core::MakeRef<ImageView>(core::DefaultAllocator());
+    iv->Source.SetValue(String(u8"minimap"));
+    root->AddView(iv.Get());
+
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == nullptr); // not loaded yet: nothing shown, asked again later
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == &provider.minimap);
+    const int asksOnceResolved = provider.asks;
+    LayoutPass(ctx, root.Get());
+    CHECK(provider.asks == asksOnceResolved); // resolved once, not every frame
+
+    // The image's size is the view's natural size.
+    iv->Measure(BoxConstraints::Expand());
+    CHECK(iv->MeasuredSize.x == doctest::Approx(256));
+    CHECK(iv->MeasuredSize.y == doctest::Approx(128));
+
+    // A new source resolves anew.
+    iv->Source.SetValue(String(u8"icon"));
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == &provider.icon);
+}
+
+TEST_CASE("control: ImageView without a provider keeps the image SetImage gave")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 400, 300);
+    foundation::image::ImageDataRef given{16, 16};
+    auto iv = core::MakeRef<ImageView>(core::DefaultAllocator(), &given);
+    root->AddView(iv.Get());
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == &given);
+}
+
+// === ToggleButton ===
 // === ToggleButton ===
 
 TEST_CASE("control: ToggleButton_Toggle")
