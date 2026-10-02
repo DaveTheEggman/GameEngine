@@ -153,3 +153,42 @@ TEST_CASE("scene-manager: inactive create + activate/deactivate gate (task #123 
     CHECK_FALSE(mgr.IsActive(&foreign));
     CHECK(mgr.ActiveScenes().Size() == 2u);
 }
+namespace
+{
+    // Counts stops into a count that outlives the scene (the system goes with it).
+    class StopWitness final : public SceneSystem
+    {
+    public:
+        int* stops = nullptr;
+        void OnSceneStopped() override { ++*stops; }
+    };
+}
+
+TEST_CASE("scene-manager: a running scene is stopped before it is destroyed")
+{
+    // A scene system unhooks itself from what outlives the scene in its stop hook (a script
+    // system's handlers on a run's event bus). A running scene destroyed without a stop (a run
+    // loading the scene it is already in) left those handlers pointing at freed memory.
+    SceneManager mgr{DefaultAllocator()};
+    int stops = 0;
+    Scene* running = mgr.CreateScene(u8"running");
+    running->AddSystem<StopWitness>()->stops = &stops;
+    running->Start();
+    mgr.DestroyScene(running);
+    CHECK(stops == 1);
+
+    // A scene that never started is not stopped (its systems never began).
+    Scene* idle = mgr.CreateScene(u8"idle");
+    idle->AddSystem<StopWitness>()->stops = &stops;
+    mgr.DestroyScene(idle);
+    CHECK(stops == 1);
+
+    // A scene already stopped is not stopped twice.
+    Scene* stopped = mgr.CreateScene(u8"stopped");
+    stopped->AddSystem<StopWitness>()->stops = &stops;
+    stopped->Start();
+    stopped->Stop();
+    CHECK(stops == 2);
+    mgr.DestroyScene(stopped);
+    CHECK(stops == 2);
+}
