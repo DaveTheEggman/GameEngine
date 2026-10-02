@@ -1358,6 +1358,8 @@ export namespace pipeline{
 
     /// File > New's texture creators (pipeline.registration composes every domain's).
     void RegisterTextureCreators(AssetCreatorRegistry& registry);
+    /// RenderTextureFormat's names (the asset form's dropdown, the MCP envelopes' enum list).
+    void RegisterRenderTextureReflection();
 
     // Registers TextureAsset for content-DB construction + deserialization. Also registers the
     // enum reflection its properties reference (owning modules; idempotent) so the generic asset
@@ -1371,6 +1373,7 @@ export namespace pipeline{
         GlobalTypeRegistry().Register(TextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<TextureAsset>();
         RegisterTextureResource(); // the cooked records, RenderTextureResource among them
+        RegisterRenderTextureReflection();
         GlobalTypeRegistry().Register(RenderTextureAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<RenderTextureAsset>();
     }

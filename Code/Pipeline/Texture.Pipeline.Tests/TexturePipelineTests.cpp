@@ -1139,6 +1139,9 @@ TEST_CASE("texture.pipeline: a render texture asset cooks to a record its factor
     foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
                                             u8".rasset");
 
+    // The format is an enum by name (the asset form's dropdown).
+    CHECK(TypeOf<RenderTextureFormat>().enumeratorCount == 2u);
+
     RenderTextureAssetBuilder builder;
     CHECK(builder.AssetType() == &RenderTextureAsset::StaticType());
     CHECK(builder.ProductType() == &RenderTextureResource::StaticType());

@@ -602,6 +602,7 @@ namespace engine::render
         static const bool once = []()
         {
             RttiRegisterEnum_LightType();
+            RttiRegisterEnum_CameraProjection();
             RttiRegisterEnum_SpriteOrientation();
             RttiRegisterEnum_ShadowUpdateMode();
             RttiRegisterEnum_ProbeUpdateMode();

@@ -849,6 +849,8 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     REQUIRE(fovVis != nullptr);
     REQUIRE(ParsePropertyCondition(fovVis->value.TryGet<String>()->AsView(), c));
     CHECK(c.prop.AsView() == StringView(u8"projection"));
+    // ...and the mode itself is an enum by name (the inspector's dropdown, the schema's list).
+    CHECK(TypeOf<engine::render::CameraProjection>().enumeratorCount == 2u);
     CHECK(MatchesPropertyCondition(c, 0));  // Perspective
     CHECK(!MatchesPropertyCondition(c, 1)); // Orthographic
     const PropertyInfo* orthoHeight = FindProperty(camera, "orthoHeight");

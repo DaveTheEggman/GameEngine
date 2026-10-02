@@ -89,4 +89,14 @@ namespace pipeline{
                            String(u8"Ldr for what a camera shows on screen or in UI; Hdr keeps "
                                   u8"linear values for a material"));
     }
+
+    void RegisterRenderTextureReflection()
+    {
+        static const bool once = []()
+        {
+            RttiRegisterEnum_RenderTextureFormat();
+            return true;
+        }();
+        (void)once;
+    }
 }
