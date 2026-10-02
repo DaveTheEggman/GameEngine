@@ -99,6 +99,20 @@ namespace foundation::navigation
                     out.bmax[c] = rcMax(out.bmax[c], verts[i * 3 + c]);
                 }
             }
+            if (params.bounds.IsValid())
+            {
+                const f32 lo[3] = {params.bounds.min.x, params.bounds.min.y, params.bounds.min.z};
+                const f32 hi[3] = {params.bounds.max.x, params.bounds.max.y, params.bounds.max.z};
+                for (int c = 0; c < 3; ++c)
+                {
+                    out.bmin[c] = rcMax(out.bmin[c], lo[c]);
+                    out.bmax[c] = rcMin(out.bmax[c], hi[c]);
+                    if (out.bmin[c] > out.bmax[c])
+                    {
+                        return false; // the geometry is all outside the region
+                    }
+                }
+            }
             out.tileWorldSize = static_cast<f32>(params.tileCells) * params.cellSize;
             out.countX = static_cast<i32>(
                 std::ceil((out.bmax[0] - out.bmin[0]) / out.tileWorldSize));
