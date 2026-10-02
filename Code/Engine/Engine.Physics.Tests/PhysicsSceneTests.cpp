@@ -1162,3 +1162,52 @@ TEST_CASE("physics.active: a joint drops when its explicit target deactivates an
     play.Step(2);
     CHECK(play.scene.GetSystem<JointComponentManager>()->Get(right)->joint.IsValid());
 }
+
+// The navigation bake reads level geometry from the scene's static geometry sources. Physics'
+// is its static, solid bodies (a compound with its child colliders), read in edit mode with no
+// world: what moves (dynamic, kinematic), what lets things through (a trigger) and what has no
+// body (an inactive entity) give nothing.
+TEST_CASE("physics.scene: static geometry is the static, solid bodies, compounds included")
+{
+    PlayScene play;
+    (void)play.AddFloor(); // its top at y 0
+    const scene::EntityHandle solid = play.AddBox(0.5f, MotionKind::Static);
+    play.scene.SetLocalPosition(solid, Float3{10.0f, 0.5f, 0.0f});
+    scene::EntityHandle arm = play.scene.CreateEntity(u8"arm");
+    play.scene.SetParent(arm, solid);
+    play.scene.SetLocalPosition(arm, Float3{2.0f, 0.0f, 0.0f});
+    play.scene.GetSystem<ColliderComponentManager>()->Add(arm).halfExtents = Float3{0.5f, 0.5f, 0.5f};
+    play.scene.SetLocalPosition(play.AddBox(0.5f, MotionKind::Dynamic), Float3{-10.0f, 0.5f, 0.0f});
+    play.scene.SetLocalPosition(play.AddBox(0.5f, MotionKind::Kinematic), Float3{-20.0f, 0.5f, 0.0f});
+    const scene::EntityHandle trigger = play.AddBox(0.5f, MotionKind::Static);
+    play.scene.SetLocalPosition(trigger, Float3{20.0f, 0.5f, 0.0f});
+    play.scene.GetSystem<RigidBodyComponentManager>()->Get(trigger)->isTrigger = true;
+    const scene::EntityHandle off = play.AddBox(0.5f, MotionKind::Static);
+    play.scene.SetLocalPosition(off, Float3{30.0f, 0.5f, 0.0f});
+    play.scene.SetActive(off, false);
+    play.scene.UpdateTransforms(); // edit mode: no Start, no world
+
+    scene::IStaticGeometrySource* source =
+        play.scene.GetSystem<RigidBodyComponentManager>()->AsStaticGeometrySource();
+    REQUIRE(source != nullptr);
+    CHECK(play.scene.GetSystem<ColliderComponentManager>()->AsStaticGeometrySource() == nullptr);
+    Array<Float3> triangles;
+    source->CollectStaticGeometry(play.scene, AABB{Float3{-40, -5, -40}, Float3{40, 5, 40}}, 0.3f,
+                                  triangles);
+    REQUIRE(triangles.Size() % 3 == 0);
+    usize floor = 0, raised = 0;
+    for (usize i = 0; i < triangles.Size(); i += 3)
+    {
+        const Float3 centre = (triangles[i] + triangles[i + 1] + triangles[i + 2]) * (1.0f / 3.0f);
+        if (centre.y < 0.01f)
+        {
+            ++floor; // the floor's faces, and the bottoms of the boxes standing on it
+            continue;
+        }
+        ++raised;
+        CHECK(centre.x > 9.4f); // only the compound: its body at 10 and its arm at 12
+        CHECK(centre.x < 12.6f);
+    }
+    CHECK(floor > 0);
+    CHECK(raised == 20); // two boxes' tops and sides
+}

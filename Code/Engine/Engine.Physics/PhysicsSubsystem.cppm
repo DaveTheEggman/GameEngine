@@ -64,6 +64,27 @@ export namespace engine::physics
                                    static_cast<u32>(value & 0xFFFFFFFFu)};
     }
 
+    [[nodiscard]] inline bool IsDescendantOf(scene::Scene& scene, scene::EntityHandle child,
+                                             scene::EntityHandle ancestor)
+    {
+        for (scene::EntityHandle e = child; e.IsAssigned(); e = scene.GetParent(e))
+        {
+            if (e == ancestor)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// The body a RigidBodyComponent makes on `entity`: its settings, the entity's world pose, its
+    /// own shape and the ColliderComponents under it (a compound at their offsets). Heightfield
+    /// samples are copied into `heightBuffers`, which the desc points into and which must outlive
+    /// it. False (logged) when the transform does not decompose or a shape's resource is missing.
+    /// Body creation and the static geometry the navigation bake reads both describe bodies here.
+    [[nodiscard]] bool DescribeBody(scene::Scene& scene, RigidBodyComponent& c, scene::EntityHandle entity,
+                                    BodyDesc& out, Array<Array<f32>>& heightBuffers);
+
     /// A contact whose bodies have been resolved back to scene entities (invalid handles for
     /// a side whose body no longer maps to a live entity - e.g. an End event after a body was
     /// destroyed). Delivered by the physics subsystem to every registered IContactListener at
@@ -730,170 +751,17 @@ export namespace engine::physics
         void CreateBodyForEntity(RigidBodyComponent& c, scene::EntityHandle e)
         {
             scene::Scene& scene = *m_scene;
-            auto* colliders = scene.GetSystem<ColliderComponentManager>();
             {
                 {
+                    // Heightfield sample buffers kept alive until CreateBody, where Jolt copies them.
+                    Array<Array<f32>> heightBuffers;
                     BodyDesc desc;
-                    desc.motion = c.motion;
-                    desc.layer = c.layer;
-                    desc.friction = c.friction;
-                    desc.restitution = c.restitution;
-                    desc.linearDamping = c.linearDamping;
-                    desc.angularDamping = c.angularDamping;
-                    desc.isTrigger = c.isTrigger;
-                    desc.continuousCollision = c.continuousCollision;
-                    desc.massOverride = c.mass;
-                    desc.group = c.collisionGroup;
-
-                    // Reverse map: the owning entity handle, packed losslessly into the body user
-                    // word (see PackEntity - unique by construction, unlike the guid's low bits).
-                    desc.userData = PackEntity(e);
-
-                    Float3 position, scale;
-                    Quaternion rotation;
-                    if (!Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
+                    if (!DescribeBody(scene, c, e, desc, heightBuffers))
                     {
                         return;
                     }
-
-                    // Heightfield sample buffers (world-Y floats) kept alive until CreateBody, which
-                    // is where Jolt copies them; each ShapeDesc.heightSamples points into one entry.
-                    Array<Array<f32>> heightBuffers;
-                    const auto fillHeightfield =
-                        [&](ShapeDesc& s, foundation::resource::Ref<Heightfield>& ref) -> bool {
-                        Heightfield* hf = ref.Get();
-                        if (hf == nullptr || hf->IsEmpty())
-                        {
-                            return false;
-                        }
-                        const i32 n = hf->Size();
-                        heightBuffers.PushBack(Array<f32>{});
-                        Array<f32>& buf = heightBuffers[heightBuffers.Size() - 1];
-                        const Span<const foundation::heightfield::Height> src = hf->Samples();
-                        const Span<const u8> holes = hf->Holes(); // a cut sample has no surface
-                        buf.Resize(src.Size());
-                        for (usize i = 0; i < src.Size(); ++i)
-                        {
-                            buf[i] = (i < holes.Size() && holes[i] != 0)
-                                         ? ShapeDesc::kNoCollisionHeight
-                                         : hf->SampleToWorldY(static_cast<f32>(src[i]));
-                        }
-                        s.heightSamples = Span<const f32>(buf.Data(), buf.Size());
-                        s.heightSampleCount = static_cast<u32>(n);
-                        s.heightWorldSize = hf->WorldSize();
-                        return true;
-                    };
-
-                    ShapeDesc own;
-                    own.kind = c.shape;
-                    own.halfExtents = c.halfExtents;
-                    own.radius = c.radius;
-                    own.halfHeight = c.halfHeight;
-                    own.planeHalfExtent = c.planeHalfExtent;
-                    if (c.shape == ShapeKind::Cooked)
-                    {
-                        CollisionShape* cooked = c.collisionShape.Get();
-                        if (cooked == nullptr)
-                        {
-                            LOG_WARNING(u8"Physics",
-                                                 u8"'{}': cooked shape has no collision-shape "
-                                                 u8"resource - body skipped",
-                                                 scene.GetEntityName(e));
-                            return;
-                        }
-                        own.cooked = cooked->Blob();
-                        own.scale = scale; // cooked geometry is authored unit-scale
-                    }
-                    else if (c.shape == ShapeKind::Heightfield)
-                    {
-                        if (!fillHeightfield(own, c.heightfield))
-                        {
-                            LOG_WARNING(u8"Physics",
-                                                 u8"'{}': heightfield shape has no heightfield "
-                                                 u8"resource - body skipped",
-                                                 scene.GetEntityName(e));
-                            return;
-                        }
-                    }
-                    // A shape that can only be static (Jolt's MustBeStatic: plane, heightfield,
-                    // a cooked triangle mesh) under a moving body: the world demotes it to
-                    // static rather than tripping Jolt's mass assert; named HERE, where the
-                    // entity is known, so the author can find the component.
-                    const bool staticOnly =
-                        c.shape == ShapeKind::Plane || c.shape == ShapeKind::Heightfield ||
-                        (c.shape == ShapeKind::Cooked && c.collisionShape.Get() != nullptr &&
-                         !c.collisionShape->convex);
-                    if (c.motion != MotionKind::Static && staticOnly)
-                    {
-                        LOG_ERROR(u8"Physics",
-                                  u8"'{}': a {} body cannot use a {} shape (static only: no mass, "
-                                  u8"no mesh-vs-mesh collision) - simulated as static",
-                                  scene.GetEntityName(e),
-                                  c.motion == MotionKind::Kinematic ? u8"kinematic" : u8"dynamic",
-                                  c.shape == ShapeKind::Plane         ? u8"plane"
-                                  : c.shape == ShapeKind::Heightfield ? u8"heightfield"
-                                                                      : u8"triangle-mesh");
-                    }
-                    desc.shapes.PushBack(own);
-
-                    // Hierarchy compounding: descendant ColliderComponents fold in at their
-                    // offset relative to THIS entity (captured at start).
-                    if (colliders != nullptr)
-                    {
-                        const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
-                        colliders->ForEach(
-                            [&](ColliderComponent& extra, scene::EntityHandle child)
-                            {
-                                if (!IsDescendantOf(scene, child, e))
-                                {
-                                    return;
-                                }
-                                Float3 lp, ls;
-                                Quaternion lr;
-                                if (!Decompose(scene.GetWorldMatrix(child) * bodyInverse, lp, lr,
-                                               ls))
-                                {
-                                    return;
-                                }
-                                ShapeDesc shape;
-                                shape.kind = extra.shape;
-                                shape.halfExtents = extra.halfExtents;
-                                shape.radius = extra.radius;
-                                shape.halfHeight = extra.halfHeight;
-                                shape.planeHalfExtent = extra.planeHalfExtent;
-                                if (extra.shape == ShapeKind::Cooked)
-                                {
-                                    CollisionShape* cooked = extra.collisionShape.Get();
-                                    if (cooked == nullptr)
-                                    {
-                                        return;
-                                    }
-                                    shape.cooked = cooked->Blob();
-                                    shape.scale = ls;
-                                }
-                                else if (extra.shape == ShapeKind::Heightfield)
-                                {
-                                    if (!fillHeightfield(shape, extra.heightfield))
-                                    {
-                                        return;
-                                    }
-                                }
-                                shape.localPosition = lp;
-                                shape.localRotation = lr;
-                                desc.shapes.PushBack(shape);
-                            });
-                    }
-
-                    desc.position = position;
-                    desc.rotation = rotation;
-
-                    // A referenced PhysicalMaterial wins over the inline surface fields.
-                    if (PhysicalMaterial* material = c.material.Get())
-                    {
-                        desc.friction = material->friction;
-                        desc.restitution = material->restitution;
-                        desc.density = material->density;
-                    }
+                    const Float3 position = desc.position;
+                    const Quaternion rotation = desc.rotation;
 
                     c.body = m_world->CreateBody(desc);
                     c.prevPosition = c.currPosition = position;
@@ -950,19 +818,6 @@ export namespace engine::physics
                     }
                 }
             }
-        }
-
-        [[nodiscard]] static bool IsDescendantOf(scene::Scene& scene, scene::EntityHandle child,
-                                                 scene::EntityHandle ancestor)
-        {
-            for (scene::EntityHandle e = child; e.IsAssigned(); e = scene.GetParent(e))
-            {
-                if (e == ancestor)
-                {
-                    return true;
-                }
-            }
-            return false;
         }
 
         scene::Scene* m_scene = nullptr; // set by OnSceneCreate
