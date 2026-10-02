@@ -249,6 +249,11 @@ export namespace engine::navigation
                     nav::NavigationZoneResource* product = z.zone.Get();
                     if (product == nullptr || !product->IsValid())
                     {
+                        // Said, not silent: every agent in it would only report standing in no zone.
+                        LOG_WARNING(u8"Navigation",
+                                    u8"navigation zone '{}' has no usable navmesh (no asset, not baked, or it "
+                                    u8"did not load); agents in it will not move",
+                                    m_scene->GetEntityName(entity));
                         z.runtimeIndex = -1;
                         return;
                     }

@@ -387,3 +387,26 @@ TEST_CASE("navigation.scene: an agent that cannot join the navmesh says so")
     scene.Stop();
     RemoveTree(u8"scratch_navwarn_db");
 }
+
+// A zone with no usable navmesh is skipped; it used to be silent, and every agent in it then
+// reported standing in no zone, which points the wrong way. The zone itself says so now.
+TEST_CASE("navigation.scene: a zone with no usable navmesh says so")
+{
+    RegisterNavigationComponentReflection();
+    scene::Scene scene(DefaultAllocator(), u8"navzone");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"Block zone");
+    scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity).extents = Float3{15, 10, 15};
+
+    NavigationWarnings warnings;
+    Logger& logger = GlobalLogger();
+    logger.AddSink(&warnings);
+    scene.UpdateTransforms();
+    scene.Start();
+    logger.RemoveSink(&warnings);
+
+    REQUIRE(warnings.messages.Size() == 1);
+    CHECK(warnings.messages[0].AsView().StartsWith(u8"navigation zone 'Block zone' has no usable navmesh"));
+    CHECK(scene.GetSystem<NavMeshZoneComponentManager>()->Get(zoneEntity)->runtimeIndex < 0);
+    scene.Stop();
+}
