@@ -26,6 +26,10 @@ import foundation.input;
 import engine.input;
 import foundation.fonts;          // IFontService (the extra font families test)
 import foundation.fonts.resource; // Font products
+import foundation.content;          // the content database a texture image binds from
+import foundation.resource;
+import foundation.image;
+import foundation.texture.resource; // TextureFactory + the render texture record
 
 using namespace foundation::core;
 using namespace engine::ui;
@@ -2003,4 +2007,87 @@ TEST_CASE("ui.subsystem: a press over EMPTY space never consumes the pointer "
     ctx.BeginFrame(1.0f / 60.0f);
 
     ctx.Shutdown();
+}
+
+TEST_CASE("ui.subsystem: an ImageView's source names a texture asset, drawn by every UI renderer")
+{
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    foundation::rhi::null::NullDevice device{DefaultAllocator()};
+    ui->EnsureRenderReady(device, 2);
+    foundation::rhi::null::NullCommandEncoder encoder;
+
+    // A cooked render texture in a content database, bound through a resource manager.
+    foundation::texture::RegisterTextureResource();
+    FileDelete(u8"scratch_ui_texture_images/minimap.rasset");
+    RemoveDirectory(u8"scratch_ui_texture_images");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_ui_texture_images", DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+    auto* instance = db.RootGroup()->CreateInstance(
+        u8"minimap", foundation::texture::RenderTextureResource::StaticType());
+    foundation::texture::RenderTextureResource record;
+    record.width = 128;
+    record.height = 64;
+    REQUIRE(instance->WriteObject(record).IsOk());
+    foundation::texture::TextureFactory factory(DefaultAllocator(), device);
+    foundation::resource::ResourceManager resources(DefaultAllocator(), db);
+    resources.AddFactory(&factory);
+
+    IResourceProvider* provider = ui->Context().ResourceProvider();
+    REQUIRE(provider != nullptr);
+    String id = Format(u8"{}", instance->Id());
+    CHECK(provider->LoadImage(id.AsView()) == nullptr); // no resource manager yet
+
+    ui->SetResourceManager(&resources);
+    const foundation::image::ImageData* image = provider->LoadImage(id.AsView());
+    REQUIRE(image != nullptr);
+    CHECK(image->Width() == 128u); // the texture's size: the view's natural size
+    CHECK(image->Height() == 64u);
+    String braced(u8"{");
+    braced.Append(id.AsView());
+    braced.Append(u8"}");
+    CHECK(provider->LoadImage(braced.AsView()) == image); // one key per texture
+    CHECK(provider->LoadImage(u8"not-a-guid") == nullptr);
+
+    // An ImageView naming it in a drawn root: the key is registered on the renderer that drew,
+    // and on a renderer of another format once that one draws too.
+    RefPtr<UIDocument> document = MakeDocument(u8"<ImageView id=\"map\"/>");
+    RefPtr<RootView> preview = ui->CreatePreview(*document);
+    REQUIRE(preview.Get() != nullptr);
+    ImageView* view = Cast<ImageView>(Cast<ViewGroup>(preview.Get())->FindByName(u8"map"));
+    REQUIRE(view != nullptr);
+    view->Source.SetValue(id);
+    foundation::rhi::TextureView* target = nullptr;
+    foundation::rhi::Texture* targetTexture = nullptr;
+    REQUIRE(device
+                .CreateTexture(foundation::rhi::TextureDesc::RenderTarget(foundation::rhi::TextureFormat::RGBA8UnormSrgb,
+                                                              256, 256),
+                               targetTexture)
+                .IsOk());
+    REQUIRE(device.CreateTextureView(targetTexture, foundation::rhi::TextureViewDesc{}, target).IsOk());
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderPreview(*preview, encoder, target, foundation::rhi::TextureFormat::RGBA8UnormSrgb, 256, 256, 0);
+    CHECK(view->GetImage() == image);
+    CHECK(ui->RenderersShowing(image) == 1u);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderPreview(*preview, encoder, target, foundation::rhi::TextureFormat::RGBA16Float, 256, 256, 1);
+    CHECK(ui->RenderersShowing(image) == 2u);
+
+    // Another project (or none): the key stays valid for the view that holds it, but nothing
+    // backs it, and the renderers drop it as they next draw.
+    ui->SetResourceManager(nullptr);
+    CHECK(provider->LoadImage(id.AsView()) == nullptr);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->RenderPreview(*preview, encoder, target, foundation::rhi::TextureFormat::RGBA8UnormSrgb, 256, 256, 0);
+    CHECK(ui->RenderersShowing(image) == 1u); // dropped by the one that drew, not yet the other
+
+    ui->DestroyPreview(preview.Get());
+    device.DestroyTextureView(target);
+    device.DestroyTexture(targetTexture);
+    ctx.Shutdown();
+    FileDelete(u8"scratch_ui_texture_images/minimap.rasset");
+    RemoveDirectory(u8"scratch_ui_texture_images");
 }

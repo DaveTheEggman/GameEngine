@@ -186,15 +186,19 @@ fix and a separate change; this spec documents the edge rather than taking it on
 The UI already has the seam: `IResourceProvider::LoadImage(path)` returns a borrowed `ImageData*`.
 
 - **Core UI.** `ImageView` gains a `Source` string property, set by a `source` markup attribute.
-  When the view is attached and has a source, it asks its context's resource provider for the
-  image. `UIContext` gains `SetResourceProvider` / `ResourceProvider()`. The UI never interprets
-  the string.
-- **Engine.UI** implements the provider. A source is an asset guid (`"{guid}"`). `LoadImage`
-  resolves it to a `texture::Texture` through the resource system (a render texture or any cooked
-  texture) and returns an `ImageDataRef` key of the texture's size. Engine.UI registers that key's
-  view on every one of its renderers, including ones `RendererFor` creates later, and unregisters
-  it when the texture is released or reloaded (`Uid()` changes). The same provider goes to the
-  `StyleSheetLoader`, so stylesheet `image()` and `@image` start working with assets too.
+  When the view is measured or drawn with a source in a context that has a provider, it asks the
+  provider once; until the provider answers (an asset still loading) it shows nothing and asks
+  again next frame. `UIContext` gains `SetResourceProvider` / `ResourceProvider()`. The UI never
+  interprets the string.
+- **Engine.UI** implements the provider. A source is an asset guid, bare or in braces.
+  `LoadImage` binds it to a `texture::Texture` through the resource manager the application gives
+  the subsystem (`UISubsystem::SetResourceManager`, called by `DefaultApplication` wherever it
+  takes a manager) and returns one `ImageDataRef` key per texture, of the texture's size, kept
+  for the subsystem's life (views hold the pointer). Before a VG renderer draws, the keys are
+  registered on it, once per change rather than per frame: a new key, a reloaded texture
+  (`Uid()` changes), a renderer of another format drawing for the first time. A new resource
+  manager drops every binding; the keys stay valid and show nothing. The same provider goes to
+  the `StyleSheetLoader`, so stylesheet `image()` works with assets too.
 - The editor's UI document page gets a texture picker for `source` the way other asset-typed
   fields do; the MCP document tools carry it as text.
 
