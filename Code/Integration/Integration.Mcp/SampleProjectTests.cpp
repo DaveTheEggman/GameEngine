@@ -241,9 +241,10 @@ namespace
 TEST_CASE("sample project: every PaperKid source reads at the CURRENT data versions")
 {
     // 2 fonts, the input map, 5 meshes, 6 scenes (five blocks and the title), 13 kit prefabs,
-    // 10 scripts, 7 UI documents, 5 navigation zones and the minimap's render texture; the
-    // overrides are the blocks' Level, camera, minimap and kit behaviour settings
-    CheckSampleProject(u8"PaperKid", u8"scratch_paperkid_versions", {50u, 31.0, 58u});
+    // 10 scripts, 7 UI documents, 5 navigation zones, the minimap's render texture, 19 audio
+    // clips (14 effects, 5 music tracks) and 2 animation clips; the overrides are the blocks'
+    // Level, camera, minimap and kit behaviour settings
+    CheckSampleProject(u8"PaperKid", u8"scratch_paperkid_versions", {71u, 52.0, 58u});
 }
 
 TEST_CASE("sample project: Sky Hopper (PlatformerGame) reads, cooks and its overrides match")

@@ -10,8 +10,14 @@
 //
 // A crash ("Crashed", sent by an Obstacle) knocks the bike back against the way it was going and
 // leaves the steering and throttle weak for a moment; the Level takes the time penalty.
+//
+// The feel: the bike leans into its turns (harder the faster it goes) and wobbles while it
+// recovers from a crash; a throw and a crash each have their sound, pitched a little at random
+// so repeats do not sound the same.
 
 Guid kPaper = Guid("{{Prefab:Newspaper}}");
+Guid kThrowSound = Guid("{{Throw}}");
+Guid kCrashSound = Guid("{{Crash}}");
 
 class Bike
 {
@@ -34,6 +40,7 @@ class Bike
     [1.5, "After a crash, how long the controls stay weak (s)"] float crashTime;
     [0.25, "The controls' strength while recovering (0..1)"] float crashControl;
     [4.0, "The speed a crash knocks the bike back at (m/s)"] float knockback;
+    [14.0, "Lean into a turn at full speed (deg)"] float maxLean;
 
     private float m_heading = 0.0f; // radians; 0 faces +Z
     private float m_speed = 0.0f;
@@ -43,6 +50,7 @@ class Bike
     private bool m_hasTarget = false;
     private Float3 m_target = Float3(0.0f, 0.0f, 0.0f);
     private float m_recovering = 0.0f; // seconds of weak controls left after a crash
+    private float m_lean = 0.0f;       // degrees, eased toward the steering
 
     Bike(Entity@ entity) { @self = entity; }
 
@@ -67,6 +75,7 @@ class Bike
         m_recovering = crashTime;
         // Bounce back against the way the bike was going: off whatever it ran into.
         m_speed = (m_speed >= 0.0f) ? -knockback : knockback;
+        Audio::playOneShot(kCrashSound, AudioBus::Effects, 1.0f, Random::range(0.9f, 1.1f));
         self.scene.events.emit("BikeCrashed", 1);
     }
 
@@ -87,7 +96,14 @@ class Bike
         updateHeading(move.x, d);
         Float3 forward = facing();
         CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);
-        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
+        // Lean into the turn (a positive roll tips the top toward screen right from behind, the
+        // way a right turn leans), eased so it settles rather than snaps; wobble while recovering.
+        float authority = Math::Abs(m_speed) / maxSpeed;
+        if (authority > 1.0f) { authority = 1.0f; }
+        float lean = move.x * maxLean * authority;
+        m_lean += (lean - m_lean) * clamp01(8.0f * d);
+        float wobble = (m_recovering > 0.0f) ? Math::Sin(m_recovering * 24.0f) * 9.0f * (m_recovering / crashTime) : 0.0f;
+        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), m_lean + wobble);
 
         if (m_papers != 0)
         {
@@ -95,9 +111,17 @@ class Bike
             drawAim();
             if (Input::wasPressed("Throw") && throwPaper())
             {
+                Audio::playOneShot(kThrowSound, AudioBus::Effects, 0.8f, Random::range(0.9f, 1.15f));
                 self.scene.events.emit("PaperThrown", 1);
             }
         }
+    }
+
+    private float clamp01(float v)
+    {
+        if (v < 0.0f) { return 0.0f; }
+        if (v > 1.0f) { return 1.0f; }
+        return v;
     }
 
     private Float3 facing()

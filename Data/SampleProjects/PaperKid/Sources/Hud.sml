@@ -30,6 +30,10 @@
 
     </Panel>
 
+    <!-- A delivery's points, rising from under the score as they fade (PaperKidGame.as moves it). -->
+    <Label id="hud-pop" gravity="Top|Left" text="+100" font-family="Lilita One" font-size="30" visibility="hidden"
+           style="text-color: rgb(255, 214, 102);"/>
+
     <!-- The minimap: the Minimap render texture the block's top-down camera draws, with markers
          over it that Minimap.as places from world positions (translations from the map's corner). -->
     <Panel gravity="Top|Right" padding="6"

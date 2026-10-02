@@ -1,7 +1,12 @@
 // Subscriber - a house that takes the paper. On the delivery zone in front of its porch (a static
 // trigger), whose child "Marker" floats above to show the house wants one. The first paper to
 // arrive ("PaperArrived", from Paper.as) is a delivery: "Delivered" goes out with the points, the
-// marker goes, and the zone takes no more.
+// marker goes, and the zone takes no more. A delivery sounds: the paper slapping the porch and a
+// chime.
+
+Guid kLandSound = Guid("{{PaperLand}}");
+Guid kDeliveredSound = Guid("{{Delivered}}");
+
 class Subscriber
 {
     private Entity@ self;
@@ -19,6 +24,8 @@ class Subscriber
             return;
         }
         m_delivered = true;
+        Audio::playOneShot(kLandSound, AudioBus::Effects, 0.9f, Random::range(0.95f, 1.05f));
+        Audio::playOneShot(kDeliveredSound, AudioBus::Effects, 0.8f);
         self.scene.events.emit("Delivered", value);
         Entity@ marker = self.findChildByName("Marker");
         if (marker !is null && marker.isValid())

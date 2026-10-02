@@ -10,6 +10,13 @@ class FollowCamera
     [3.4, "Height above the target (m)"] float height;
     [1.2, "Aim this far above the target (m)"] float lookHeight;
     [4.5, "Position spring rate (higher = snappier)"] float positionSmoothing;
+    [0.35, "How long a crash shakes the camera (s)"] float shakeTime;
+    [0.35, "How far a crash shakes it at first (m)"] float shakeAmount;
+
+    // The follow works on an unshaken position; a crash's shake is added only to where the camera
+    // is drawn, dying away, so it never pulls the follow off course.
+    private Float3 m_base = Float3(0.0f, 0.0f, 0.0f);
+    private float m_shake = 0.0f;
 
     FollowCamera(Entity@ entity) { @self = entity; }
 
@@ -24,7 +31,13 @@ class FollowCamera
         Float3 back = Quaternion::RotateVector(target.rotation(), Float3(0.0f, 0.0f, -1.0f));
         Float3 seat = Float3(at.x + back.x * distance, at.y + height, at.z + back.z * distance);
         self.setPosition(seat);
+        m_base = seat;
         faceToward(seat, Float3(at.x, at.y + lookHeight, at.z));
+    }
+
+    void onBikeCrashed(int count)
+    {
+        m_shake = shakeTime;
     }
 
     void onUpdate(double dt)
@@ -39,7 +52,7 @@ class FollowCamera
         // updates its transforms after every script, and following it makes the bike shake
         // against the camera at speed.
         Float3 at = target.position();
-        Float3 cam = self.position();
+        Float3 cam = m_base;
         float backX = cam.x - at.x;
         float backZ = cam.z - at.z;
         float flat = Math::Sqrt(backX * backX + backZ * backZ);
@@ -51,6 +64,13 @@ class FollowCamera
         }
         Float3 seat = Float3(at.x + backX / flat * distance, at.y + height, at.z + backZ / flat * distance);
         Float3 next = Float3::Lerp(cam, seat, clamp01(positionSmoothing * d));
+        m_base = next;
+        if (m_shake > 0.0f)
+        {
+            m_shake -= d;
+            float k = shakeAmount * clamp01(m_shake / shakeTime);
+            next = next + Float3(Random::range(-k, k), Random::range(-k, k), Random::range(-k, k));
+        }
         self.setPosition(next);
         faceToward(next, Float3(at.x, at.y + lookHeight, at.z));
     }

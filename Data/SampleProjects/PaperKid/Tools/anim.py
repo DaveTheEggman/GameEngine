@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""anim.py: the property-animation clips (the juice's tells), written through asset_create /
+asset_data_write. Each clip animates its entity's own Transform with cubic keys and flat tangents,
+so every move eases in and out; keys are absolute values, so a clip is made for the piece it moves
+(kit.py places them)."""
+import os, sys, re
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pkgen import mcp
+
+CUBIC = 2
+FLOAT3 = 1
+
+
+def arr(name, kind, values):
+    if not values:
+        return '<array name="%s" count="0"/>' % name
+    return '<array name="%s" count="%d">%s</array>' % (name, len(values), "".join(
+        "<%s>%s</%s>" % (kind, v, kind) for v in values))
+
+
+def clip_xml(guid, duration, tracks):
+    """tracks: [(component, path, [channel keys: [(time, value)...]] x3)] - Float3 tracks only."""
+    comp, path, kinds, starts, counts = [], [], [], [], []
+    times, values, tin, tout, interp = [], [], [], [], []
+    for component, prop, channels in tracks:
+        comp.append(component)
+        path.append(prop)
+        kinds.append(FLOAT3)
+        for keys in channels:
+            starts.append(len(times))
+            counts.append(len(keys))
+            for t, v in keys:
+                times.append(t); values.append(v); tin.append(0.0); tout.append(0.0); interp.append(CUBIC)
+    payload = "".join([
+        '<string name="fileName"/>', '<f32 name="duration">%s</f32>' % duration,
+        arr("trackComponent", "string", comp), arr("trackPath", "string", path), arr("trackKind", "u8", kinds),
+        arr("channelKeyStart", "u32", starts), arr("channelKeyCount", "u32", counts),
+        arr("keyTime", "f32", times), arr("keyValue", "f32", values), arr("keyTangentIn", "f32", tin),
+        arr("keyTangentOut", "f32", tout), arr("keyInterp", "u8", interp),
+        arr("trackQuatStart", "u32", [0] * len(tracks)), arr("trackQuatCount", "u32", [0] * len(tracks)),
+        arr("quatTime", "f32", []), '<array name="quatValue" count="0"/>'])
+    return ('<root><string name="guid">%s</string><string name="typeNamespace">rtti::pipeline::propertyanimation</string>'
+            '<string name="typeName">PropertyAnimationClipAsset</string><array name="dataVersions" count="1">'
+            '<u64 name="type">6746997250886510510</u64><u32 name="version">0</u32></array>'
+            '<object name="payload">%s</object></root>' % (guid, payload))
+
+
+def write(name, duration, tracks):
+    assets = {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"]}
+    guid = assets.get(name) or mcp("asset_create", {"type": "PropertyAnimationClipAsset", "name": name,
+                                                     "group": "Animation"})["guid"]
+    mcp("asset_data_write", {"guid": guid, "xml": clip_xml(guid, duration, tracks)})
+    print(name, guid)
+
+
+def hold(v, d):
+    return [(0.0, v), (d, v)]
+
+
+def swing(a, b, d):
+    return [(0.0, a), (d / 2, b), (d, a)]
+
+
+# The marker's arrow over a subscriber's porch: bobs half a metre (its place in the DeliveryZone
+# prefab: 0, 6.6, -1.2).
+write("ArrowBob", 1.2, [("Transform", "position", [hold(0.0, 1.2), swing(6.6, 7.1, 1.2), hold(-1.2, 1.2)])])
+# The porch mat: breathes wider and back (its scale in the prefab: 2.4, 0.04, 2.4).
+write("MatPulse", 1.0, [("Transform", "scale", [swing(2.4, 2.9, 1.0), hold(0.04, 1.0), swing(2.4, 2.9, 1.0)])])

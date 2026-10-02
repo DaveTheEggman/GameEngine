@@ -1,7 +1,9 @@
 # PaperKid - a small arcade game, rebuilt through the MCP
 
 > STATUS: P0-P3 BUILT 2026-10-02 and swapped into `Data/SampleProjects/PaperKid` at the user's
-> call (before P4); P4 (juice, audio, the Deck) is open. Engine work it drove: render textures
+> call; P4's juice and audio are in (Kenney effects, Juhani Junkala's CC0 chiptunes, bobbing
+> markers, pulsing mats, lean, crash shake, a score pop, the clock's tells); the Deck export and
+> the streak bonus are open. Engine work it drove: render textures
 > (the minimap), `navigation_bake`, view transforms for script, the navigation bake reading
 > static geometry instead of every mesh, and the fixes listed under "Known engine gaps".
 >

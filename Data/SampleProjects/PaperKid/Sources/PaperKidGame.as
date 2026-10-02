@@ -11,6 +11,10 @@
 // cleared, is the Game over screen. Pause (the Pause action) freezes the block under a menu;
 // Settings, from the title or the pause menu, sets the audio buses' volumes, which the player saves
 // when it exits, and goes back to whichever opened it (Documentation/Specs/paperkid.md).
+//
+// The sound: the title's music on the menus, a track per block, a jingle when a block is cleared
+// or failed, and a voice and a jingle over the final screen before the ending's music. Buttons
+// click, and a delivery's points rise from under the score and fade.
 
 Guid kTitleDoc = Guid("e04cdc8b-a360-464e-8127-e99cc0840817");
 Guid kHudDoc = Guid("9b37c867-0090-4fde-b4de-80683c384002");
@@ -19,6 +23,21 @@ Guid kFailedDoc = Guid("6f8c3e6a-8d67-4200-8847-30caa5854e2b");
 Guid kGameOverDoc = Guid("b979eab4-4ff1-4df2-a245-4398a36230e2");
 Guid kPauseDoc = Guid("de133f1d-cc35-4ed3-9827-56e660d9efad");
 Guid kSettingsDoc = Guid("a77557c2-cd88-4fce-856c-30134997aef1");
+
+Guid kTitleMusic = Guid("14c087fa-ea29-41d2-99d3-49d8e8ff6b00");
+Guid kEndingMusic = Guid("ba7a6c99-3ac3-46c4-9286-82d9234301fe");
+Guid kClearedJingle = Guid("f48c2f54-e008-4a29-92c7-d98e61e2dc0f");
+Guid kFailedJingle = Guid("c528ced6-5006-4b00-b135-d20ddc9493e3");
+Guid kRouteCompleteJingle = Guid("2bc1590f-af74-4d0a-baa6-e0897e4313c4");
+Guid kCongratulations = Guid("380950d9-2b76-4bd9-8cdd-59c8f952ef36");
+Guid kGameOverVoice = Guid("bac90947-c6cf-40b8-8b6a-faae00fac27c");
+Guid kClickSound = Guid("23726523-44ef-40c6-8683-26ddb1c181ae");
+Guid kSliderSound = Guid("b57ef81b-f92d-4618-b500-4f2182f983d3");
+
+const float kMusicVolume = 0.5f;
+const float kPopSeconds = 0.9f;
+const float kPopX = 262.0f; // under the HUD's score
+const float kPopY = 96.0f;
 Guid kStart = Guid("1a321fbc-7bfa-478e-a672-85351f51cba3");
 
 const int kStartLives = 3;
@@ -43,6 +62,9 @@ class Game
     private int m_banked = 0; // the score when the current block started
     private int m_delivered = 0;
     private Phase m_settingsFrom = Phase::Title; // where Settings goes back to
+    private array<Guid> m_blockMusic;
+    private float m_endingIn = -1.0f; // seconds until the ending's music, after the final screen's voice
+    private float m_pop = 0.0f;       // seconds left of the points rising from the score
 
     void launch()
     {
@@ -51,6 +73,9 @@ class Game
         m_levels.insertLast(Guid("819a3ac3-580b-467e-8d96-464e6a1ab8f7"));
         m_levels.insertLast(Guid("933ec008-b426-4e2b-9075-b4d879ed58f1"));
         m_levels.insertLast(Guid("07ae3353-037a-44ba-9620-fe1d126e08a2"));
+        m_blockMusic.insertLast(Guid("b527f7ce-531f-4326-8911-c0e27dcce5e5"));
+        m_blockMusic.insertLast(Guid("b6341552-e562-4792-8321-87dbcb6e8485"));
+        m_blockMusic.insertLast(Guid("7591a26d-3270-47ac-92c3-1d3dd1089081"));
         // The default scene is the title's backdrop, frozen behind the menu.
         run::setTimeScale(0.0f);
         showTitle();
@@ -59,6 +84,15 @@ class Game
     // The Game tier ticks at time scale 0 too, so the Pause action is read here in every phase.
     void update(float dt)
     {
+        tickPop(dt);
+        if (m_endingIn >= 0.0f)
+        {
+            m_endingIn -= dt;
+            if (m_endingIn < 0.0f)
+            {
+                Audio::playMusic(kEndingMusic, 1.0f, kMusicVolume);
+            }
+        }
         if (!Input::wasPressed("Pause"))
         {
             return;
@@ -90,6 +124,12 @@ class Game
         m_delivered += 1;
         m_score += points;
         ui::findLabel("hud-score").setText("" + m_score);
+        Label@ pop = ui::findLabel("hud-pop");
+        pop.setText("+" + points);
+        pop.setOpacity(1.0f);
+        pop.setTranslation(kPopX, kPopY);
+        pop.setVisible(true);
+        m_pop = kPopSeconds;
     }
 
     void onQuotaMet(int secondsLeft)
@@ -100,6 +140,8 @@ class Game
         }
         m_phase = Phase::Ended;
         run::setTimeScale(0.0f);
+        Audio::stopMusic(0.3f);
+        Audio::playOneShot(kClearedJingle, AudioBus::Music);
         int earned = m_score - m_banked;
         int bonus = secondsLeft * kTimeBonusPerSecond;
         m_score += bonus;
@@ -124,6 +166,8 @@ class Game
         }
         m_phase = Phase::Ended;
         run::setTimeScale(0.0f);
+        Audio::stopMusic(0.3f);
+        Audio::playOneShot(kFailedJingle, AudioBus::Music);
         m_lives -= 1;
         ui::findLabel("hud-lives").setText("" + m_lives);
         if (m_lives <= 0)
@@ -142,6 +186,7 @@ class Game
 
     void onNewGame()
     {
+        click();
         m_level = 0;
         m_lives = kStartLives;
         m_score = 0;
@@ -151,11 +196,13 @@ class Game
 
     void onRetry()
     {
+        click();
         startLevel();
     }
 
     void onContinue()
     {
+        click();
         m_level += 1;
         if (m_level >= int(m_levels.length()))
         {
@@ -169,6 +216,7 @@ class Game
 
     void onResume()
     {
+        click();
         ui::pop(); // the pause menu
         run::setTimeScale(1.0f);
         m_phase = Phase::Playing;
@@ -176,6 +224,7 @@ class Game
 
     void onSettings()
     {
+        click();
         m_settingsFrom = m_phase;
         Screen@ s = ui::push(kSettingsDoc);
         bindVolume(s, "master", AudioBus::Master, Action(this.onMasterChanged));
@@ -187,6 +236,7 @@ class Game
 
     void onSettingsBack()
     {
+        click();
         ui::pop(); // the settings screen; the title or the pause menu is under it
         m_phase = m_settingsFrom;
     }
@@ -208,6 +258,7 @@ class Game
 
     void onToTitle()
     {
+        click();
         run::loadScene(kStart);
         run::setTimeScale(0.0f);
         showTitle();
@@ -215,6 +266,7 @@ class Game
 
     void onQuit()
     {
+        click();
         run::requestExit(0);
     }
 
@@ -229,6 +281,9 @@ class Game
         ui::push(kHudDoc);
         ui::findLabel("hud-score").setText("" + m_score);
         ui::findLabel("hud-lives").setText("" + m_lives);
+        m_pop = 0.0f;
+        m_endingIn = -1.0f;
+        Audio::playMusic(m_blockMusic[m_level % int(m_blockMusic.length())], 0.8f, kMusicVolume);
         run::setTimeScale(1.0f);
         run::loadScene(m_levels[m_level]);
         m_phase = Phase::Playing;
@@ -245,6 +300,35 @@ class Game
         m_phase = Phase::Paused;
     }
 
+    private void click()
+    {
+        Audio::playOneShot(kClickSound, AudioBus::Effects, 0.7f);
+    }
+
+    // The delivery's points: up 36 px from under the score over the pop's time, fading out late.
+    private void tickPop(float dt)
+    {
+        if (m_pop <= 0.0f)
+        {
+            return;
+        }
+        m_pop -= dt;
+        Label@ pop = ui::findLabel("hud-pop");
+        if (pop is null || !pop.isValid())
+        {
+            m_pop = 0.0f;
+            return;
+        }
+        if (m_pop <= 0.0f)
+        {
+            pop.setVisible(false);
+            return;
+        }
+        float t = 1.0f - m_pop / kPopSeconds;
+        pop.setTranslation(kPopX, kPopY - 36.0f * t);
+        pop.setOpacity(1.0f - t * t);
+    }
+
     // A volume row: its slider at the bus's level, its readout, and the handler.
     private void bindVolume(Screen@ s, string row, AudioBus bus, Action@ handler)
     {
@@ -259,6 +343,7 @@ class Game
         float level = ui::findSlider(row + "-slider").value;
         Audio::setBusVolume(bus, level);
         showVolume(row, level);
+        Audio::playOneShot(kSliderSound, AudioBus::Effects, 0.6f); // hear the level being set
     }
 
     private void showVolume(string row, float level)
@@ -269,6 +354,17 @@ class Game
     private void showGameOver(bool won)
     {
         m_phase = Phase::Ended;
+        Audio::stopMusic(0.3f);
+        if (won)
+        {
+            Audio::playOneShot(kRouteCompleteJingle, AudioBus::Music);
+            Audio::playOneShot(kCongratulations, AudioBus::Effects);
+        }
+        else
+        {
+            Audio::playOneShot(kGameOverVoice, AudioBus::Effects);
+        }
+        m_endingIn = 2.0f; // the ending's music once the jingle and the voice are done
         Screen@ s = ui::push(kGameOverDoc);
         s.findLabel("over-title").setText(won ? "Route complete!" : "Game over");
         s.findLabel("over-score").setText("Score " + m_score);
@@ -281,6 +377,8 @@ class Game
     private void showTitle()
     {
         m_phase = Phase::Title;
+        m_endingIn = -1.0f;
+        Audio::playMusic(kTitleMusic, 0.8f, kMusicVolume);
         ui::clear();
         Screen@ s = ui::push(kTitleDoc);
         s.findButton("play-btn").onClick(Action(this.onNewGame));

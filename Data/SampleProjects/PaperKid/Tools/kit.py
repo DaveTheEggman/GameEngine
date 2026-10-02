@@ -135,8 +135,11 @@ def delivery_zone():
           halfExtents={"x": 1.8, "y": 1.2, "z": 1.5})
     d.script(r, (ids["Subscriber"], {}))
     m = d.entity("Marker", parent=r)
-    part(d, m, "Arrow", CONE, (0, 6.6, -1.2), (1.0, 1.3, 1.0), (1.0, 0.82, 0.15), (1.0, 0.0, 0.0, 0.0))
-    part(d, m, "Mat", CYL, (0, 0.03, 0), (2.4, 0.04, 2.4), (1.0, 0.82, 0.15))
+    # The tells (anim.py's clips, whose keys are these places): the arrow bobs, the mat breathes.
+    arrow = part(d, m, "Arrow", CONE, (0, 6.6, -1.2), (1.0, 1.3, 1.0), (1.0, 0.82, 0.15), (1.0, 0.0, 0.0, 0.0))
+    d.add(arrow, "property_animator", clip=ids["ArrowBob"])
+    mat = part(d, m, "Mat", CYL, (0, 0.03, 0), (2.4, 0.04, 2.4), (1.0, 0.82, 0.15))
+    d.add(mat, "property_animator", clip=ids["MatPulse"])
     return d
 
 
