@@ -10,6 +10,20 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
+## Queued 2026-10-02 (user, PaperKid)
+
+- **Post-process and environment as shared assets**: today each scene carries its own
+  `postprocess` and `environment` settings blocks (`PostProcessSettings` / `EnvironmentSettings`,
+  `Engine.Render/RenderComponents.cppm`), so a game with several levels sets its look in every
+  scene by hand and re-tunes them one by one (PaperKid: the user tuned Start, the level had to be
+  given the same values). Proposal: a Post Process Profile asset and an Environment Profile
+  asset carrying the same fields; a scene's settings block takes an optional reference to one,
+  and while it is set the asset's values are the scene's (the Unity Volume Profile / Godot
+  Environment resource shape). Tweaking the asset updates every scene that uses it, live in the
+  editor through the resource reload. Open: per-scene overrides on top of a profile (none at
+  first), and the inspector showing the asset's values read-only when referenced. Sedulous has
+  no such asset (checked 2026-10-02); design it here and port.
+
 ## Queued 2026-10-02 (user, render-textures review)
 
 - **Post effects for an orthographic camera**: `LimitPostForOrthographic`
