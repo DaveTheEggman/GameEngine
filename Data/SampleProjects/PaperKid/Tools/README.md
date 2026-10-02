@@ -14,7 +14,8 @@ scripts drive them; none of this is game content.
   writes just that one. Bake a block's navigation after writing it (`navigation_bake`).
 - `scripts/*.as` + `render.py`: the game's scripts with `{{AssetName}}` placeholders;
   `render.py <Name>...` fills in the asset ids, writes `Sources/<Name>.as` and compile-checks it.
-- `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse), written
-  through `asset_data_write`; `kit.py` puts them on the delivery zone's pieces.
+- `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse) and the
+  throw guides' glowing unlit material, written through `asset_data_write`; `kit.py` puts them
+  on the delivery zone's pieces and the AimDot and TargetRing prefabs.
 - `drive.py`: a closed-loop playtest of Block1 over `pie_run` (laps the ring, throws at each
   zone once).

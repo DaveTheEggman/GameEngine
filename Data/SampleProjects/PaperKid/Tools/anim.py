@@ -66,3 +66,23 @@ def swing(a, b, d):
 write("ArrowBob", 1.2, [("Transform", "position", [hold(0.0, 1.2), swing(6.6, 7.1, 1.2), hold(-1.2, 1.2)])])
 # The porch mat: breathes wider and back (its scale in the prefab: 2.4, 0.04, 2.4).
 write("MatPulse", 1.0, [("Transform", "scale", [swing(2.4, 2.9, 1.0), hold(0.04, 1.0), swing(2.4, 2.9, 1.0)])])
+
+
+def glow_material(name, brightness):
+    """An unlit material whose base colour is `brightness` (above 1, the bloom picks it up), tinted
+    per piece by its mesh colour: the aim's dots and the target ring glow without lighting."""
+    import struct
+    assets = {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"]}
+    guid = assets.get(name) or mcp("asset_create", {"creator": "Unlit Material", "type": "MaterialAsset",
+                                                     "name": name, "group": "Materials"})["guid"]
+    xml = mcp("asset_data_read", {"guid": guid})["xml"]
+    channel = "".join("<u8>%d</u8>" % b for b in struct.pack("<f", brightness))
+    alpha = "".join("<u8>%d</u8>" % b for b in struct.pack("<f", 1.0))
+    xml = re.sub(r'<array name="uniformDefaults" count="16">.*?</array>',
+                 '<array name="uniformDefaults" count="16">%s</array>' % (channel * 3 + alpha), xml, flags=re.S)
+    mcp("asset_data_write", {"guid": guid, "xml": xml})
+    print(name, guid)
+
+
+# The throw's guides (kit.py's AimDot and TargetRing).
+glow_material("AimGuide", 2.0)

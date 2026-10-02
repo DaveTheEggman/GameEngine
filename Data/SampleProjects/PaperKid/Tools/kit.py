@@ -3,7 +3,7 @@
 unscaled child entity, so a box's half extents are what they say."""
 import json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pkgen import Doc, mcp, NIL
+from pkgen import Doc, mcp, NIL, yaw
 
 # Every asset by name (scripts and meshes the prefabs use), and the prefabs apart: a prefab may
 # share its name with a script (Pedestrian), and only a prefab is overwritten here.
@@ -17,6 +17,14 @@ ROLL_Z = (0.0, 0.0, 0.7071068, 0.7071068)  # a cylinder on its side, axle along 
 def part(doc, root, name, mesh, pos, scale, rgb, rot=(0, 0, 0, 1)):
     e = doc.entity(name, pos, rot, scale, parent=root)
     doc.add(e, "mesh", mesh=mesh, color={"r": rgb[0], "g": rgb[1], "b": rgb[2], "a": 1.0})
+    return e
+
+
+def glow_part(doc, root, name, mesh, pos, scale, rgb, rot=(0, 0, 0, 1)):
+    """A part in the glowing unlit AimGuide material (anim.py), tinted by its colour."""
+    e = doc.entity(name, pos, rot, scale, parent=root)
+    doc.add(e, "mesh", mesh=mesh, color={"r": rgb[0], "g": rgb[1], "b": rgb[2], "a": 1.0},
+            materials=["<string>%s</string>" % ids["AimGuide"]])
     return e
 
 
@@ -143,10 +151,36 @@ def delivery_zone():
     return d
 
 
+GUIDE = (0.1, 0.7, 1.0)  # the throw's guides: cyan, apart from the yellow porch markers
+
+
+def aim_dot():
+    """One dot of the throw's arc (Bike.as places a row of them along the path)."""
+    d = Doc("AimDot")
+    r = d.entity("AimDot")
+    glow_part(d, r, "Dot", SPHERE, (0, 0, 0), (0.24, 0.24, 0.24), GUIDE)
+    return d
+
+
+def target_ring():
+    """The reticle on the porch a throw is pulled toward: eight dashes round a 1.7 m circle (just
+    outside the porch mat), each
+    turned along it (Bike.as spins and pulses the root)."""
+    import math
+    d = Doc("TargetRing")
+    r = d.entity("TargetRing")
+    for i in range(8):
+        a = math.radians(i * 45.0 + 22.5)
+        glow_part(d, r, "Dash", CUBE, (math.cos(a) * 1.7, 0.05, math.sin(a) * 1.7), (0.9, 0.06, 0.26), GUIDE,
+                  yaw(-(math.degrees(a) + 90.0)))
+    return d
+
+
 pieces = [house("HouseRed", (0.78, 0.36, 0.3), (0.35, 0.18, 0.15)),
           house("HouseBlue", (0.42, 0.58, 0.78), (0.2, 0.26, 0.38)),
           house("HouseCream", (0.92, 0.85, 0.66), (0.42, 0.32, 0.22)),
-          road(), kerb(), car(), car("CarOuter", -1, (0.82, 0.22, 0.18), (0.55, 0.12, 0.1)), pedestrian(), bin_(), hydrant(), traffic_cone(), paper(), delivery_zone()]
+          road(), kerb(), car(), car("CarOuter", -1, (0.82, 0.22, 0.18), (0.55, 0.12, 0.1)), pedestrian(), bin_(), hydrant(), traffic_cone(), paper(), delivery_zone(),
+          aim_dot(), target_ring()]
 out = {}
 for d in pieces:
     out[d.name] = d.write(prefabs.get(d.name), prefab=True, group="Prefabs")

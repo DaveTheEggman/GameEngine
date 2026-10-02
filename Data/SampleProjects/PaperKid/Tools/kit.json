@@ -11,5 +11,7 @@
  "Hydrant": "4f886e26-47fa-43d4-8fef-1f4557525611",
  "TrafficCone": "26d645e8-2db7-4697-81cb-3505b3373a69",
  "Newspaper": "6aa57026-4f4a-44ae-835d-2d2905746210",
- "DeliveryZone": "1266117f-676c-4851-a06c-5a81943b12dc"
+ "DeliveryZone": "1266117f-676c-4851-a06c-5a81943b12dc",
+ "AimDot": "97e1822e-5d3c-49ed-8beb-27fbad532ec7",
+ "TargetRing": "0eb2f2ec-c7ee-4f78-8dd4-c4d5df079828"
 }

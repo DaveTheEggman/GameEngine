@@ -13,9 +13,16 @@
 //
 // The feel: the bike leans into its turns (harder the faster it goes) and wobbles while it
 // recovers from a crash; a throw and a crash each have their sound, pitched a little at random
-// so repeats do not sound the same.
+// so repeats do not sound the same. The throw is shown before it is made: a trail of glowing
+// dots along the path a paper would take, drifting forward, and a ring spinning on the porch the
+// throw is pulled toward (the AimDot and TargetRing prefabs, spawned once and moved each frame).
 
 Guid kPaper = Guid("{{Prefab:Newspaper}}");
+Guid kAimDot = Guid("{{Prefab:AimDot}}");
+Guid kTargetRing = Guid("{{Prefab:TargetRing}}");
+
+const int kAimDots = 14;
+const float kAimStep = 0.09f; // flight seconds between dots
 Guid kThrowSound = Guid("{{Throw}}");
 Guid kCrashSound = Guid("{{Crash}}");
 
@@ -51,6 +58,9 @@ class Bike
     private Float3 m_target = Float3(0.0f, 0.0f, 0.0f);
     private float m_recovering = 0.0f; // seconds of weak controls left after a crash
     private float m_lean = 0.0f;       // degrees, eased toward the steering
+    private array<Entity@> m_dots;
+    private Entity@ m_ring;
+    private float m_clock = 0.0f;      // drives the dots' drift and the ring's spin
 
     Bike(Entity@ entity) { @self = entity; }
 
@@ -59,6 +69,22 @@ class Bike
         // Start facing the way the scene placed the bike.
         Float3 forward = Quaternion::RotateVector(self.rotation(), Float3(0.0f, 0.0f, 1.0f));
         m_heading = Math::Atan2(forward.x, forward.z);
+        // The throw's guides, hidden until there is a throw to show.
+        Float3 at = self.position();
+        for (int i = 0; i < kAimDots; i++)
+        {
+            Entity@ dot = ScenePrefabs::of(self.scene).spawn(kAimDot, at);
+            if (dot !is null && dot.isValid())
+            {
+                dot.setActive(false);
+                m_dots.insertLast(dot);
+            }
+        }
+        @m_ring = ScenePrefabs::of(self.scene).spawn(kTargetRing, at);
+        if (m_ring !is null && m_ring.isValid())
+        {
+            m_ring.setActive(false);
+        }
     }
 
     void onPapersLeft(int papers)
@@ -105,10 +131,15 @@ class Bike
         float wobble = (m_recovering > 0.0f) ? Math::Sin(m_recovering * 24.0f) * 9.0f * (m_recovering / crashTime) : 0.0f;
         self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), m_lean + wobble);
 
-        if (m_papers != 0)
+        m_clock += d;
+        if (m_papers == 0)
+        {
+            hideGuides();
+        }
+        else
         {
             computeAim();
-            drawAim();
+            placeGuides();
             if (Input::wasPressed("Throw") && throwPaper())
             {
                 Audio::playOneShot(kThrowSound, AudioBus::Effects, 0.8f, Random::range(0.9f, 1.15f));
@@ -237,34 +268,56 @@ class Bike
         return Float3(vx, vy, vz);
     }
 
-    // The throw's path, under the scene's gravity; a ring on the zone it is pulled toward.
-    private void drawAim()
+    // The throw's path, under the scene's gravity: a dot every kAimStep seconds of flight, the
+    // row drifting forward one step each half second and shrinking toward its end, stopped where
+    // the path meets the ground. The ring sits on the zone the throw is pulled toward.
+    private void placeGuides()
     {
         Float3 p = launchPoint();
         Float3 v = launchVelocity();
         float g = ScenePhysics::of(self.scene).gravity().y;
-        DebugDraw@ dbg = DebugDraw::of(self.scene);
-        float px = p.x;
-        float py = p.y;
-        float pz = p.z;
-        for (int i = 1; i <= 20; i++)
+        float drift = (m_clock * 2.0f) - float(int(m_clock * 2.0f));
+        bool landed = false;
+        for (uint i = 0; i < m_dots.length(); i++)
         {
-            float t = 0.06f * float(i);
-            float x = p.x + v.x * t;
+            float t = kAimStep * (float(i) + drift + 0.5f);
             float y = p.y + v.y * t + 0.5f * g * t * t;
-            float z = p.z + v.z * t;
-            dbg.line(px, py, pz, x, y, z, 1.0f, 0.85f, 0.1f);
-            px = x;
-            py = y;
-            pz = z;
-            if (y < 0.0f)
+            if (landed || y < 0.0f)
             {
-                break;
+                landed = true;
+                m_dots[i].setActive(false);
+                continue;
             }
+            m_dots[i].setActive(true);
+            m_dots[i].setPosition(Float3(p.x + v.x * t, y, p.z + v.z * t));
+            float size = 1.0f - 0.45f * (float(i) / float(m_dots.length()));
+            m_dots[i].setScale(size, size, size);
         }
-        if (m_hasTarget)
+        if (m_ring is null || !m_ring.isValid())
         {
-            dbg.sphere(m_target.x, m_target.y, m_target.z, 0.8f, 0.2f, 1.0f, 0.3f);
+            return;
+        }
+        if (!m_hasTarget)
+        {
+            m_ring.setActive(false);
+            return;
+        }
+        m_ring.setActive(true);
+        m_ring.setPosition(Float3(m_target.x, 0.02f, m_target.z));
+        m_ring.setRotationEuler(0.0f, m_clock * 70.0f, 0.0f);
+        float pulse = 1.0f + 0.08f * Math::Sin(m_clock * 6.0f);
+        m_ring.setScale(pulse, 1.0f, pulse);
+    }
+
+    private void hideGuides()
+    {
+        for (uint i = 0; i < m_dots.length(); i++)
+        {
+            m_dots[i].setActive(false);
+        }
+        if (m_ring !is null && m_ring.isValid())
+        {
+            m_ring.setActive(false);
         }
     }
 
