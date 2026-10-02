@@ -8,9 +8,6 @@ Vulkan, WebGPU and Direct3D 12 backends, a scene editor with play in editor, an 
 AngelScript and Luau gameplay scripting, and a CSS styled UI framework. It runs on Linux,
 Windows and, through Emscripten, in the browser, and ships games to the Steam Deck.
 
-[Sedulous](https://github.com/SedulousWorks/SedulousEngine) is its mirror in Beef; the two move
-together.
-
 ![The editor](Documentation/Images/Editor.png)
 
 ## What is here

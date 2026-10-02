@@ -58,13 +58,6 @@ cmake --build build/clang -j4                          # everything
 - **Visual checks belong to the user.** Hand over a build and list what to look at; do not
   claim something looks right.
 
-## Sedulous
-
-[Sedulous](https://github.com/SedulousWorks/SedulousEngine) (Beef) is this engine's mirror in
-another language; the two move together. Syncs carry Sedulous's commits here (`From Sedulous
-<hash>` in the body) and ours there. Where the two differ, do what Sedulous does; a divergence,
-even a better one, is discussed with the user first.
-
 ## Agent tooling
 
 - `Tools.Mcp` is the headless MCP host; the editor serves the same tools over HTTP for its open
