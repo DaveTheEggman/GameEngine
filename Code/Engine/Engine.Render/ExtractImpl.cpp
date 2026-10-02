@@ -387,8 +387,8 @@ namespace engine::render
                 [&](CameraComponent& cam, scene::EntityHandle e)
                 {
                     // An inactive primary camera is skipped so the pick falls through to the
-                    // next primary.
-                    if (found || !cam.primary || !scene.IsEffectivelyActive(e))
+                    // next primary; so is one with a target, which draws into its texture.
+                    if (found || !cam.primary || cam.HasTarget() || !scene.IsEffectivelyActive(e))
                     {
                         return;
                     }
@@ -406,6 +406,42 @@ namespace engine::render
                 });
         }
         return found;
+    }
+
+    void CollectTargetCameras(scene::Scene& scene, u64 frameNumber,
+                              Array<TargetCameraView>& out)
+    {
+        out.Clear();
+        auto* cameras = scene.GetSystem<CameraComponentManager>();
+        if (cameras == nullptr)
+        {
+            return;
+        }
+        cameras->ForEach(
+            [&](CameraComponent& cam, scene::EntityHandle e)
+            {
+                texture::Texture* target = cam.target.Get();
+                if (target == nullptr || target->GpuTexture() == nullptr ||
+                    !scene.IsEffectivelyActive(e))
+                {
+                    return;
+                }
+                if (frameNumber % Max<u32>(cam.targetInterval, 1u) != 0)
+                {
+                    return; // the texture keeps the image it last drew
+                }
+                const Float4x4 world = scene.GetWorldMatrix(e);
+                TargetCameraView view;
+                view.target = target;
+                view.camera.camera.view = Inverse(world);
+                view.camera.camera.projection = MakeCameraProjection(
+                    cam, static_cast<f32>(target->Width()) /
+                             static_cast<f32>(Max(target->Height(), 1u)));
+                view.camera.camera.position = TransformPoint(Float3{0, 0, 0}, world);
+                view.camera.camera.farZ = cam.farZ;
+                view.camera.clearColor = cam.clearColor;
+                out.PushBack(view);
+            });
     }
 
     void ExtractLightsInto(scene::Scene& scene, ExtractedScene& out)

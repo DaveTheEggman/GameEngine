@@ -109,7 +109,7 @@ namespace engine::render
     {
         builder.Attribute("displayName", String(u8"Camera"))
             .Attribute("category", String(u8"Rendering"))
-            .DataVersion(1) // v1: projection + orthoHeight
+            .DataVersion(2) // v1: projection + orthoHeight; v2: target + targetInterval
             .Method<&foundation::script::ComponentOf<CameraComponent>, CameraComponent>("of")
             // The mode first: the inspector shows only the fields of the chosen projection.
             .Property<&CameraComponent::projection>("projection")
@@ -126,7 +126,14 @@ namespace engine::render
             .Property<&CameraComponent::orthoHeight>("orthoHeight")
             .PropAttribute("description",
                            String(u8"Orthographic: the world-space height the view spans"))
-            .PropAttribute("visibleWhen", String(u8"projection=1")); // Orthographic only
+            .PropAttribute("visibleWhen", String(u8"projection=1")) // Orthographic only
+            .Property<&CameraComponent::target>("target")
+            .PropAttribute("description",
+                           String(u8"A render texture to draw into instead of the screen"))
+            .Property<&CameraComponent::targetInterval>("targetInterval")
+            .PropAttribute("description",
+                           String(u8"Render the target every Nth frame (1 = every frame)"))
+            .PropAttribute("range", Float4{1.0f, 60.0f, 1.0f, 0.0f});
     }
 
     REFLECT_VALUE(LightComponent, "rtti::engine::render")

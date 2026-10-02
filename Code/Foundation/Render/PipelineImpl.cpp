@@ -2231,7 +2231,8 @@ namespace foundation::render
                 // view's final LDR output, after post (never TAA-smeared / tonemapped over), BEFORE debug
                 // draw so gizmos and diagnostic text stay on top (the Sedulous OverlayPass ordering).
                 // Sources match views by SceneKey and draw with the view's REAL camera.
-                if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty())
+                if (m_sceneOverlays != nullptr && !m_sceneOverlays->IsEmpty() &&
+                    v->Settings().sceneOverlays)
                 {
                     // Stencil attachment for overlay UI (stencil-then-cover fills): a
                     // transient DS cleared to 0, in a device-probed format the sources

@@ -209,6 +209,16 @@ export namespace engine::render
         bool primary = true;
         CameraProjection projection = CameraProjection::Perspective;
         f32 orthoHeight = 10.0f; // Orthographic: the world-space height the view spans
+        // A camera with a target renders into that texture (a render texture asset) instead of
+        // the screen, every `targetInterval` frames; it is never the screen camera, `primary` or
+        // not. A texture made at run time is assigned straight to the Ref and is never saved.
+        foundation::resource::Ref<texture::Texture> target;
+        u32 targetInterval = 1;
+
+        [[nodiscard]] bool HasTarget() const noexcept
+        {
+            return !target.id.IsNil() || target.Get() != nullptr;
+        }
     };
 
     // The projection matrix of `camera` at `aspect` (width over height). The one place a camera's
@@ -378,7 +388,13 @@ export namespace engine::render
         u8 projection = static_cast<u8>(c.projection);
         foundation::core::Serialize(ar, "projection", projection);
         foundation::core::Serialize(ar, "orthoHeight", c.orthoHeight);
+        foundation::core::Serialize(ar, "target", c.target);
+        foundation::core::Serialize(ar, "targetInterval", c.targetInterval);
         c.projection = static_cast<CameraProjection>(projection);
+    }
+    inline void ResolveResources(foundation::resource::ResourceManager& manager, CameraComponent& c)
+    {
+        c.target.Bind(manager);
     }
 
     inline void Serialize(ISerializer& ar, ReflectionProbeComponent& c)

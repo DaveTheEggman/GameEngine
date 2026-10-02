@@ -329,6 +329,11 @@ export namespace engine::render
         // arena chunks reused) until the next BeginRendering. (One snapshot is taken per RenderScene
         // call.)
         [[nodiscard]] ExtractedScene* AcquireScene();
+        // Render `scene`'s target cameras (a camera with a render texture target) into their
+        // textures, once per scene per frame, before the view that asked: the first view of a
+        // scene in a frame calls it after extraction, so what samples a target this frame sees
+        // this frame's image.
+        void RenderTargetCameras(scene::Scene& scene);
         TaggedAllocator m_allocator;
 
         rhi::Device* m_device;
@@ -426,6 +431,10 @@ export namespace engine::render
         Array<UniquePtr<ExtractedScene>> m_scenes; // snapshot pool
         usize m_sceneCount = 0;
         Array<scene::Scene*> m_snapshotOwners; // [i] = the scene m_scenes[i] holds this frame
+        u64 m_frameNumber = 0;              // counts BeginRendering: a target's interval runs on it
+        Array<scene::Scene*> m_targetScenes; // scenes whose target cameras rendered this frame
+        bool m_renderingTargets = false;    // inside RenderTargetCameras: no scene debug draw
+        Array<TargetCameraView> m_targetViews; // RenderTargetCameras' list, kept between frames
         RenderContext m_renderCtx{m_allocator}; // per-worker extraction arenas
     };
 

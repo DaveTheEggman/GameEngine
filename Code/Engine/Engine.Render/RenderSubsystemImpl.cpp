@@ -288,6 +288,8 @@ namespace engine::render
         }
         m_sceneCount = 0;
         m_snapshotOwners.Resize(m_scenes.Size()); // per-frame scene tags for snapshot sharing
+        m_targetScenes.Clear();
+        ++m_frameNumber;
         // Provision per-worker extraction arenas for this frame (one per job-system slot, or a
         // single slot when the job system is absent - serial fallback).
         const u32 slotCount = HasGlobalJobSystem() ? GlobalJobs().SlotCount() : 1u;
@@ -438,6 +440,8 @@ namespace engine::render
                 m_probeSystem->Assign(snapshot, snapshot->ReflectionProbes());
             }
         }
+        // After extraction, so the snapshot's view origin is this view's camera, not a target's.
+        RenderTargetCameras(scene);
 
         ViewSettings settings;
         settings.clear = rhi::ClearColor{clearColor.r, clearColor.g, clearColor.b, clearColor.a};
@@ -497,6 +501,7 @@ namespace engine::render
             LimitPostForOrthographic(settings.post);
         }
         settings.viewportKey = viewportKey; // pick requests bind to it
+        settings.sceneOverlays = !m_renderingTargets;
         // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.
         settings.post.needsMotion =
@@ -531,7 +536,10 @@ namespace engine::render
             // the #118 camera-preview contract. The pre-fix either/or here made keyed views
             // (the edit viewport) silently drop ALL scene-level debug draw. Either pointer may
             // be null when nothing was drawn this frame - the debug pass null-checks.
-            const void* sceneDebug = static_cast<const void*>(m_debugScenes.Find(&scene));
+            // A target camera's view (a minimap, a monitor) is the game's picture, not a debug
+            // view: the scene's debug lines stay out of it.
+            const void* sceneDebug =
+                m_renderingTargets ? nullptr : static_cast<const void*>(m_debugScenes.Find(&scene));
             const void* viewDebug = (viewportKey != nullptr)
                                         ? static_cast<const void*>(m_debugViews.Find(viewportKey))
                                         : nullptr;
@@ -539,6 +547,44 @@ namespace engine::render
                              sceneDebug,
                              /*sceneKey*/ &scene, viewDebug);
         }
+    }
+
+    void RenderSubsystem::RenderTargetCameras(scene::Scene& scene)
+    {
+        if (m_renderingTargets)
+        {
+            return; // a target's own view: its scene is already being handled
+        }
+        for (scene::Scene* done : m_targetScenes)
+        {
+            if (done == &scene)
+            {
+                return;
+            }
+        }
+        m_targetScenes.PushBack(&scene);
+        CollectTargetCameras(scene, m_frameNumber, m_targetViews);
+        if (m_targetViews.IsEmpty())
+        {
+            return;
+        }
+        m_renderingTargets = true; // the views below render no targets of their own
+        for (const TargetCameraView& view : m_targetViews)
+        {
+            // The factory leaves a render texture shader-readable, and so does every render into
+            // it, so each render starts and ends there.
+            TargetState state;
+            state.texture = view.target->GpuTexture();
+            state.currentState = rhi::ResourceState::ShaderRead;
+            state.finalState = rhi::ResourceState::ShaderRead;
+            // No TAA, bloom, AO or SSR: a small second view stays cheap and out of the per-view
+            // history (exposure and the tonemap stay, so it still displays).
+            ViewPostOverride post;
+            post.disablePost = true;
+            RenderScene(scene, view.target->View(), view.target->Format(), view.target->Width(),
+                        view.target->Height(), {}, &view.camera, state, &post);
+        }
+        m_renderingTargets = false;
     }
 
     void RenderSubsystem::GetDebugResources(Array<DebugResourceInfo>& out)

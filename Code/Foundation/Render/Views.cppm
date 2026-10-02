@@ -61,6 +61,9 @@ export namespace foundation::render
         // This view may frustum-cull its draw list (the frame's global switch still gates it).
         // A per-view override (ViewPostOverride::disableCulling) clears it for an A/B.
         bool frustumCull = true;
+        // This view draws the scene-tier overlays (HUD canvases, billboards). A camera rendering
+        // into a texture (a minimap) shows the world without the HUD it is shown in.
+        bool sceneOverlays = true;
     };
 
     // A single view: what to draw (a shared ExtractedScene), from where (camera), into what

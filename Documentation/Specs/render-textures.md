@@ -132,9 +132,10 @@ The factory lives beside `TextureFactory` in `foundation.texture.resource`, regi
 `CameraComponent` gains:
 
 - `target`: a `Ref<texture::Texture>` (serialized, picked in the inspector). When set, the camera
-  renders into that texture instead of the screen.
-- a runtime `rhi::TextureView* targetView` plus its `rhi::Texture*`, not serialized, that wins over
-  `target`, mirroring `SpriteComponent::texture`, for a target made at run time.
+  renders into that texture instead of the screen. A texture made at run time is assigned to the
+  same Ref: a `Ref` already holds a direct object that wins over its id and is never saved
+  (`ResourceModule.cppm`, "Code-created resources ... assign a RefPtr<T> directly"), so no
+  separate runtime pointer is needed.
 - `targetInterval` (frames, default 1): render every Nth frame. A minimap at 30 Hz on the Deck.
 
 The camera never learns what shows the texture.
@@ -143,10 +144,14 @@ The camera never learns what shows the texture.
 screen camera, even if `primary` is set. Every other effectively-active camera with a target is a
 target camera.
 
-**When they render.** Inside `RenderSubsystem`, the first `RenderScene` of a scene in a frame
-first renders that scene's target cameras, each into its texture, through the same
-`RenderScene` path with a `CameraOverride` and a `TargetState` ending in `ShaderRead` (what the
-camera preview does). A per-frame set of scenes already done stops the editor's second view of a
+**When they render.** Inside `RenderSubsystem`, the first `RenderScene` of a scene in a frame,
+right after it extracts the scene (so the snapshot's view origin stays the asking view's camera),
+renders that scene's target cameras, each into its texture, through the same `RenderScene` path
+with a `CameraOverride` and a `TargetState` from and to `ShaderRead` (what the camera preview
+does). Which cameras are due, and with what camera, is the pure `CollectTargetCameras`
+(Extract), which the tests drive. A target camera's view draws neither the scene's debug lines
+nor the scene-tier overlays (HUD canvases, billboards: `ViewSettings::sceneOverlays`), so a
+minimap shows the world without the HUD it sits in. A per-frame set of scenes already done stops the editor's second view of a
 scene (the camera preview, a second Game tab) from rendering them twice. Hosts change nothing:
 the player, the Game tab and the scene page all get target cameras without a new call. Because
 they record before the scene's main view, anything sampling the texture in that view sees this

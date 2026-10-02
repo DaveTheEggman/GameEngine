@@ -379,7 +379,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">15970338616317997800</u64>
-					<u32 name="version">1</u32>
+					<u32 name="version">2</u32>
 				</array>
 				<f32 name="fovYRadians">1.41</f32>
 				<f32 name="aspect">1.7777778</f32>
@@ -394,6 +394,8 @@
 				<bool name="primary">true</bool>
 				<u8 name="projection">0</u8>
 				<f32 name="orthoHeight">10</f32>
+				<string name="target">00000000-0000-0000-0000-000000000000</string>
+				<u32 name="targetInterval">1</u32>
 			</object>
 		</object>
 		<object>
