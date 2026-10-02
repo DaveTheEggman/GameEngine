@@ -5,15 +5,25 @@
 	</array>
 	<string name="name">PaperKid</string>
 	<string name="engineVersion">0.1.0</string>
-	<string name="defaultSceneId">c83b3435-c2a2-4224-9778-35736dd26221</string>
-	<string name="defaultScene">Scenes/StartScene</string>
-	<string name="startupScript">Scripts/PaperKidGame</string>
+	<string name="defaultSceneId">1a321fbc-7bfa-478e-a672-85351f51cba3</string>
+	<string name="defaultScene">Scenes/Start</string>
+	<string name="startupScript">PaperKidGame</string>
 	<string name="nativeModule"/>
-	<string name="defaultInputMapId">286f2ecc-33c2-4ad2-a338-9d9490a58d62</string>
-	<string name="defaultBusLayoutId">5be7a51f-21c3-416c-994e-cb2da57eb556</string>
+	<string name="defaultInputMapId">be45bcb3-6c69-4b0b-aba3-b62c3f60a8eb</string>
+	<string name="defaultBusLayoutId">00000000-0000-0000-0000-000000000000</string>
 	<string name="defaultUiThemeId">00000000-0000-0000-0000-000000000000</string>
-	<string name="startupScriptId">6c8ed2f6-fa3f-4265-87b7-9365e2d6022c</string>
-	<string name="defaultUiFontId">997e2b40-9199-4aac-944c-bc8240643621</string>
+	<string name="startupScriptId">f6302f5a-d4e6-4fde-9008-465a0e8d2fa4</string>
+	<string name="defaultUiFontId">7b6877c9-065f-4772-9ce8-167bab0aafd2</string>
 	<string name="loadingDocumentId">00000000-0000-0000-0000-000000000000</string>
 	<u32 name="renderMsaaSamples">1</u32>
+	<array name="uiFontIds" count="1">
+		<string>e632a35e-2b25-4a50-b3e4-05f8df9317cd</string>
+	</array>
+	<u32 name="renderWidth">1280</u32>
+	<u32 name="renderHeight">720</u32>
+	<i32 name="renderFit">1</i32>
+	<u32 name="windowWidth">1280</u32>
+	<u32 name="windowHeight">720</u32>
+	<u8 name="windowMode">0</u8>
+	<bool name="windowResizable">true</bool>
 </root>

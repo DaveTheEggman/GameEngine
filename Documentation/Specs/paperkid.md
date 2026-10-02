@@ -1,6 +1,11 @@
 # PaperKid - a small arcade game, rebuilt through the MCP
 
-> STATUS: PROPOSED 2026-10-02, a REWRITE of the 2026-08-13 spec (that one is in git history,
+> STATUS: P0-P3 BUILT 2026-10-02 and swapped into `Data/SampleProjects/PaperKid` at the user's
+> call (before P4); P4 (juice, audio, the Deck) is open. Engine work it drove: render textures
+> (the minimap), `navigation_bake`, view transforms for script, the navigation bake reading
+> static geometry instead of every mesh, and the fixes listed under "Known engine gaps".
+>
+> Written 2026-10-02 as a REWRITE of the 2026-08-13 spec (that one is in git history,
 > last at 6a44119d). The first PaperKid was built from 2026-08-19 before the MCP tools could
 > author a game, and stopped after one playable block (its P1). Sky Hopper has since been
 > built, played through and shipped to a Steam Deck entirely through the MCP tools; PaperKid
@@ -139,7 +144,13 @@ which uses all of it through the MCP; the exact signatures come from `script_api
   a scene page (the zone entity and its NavigationZone asset), with a test, and McpGuide.
 - **The render-textures branch** must be merged (or PaperKid's project built against it) for
   the minimap.
-- Anything else the build turns up is recorded here as it is found.
+- Found and fixed while building it (2026-10-02): a running scene destroyed without being
+  stopped left its handlers on the run bus (retry crashed); mesh instance rings sized without
+  shadow casters dropped houses; the chase camera followed a pose a frame old (a backlog item for
+  `worldPosition()`); script handles could not move a view (markers); the bake baked agents'
+  own bodies and sized its grid from a 2000 m ground plane; agents and zones that could not join
+  the navmesh were silent. Backlogged: pie_screenshot upscales a small Game tab, TAA jitter and
+  the validation flag in the player, `run::loadScene` in a project-folder player.
 
 ## Phases
 

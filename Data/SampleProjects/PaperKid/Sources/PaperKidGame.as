@@ -1,218 +1,290 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026-Present Robert Campbell
-
-// PaperKidGame - the Game-tier orchestrator (the skeleton + screen flow).
+// PaperKidGame - the run's orchestrator (the reserved class Game): the screens, the levels, the
+// score and the lives.
 //
-// This is the project's startup script (Project.xml startupScriptId), run by the play-in-editor
-// GameEditorPage as the reserved `Game` tier: launch() boots it, update(dt) ticks it, exit() tears
-// it down, and on<Event>(...) methods harvest the run bus. It drives the whole screen/state flow
-// over the run + ui facades for the driving slice (bike, deliveries, scoring, level flow).
+// The Level script owns a block's rules and tells this class how it ended ("QuotaMet" with the
+// whole seconds left, or "LevelFailed" with 0 for time, 1 for papers); every delivery
+// ("Delivered", from a Subscriber) scores here. In a run the scene bus IS the run bus, so all of
+// them reach this class.
 //
-// Screens are authored UIDocuments (Sources/screens/*.sml), pushed by guid via ui::push; their
-// id-tagged buttons are wired to handlers with button.onClick(Action(this.handler)). The empty
-// "Playing" level is a scene loaded with run::loadScene.
-//
-// Asset guids are referenced as Guid("...") - the canonical UUID string, copied straight from the
-// matching .xasset envelope. These MUST match the envelopes; a malformed string parses to Nil.
+// A run is the blocks in order. A cleared block banks its score (deliveries plus a time bonus); a
+// failed one spends a life and replays from the banked score; no lives left, or the last block
+// cleared, is the Game over screen. Pause (the Pause action) freezes the block under a menu;
+// Settings, from the title or the pause menu, sets the audio buses' volumes, which the player saves
+// when it exits, and goes back to whichever opened it (Documentation/Specs/paperkid.md).
 
-// --- authored asset guids (keep in sync with the .xasset envelopes) ---
-Guid kMainMenuDoc = Guid("ac96b003-5b7c-433f-896c-489befb6e2c2");     // main-menu
-Guid kPauseDoc = Guid("985eb393-4110-4fc4-9742-7bac60ca136d");        // pause
-Guid kSettingsDoc = Guid("d30677d4-cb28-4ec1-958a-f8046e0c67a5");     // settings
-Guid kPlayingLevel = Guid("855ffed4-4da7-4fa0-9756-a95c6c842890");    // MainScene
-Guid kLevelClearedDoc = Guid("1df972ca-bcdd-4a73-bda6-4df4a858249f"); // level-cleared
-Guid kLevelFailedDoc = Guid("3aa68e31-9f1c-44e6-8cd6-48f2f7e64d42");  // level-failed
-Guid kHudDoc = Guid("99b0b28b-bca7-4b49-b0df-ed034b176973");          // hud (overlay)
+Guid kTitleDoc = Guid("e04cdc8b-a360-464e-8127-e99cc0840817");
+Guid kHudDoc = Guid("9b37c867-0090-4fde-b4de-80683c384002");
+Guid kClearedDoc = Guid("11c81ce8-5a2a-4ef9-8f3b-b1071c319228");
+Guid kFailedDoc = Guid("6f8c3e6a-8d67-4200-8847-30caa5854e2b");
+Guid kGameOverDoc = Guid("b979eab4-4ff1-4df2-a245-4398a36230e2");
+Guid kPauseDoc = Guid("de133f1d-cc35-4ed3-9827-56e660d9efad");
+Guid kSettingsDoc = Guid("a77557c2-cd88-4fce-856c-30134997aef1");
+Guid kStart = Guid("1a321fbc-7bfa-478e-a672-85351f51cba3");
 
-enum GameState
+const int kStartLives = 3;
+const int kTimeBonusPerSecond = 5;
+
+enum Phase
 {
-    Booting,
-    MainMenu,
+    Title,
     Playing,
     Paused,
     Settings,
-    LevelCleared,
-    LevelFailed
+    Ended
 }
 
 class Game
 {
-    GameState m_state = GameState::Booting;
-    // Where "Back" returns from the Settings screen (Settings opens from both Main menu and Pause).
-    GameState m_settingsReturn = GameState::MainMenu;
+    private Phase m_phase = Phase::Title;
+    private array<Guid> m_levels;
+    private int m_level = 0;
+    private int m_lives = kStartLives;
+    private int m_score = 0;
+    private int m_banked = 0; // the score when the current block started
+    private int m_delivered = 0;
+    private Phase m_settingsFrom = Phase::Title; // where Settings goes back to
 
-    // ---- scoring ----
-    int m_score = 0;
-    int m_deliveries = 0;
-
-    // ---- Game-tier lifecycle ----
     void launch()
     {
-        // Boot straight into the main menu. No scene is loaded yet (defaultSceneId is empty); the
-        // Game owns level loading via run::loadScene when the player hits Start.
-        showMainMenu();
+        m_levels.insertLast(Guid("4ca05200-9d61-4135-9fe5-cfc198ad8d44"));
+        m_levels.insertLast(Guid("efa1e0c4-2619-4839-b1ee-54bd6b9561f7"));
+        m_levels.insertLast(Guid("819a3ac3-580b-467e-8d96-464e6a1ab8f7"));
+        m_levels.insertLast(Guid("933ec008-b426-4e2b-9075-b4d879ed58f1"));
+        m_levels.insertLast(Guid("07ae3353-037a-44ba-9620-fe1d126e08a2"));
+        // The default scene is the title's backdrop, frozen behind the menu.
+        run::setTimeScale(0.0f);
+        showTitle();
     }
 
+    // The Game tier ticks at time scale 0 too, so the Pause action is read here in every phase.
     void update(float dt)
     {
-        // ESC toggles pause. Reads a "Pause" button action (bind it to ESC in the input map);
-        // Input is action-based, so the action must exist + be in the active set to fire.
-        if (Input::wasPressed("Pause"))
+        if (!Input::wasPressed("Pause"))
         {
-            if (m_state == GameState::Playing)
-            {
-                showPause();
-            }
-            else if (m_state == GameState::Paused)
-            {
-                onResume();
-            }
+            return;
         }
-        // Later: drive the countdown timer while Playing, etc.
+        if (m_phase == Phase::Playing)
+        {
+            pause();
+        }
+        else if (m_phase == Phase::Paused)
+        {
+            onResume();
+        }
+        else if (m_phase == Phase::Settings)
+        {
+            onSettingsBack();
+        }
     }
 
-    void exit()
+    void exit() {}
+
+    // ---- what the level reports ----
+
+    void onDelivered(int points)
     {
-        ui::clear();
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_delivered += 1;
+        m_score += points;
+        ui::findLabel("hud-score").setText("" + m_score);
     }
 
-    // ---- screens: each clears the stack and pushes one document, then wires its buttons ----
-    void showMainMenu()
+    void onQuotaMet(int secondsLeft)
     {
-        run::setTimeScale(0.0f); // no gameplay behind a menu (freezes any loaded scene)
-        ui::clear();
-        Screen menu = ui::push(kMainMenuDoc);
-        menu.findButton("start-btn").onClick(Action(this.onStartGame));
-        menu.findButton("settings-btn").onClick(Action(this.onOpenSettingsFromMenu));
-        menu.findButton("quit-btn").onClick(Action(this.onQuitGame));
-        m_state = GameState::MainMenu;
-    }
-
-    void enterPlaying()
-    {
-        // Fresh score, then drop the menus and put up the overlay HUD BEFORE the scene starts, so the
-        // Level/Bike onStart handlers have its labels to populate. The HUD is an Overlay screen: it
-        // passes input through to the bike (a Modal screen would freeze gameplay).
-        m_score = 0;
-        m_deliveries = 0;
-        ui::clear();
-        ui::push(kHudDoc);
-        run::loadScene(kPlayingLevel);
-        run::setTimeScale(1.0f); // gameplay runs
-        m_state = GameState::Playing;
-    }
-
-    void showPause()
-    {
-        // Pause OVERLAYS the running scene (modal); timescale 0 actually freezes gameplay under it.
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_phase = Phase::Ended;
         run::setTimeScale(0.0f);
-        Screen pause = ui::push(kPauseDoc);
-        pause.findButton("resume-btn").onClick(Action(this.onResume));
-        pause.findButton("settings-btn").onClick(Action(this.onOpenSettingsFromPause));
-        pause.findButton("quit-btn").onClick(Action(this.onQuitToMenu));
-        m_state = GameState::Paused;
+        int earned = m_score - m_banked;
+        int bonus = secondsLeft * kTimeBonusPerSecond;
+        m_score += bonus;
+        m_banked = m_score;
+        ui::findLabel("hud-score").setText("" + m_score);
+        Screen@ s = ui::push(kClearedDoc);
+        s.findLabel("cleared-summary").setText("" + m_delivered + " delivered, " + earned + " points + "
+                                               + bonus + " time bonus");
+        Button@ next = s.findButton("continue-btn");
+        if (m_level + 1 >= int(m_levels.length()))
+        {
+            next.setText("Finish");
+        }
+        next.onClick(Action(this.onContinue));
     }
 
-    void showSettings()
+    void onLevelFailed(int reason)
     {
-        Screen settings = ui::push(kSettingsDoc);
-        settings.findButton("back-btn").onClick(Action(this.onSettingsBack));
-        m_state = GameState::Settings;
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_phase = Phase::Ended;
+        run::setTimeScale(0.0f);
+        m_lives -= 1;
+        ui::findLabel("hud-lives").setText("" + m_lives);
+        if (m_lives <= 0)
+        {
+            showGameOver(false);
+            return;
+        }
+        Screen@ s = ui::push(kFailedDoc);
+        s.findLabel("failed-reason").setText(reason == 0 ? "Out of time" : "Out of papers");
+        s.findLabel("failed-lives").setText(m_lives == 1 ? "1 life left" : "" + m_lives + " lives left");
+        s.findButton("retry-btn").onClick(Action(this.onRetry));
+        s.findButton("menu-btn").onClick(Action(this.onToTitle));
     }
 
-    // ---- button handlers (deferred + mutation-queue-safe via the onClick seam) ----
-    void onStartGame() { enterPlaying(); }
-    void onQuitGame() { run::requestExit(); } // ends the run (editor: stops the play session)
+    // ---- buttons ----
+
+    void onNewGame()
+    {
+        m_level = 0;
+        m_lives = kStartLives;
+        m_score = 0;
+        m_banked = 0;
+        startLevel();
+    }
+
+    void onRetry()
+    {
+        startLevel();
+    }
+
+    void onContinue()
+    {
+        m_level += 1;
+        if (m_level >= int(m_levels.length()))
+        {
+            m_level = int(m_levels.length()) - 1;
+            ui::pop(); // the Block cleared screen gives way to the summary
+            showGameOver(true);
+            return;
+        }
+        startLevel();
+    }
 
     void onResume()
     {
-        ui::pop(); // drop the pause overlay, back to Playing
-        run::setTimeScale(1.0f); // gameplay resumes
-        m_state = GameState::Playing;
+        ui::pop(); // the pause menu
+        run::setTimeScale(1.0f);
+        m_phase = Phase::Playing;
     }
-    void onQuitToMenu() { showMainMenu(); }
 
-    void onOpenSettingsFromMenu()
+    void onSettings()
     {
-        m_settingsReturn = GameState::MainMenu;
-        showSettings();
+        m_settingsFrom = m_phase;
+        Screen@ s = ui::push(kSettingsDoc);
+        bindVolume(s, "master", AudioBus::Master, Action(this.onMasterChanged));
+        bindVolume(s, "music", AudioBus::Music, Action(this.onMusicChanged));
+        bindVolume(s, "effects", AudioBus::Effects, Action(this.onEffectsChanged));
+        s.findButton("settings-back-btn").onClick(Action(this.onSettingsBack));
+        m_phase = Phase::Settings;
     }
-    void onOpenSettingsFromPause()
-    {
-        m_settingsReturn = GameState::Paused;
-        showSettings();
-    }
+
     void onSettingsBack()
     {
-        // Return to whichever screen opened Settings.
-        if (m_settingsReturn == GameState::Paused)
-        {
-            ui::pop(); // settings was pushed OVER the pause overlay - just drop it
-            m_state = GameState::Paused;
-        }
-        else
-        {
-            showMainMenu();
-        }
+        ui::pop(); // the settings screen; the title or the pause menu is under it
+        m_phase = m_settingsFrom;
     }
 
-    // ---- run-bus inbox: scene bus == run bus, so these arrive directly; the Game scores + ends the level ----
-    // A delivery arrived (Subscriber's "Delivered", carrying the house's points).
-    void onDelivered(int points)
+    void onMasterChanged()
     {
-        if (m_state != GameState::Playing)
-        {
-            return;
-        }
-        m_deliveries += 1;
-        m_score += points;
-        Log::info("Delivered"); // deliveries/score tracked in m_deliveries/m_score
+        volumeChanged("master", AudioBus::Master);
     }
 
-    // The delivery quota was met -> level cleared.
-    void onQuotaMet(int deliveries)
+    void onMusicChanged()
     {
-        if (m_state != GameState::Playing)
-        {
-            return;
-        }
-        showLevelCleared();
+        volumeChanged("music", AudioBus::Music);
     }
 
-    // The level failed. The Level tells us WHY: reason 0 = the timer ran out, reason 1 = out of
-    // papers (with quota unmet after the in-flight grace). The screen title reflects the reason.
-    void onLevelFailed(int reason)
+    void onEffectsChanged()
     {
-        if (m_state != GameState::Playing)
-        {
-            return;
-        }
-        showLevelFailed(reason);
+        volumeChanged("effects", AudioBus::Effects);
     }
 
-    // ---- end-of-level screens: a modal over the frozen scene + a live score summary ----
-    void showLevelCleared()
+    void onToTitle()
     {
-        run::setTimeScale(0.0f); // freeze the scene under the results modal
-        Screen s = ui::push(kLevelClearedDoc);
-        s.findLabel("summary").setText("Delivered " + m_deliveries + " papers    Score " + m_score);
-        s.findButton("play-again-btn").onClick(Action(this.onPlayAgain));
-        s.findButton("menu-btn").onClick(Action(this.onBackToMenu));
-        m_state = GameState::LevelCleared;
+        run::loadScene(kStart);
+        run::setTimeScale(0.0f);
+        showTitle();
     }
 
-    void showLevelFailed(int reason)
+    void onQuit()
+    {
+        run::requestExit(0);
+    }
+
+    // ---- screens ----
+
+    // The current block from its start: the score goes back to what was banked before it.
+    private void startLevel()
+    {
+        m_score = m_banked;
+        m_delivered = 0;
+        ui::clear();
+        ui::push(kHudDoc);
+        ui::findLabel("hud-score").setText("" + m_score);
+        ui::findLabel("hud-lives").setText("" + m_lives);
+        run::setTimeScale(1.0f);
+        run::loadScene(m_levels[m_level]);
+        m_phase = Phase::Playing;
+    }
+
+    private void pause()
     {
         run::setTimeScale(0.0f);
-        Screen s = ui::push(kLevelFailedDoc);
-        s.findLabel("title").setText(reason == 1 ? "Out of Papers!" : "Time's Up!");
-        s.findLabel("summary").setText("Delivered " + m_deliveries + " papers    Score " + m_score);
-        s.findButton("retry-btn").onClick(Action(this.onPlayAgain));
-        s.findButton("menu-btn").onClick(Action(this.onBackToMenu));
-        m_state = GameState::LevelFailed;
+        Screen@ s = ui::push(kPauseDoc);
+        s.findButton("resume-btn").onClick(Action(this.onResume));
+        s.findButton("restart-btn").onClick(Action(this.onRetry));
+        s.findButton("settings-btn").onClick(Action(this.onSettings));
+        s.findButton("menu-btn").onClick(Action(this.onToTitle));
+        m_phase = Phase::Paused;
     }
 
-    // Play Again / Retry: reload the level fresh (enterPlaying resets score + resumes time).
-    void onPlayAgain() { enterPlaying(); }
-    void onBackToMenu() { showMainMenu(); }
+    // A volume row: its slider at the bus's level, its readout, and the handler.
+    private void bindVolume(Screen@ s, string row, AudioBus bus, Action@ handler)
+    {
+        Slider@ slider = s.findSlider(row + "-slider");
+        slider.setValue(Audio::busVolume(bus));
+        showVolume(row, slider.value);
+        slider.onChanged(handler);
+    }
+
+    private void volumeChanged(string row, AudioBus bus)
+    {
+        float level = ui::findSlider(row + "-slider").value;
+        Audio::setBusVolume(bus, level);
+        showVolume(row, level);
+    }
+
+    private void showVolume(string row, float level)
+    {
+        ui::findLabel(row + "-value").setText("" + int(level * 100.0f + 0.5f) + "%");
+    }
+
+    private void showGameOver(bool won)
+    {
+        m_phase = Phase::Ended;
+        Screen@ s = ui::push(kGameOverDoc);
+        s.findLabel("over-title").setText(won ? "Route complete!" : "Game over");
+        s.findLabel("over-score").setText("Score " + m_score);
+        s.findLabel("over-reached").setText(won ? "Every block delivered"
+                                                : "Reached block " + (m_level + 1) + " of " + m_levels.length());
+        s.findButton("again-btn").onClick(Action(this.onNewGame));
+        s.findButton("menu-btn").onClick(Action(this.onToTitle));
+    }
+
+    private void showTitle()
+    {
+        m_phase = Phase::Title;
+        ui::clear();
+        Screen@ s = ui::push(kTitleDoc);
+        s.findButton("play-btn").onClick(Action(this.onNewGame));
+        s.findButton("settings-btn").onClick(Action(this.onSettings));
+        s.findButton("quit-btn").onClick(Action(this.onQuit));
+    }
 }

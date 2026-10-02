@@ -1,5 +1,5 @@
 <root>
-	<string name="guid">be8803c7-b38a-4946-bf8b-4f20afca076a</string>
+	<string name="guid">d8817d56-714c-4b52-87c4-b20533a340f5</string>
 	<string name="typeNamespace">rtti::pipeline::geometry</string>
 	<string name="typeName">StaticMeshAsset</string>
 	<array name="dataVersions" count="1">

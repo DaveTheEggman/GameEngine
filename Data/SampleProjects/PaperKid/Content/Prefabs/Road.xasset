@@ -1,0 +1,12 @@
+<root>
+	<string name="guid">3b34fcb6-eb22-44cb-9222-0b72434d6aef</string>
+	<string name="typeNamespace">rtti::scene</string>
+	<string name="typeName">PrefabDocument</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">3442582207943668603</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="name">Road</string>
+	</object>
+</root>

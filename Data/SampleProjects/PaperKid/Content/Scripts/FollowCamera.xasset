@@ -1,5 +1,5 @@
 <root>
-	<string name="guid">1d61283a-be18-4487-afaa-e6461946ffb7</string>
+	<string name="guid">59e55aac-0dad-439b-8c52-2aa9193bb384</string>
 	<string name="typeNamespace">rtti::pipeline::script</string>
 	<string name="typeName">ScriptClassAsset</string>
 	<array name="dataVersions" count="1">

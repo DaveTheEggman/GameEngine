@@ -1,66 +1,73 @@
-// SPDX-License-Identifier: MIT
-// Copyright (c) 2026-Present Robert Campbell
+// Bike - the player's ride, on the Bike entity (a Character component: a kinematic capsule).
+//
+// "Move": Y is throttle and brake, X steers. The bike keeps a heading and a signed speed, turns
+// the heading (harder the faster it goes, and reversed while backing up), drives the character
+// along it, and points the entity the same way.
+//
+// "Throw" launches a paper along the aim: the bike's forward, biased toward the nearest delivery
+// zone in front (the soft auto-aim), with an upward arc. The Level owns the paper count: each
+// throw is "PaperThrown", and the Level answers with "PapersLeft".
+//
+// A crash ("Crashed", sent by an Obstacle) knocks the bike back against the way it was going and
+// leaves the steering and throttle weak for a moment; the Level takes the time penalty.
 
-// Bike - the player's ride.
-//
-// A per-entity script BEHAVIOR attached to the bike entity (which carries a CharacterComponent =
-// Jolt CharacterVirtual, kinematic arcade feel - no ragdoll). Each frame it reads the "Move" axis
-// (WASD via the Composite2D binding in DefaultInputMap): Y = throttle/brake, X = steer. It keeps a
-// heading (yaw) and a scalar speed, turns the heading, then drives the character with a horizontal
-// velocity pointing along that heading. The third-person camera (FollowCamera.as) reads this
-// entity's transform to trail behind.
-//
-// Facing is derived from the heading with the reflected math surface: a yaw quaternion about +Y
-// rotates local forward (+Z) into the world velocity direction, and the SAME yaw sets the mesh
-// rotation via setRotationEuler - so the model always points where it moves.
-//
-// Tunables are [metadata]-annotated FIELDS: they show up in the inspector, authored per-entity.
-
-// The paper prefab thrown on the Throw action. Copied from Content/Scenes/Paper.xasset's
-// guid - keep in sync with that envelope.
-Guid kPaperPrefab = Guid("6eccb2d5-b150-4cc7-ba67-1a1c09383be4");
+Guid kPaper = Guid("6aa57026-4f4a-44ae-835d-2d2905746210");
 
 class Bike
 {
     private Entity@ self;
 
-    // ---- tunables (inspector-authored behavior properties) ----
-    [9.0, "Top forward speed (m/s)"]           float maxSpeed;
-    [3.5, "Top reverse speed (m/s)"]           float reverseSpeed;
-    [14.0, "Throttle ramp (m/s^2)"]            float acceleration;
-    [22.0, "Active brake / reverse ramp (m/s^2)"] float braking;
-    [8.0, "Roll-down when coasting (m/s^2)"]   float coastDeceleration;
-    [130.0, "Yaw rate at full speed (deg/s)"]  float turnSpeedDegrees;
-    [0.25, "Steering authority floor (0..1)"]  float minSteerFraction;
+    [11.0, "Top forward speed (m/s)"] float maxSpeed;
+    [3.5, "Top reverse speed (m/s)"] float reverseSpeed;
+    [10.0, "Throttle ramp (m/s^2)"] float acceleration;
+    [22.0, "Brake ramp (m/s^2)"] float braking;
+    [5.0, "Roll-down when coasting (m/s^2)"] float coastDeceleration;
+    [120.0, "Turn rate at full speed (deg/s)"] float turnSpeedDegrees;
+    [0.3, "Steering authority at a crawl (0..1)"] float minSteerFraction;
 
-    // ---- throwing ----
-    [60.0, "Throw impulse (launch strength; scales with paper mass)"] float throwImpulse;
-    [0.65, "Throw arc (upward bias)"]                 float throwArc;
-    [0.6, "Auto-aim strength (0 = straight, 1 = locked on)"] float autoAim;
-    [18.0, "Auto-aim range (m)"]                      float aimRange;
-    [10, "Papers per level"]                          int startingPapers;
-    [2, "Subscriber collision group"]                 int subscriberGroup;
+    [9.0, "Throw speed (m/s)"] float throwSpeed;
+    [0.55, "Throw arc (upward share)"] float throwArc;
+    [0.85, "Auto-aim strength (0 = straight ahead, 1 = lands on the zone)"] float autoAim;
+    [16.0, "Auto-aim reach (m)"] float aimRange;
+    [2, "The delivery zones' collision group"] int zoneGroup;
 
-    // ---- aim preview: a debug-drawn arc of where the throw will go ----
-    [10.0, "Aim preview launch speed (visual only, m/s)"] float aimPreviewSpeed;
-    [1.5, "Aim preview duration (s)"]                     float aimPreviewTime;
+    [1.5, "After a crash, how long the controls stay weak (s)"] float crashTime;
+    [0.25, "The controls' strength while recovering (0..1)"] float crashControl;
+    [4.0, "The speed a crash knocks the bike back at (m/s)"] float knockback;
 
-    // ---- runtime state (no metadata => not properties) ----
-    private float m_heading = 0.0f; // yaw in RADIANS (0 = facing world +Z)
-    private float m_speed = 0.0f;   // signed forward speed (negative = reversing)
-    private int m_papers = 0;       // papers remaining (seeded from startingPapers in onStart)
-    // The throw aim, recomputed each frame (for the preview) and reused by a throw.
-    private float m_aimX = 0.0f;    // horizontal aim direction (unit XZ)
+    private float m_heading = 0.0f; // radians; 0 faces +Z
+    private float m_speed = 0.0f;
+    private int m_papers = -1;      // -1: the Level has not said yet
+    private float m_aimX = 0.0f;
     private float m_aimZ = 1.0f;
-    private bool m_hasTarget = false;      // the auto-aim locked a subscriber zone this frame
-    private Float3 m_targetPos = Float3(0.0f, 0.0f, 0.0f);
+    private bool m_hasTarget = false;
+    private Float3 m_target = Float3(0.0f, 0.0f, 0.0f);
+    private float m_recovering = 0.0f; // seconds of weak controls left after a crash
 
     Bike(Entity@ entity) { @self = entity; }
 
     void onStart()
     {
-        m_papers = startingPapers;
-        updatePapersHud();
+        // Start facing the way the scene placed the bike.
+        Float3 forward = Quaternion::RotateVector(self.rotation(), Float3(0.0f, 0.0f, 1.0f));
+        m_heading = Math::Atan2(forward.x, forward.z);
+    }
+
+    void onPapersLeft(int papers)
+    {
+        m_papers = papers;
+    }
+
+    void onCrashed(int unused)
+    {
+        if (m_recovering > 0.0f)
+        {
+            return; // still down from the last one
+        }
+        m_recovering = crashTime;
+        // Bounce back against the way the bike was going: off whatever it ran into.
+        m_speed = (m_speed >= 0.0f) ? -knockback : knockback;
+        self.scene.events.emit("BikeCrashed", 1);
     }
 
     void onUpdate(double dt)
@@ -70,217 +77,184 @@ class Bike
         {
             return;
         }
+        Float2 move = Input::value2D("Move");
+        if (m_recovering > 0.0f)
+        {
+            m_recovering -= d;
+            move = move * crashControl;
+        }
+        updateSpeed(move.y, d);
+        updateHeading(move.x, d);
+        Float3 forward = facing();
+        CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);
+        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
 
-        float throttle = Input::valueY("Move"); // W = +1 (forward), S = -1 (back)
-        float steer = Input::valueX("Move");     // D = +1 (right),   A = -1 (left)
-
-        updateSpeed(throttle, d);
-        updateHeading(steer, d);
-        applyMotion();
-
-        // Preview the throw: recompute the aim + draw its projected arc each frame (papers permitting).
-        // Immediate-mode debug draw is cleared every frame, so it must be re-issued from onUpdate.
-        if (m_papers > 0)
+        if (m_papers != 0)
         {
             computeAim();
-            drawAimPreview();
-        }
-
-        // Throw a paper on the (edge-triggered) Throw action, papers permitting. A paper is only
-        // consumed when the throw actually spawned one (a failed prefab resolve must not burn
-        // papers toward the OutOfPapers fail condition with nothing thrown).
-        if (m_papers > 0 && Input::wasPressed("Throw") && throwPaper())
-        {
-            m_papers -= 1;
-            updatePapersHud();
-            // On the LAST paper, tell the Level (it grace-waits for this one to land, then fails if
-            // quota is still unmet). The scene bus IS the run bus, so the Level's onOutOfPapers hears it.
-            if (m_papers == 0)
+            drawAim();
+            if (Input::wasPressed("Throw") && throwPaper())
             {
-                self.scene.events.emit("OutOfPapers", 0);
+                self.scene.events.emit("PaperThrown", 1);
             }
         }
     }
 
-    // Mirror the remaining paper count into the overlay HUD (a no-op when the HUD is not shown).
-    private void updatePapersHud()
+    private Float3 facing()
     {
-        ui::findLabel("hud-papers").setText("Papers " + m_papers);
+        return Float3(Math::Sin(m_heading), 0.0f, Math::Cos(m_heading));
     }
 
-    // Ramp the signed speed toward the throttle intent, clamped to the forward/reverse caps.
     private void updateSpeed(float throttle, float d)
     {
         if (throttle > 0.0f)
         {
-            // Accelerating forward (brake harder first if we were reversing).
-            float rate = (m_speed < 0.0f) ? braking : acceleration;
-            m_speed += throttle * rate * d;
+            m_speed += throttle * ((m_speed < 0.0f) ? braking : acceleration) * d;
         }
         else if (throttle < 0.0f)
         {
-            // Braking, then reversing.
-            float rate = (m_speed > 0.0f) ? braking : acceleration;
-            m_speed += throttle * rate * d;
+            m_speed += throttle * ((m_speed > 0.0f) ? braking : acceleration) * d;
         }
-        else
+        else if (m_speed > 0.0f)
         {
-            // Coast toward a stop.
-            if (m_speed > 0.0f)
-            {
-                m_speed -= coastDeceleration * d;
-                if (m_speed < 0.0f) { m_speed = 0.0f; }
-            }
-            else if (m_speed < 0.0f)
-            {
-                m_speed += coastDeceleration * d;
-                if (m_speed > 0.0f) { m_speed = 0.0f; }
-            }
+            m_speed -= coastDeceleration * d;
+            if (m_speed < 0.0f) { m_speed = 0.0f; }
         }
-
+        else if (m_speed < 0.0f)
+        {
+            m_speed += coastDeceleration * d;
+            if (m_speed > 0.0f) { m_speed = 0.0f; }
+        }
         if (m_speed > maxSpeed) { m_speed = maxSpeed; }
         if (m_speed < -reverseSpeed) { m_speed = -reverseSpeed; }
     }
 
-    // Turn the heading; steering authority scales with how fast we are going (a parked bike barely
-    // turns), and inverts while reversing so backing up steers the way a vehicle actually does.
+    // A positive yaw turns +Z toward +X, which is screen left from behind: right steer lowers it.
     private void updateHeading(float steer, float d)
     {
         if (steer == 0.0f || m_speed == 0.0f)
         {
             return;
         }
-
-        float speedFraction = Math::Abs(m_speed) / maxSpeed;
-        if (speedFraction > 1.0f) { speedFraction = 1.0f; }
-        if (speedFraction < minSteerFraction) { speedFraction = minSteerFraction; }
-
+        float authority = Math::Abs(m_speed) / maxSpeed;
+        if (authority > 1.0f) { authority = 1.0f; }
+        if (authority < minSteerFraction) { authority = minSteerFraction; }
         float direction = (m_speed >= 0.0f) ? 1.0f : -1.0f;
-        float turnRate = Math::DegreesToRadians(turnSpeedDegrees);
-        // A positive yaw about +Y turns local forward (+Z) toward +X, which is screen-LEFT from the
-        // trailing camera - so a positive steer (D = right) must DECREASE the heading to turn right.
-        // (direction already inverts this while reversing, so backing up steers like a real vehicle.)
-        m_heading -= steer * direction * turnRate * speedFraction * d;
+        m_heading -= steer * direction * Math::DegreesToRadians(turnSpeedDegrees) * authority * d;
     }
 
-    // Drive the character along the heading and point the mesh the same way.
-    private void applyMotion()
-    {
-        // Forward vector = yaw quaternion about +Y applied to local forward (+Z).
-        Quaternion facing = Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f), m_heading);
-        Float3 forward = Quaternion::RotateVector(facing, Float3(0.0f, 0.0f, 1.0f));
-
-        CharacterComponent::of(self).move(forward.x * m_speed, forward.z * m_speed);
-        self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_heading), 0.0f);
-    }
-
-    // Compute the throw's HORIZONTAL aim: the bike's forward heading, biased by a soft auto-aim toward
-    // the nearest subscriber delivery zone in front. Fills m_aimX/m_aimZ (unit XZ) and the locked-
-    // target state (m_hasTarget/m_targetPos). Called each frame for the preview and before a throw.
+    // The throw's horizontal aim: forward, pulled toward the nearest zone in front.
     private void computeAim()
     {
         Float3 pos = self.worldPosition();
-        float fx = Math::Sin(m_heading); // bike forward XZ (matches applyMotion: forward = (sin h, 0, cos h))
-        float fz = Math::Cos(m_heading);
-
-        float aimX = fx;
-        float aimZ = fz;
+        Float3 f = facing();
+        float aimX = f.x;
+        float aimZ = f.z;
         m_hasTarget = false;
-
-        // Overlap the subscriber-group zones nearby; bias toward the nearest one that is IN FRONT.
-        int mask = 1 << subscriberGroup;
-        array<Entity@>@ zones =
-            ScenePhysics::of(self.scene).overlapSphere(pos.x, pos.y, pos.z, aimRange, mask);
-        float bestDist = aimRange * aimRange + 1.0f;
+        array<Entity@>@ zones = ScenePhysics::of(self.scene).overlapSphere(pos.x, pos.y, pos.z, aimRange,
+                                                                          1 << zoneGroup);
+        float best = aimRange * aimRange + 1.0f;
         for (uint i = 0; i < zones.length(); i++)
         {
-            Float3 zp = zones[i].worldPosition();
-            float dx = zp.x - pos.x;
-            float dz = zp.z - pos.z;
+            Float3 z = zones[i].worldPosition();
+            float dx = z.x - pos.x;
+            float dz = z.z - pos.z;
             float dist2 = dx * dx + dz * dz;
-            if (dist2 < 0.0001f) { continue; }
-            float len = Math::Sqrt(dist2);
-            float ndx = dx / len;
-            float ndz = dz / len;
-            if (ndx * fx + ndz * fz > 0.1f && dist2 < bestDist) // in front + nearer than the best so far
+            if (dist2 < 0.0001f)
             {
-                bestDist = dist2;
-                aimX = fx + (ndx - fx) * autoAim; // lerp forward -> zone by the auto-aim strength
-                aimZ = fz + (ndz - fz) * autoAim;
+                continue;
+            }
+            float len = Math::Sqrt(dist2);
+            if ((dx / len) * f.x + (dz / len) * f.z > 0.1f && dist2 < best)
+            {
+                best = dist2;
+                aimX = f.x + (dx / len - f.x) * autoAim;
+                aimZ = f.z + (dz / len - f.z) * autoAim;
                 m_hasTarget = true;
-                m_targetPos = zp;
+                m_target = z;
             }
         }
         float l = Math::Sqrt(aimX * aimX + aimZ * aimZ);
-        if (l > 0.0001f) { aimX /= l; aimZ /= l; }
-        m_aimX = aimX;
-        m_aimZ = aimZ;
+        m_aimX = aimX / l;
+        m_aimZ = aimZ / l;
     }
 
-    // Debug-draw the throw's projected path: sample the ballistic arc under the scene's gravity and
-    // connect it with line segments, plus a marker on the locked target. The launch SPEED here is a
-    // visual tunable (aimPreviewSpeed) - the real throw is an impulse whose speed depends on the paper
-    // mass, so dial aimPreviewSpeed to match the felt throw. Immediate-mode: re-issued every frame.
-    private void drawAimPreview()
+    private Float3 launchPoint()
     {
         Float3 pos = self.worldPosition();
-        float fx = Math::Sin(m_heading);
-        float fz = Math::Cos(m_heading);
-        Float3 origin = Float3(pos.x + fx, pos.y + 1.2f, pos.z + fz); // matches the throw spawn point
+        Float3 f = facing();
+        // Above the rider's head, so the paper never meets the bike's own capsule on the way out.
+        return Float3(pos.x + f.x * 0.6f, pos.y + 1.6f, pos.z + f.z * 0.6f);
+    }
 
-        // Launch velocity = throw direction (unit horizontal aim + upward arc) at the preview speed.
+    // The paper's launch velocity: along the aim at the throw speed, plus the bike's own speed.
+    // With a zone locked, the ground part leans (by autoAim) toward the velocity that lands the
+    // paper on the zone in its flight time - the soft auto-aim corrects the range as well as the
+    // direction, so a throw at a marked porch from a moving bike usually lands.
+    private Float3 launchVelocity()
+    {
         float mag = Math::Sqrt(1.0f + throwArc * throwArc);
-        float vx = m_aimX / mag * aimPreviewSpeed;
-        float vy = throwArc / mag * aimPreviewSpeed;
-        float vz = m_aimZ / mag * aimPreviewSpeed;
-        float g = ScenePhysics::of(self.scene).gravityY();
-
-        DebugDraw@ dbg = DebugDraw::of(self.scene);
-        int steps = 24;
-        float dt = aimPreviewTime / float(steps);
-        // Track the previous point as PLAIN FLOATS (reassigning a Float3 in the loop does not draw).
-        float prevX = origin.x;
-        float prevY = origin.y;
-        float prevZ = origin.z;
-        for (int i = 1; i <= steps; i++)
+        Float3 carry = facing() * m_speed;
+        float vx = m_aimX / mag * throwSpeed + carry.x;
+        float vy = throwArc / mag * throwSpeed;
+        float vz = m_aimZ / mag * throwSpeed + carry.z;
+        if (m_hasTarget)
         {
-            float t = dt * float(i);
-            float px = origin.x + vx * t;
-            float py = origin.y + vy * t + 0.5f * g * t * t;
-            float pz = origin.z + vz * t;
-            dbg.line(prevX, prevY, prevZ, px, py, pz, 1.0f, 0.85f, 0.1f); // amber arc
-            prevX = px;
-            prevY = py;
-            prevZ = pz;
-            if (py < 0.0f) { break; } // stop at the ground plane
+            Float3 from = launchPoint();
+            float g = -ScenePhysics::of(self.scene).gravity().y;
+            float drop = from.y - (m_target.y + 0.4f);
+            float flight = (vy + Math::Sqrt(vy * vy + 2.0f * g * drop)) / g;
+            if (flight > 0.05f)
+            {
+                vx += ((m_target.x - from.x) / flight - vx) * autoAim;
+                vz += ((m_target.z - from.z) / flight - vz) * autoAim;
+            }
+        }
+        return Float3(vx, vy, vz);
+    }
+
+    // The throw's path, under the scene's gravity; a ring on the zone it is pulled toward.
+    private void drawAim()
+    {
+        Float3 p = launchPoint();
+        Float3 v = launchVelocity();
+        float g = ScenePhysics::of(self.scene).gravity().y;
+        DebugDraw@ dbg = DebugDraw::of(self.scene);
+        float px = p.x;
+        float py = p.y;
+        float pz = p.z;
+        for (int i = 1; i <= 20; i++)
+        {
+            float t = 0.06f * float(i);
+            float x = p.x + v.x * t;
+            float y = p.y + v.y * t + 0.5f * g * t * t;
+            float z = p.z + v.z * t;
+            dbg.line(px, py, pz, x, y, z, 1.0f, 0.85f, 0.1f);
+            px = x;
+            py = y;
+            pz = z;
+            if (y < 0.0f)
+            {
+                break;
+            }
         }
         if (m_hasTarget)
         {
-            dbg.sphere(m_targetPos.x, m_targetPos.y, m_targetPos.z, 0.6f, 0.2f, 1.0f, 0.3f); // locked (green)
+            dbg.sphere(m_target.x, m_target.y, m_target.z, 0.8f, 0.2f, 1.0f, 0.3f);
         }
     }
 
-    // Spawn + launch a paper along the freshly-computed aim (horizontal aim + upward arc).
-    // Returns whether a paper actually spawned (the caller only consumes one on success).
     private bool throwPaper()
     {
-        computeAim();
-        Float3 pos = self.worldPosition();
-        float fx = Math::Sin(m_heading);
-        float fz = Math::Cos(m_heading);
-
-        // Spawn in front of + above the bike so the paper clears it, then launch (horizontal + arc).
-        Float3 origin = Float3(pos.x + fx, pos.y + 1.2f, pos.z + fz);
-        Entity@ paper = self.scene.spawn(kPaperPrefab, origin.x, origin.y, origin.z);
+        Entity@ paper = ScenePrefabs::of(self.scene).spawn(kPaper, launchPoint());
         if (paper is null || !paper.isValid())
         {
             return false;
         }
-        // (m_aimX, throwArc, m_aimZ) with unit horizontal -> normalize so throwImpulse is the magnitude.
-        float mag = Math::Sqrt(1.0f + throwArc * throwArc);
-        ScenePhysics::of(self.scene).applyImpulse(paper, m_aimX / mag * throwImpulse,
-                                                  throwArc / mag * throwImpulse,
-                                                  m_aimZ / mag * throwImpulse);
+        // An impulse is mass times the change in speed; the paper's mass is its rigid body's.
+        RigidBodyComponent@ body = RigidBodyComponent::of(paper);
+        float mass = (body !is null && body.mass > 0.0f) ? body.mass : 1.0f;
+        ScenePhysics::of(self.scene).applyImpulse(paper, launchVelocity() * mass);
         return true;
     }
 }
