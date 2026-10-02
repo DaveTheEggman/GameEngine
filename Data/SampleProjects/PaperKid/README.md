@@ -29,9 +29,9 @@ The feel: chiptune music on the menus and across the blocks, a sound for every t
 and crash, a jingle when a block is cleared or failed and a voice over the final screen, and a
 ticking clock in the last ten seconds ("Hurry up!" at twenty). The markers over the subscribers
 bob and their porch mats breathe, the bike leans into turns and wobbles after a crash, the camera
-shakes on a crash, and a delivery's points rise from the score. A throw is shown before it is
-made: a trail of glowing dots along the paper's path and a ring spinning on the porch it is pulled
-toward.
+shakes on a crash, and a delivery's points rise from the score. Near a subscriber, a throw is
+shown before it is made: a trail of glowing dots along the paper's path and a ring spinning on the
+porch it is pulled toward.
 
 Controls: WASD to ride and steer, Space to throw, Escape to pause; the arrows and Enter drive the
 menus. A gamepad works throughout: the left stick to ride and steer, A (cross) to throw and

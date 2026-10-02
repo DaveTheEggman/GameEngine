@@ -13,9 +13,9 @@
 //
 // The feel: the bike leans into its turns (harder the faster it goes) and wobbles while it
 // recovers from a crash; a throw and a crash each have their sound, pitched a little at random
-// so repeats do not sound the same. The throw is shown before it is made: a trail of glowing
-// dots along the path a paper would take, drifting forward, and a ring spinning on the porch the
-// throw is pulled toward (the AimDot and TargetRing prefabs, spawned once and moved each frame).
+// so repeats do not sound the same. Near a subscriber, the throw is shown before it is made: a
+// trail of glowing dots along the path a paper would take, drifting forward, and a ring spinning
+// on the porch the throw is pulled toward (the AimDot and TargetRing prefabs, spawned once and moved each frame).
 
 Guid kPaper = Guid("6aa57026-4f4a-44ae-835d-2d2905746210");
 Guid kAimDot = Guid("97e1822e-5d3c-49ed-8beb-27fbad532ec7");
@@ -270,9 +270,15 @@ class Bike
 
     // The throw's path, under the scene's gravity: a dot every kAimStep seconds of flight, the
     // row drifting forward one step each half second and shrinking toward its end, stopped where
-    // the path meets the ground. The ring sits on the zone the throw is pulled toward.
+    // the path meets the ground. The ring sits on the zone the throw is pulled toward. Both show
+    // only while a subscriber is in reach, so the road stays clear between houses.
     private void placeGuides()
     {
+        if (!m_hasTarget)
+        {
+            hideGuides();
+            return;
+        }
         Float3 p = launchPoint();
         Float3 v = launchVelocity();
         float g = ScenePhysics::of(self.scene).gravity().y;
@@ -295,11 +301,6 @@ class Bike
         }
         if (m_ring is null || !m_ring.isValid())
         {
-            return;
-        }
-        if (!m_hasTarget)
-        {
-            m_ring.setActive(false);
             return;
         }
         m_ring.setActive(true);
