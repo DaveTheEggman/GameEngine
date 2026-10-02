@@ -12,6 +12,13 @@
 
 ## Queued 2026-10-02 (user, PaperKid)
 
+- **The DDS test's UBSAN report** (user 2026-10-02: "I keep forgetting to look at it"): every
+  ASAN lane prints `DdsTests.cpp:109: shift exponent 32 is too large for 32-bit type 'u32'`. It
+  is the test's own `BitWriter::Put`, not the DDS reader: `Put(0, 15 * 4)` (line 129, the BC7
+  block's 15 index fields) writes 60 bits of a `u32` value, and `(value >> i)` runs `i` past 31.
+  The bits written are right (the value is 0), but the shift is undefined. Fix: write the wide
+  zero field in pieces of at most 32 bits, or take no bit of `value` past bit 31, then drop the
+  line from the known-noise list in the verification lanes.
 - **`Entity.worldPosition()` is a frame old inside `onUpdate`**: the script facade reads the
   cached world matrix (`ScriptFacades.cppm`, `worldPosition`), and `Scene::Update` refreshes
   world matrices only after every script has run (`SceneImpl.cpp`, `UpdateTransforms`), while
