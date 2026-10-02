@@ -12,6 +12,15 @@
 
 ## Queued 2026-10-02 (user, PaperKid)
 
+- **`Entity.worldPosition()` is a frame old inside `onUpdate`**: the script facade reads the
+  cached world matrix (`ScriptFacades.cppm`, `worldPosition`), and `Scene::Update` refreshes
+  world matrices only after every script has run (`SceneImpl.cpp`, `UpdateTransforms`), while
+  physics interpolation has already written this frame's pose into the local transform. A
+  chase camera following `worldPosition()` aims one frame behind what it draws, so a fast
+  target shakes against it as frame times vary (PaperKid's bike, fixed in the game by reading
+  the root's local `position()`; Sky Hopper's `FollowCamera.as` reads `worldPosition()` too).
+  Options: compute the world pose from the local chain on demand, mark world matrices dirty
+  when a local changes, or a late-update hook for cameras. Check what Sedulous does first.
 - **TAA jitter in the player**: PaperKid's Start scene (aaMode TAA, auto exposure, bloom) is
   visibly jittery in the player and not, or far less, in the editor's Game tab (user,
   2026-10-02, Debug player from the project folder). Unexplained yet. Rule out first: the
