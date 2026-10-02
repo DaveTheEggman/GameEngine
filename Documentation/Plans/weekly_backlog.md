@@ -12,6 +12,25 @@
 
 ## Queued 2026-10-02 (user, PaperKid)
 
+- **TAA jitter in the player**: PaperKid's Start scene (aaMode TAA, auto exposure, bloom) is
+  visibly jittery in the player and not, or far less, in the editor's Game tab (user,
+  2026-10-02, Debug player from the project folder). Unexplained yet. Rule out first: the
+  player runs the Vulkan validation layer regardless of `--no-gpu-validation` (next item), so
+  its frame rate differs from the editor's; the time scale is 0 behind the title menu, so
+  check the jitter sequence and history reprojection when gameplay time is frozen but frames
+  still render; and compare the jitter offsets the two hosts feed for the same render size.
+- **The player ignores `--no-gpu-validation`**: `graphics::ApplyValidationArguments`
+  (`Graphics.cppm`) says every executable that creates a device should run its arguments
+  through it; only `Tools.Editor/Main.cpp` does, so a Debug player always runs the Vulkan
+  layer and its frame times are not comparable with the editor's.
+- **`run::loadScene` misses scenes in a project-folder player**: run on a project folder,
+  the player keeps authored scenes in its source database and hands DefaultApplication only
+  the cooked one (`PlayerApplication.h`, `m_sceneDb` vs `SetContentDatabase(m_contentDb)`),
+  so the script's `loadScene` / `loadSceneAsync` (and the prefab spawner and network prefab
+  lookups that share that database) find no scene and return false without a log line.
+  PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
+  give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
+  log a failed load. Check what Sedulous's player does first.
 - **pie_screenshot hides a downscaled Game tab**: the Game tab draws the game at its chosen
   resolution into the panel's fitted rectangle (`GamePageImpl.cpp` OnRenderWindow), and the
   capture is resampled back up to that resolution (`ScreenshotCapture.cppm`, `m_outputWidth`).
