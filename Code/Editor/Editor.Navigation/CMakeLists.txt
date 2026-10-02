@@ -5,9 +5,7 @@
 util_add_engine_library(Editor.Navigation ALIAS Editor::Navigation)
 target_link_libraries(Editor.Navigation PUBLIC
     Foundation::Core Foundation::Scene Foundation::Content
-    Foundation::Geometry Engine::Render
     Foundation::Navigation Foundation::Navigation.Resource Editor::Core Foundation::Settings
-    Foundation::Heightfield Foundation::Terrain.Resource Engine::Terrain
     Engine::Navigation Pipeline::Navigation Foundation::Policy)
 target_sources(Editor.Navigation
     PRIVATE

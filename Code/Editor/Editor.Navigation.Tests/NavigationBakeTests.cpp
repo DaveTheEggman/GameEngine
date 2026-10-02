@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Editor navigation bake: a scene with a ground mesh + a zone -> collect the in-zone geometry in
-// zone-local space -> Recast bake -> write the NavigationZoneAsset sidecar. The written blob loads
+// Editor navigation bake: a scene with a static ground body + a zone -> collect the in-zone static
+// geometry in zone-local space -> Recast bake -> write the NavigationZoneAsset sidecar. The written blob loads
 // back into a NavigationMesh and paths, proving the whole author-side chain end to end (headless).
 
 #include <doctest/doctest.h>
@@ -15,6 +15,8 @@ import foundation.resource;
 import foundation.scene;
 import foundation.geometry;
 import engine.render;
+import engine.physics;
+import foundation.physics;
 import engine.navigation;
 import engine.terrain;
 import foundation.terrain.resource;
@@ -49,18 +51,20 @@ namespace
         (void)RemoveDirectory(root);
     }
 
-    RefPtr<geometry::StaticMesh> GroundMesh()
+    // A wall-like render mesh across the zone (x 0, z -15..15, 3 m high), both faces: it blocks
+    // nothing, since render meshes are not level geometry.
+    RefPtr<geometry::StaticMesh> WallMesh()
     {
         RefPtr<geometry::StaticMesh> mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
-        const Float3 corners[] = {{-10, 0, -10}, {10, 0, -10}, {10, 0, 10}, {-10, 0, 10}};
+        const Float3 corners[] = {{0, 0, -15}, {0, 3, -15}, {0, 3, 15}, {0, 0, 15}};
         for (const Float3& p : corners)
         {
             geometry::StaticMeshVertex v;
             v.position = p;
-            v.normal = Float3{0, 1, 0};
+            v.normal = Float3{1, 0, 0};
             mesh->vertices.PushBack(v);
         }
-        const u32 tris[] = {0, 3, 2, 0, 2, 1}; // +Y winding
+        const u32 tris[] = {0, 1, 2, 0, 2, 3, 0, 2, 1, 0, 3, 2};
         mesh->indices.Resize(sizeof(tris) / sizeof(tris[0])); // Add writes into a sized buffer
         for (u32 i : tris)
         {
@@ -70,28 +74,46 @@ namespace
         return mesh;
     }
 
-    // A UNIT (1x1) ground quad centered at the origin. Meant to be scaled up by its entity - the
-    // case where the zone shares that scaled entity, so the bake frame must strip the scale.
-    RefPtr<geometry::StaticMesh> UnitGroundMesh()
+    // Collect the zone's static geometry and bake it with the zone's parameters (empty = nothing
+    // to bake, or Recast found no walkable surface).
+    Array<byte> BakeCollected(scene::Scene& sceneObj, scene::EntityHandle zoneEntity, usize& outTriangles)
     {
-        RefPtr<geometry::StaticMesh> mesh = MakeRef<geometry::StaticMesh>(DefaultAllocator());
-        const Float3 corners[] = {{-0.5f, 0, -0.5f}, {0.5f, 0, -0.5f}, {0.5f, 0, 0.5f},
-                                  {-0.5f, 0, 0.5f}};
-        for (const Float3& p : corners)
+        const engine::navigation::NavMeshZoneComponent& z =
+            *sceneObj.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Get(zoneEntity);
+        Array<Float3> verts;
+        Array<u32> indices;
+        outTriangles = editor::navigation::CollectNavigationGeometry(
+            sceneObj, zoneEntity, z.extents, z.cellSize, verts, indices);
+
+        Array<byte> blob;
+        if (outTriangles > 0)
         {
-            geometry::StaticMeshVertex v;
-            v.position = p;
-            v.normal = Float3{0, 1, 0};
-            mesh->vertices.PushBack(v);
+            NavigationBakeParams params;
+            params.cellSize = z.cellSize;
+            params.cellHeight = z.cellHeight;
+            params.agentRadius = z.agentRadius;
+            params.agentHeight = z.agentHeight;
+            params.agentMaxClimb = z.agentMaxClimb;
+            params.agentMaxSlopeDegrees = z.agentMaxSlopeDegrees;
+            (void)NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
+                                               Span<const u32>{indices.Data(), indices.Size()},
+                                               params, blob);
         }
-        const u32 tris[] = {0, 3, 2, 0, 2, 1}; // +Y winding
-        mesh->indices.Resize(sizeof(tris) / sizeof(tris[0]));
-        for (u32 i : tris)
-        {
-            mesh->indices.Add(i);
-        }
-        mesh->CalculateBounds();
-        return mesh;
+        return blob;
+    }
+
+    // A box rigid body: what the bake reads when it is static and solid.
+    scene::EntityHandle AddBody(scene::Scene& sceneObj, StringView name, Float3 position, Float3 half,
+                                foundation::physics::MotionKind motion, bool trigger = false)
+    {
+        scene::EntityHandle e = sceneObj.CreateEntity(name);
+        sceneObj.SetLocalPosition(e, position);
+        engine::physics::RigidBodyComponent& body =
+            sceneObj.GetSystem<engine::physics::RigidBodyComponentManager>()->Add(e);
+        body.motion = motion;
+        body.halfExtents = half;
+        body.isTrigger = trigger;
+        return e;
     }
 
     // An in-memory terrain over a 65x65 heightfield (the smallest legal grid): heights come
@@ -134,26 +156,7 @@ namespace
         z.extents = zoneExtents;
         sceneObj.UpdateTransforms();
 
-        Array<Float3> verts;
-        Array<u32> indices;
-        outTriangles = editor::navigation::CollectNavigationGeometry(
-            sceneObj, zoneEntity, z.extents, z.cellSize, verts, indices);
-
-        Array<byte> blob;
-        if (outTriangles > 0)
-        {
-            NavigationBakeParams params;
-            params.cellSize = z.cellSize;
-            params.cellHeight = z.cellHeight;
-            params.agentRadius = z.agentRadius;
-            params.agentHeight = z.agentHeight;
-            params.agentMaxClimb = z.agentMaxClimb;
-            params.agentMaxSlopeDegrees = z.agentMaxSlopeDegrees;
-            (void)NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
-                                               Span<const u32>{indices.Data(), indices.Size()},
-                                               params, blob);
-        }
-        return blob;
+        return BakeCollected(sceneObj, zoneEntity, outTriangles);
     }
 
     bool PathAcross(Span<const byte> blob, Float3 from, Float3 to)
@@ -181,15 +184,12 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
         db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
     REQUIRE(assetInstance != nullptr);
 
-    // Scene: a ground mesh at the origin + a zone entity that covers it.
+    // Scene: a static ground slab at the origin (its top at y 0) + a zone entity that covers it.
     scene::Scene sceneObj(DefaultAllocator(), u8"bake");
     engine::navigation::AddNavigationSceneManagers(sceneObj);
-    auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
-
-    RefPtr<geometry::StaticMesh> ground = GroundMesh();
-    scene::EntityHandle groundEntity = sceneObj.CreateEntity(u8"ground");
-    engine::render::MeshComponent& mc = meshes->Add(groundEntity);
-    mc.mesh = foundation::resource::Ref<geometry::StaticMesh>(ground);
+    sceneObj.AddSystem<engine::physics::RigidBodyComponentManager>();
+    (void)AddBody(sceneObj, u8"ground", Float3{0, -0.5f, 0}, Float3{10, 0.5f, 10},
+                  foundation::physics::MotionKind::Static);
 
     scene::EntityHandle zoneEntity = sceneObj.CreateEntity(u8"zone");
     engine::navigation::NavMeshZoneComponent& z =
@@ -198,10 +198,10 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
 
     sceneObj.UpdateTransforms();
 
-    // Bake: collect the ground triangles (2) and write the navmesh into the asset sidecar.
+    // Bake: collect the slab's triangles (a box: 12) and write the navmesh into the asset sidecar.
     const editor::navigation::BakeResult result =
         editor::navigation::BakeNavigationZone(sceneObj, zoneEntity, *assetInstance);
-    CHECK(result.triangleCount == 2u);
+    CHECK(result.triangleCount == 12u);
     CHECK(result.baked);
 
     // The written asset carries a navmesh (in the sidecar) that loads and paths.
@@ -245,13 +245,12 @@ TEST_CASE("editor.navigation: bake succeeds when the zone shares a SCALED entity
 
     scene::Scene sceneObj(DefaultAllocator(), u8"bake_scaled");
     engine::navigation::AddNavigationSceneManagers(sceneObj);
-    auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
+    sceneObj.AddSystem<engine::physics::RigidBodyComponentManager>();
 
-    // ONE entity carries both the (unit) ground mesh and the zone, scaled up 20x in X/Z.
-    RefPtr<geometry::StaticMesh> ground = UnitGroundMesh();
-    scene::EntityHandle entity = sceneObj.CreateEntity(u8"ground_zone");
-    engine::render::MeshComponent& mc = meshes->Add(entity);
-    mc.mesh = foundation::resource::Ref<geometry::StaticMesh>(ground);
+    // ONE entity carries both the ground slab and the zone, scaled up 20x in X/Z (a primitive
+    // body keeps its world size, as physics builds it; the frame must not shrink it).
+    scene::EntityHandle entity = AddBody(sceneObj, u8"ground_zone", Float3{0, 0, 0},
+                                         Float3{10, 0.5f, 10}, foundation::physics::MotionKind::Static);
 
     engine::navigation::NavMeshZoneComponent& z =
         sceneObj.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(entity);
@@ -264,8 +263,8 @@ TEST_CASE("editor.navigation: bake succeeds when the zone shares a SCALED entity
 
     const editor::navigation::BakeResult result =
         editor::navigation::BakeNavigationZone(sceneObj, entity, *assetInstance);
-    CHECK(result.triangleCount == 2u); // the unit plane's world bounds (20x20) intersect the zone
-    CHECK(result.baked);               // fails without RigidPart: the unit-size plane erodes away
+    CHECK(result.triangleCount == 12u); // the slab's box
+    CHECK(result.baked);                // fails without RigidPart: the geometry shrinks 20x and erodes away
 
     RemoveTree(u8"scratch_navbake_scaled_db");
 }
@@ -343,4 +342,48 @@ TEST_CASE("editor.navigation: a too-steep terrain wall splits the navmesh")
     // Each plateau itself remains walkable.
     CHECK(PathAcross(Span<const byte>(blob.Data(), blob.Size()), Float3{-10, 1, 0},
                      Float3{-3, 1, 6}));
+}
+
+// The regression this source rule exists for: the bake read every render mesh, so a car or a
+// walker standing in a zone baked a hole in the road under itself (PaperKid, 2026-10-02). Only
+// static, solid bodies are level geometry: dynamic and kinematic bodies, triggers and bare render
+// meshes across the floor leave the path open; a static wall in the same place cuts it.
+TEST_CASE("editor.navigation: only static, solid bodies are baked; what moves and bare meshes are not")
+{
+    const auto bake = [](bool staticWall, usize& triangles)
+    {
+        scene::Scene sceneObj(DefaultAllocator(), u8"bake_movers");
+        engine::navigation::AddNavigationSceneManagers(sceneObj);
+        sceneObj.AddSystem<engine::physics::RigidBodyComponentManager>();
+        auto* meshes = sceneObj.AddSystem<engine::render::MeshComponentManager>();
+        using foundation::physics::MotionKind;
+        (void)AddBody(sceneObj, u8"ground", Float3{0, -0.5f, 0}, Float3{10, 0.5f, 10}, MotionKind::Static);
+        // Across the middle, x 0: a car, a lift, a trigger, and a wall that is only a mesh.
+        (void)AddBody(sceneObj, u8"car", Float3{0, 1, -5}, Float3{1, 1, 2}, MotionKind::Dynamic);
+        (void)AddBody(sceneObj, u8"lift", Float3{0, 1, 0}, Float3{1, 1, 2}, MotionKind::Kinematic);
+        (void)AddBody(sceneObj, u8"porch", Float3{0, 1, 5}, Float3{1, 1, 2}, MotionKind::Static, true);
+        RefPtr<geometry::StaticMesh> wall = WallMesh();
+        meshes->Add(sceneObj.CreateEntity(u8"mesh wall")).mesh = foundation::resource::Ref<geometry::StaticMesh>(wall);
+        if (staticWall)
+        {
+            (void)AddBody(sceneObj, u8"wall", Float3{0, 1.5f, 0}, Float3{0.5f, 1.5f, 15}, MotionKind::Static);
+        }
+        scene::EntityHandle zoneEntity = sceneObj.CreateEntity(u8"zone");
+        sceneObj.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(zoneEntity).extents =
+            Float3{15, 10, 15};
+        sceneObj.UpdateTransforms();
+        return BakeCollected(sceneObj, zoneEntity, triangles);
+    };
+
+    usize triangles = 0;
+    Array<byte> open = bake(false, triangles);
+    CHECK(triangles == 12u); // the ground's box, nothing else
+    REQUIRE(!open.IsEmpty());
+    CHECK(PathAcross(Span<const byte>{open.Data(), open.Size()}, Float3{-8, 0, 0}, Float3{8, 0, 0}));
+    CHECK(PathAcross(Span<const byte>{open.Data(), open.Size()}, Float3{-8, 0, -5}, Float3{8, 0, -5}));
+
+    Array<byte> walled = bake(true, triangles);
+    CHECK(triangles == 24u); // the ground and the wall
+    REQUIRE(!walled.IsEmpty());
+    CHECK_FALSE(PathAcross(Span<const byte>{walled.Data(), walled.Size()}, Float3{-8, 0, 0}, Float3{8, 0, 0}));
 }

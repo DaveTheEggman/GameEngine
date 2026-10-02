@@ -3,9 +3,8 @@
 
 // Editor::Navigation - implementation unit.
 //
-// The bake logic + its heavy imports (engine.render for MeshComponent, geometry for StaticMesh,
-// navigation.pipeline for the asset write) live HERE, out of the interface (GCC gcm-cluster
-// hygiene). See NavigationBake.cppm for the surface.
+// The bake logic + its heavy imports (navigation.pipeline for the asset write) live HERE, out of
+// the interface (GCC gcm-cluster hygiene). See NavigationBake.cppm for the surface.
 
 module;
 #include "Core/Prelude.h"
@@ -16,11 +15,6 @@ module editor.navigation;
 import foundation.core;
 import foundation.scene;
 import foundation.content;
-import foundation.geometry;
-import foundation.heightfield;
-import foundation.terrain.resource;
-import engine.render;
-import engine.terrain;
 import engine.navigation;
 import foundation.navigation;
 import foundation.navigation.resource;
@@ -33,24 +27,6 @@ using namespace foundation::core;
 namespace editor::navigation
 {
     namespace nav = foundation::navigation;
-    namespace geometry = foundation::geometry;
-
-    namespace
-    {
-        // World-space AABB of a local-space AABB under a transform (all 8 corners).
-        [[nodiscard]] AABB WorldBounds(const AABB& local, const Float4x4& world)
-        {
-            AABB out = AABB::Empty();
-            for (int i = 0; i < 8; ++i)
-            {
-                const Float3 corner{(i & 1) ? local.max.x : local.min.x,
-                                    (i & 2) ? local.max.y : local.min.y,
-                                    (i & 4) ? local.max.z : local.min.z};
-                out.Expand(TransformPoint(corner, world));
-            }
-            return out;
-        }
-    }
 
     void RegisterNavigationEditorSettingsTypes()
     {
@@ -106,136 +82,29 @@ namespace editor::navigation
         // not warp the geometry Recast sees. A zone sharing a scaled entity with its ground would
         // otherwise un-scale that ground to unit size and erode the navmesh to nothing. The
         // runtime places the navmesh with the matching rigid frame (RuntimeZone.world).
-        const Float4x4 zoneWorld = RigidPart(scene.GetWorldMatrix(zoneEntity));
-        const Float4x4 zoneInv = Inverse(zoneWorld);
+        const Float4x4 zoneInv = Inverse(RigidPart(scene.GetWorldMatrix(zoneEntity)));
         const AABB zoneBox =
             AABB::FromCenterExtents(scene.GetWorldPosition(zoneEntity), zoneExtents);
 
-        auto* meshes = scene.GetSystem<engine::render::MeshComponentManager>();
-        if (meshes != nullptr)
-        meshes->ForEach(
-            [&](engine::render::MeshComponent& c, scene::EntityHandle entity)
+        // The level geometry is what the scene's systems say is static and solid (physics: its
+        // static, non-trigger bodies; terrain: its surface), never every mesh: an agent, a car or
+        // a dropped prop moves, and baking it would leave a hole where it stood. Sampled surfaces
+        // come no finer than the cell size - Recast re-voxelizes to its own cells anyway.
+        Array<Float3> world;
+        scene.ForEachSystem(
+            [&](scene::SceneSystem& system)
             {
-                geometry::StaticMesh* mesh = c.mesh.Get();
-                if (mesh == nullptr || mesh->VertexCount() == 0 || mesh->IndexCount() == 0)
+                if (scene::IStaticGeometrySource* source = system.AsStaticGeometrySource())
                 {
-                    return;
-                }
-                const Float4x4 meshWorld = scene.GetWorldMatrix(entity);
-                if (!WorldBounds(mesh->bounds, meshWorld).Intersects(zoneBox))
-                {
-                    return;
-                }
-                const u32 base = static_cast<u32>(outVertices.Size());
-                for (const geometry::StaticMeshVertex& v : mesh->vertices)
-                {
-                    const Float3 world = TransformPoint(v.position, meshWorld);
-                    outVertices.PushBack(TransformPoint(world, zoneInv)); // -> zone-local
-                }
-                const u32 indexCount = mesh->IndexCount();
-                for (u32 i = 0; i < indexCount; ++i)
-                {
-                    outIndices.PushBack(base + mesh->indices.Get(i));
+                    source->CollectStaticGeometry(scene, zoneBox, cellSize, world);
                 }
             });
-
-        // Terrain: triangulate the shared heightfield surface (the same grid physics collides
-        // against) inside the zone box, so agents can walk on terrain. Sampled no finer than
-        // the zone's cell size - Recast re-voxelizes anyway.
-        auto* terrains = scene.GetSystem<engine::terrain::TerrainComponentManager>();
-        if (terrains != nullptr)
+        outVertices.Reserve(world.Size());
+        outIndices.Reserve(world.Size());
+        for (const Float3& p : world)
         {
-            terrains->ForEach(
-                [&](engine::terrain::TerrainComponent& c, scene::EntityHandle entity)
-                {
-                    foundation::terrain::TerrainResource* terrain = c.terrain.Get();
-                    foundation::heightfield::Heightfield* field =
-                        (terrain != nullptr) ? terrain->heightfield.Get() : nullptr;
-                    if (field == nullptr || field->Size() < 2)
-                    {
-                        return;
-                    }
-                    const Float4x4 terrainWorld = scene.GetWorldMatrix(entity);
-                    const Float2 footprint = field->WorldSize();
-                    const AABB localBox{
-                        Float3{-footprint.x * 0.5f, field->MinY(), -footprint.y * 0.5f},
-                        Float3{footprint.x * 0.5f, field->MaxY(), footprint.y * 0.5f}};
-                    if (!WorldBounds(localBox, terrainWorld).Intersects(zoneBox))
-                    {
-                        return;
-                    }
-
-                    // The zone box in terrain-local space bounds the grid range to triangulate.
-                    const AABB zoneLocal = WorldBounds(zoneBox, Inverse(terrainWorld));
-                    const i32 last = field->Size() - 1;
-                    const Float2 g0 = field->WorldToGrid(zoneLocal.min.x, zoneLocal.min.z);
-                    const Float2 g1 = field->WorldToGrid(zoneLocal.max.x, zoneLocal.max.z);
-                    const i32 x0 = Clamp(static_cast<i32>(Floor(g0.x)), 0, last);
-                    const i32 z0 = Clamp(static_cast<i32>(Floor(g0.y)), 0, last);
-                    const i32 x1 = Clamp(static_cast<i32>(Ceil(g1.x)), 0, last);
-                    const i32 z1 = Clamp(static_cast<i32>(Ceil(g1.y)), 0, last);
-                    if (x1 <= x0 || z1 <= z0)
-                    {
-                        return;
-                    }
-
-                    const f32 spacing = footprint.x / static_cast<f32>(last);
-                    const i32 stride =
-                        Max(1, static_cast<i32>(cellSize / Max(spacing, 0.0001f)));
-
-                    // Sample coordinates along each axis (stride steps, last row/column always
-                    // included so the surface reaches the zone edge).
-                    Array<i32> xs;
-                    Array<i32> zs;
-                    for (i32 gx = x0; gx < x1; gx += stride)
-                    {
-                        xs.PushBack(gx);
-                    }
-                    xs.PushBack(x1);
-                    for (i32 gz = z0; gz < z1; gz += stride)
-                    {
-                        zs.PushBack(gz);
-                    }
-                    zs.PushBack(z1);
-
-                    const u32 base = static_cast<u32>(outVertices.Size());
-                    for (i32 gz : zs)
-                    {
-                        for (i32 gx : xs)
-                        {
-                            const Float2 xz =
-                                field->GridToWorld(static_cast<f32>(gx), static_cast<f32>(gz));
-                            const Float3 local{xz.x, field->GetHeightAtGrid(gx, gz), xz.y};
-                            const Float3 world = TransformPoint(local, terrainWorld);
-                            outVertices.PushBack(TransformPoint(world, zoneInv));
-                        }
-                    }
-                    const u32 columns = static_cast<u32>(xs.Size());
-                    for (u32 row = 0; row + 1 < static_cast<u32>(zs.Size()); ++row)
-                    {
-                        for (u32 col = 0; col + 1 < columns; ++col)
-                        {
-                            // A hole anywhere in this block (the stride square, interior included)
-                            // is no walkable surface: the block's two triangles are left out, so
-                            // the navmesh opens there and agents route around it.
-                            if (field->BlockHasHole(xs[col], zs[row], xs[col + 1], zs[row + 1]))
-                            {
-                                continue;
-                            }
-                            const u32 v00 = base + row * columns + col;
-                            const u32 v10 = v00 + 1;
-                            const u32 v01 = v00 + columns;
-                            const u32 v11 = v01 + 1;
-                            // +Y face normals (Recast's walkable filter keys on them).
-                            outIndices.PushBack(v00);
-                            outIndices.PushBack(v01);
-                            outIndices.PushBack(v11);
-                            outIndices.PushBack(v00);
-                            outIndices.PushBack(v11);
-                            outIndices.PushBack(v10);
-                        }
-                    }
-                });
+            outIndices.PushBack(static_cast<u32>(outVertices.Size()));
+            outVertices.PushBack(TransformPoint(p, zoneInv)); // -> zone-local
         }
         return outIndices.Size() / 3u;
     }
@@ -248,12 +117,13 @@ namespace editor::navigation
         }
         if (result.triangleCount == 0)
         {
-            // Nothing was collected: the zone box did not overlap any static mesh. The bake only
-            // gathers Mesh (StaticMesh) geometry whose world bounds intersect the zone AABB
-            // (centered on the zone's entity, sized by Extents).
-            return String(u8"No mesh geometry inside the zone box. Check the zone's Extents cover "
-                          u8"your floor, that the floor entity has a Mesh component, and that the "
-                          u8"zone is placed over it (only static Mesh geometry is collected).");
+            // Nothing was collected: no static geometry touched the zone box (centered on the
+            // zone's entity, sized by Extents). Render meshes are not read, so a floor that is
+            // only a mesh, with no static body, gives nothing.
+            return String(u8"No static geometry inside the zone box. Check the zone's Extents cover "
+                          u8"your floor, that the floor has a static, non-trigger Rigid Body (or is a "
+                          u8"terrain), and that the zone is placed over it. Render meshes are not "
+                          u8"read: what agents walk on and avoid is what the physics collides with.");
         }
         // Geometry was collected but Recast produced no walkable surface: the agent and cell
         // parameters did not fit the geometry.

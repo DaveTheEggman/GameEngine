@@ -3,12 +3,13 @@
 
 // Editor::Navigation - the `editor.navigation` module (interface).
 //
-// The "Bake Navigation" flow: collect every
-// static mesh whose world AABB intersects a zone's box, transform its triangles into ZONE-LOCAL
+// The "Bake Navigation" flow: collect the scene's static geometry touching a zone's box (what its
+// systems answer through AsStaticGeometrySource: physics' static, solid bodies, terrain's surface;
+// never render meshes, which include whatever moves), transform its triangles into ZONE-LOCAL
 // space (so the baked navmesh rides the zone entity's transform to any placement without a
 // rebake), run the Recast bake, and write the result into the zone's NavigationZoneAsset sidecar.
 //
-// This interface stays LEAN: the heavy imports (engine.render, geometry, navigation.pipeline) and
+// This interface stays LEAN: the heavy imports (navigation.pipeline) and
 // the bake logic live in NavigationBakeImpl.cpp (GCC module hygiene - heavy interface units blow
 // up the gcm cluster). Signatures speak only scene + content + core types. Editor-only; the
 // player never links this.
@@ -54,11 +55,12 @@ export namespace editor::navigation
     // The live toggle value (defaults apply when no store is wired - headless/tests).
     [[nodiscard]] bool ParallelBakeEnabled(const editor::EditorContext& context);
 
-    // Collect the triangle soup (in the zone entity's LOCAL space) for a bake: every MeshComponent
-    // whose world bounds intersect the zone box contributes its triangles, and every terrain's
-    // heightfield surface inside the box triangulates in (sampled no finer than `cellSize` -
-    // Recast re-voxelizes to its own cells, so feeding denser grids is pure waste). Returns the
-    // triangle count (0 = nothing to bake).
+    // Collect the triangles (in the zone entity's LOCAL space) for a bake: every scene system's
+    // static geometry touching the zone box (physics: static, non-trigger bodies on active
+    // entities; terrain: its surface, sampled no finer than `cellSize` - Recast re-voxelizes to its
+    // own cells, so feeding denser grids is pure waste). What moves (agents, dynamic and kinematic
+    // bodies, characters) and bare render meshes are not level geometry. Returns the triangle
+    // count (0 = nothing to bake).
     [[nodiscard]] usize CollectNavigationGeometry(scene::Scene& scene, scene::EntityHandle zoneEntity,
                                                   Float3 zoneExtents, f32 cellSize,
                                                   Array<Float3>& outVertices,
