@@ -8,8 +8,11 @@
 #include <doctest/doctest.h>
 
 #include "Core/Prelude.h"
+#include <atomic>
 #include <cmath>
 #include <cstdio>
+#include <thread>
+#include <vector>
 
 import foundation.core;
 import foundation.physics;
@@ -1124,4 +1127,48 @@ TEST_CASE("physics: a dynamic body over a FLAT convex hull gets a solid-box mass
     Quaternion rotation;
     world.GetBodyTransform(body, position, rotation);
     CHECK(position.y < 4.9f); // it falls: a dynamic body, mass invented, collision real
+}
+
+// Jolt's process-wide bring-up is shared by every world and every cook. The cook driver cooks
+// collision shapes on parallel job workers with no world alive: each cook acquires Jolt, and
+// none may use it before the first has finished registering it (a shared build lost that race
+// and cooked with a null allocator - Sky Hopper's platforms, in Integration.Mcp).
+TEST_CASE("physics: triangle meshes cook in parallel with no world keeping Jolt up")
+{
+    const Float3 positions[] = {
+        {-2.0f, 0.0f, -2.0f},
+        {-2.0f, 0.0f, 2.0f},
+        {2.0f, 0.0f, 2.0f},
+        {2.0f, 0.0f, -2.0f},
+    };
+    const u32 indices[] = {0, 1, 3, 1, 2, 3};
+    std::atomic<int> cooked{0};
+    std::atomic<bool> go{false};
+    std::vector<std::thread> threads;
+    for (int t = 0; t < 8; ++t)
+    {
+        threads.emplace_back(
+            [&]()
+            {
+                while (!go.load()) // all at once: the bring-up is where they collide
+                {
+                }
+                for (int i = 0; i < 25; ++i)
+                {
+                    Array<byte> blob;
+                    if (CookTriangleMesh(Span<const Float3>(positions, 4), Span<const u32>(indices, 6),
+                                         Span<const u32>{}, blob) &&
+                        !blob.IsEmpty())
+                    {
+                        cooked.fetch_add(1);
+                    }
+                }
+            });
+    }
+    go.store(true);
+    for (std::thread& thread : threads)
+    {
+        thread.join();
+    }
+    CHECK(cooked.load() == 8 * 25);
 }

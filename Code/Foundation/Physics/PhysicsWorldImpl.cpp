@@ -234,11 +234,16 @@ namespace foundation::physics
             }
         }
 
-        // Process-wide Jolt bring-up (allocator/factory/types), refcounted across worlds.
-        Atomic<i32> g_joltUsers{0};
+        // Process-wide Jolt bring-up (allocator/factory/types), refcounted across worlds and
+        // cooks. Under a lock, not a bare counter: parallel cooks (the cook driver builds on job
+        // workers) each acquire, and a second caller must not use Jolt before the first has
+        // finished registering it - nor a release tear it down under a caller still acquiring.
+        Mutex g_joltMutex;
+        i32 g_joltUsers = 0;
         void AcquireJolt()
         {
-            if (g_joltUsers.fetch_add(1) == 0)
+            ScopedLock lock(g_joltMutex);
+            if (g_joltUsers++ == 0)
             {
                 JPH::RegisterDefaultAllocator();
                 JPH::Factory::sInstance = new JPH::Factory();
@@ -247,7 +252,8 @@ namespace foundation::physics
         }
         void ReleaseJolt()
         {
-            if (g_joltUsers.fetch_sub(1) == 1)
+            ScopedLock lock(g_joltMutex);
+            if (--g_joltUsers == 0)
             {
                 JPH::UnregisterTypes();
                 delete JPH::Factory::sInstance;
