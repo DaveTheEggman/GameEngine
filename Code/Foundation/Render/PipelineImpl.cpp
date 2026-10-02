@@ -1311,6 +1311,20 @@ namespace foundation::render
             {
                 r->SetPickPasses(pickPasses);
             }
+            // Each view draws its own cascades from its scene's caster list.
+            u32 casterDraws = 0;
+            for (usize i = 0; i < m_views.ActiveCount(); ++i)
+            {
+                if (m_viewSceneIndex[i] != ~0u)
+                {
+                    casterDraws +=
+                        static_cast<u32>(m_sceneShadowPool[m_viewSceneIndex[i]]->casters.Size());
+                }
+            }
+            for (Renderer* r : m_registry->Unique())
+            {
+                r->SetShadowCasterDraws(casterDraws);
+            }
             // Reflection probes (multi-probe): upload this frame's records + bind the prefiltered cube-
             // array (t8) + the probe-metadata SRV (t9) + count. The forward loops + blends them. 0 -> no probe.
             if (m_probeSystem != nullptr && m_probeSystem->ActiveCount() > 0)

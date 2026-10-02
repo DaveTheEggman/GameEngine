@@ -328,6 +328,12 @@ export namespace foundation::render
         // capture faces). Called before PrepareFrame.
         virtual void SetPickPasses(u32 passes) { (void)passes; }
 
+        // The shadow passes' draws this frame: for each view, its scene's caster count (every
+        // cascade and local tile of that view draws from it). Casters are camera-independent, so
+        // they can far outnumber the view's own draws; per-object rings must hold them too.
+        // Called before PrepareFrame.
+        virtual void SetShadowCasterDraws(u32 draws) { (void)draws; }
+
         // This frame's reflection probes: the prefiltered cube-ARRAY (set-0 t8) + the probe-metadata SRV (t9)
         // + the active probe count (the forward loops Probes[0..count]). null => no probes. Called once per
         // frame before PrepareFrame. Default no-op.
