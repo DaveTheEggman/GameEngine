@@ -70,13 +70,24 @@ export namespace engine::terrain
 
     class TerrainComponentManager final
         : public foundation::scene::SerializableComponentManager<TerrainComponent>,
-          public render::IRenderDataProvider
+          public render::IRenderDataProvider,
+          public foundation::scene::IStaticGeometrySource
     {
     public:
         TerrainComponentManager()
             : SerializableComponentManager<TerrainComponent>(u8"terrain")
         {
         }
+
+        /// A terrain is level ground: its surface (holes left open) is static geometry, sampled no
+        /// finer than `detail`, so navigation walks it whether or not a heightfield collider
+        /// covers it too (the same surface twice rasterizes the same).
+        [[nodiscard]] foundation::scene::IStaticGeometrySource* AsStaticGeometrySource() noexcept override
+        {
+            return this;
+        }
+        void CollectStaticGeometry(scene::Scene& scene, const AABB& bounds, f32 detail,
+                                   Array<Float3>& outTriangles) override;
 
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return false; }
