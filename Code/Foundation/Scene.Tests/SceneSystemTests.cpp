@@ -216,3 +216,47 @@ TEST_CASE("scene: Events() is the BORROWED scope bus - null unwired, never drain
     scene.SetEventBus(nullptr); // scope teardown detaches cleanly
     CHECK(scene.Events() == nullptr);
 }
+
+namespace
+{
+    // A system that owns level geometry: one floor quad at y 0, when the box reaches it.
+    class FloorSource final : public SceneSystem, public IStaticGeometrySource
+    {
+    public:
+        IStaticGeometrySource* AsStaticGeometrySource() noexcept override { return this; }
+        void CollectStaticGeometry(Scene&, const AABB& bounds, f32, Array<Float3>& out) override
+        {
+            if (bounds.min.y > 0.0f || bounds.max.y < 0.0f)
+            {
+                return;
+            }
+            const Float3 quad[] = {{-1, 0, -1}, {-1, 0, 1}, {1, 0, 1}, {-1, 0, -1}, {1, 0, 1}, {1, 0, -1}};
+            for (const Float3& p : quad)
+            {
+                out.PushBack(p);
+            }
+        }
+    };
+}
+
+// Navigation bakes from every system that answers AsStaticGeometrySource; the rest answer null.
+TEST_CASE("a system with static geometry answers the capability, others answer null")
+{
+    Scene scene{DefaultAllocator()};
+    scene.AddSystem<HealthManager>();
+    scene.AddSystem<FloorSource>();
+    Array<Float3> triangles;
+    usize sources = 0;
+    const AABB around{Float3{-5, -1, -5}, Float3{5, 1, 5}};
+    scene.ForEachSystem(
+        [&](SceneSystem& system)
+        {
+            if (IStaticGeometrySource* source = system.AsStaticGeometrySource())
+            {
+                ++sources;
+                source->CollectStaticGeometry(scene, around, 0.3f, triangles);
+            }
+        });
+    CHECK(sources == 1);
+    CHECK(triangles.Size() == 6);
+}

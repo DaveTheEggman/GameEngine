@@ -33,6 +33,22 @@ export namespace foundation::scene
     class Scene;                // defined in :scene (same module)
     class ComponentManagerBase; // defined in :component (same module)
 
+    // The scene's fixed, solid surfaces as one system knows them: the world-space triangles of
+    // what it owns that does not move and that things stand on or are blocked by (physics: its
+    // static, non-trigger bodies; terrain: its surface). Navigation bakes from every system that
+    // has some, so what moves (agents, dynamic bodies, characters) never becomes level geometry.
+    class IStaticGeometrySource
+    {
+    public:
+        virtual ~IStaticGeometrySource() = default;
+
+        // Appends the triangles touching `bounds` (3 positions each, counter-clockwise seen from
+        // outside; a triangle reaching past `bounds` comes whole). `detail` is the finest spacing
+        // worth producing: a sampled surface need not be finer.
+        virtual void CollectStaticGeometry(Scene& scene, const AABB& bounds, f32 detail,
+                                           Array<Float3>& outTriangles) = 0;
+    };
+
     class SceneSystem
     {
     public:
@@ -42,6 +58,11 @@ export namespace foundation::scene
         // component manager returns itself, so the Scene can drive component-init / lookup
         // without a dynamic cast. Plain systems return null.
         [[nodiscard]] virtual ComponentManagerBase* AsComponentManager() noexcept
+        {
+            return nullptr;
+        }
+        // The same idiom for a system that owns static level geometry (IStaticGeometrySource).
+        [[nodiscard]] virtual IStaticGeometrySource* AsStaticGeometrySource() noexcept
         {
             return nullptr;
         }
