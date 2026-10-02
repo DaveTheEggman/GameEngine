@@ -77,6 +77,11 @@ export namespace editor::navigation
                                                 foundation::content::Instance& targetAsset,
                                                 bool parallelBake = true);
 
+    /// What a bake's result means, for whoever started it (the inspector's notice, the
+    /// navigation_bake tool's answer): what was written, or what to change when nothing walkable
+    /// came out of it.
+    [[nodiscard]] String DescribeBake(const BakeResult& result);
+
     struct RegionRebakeResult
     {
         bool rebaked = false;    // the asset was updated

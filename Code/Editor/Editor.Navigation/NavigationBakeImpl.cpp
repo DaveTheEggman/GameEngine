@@ -240,6 +240,29 @@ namespace editor::navigation
         return outIndices.Size() / 3u;
     }
 
+    String DescribeBake(const BakeResult& result)
+    {
+        if (result.baked)
+        {
+            return String(u8"Navigation baked. Save and cook to apply.");
+        }
+        if (result.triangleCount == 0)
+        {
+            // Nothing was collected: the zone box did not overlap any static mesh. The bake only
+            // gathers Mesh (StaticMesh) geometry whose world bounds intersect the zone AABB
+            // (centered on the zone's entity, sized by Extents).
+            return String(u8"No mesh geometry inside the zone box. Check the zone's Extents cover "
+                          u8"your floor, that the floor entity has a Mesh component, and that the "
+                          u8"zone is placed over it (only static Mesh geometry is collected).");
+        }
+        // Geometry was collected but Recast produced no walkable surface: the agent and cell
+        // parameters did not fit the geometry.
+        return Format(u8"Collected {} triangle(s) but Recast produced no walkable surface. Try a "
+                      u8"larger Cell Size or a smaller Agent Radius/Height, and check the surface "
+                      u8"is within Agent Max Slope.",
+                      result.triangleCount);
+    }
+
     BakeResult BakeNavigationZone(scene::Scene& scene, scene::EntityHandle zoneEntity,
                                   foundation::content::Instance& targetAsset, bool parallelBake)
     {
