@@ -558,8 +558,21 @@ export namespace foundation::texture
 {
     /// The texture resource module (engine-composition.md D1): the module the engine
     /// composition composes this library's factories from.
+    /// What the texture factory reads beside a TextureResource: a render texture's record.
+    [[nodiscard]] inline const TypeInfo* TextureAlsoCooked(usize index)
+    {
+        return (index == 0) ? &RenderTextureResource::StaticType() : nullptr;
+    }
+
     inline constexpr foundation::resource::ResourceFactoryDesc kTextureResourceFactories[] = {
-        foundation::resource::FactoryWithService<Texture, TextureResource, TextureFactory, foundation::rhi::Device>(),
+        []() constexpr
+        {
+            foundation::resource::ResourceFactoryDesc desc =
+                foundation::resource::FactoryWithService<Texture, TextureResource, TextureFactory,
+                                                         foundation::rhi::Device>();
+            desc.alsoCooked = &TextureAlsoCooked;
+            return desc;
+        }(),
     };
     inline constexpr foundation::resource::ResourceModule kTextureResourceModule{
         u8"texture", &RegisterTextureResource, kTextureResourceFactories,

@@ -40,14 +40,20 @@ TEST_CASE("integration.composition: every factory the composition describes read
                                              static_cast<unsigned>(module.id.Size())));
             INFO("factory for: ", doctest::String(product->name != nullptr ? product->name : "<unnamed>"));
             REQUIRE(cooked != nullptr);
-            // The cooked form is what the cook stamped and ReadObject reconstructs: registered.
-            CHECK(GlobalSerializableRegistry().Contains(cooked->id));
-            // And some builder produces exactly it - the link from the runtime type to the asset.
-            bool produced = false;
-            builders.ForEach([&](const pipeline::IAssetBuilder& builder)
-                             { produced = produced || builder.ProductType() == cooked; });
-            INFO("cooked form: ", doctest::String(cooked->name != nullptr ? cooked->name : "<unnamed>"));
-            CHECK(produced);
+            // Every cooked form it reads (the further ones too: a render texture's record beside a
+            // texture's) is what the cook stamped and ReadObject reconstructs, registered, and some
+            // builder produces exactly it - the link from the runtime type to the asset.
+            desc.ForEachCooked(
+                [&](const TypeInfo* form)
+                {
+                    REQUIRE(form != nullptr);
+                    INFO("cooked form: ", doctest::String(form->name != nullptr ? form->name : "<unnamed>"));
+                    CHECK(GlobalSerializableRegistry().Contains(form->id));
+                    bool produced = false;
+                    builders.ForEach([&](const pipeline::IAssetBuilder& builder)
+                                     { produced = produced || builder.ProductType() == form; });
+                    CHECK(produced);
+                });
             ++checked;
         });
     CHECK(checked == engine::FullComposition().FactoryDescriptionCount());

@@ -152,9 +152,11 @@ namespace
         // `ref` for a reference-shaped value type: "entity" for an EntityRef, {resource, asset}
         // for a Ref<T> - the runtime type T, the factory DESCRIPTION the composition carries for
         // it (its cooked form; engine-composition.md D1), the builder that produces that cooked
-        // form, its asset type. Nothing is constructed: the join reads declarations, so every
-        // host answers the same. `asset` is omitted (and `resolved` false) only when no builder in
-        // this composition produces the cooked form; null for everything else.
+        // form, its asset type. A factory that reads several cooked forms (a texture's, a render
+        // texture's) gives several asset types: `asset` is the first, and `assets` lists them all
+        // when there is more than one. Nothing is constructed: the join reads declarations, so
+        // every host answers the same. `asset` is omitted (and `resolved` false) only when no
+        // builder in this composition produces a cooked form; null for everything else.
         [[nodiscard]] JsonValue RefJson(const TypeInfo& type, bool& resolved) const
         {
             resolved = true;
@@ -173,7 +175,7 @@ namespace
             }
             JsonValue out = JsonValue::MakeObject();
             out.Set(u8"resource", JsonValue::MakeString(String(Utf8(target->name))));
-            const TypeInfo* cooked = nullptr;
+            Array<const TypeInfo*> cookedForms;
             if (composition != nullptr)
             {
                 composition->ForEachFactoryDescription(
@@ -181,15 +183,22 @@ namespace
                         const foundation::resource::ResourceFactoryDesc& desc)
                     {
                         const TypeInfo* product = desc.product();
-                        if (cooked == nullptr && product != nullptr && product->id == target->id)
+                        if (cookedForms.IsEmpty() && product != nullptr &&
+                            product->id == target->id)
                         {
-                            cooked = desc.cooked();
+                            desc.ForEachCooked([&](const TypeInfo* cooked)
+                                               { cookedForms.PushBack(cooked); });
                         }
                     });
             }
-            const TypeInfo* asset = nullptr;
-            if (cooked != nullptr && builders != nullptr)
+            Array<const TypeInfo*> assets;
+            for (const TypeInfo* cooked : cookedForms)
             {
+                if (cooked == nullptr || builders == nullptr)
+                {
+                    continue;
+                }
+                const TypeInfo* asset = nullptr;
                 builders->ForEach(
                     [&](const pipeline::IAssetBuilder& builder)
                     {
@@ -199,14 +208,25 @@ namespace
                             asset = builder.AssetType();
                         }
                     });
+                if (asset != nullptr)
+                {
+                    assets.PushBack(asset);
+                }
             }
-            if (asset != nullptr)
-            {
-                out.Set(u8"asset", JsonValue::MakeString(String(Utf8(asset->name))));
-            }
-            else
+            if (assets.IsEmpty())
             {
                 resolved = false;
+                return out;
+            }
+            out.Set(u8"asset", JsonValue::MakeString(String(Utf8(assets[0]->name))));
+            if (assets.Size() > 1)
+            {
+                JsonValue list = JsonValue::MakeArray();
+                for (const TypeInfo* asset : assets)
+                {
+                    list.Add(JsonValue::MakeString(String(Utf8(asset->name))));
+                }
+                out.Set(u8"assets", Move(list));
             }
             return out;
         }
