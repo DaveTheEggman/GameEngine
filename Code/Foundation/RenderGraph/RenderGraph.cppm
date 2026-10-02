@@ -224,8 +224,29 @@ export namespace foundation::rendergraph
             }
             i32 profiledPassCount = 0;
 
-            for (i32 passIdx : m_executionOrder)
+            // Where each imported texture with a final state is used for the last time, as a
+            // position in the execution order: it takes its final state right after that pass.
+            m_finalAfter.Clear();
+            m_finalAfter.Resize(m_resources.Size(), -1);
+            for (usize position = 0; position < m_executionOrder.Size(); ++position)
             {
+                const RenderGraphPass* pass = m_passes[static_cast<usize>(m_executionOrder[position])];
+                if (pass->isCulled)
+                {
+                    continue;
+                }
+                for (const RGResourceAccess& access : pass->accesses)
+                {
+                    if (access.handle.IsValid() && access.handle.index < m_resources.Size())
+                    {
+                        m_finalAfter[access.handle.index] = static_cast<i32>(position);
+                    }
+                }
+            }
+
+            for (usize position = 0; position < m_executionOrder.Size(); ++position)
+            {
+                const i32 passIdx = m_executionOrder[position];
                 RenderGraphPass* pass = m_passes[static_cast<usize>(passIdx)];
                 if (pass->isCulled)
                 {
@@ -260,6 +281,16 @@ export namespace foundation::rendergraph
                 }
 
                 m_barrierSolver.EmitReadableAfterWriteBarriers(*pass, ResourceSpan(), *encoder);
+                for (const RGResourceAccess& access : pass->accesses)
+                {
+                    if (access.handle.IsValid() && access.handle.index < m_finalAfter.Size() &&
+                        m_finalAfter[access.handle.index] == static_cast<i32>(position))
+                    {
+                        m_barrierSolver.EmitFinalTransition(static_cast<i32>(access.handle.index),
+                                                            ResourceSpan(), *encoder);
+                        m_finalAfter[access.handle.index] = -1; // once, however many accesses
+                    }
+                }
                 if (prof)
                 {
                     m_gpuProfiler->EndPass(*encoder, profiledPassCount);
@@ -1301,6 +1332,7 @@ export namespace foundation::rendergraph
         Array<i32> m_freeResourceSlots;
         Array<RenderGraphPass*> m_passes;
         Array<i32> m_executionOrder;
+        Array<i32> m_finalAfter; // per resource: the execution position it takes its final state after
         bool m_isCompiled = false;
         UniquePtr<GraphProfiler> m_gpuProfiler; // optional per-pass GPU timing
         i32 m_lastProfiledPassCount = 0;
