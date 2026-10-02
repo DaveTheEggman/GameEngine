@@ -7,10 +7,10 @@
 // that names an asset (editor-lists-and-asset-slots.md D2).
 //
 // The accepted asset types are a CONSTRUCTOR argument, so a row that names an asset cannot be
-// built without being a drop target for that asset: AssetPickerSlot::kAnyAsset for a genuinely
-// untyped field, AssetPickerSlot::kEntity for an entity reference (a hierarchy row drops on it).
-// BindAsset and BindEntity wire every verb to ONE assignment, so a pick, a drop and a clear are
-// the same write - one code path, one undo step.
+// built without being a drop target for that asset: AssetPickerSlot::AnyAssetType() for a
+// genuinely untyped field, AssetPickerSlot::EntityType() for an entity reference (a hierarchy row
+// drops on it). BindAsset and BindEntity wire every verb to ONE assignment, so a pick, a drop
+// and a clear are the same write - one code path, one undo step.
 module;
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -45,7 +45,7 @@ export namespace editor::app
         Function<void(const Guid&)> OnAssignDropped;           // browser drag-drop assign
         Function<void(StringView, StringView)> OnRejectedDrop; // wrong-type drop -> toast
 
-        /// `acceptedTypes`: the asset types a pick offers and a drop takes (kAnyAsset for any;
+        /// `acceptedTypes`: the asset types a pick offers and a drop takes (AnyAssetType() for any;
         /// empty only for a row that names no asset). The first names the slot's type icon.
         ResourceRefEditor(StringView name, StringView valueText, StringView category,
                           Span<const StringView> acceptedTypes);
@@ -67,8 +67,8 @@ export namespace editor::app
         /// Wires an ENTITY reference the same way: `pick` opens the scene's entity picker (the
         /// caller's, which assigns through AssignValue), a hierarchy row dropped on the slot is
         /// assigned, clear assigns the nil id, and `nameFor` names the entity. Build the row
-        /// with AssetPickerSlot::kEntity as its accepted type. The same contract on `assign` as
-        /// BindAsset.
+        /// with AssetPickerSlot::EntityType() as its accepted type. The same contract on `assign`
+        /// as BindAsset.
         void BindEntity(Function<Guid()> current, Function<void(const Guid&)> assign,
                         Function<String(const Guid&)> nameFor, Function<void()> pick);
 

@@ -151,17 +151,17 @@ export namespace editor::app
         void SetFontSize(f32 size) { m_body->FontSize.SetValue(Optional<f32>{size}); }
 
         /// The accepted type that means ANY asset: a row whose field is genuinely untyped.
-        static constexpr StringView kAnyAsset = u8"*";
+        [[nodiscard]] static constexpr StringView AnyAssetType() noexcept { return u8"*"; }
 
         /// The accepted type of an ENTITY reference: the slot takes a hierarchy row, and no asset.
-        static constexpr StringView kEntity = u8"@entity";
+        [[nodiscard]] static constexpr StringView EntityType() noexcept { return u8"@entity"; }
         /// The item kind a tree row carries when it names an entity (TreeDragData::ItemKind, set
         /// by the hierarchy through DraggableTreeView::OnDecorateDragData).
-        static constexpr StringView kEntityItemKind = u8"entity";
+        [[nodiscard]] static constexpr StringView EntityItemKind() noexcept { return u8"entity"; }
 
         /// The asset-type names this slot accepts (the picker's filter list). Non-empty makes
-        /// the slot a drop target: kAnyAsset accepts every asset type, kEntity a hierarchy row.
-        /// Empty is not a drop target at all.
+        /// the slot a drop target: AnyAssetType() accepts every asset type, EntityType() a
+        /// hierarchy row. Empty is not a drop target at all.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
         [[nodiscard]] Span<const String> AcceptedTypes() const noexcept
         {
@@ -205,11 +205,11 @@ export namespace editor::app
         /// An accepted or dragged type as a person reads it: the markers by their meaning.
         [[nodiscard]] static StringView TypeLabel(StringView typeName)
         {
-            if (typeName == kEntity)
+            if (typeName == EntityType())
             {
                 return u8"entity";
             }
-            if (typeName == kAnyAsset)
+            if (typeName == AnyAssetType())
             {
                 return u8"any asset";
             }
@@ -217,7 +217,7 @@ export namespace editor::app
         }
 
         /// What a drag carries for a slot: an asset (its id, type and name), or a tree row that
-        /// names an entity (type kEntity).
+        /// names an entity (type EntityType()).
         struct DraggedItem
         {
             Guid id;
@@ -236,33 +236,35 @@ export namespace editor::app
             }
             if (auto* row = Cast<ui::toolkit::TreeDragData>(data))
             {
-                if (row->ItemKind.AsView() != kEntityItemKind || row->ItemId.IsNil())
+                if (row->ItemKind.AsView() != EntityItemKind() || row->ItemId.IsNil())
                 {
                     return false;
                 }
                 out.id = row->ItemId;
-                out.typeName = String(kEntity);
+                out.typeName = String(EntityType());
                 out.name = row->ItemName;
                 return true;
             }
             return false;
         }
 
-        /// Whether `typeName`, a dragged asset's type or kEntity, is one of `accepted`
-        /// (kAnyAsset takes every asset and no entity). Shared by the slot and the list widget.
+        /// Whether `typeName`, a dragged asset's type or EntityType(), is one of `accepted`
+        /// (AnyAssetType() takes every asset and no entity). Shared by the slot and the list
+        /// widget.
         [[nodiscard]] static bool Accepts(Span<const String> accepted, StringView typeName)
         {
-            const bool isEntity = typeName == kEntity;
+            const bool isEntity = typeName == EntityType();
             for (const String& type : accepted)
             {
-                if (type.AsView() == kEntity)
+                if (type.AsView() == EntityType())
                 {
                     if (isEntity)
                     {
                         return true;
                     }
                 }
-                else if (!isEntity && (type.AsView() == kAnyAsset || type.AsView() == typeName))
+                else if (!isEntity &&
+                         (type.AsView() == AnyAssetType() || type.AsView() == typeName))
                 {
                     return true;
                 }

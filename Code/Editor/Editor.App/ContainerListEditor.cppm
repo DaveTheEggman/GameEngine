@@ -62,7 +62,7 @@ export namespace editor::app
         {
         }
 
-        /// The asset types the slots and an append drop accept (AssetPickerSlot::kAnyAsset for
+        /// The asset types the slots and an append drop accept (AssetPickerSlot::AnyAssetType() for
         /// any); empty is no drop target.
         void SetAcceptedTypes(Array<String> types) { m_acceptedTypes = Move(types); }
         [[nodiscard]] Span<const String> AcceptedTypes() const noexcept

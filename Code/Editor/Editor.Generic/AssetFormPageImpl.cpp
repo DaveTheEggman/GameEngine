@@ -505,7 +505,7 @@ namespace editor
                 // The asset slot (untyped: the form does not know what the guid names, so any
                 // asset picks and drops), plus the canonical string row for a guid that names no
                 // asset, TryParse-validated.
-                const StringView anyAsset[] = {app::AssetPickerSlot::kAnyAsset};
+                const StringView anyAsset[] = {app::AssetPickerSlot::AnyAssetType()};
                 auto slot = MakeRef<app::ResourceRefEditor>(Allocator(), field.label.AsView(),
                                                             StringView(u8"(none)"), cat,
                                                             Span<const StringView>{anyAsset, 1});

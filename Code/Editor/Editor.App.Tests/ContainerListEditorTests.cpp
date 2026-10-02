@@ -114,7 +114,7 @@ TEST_CASE("container-list: an untyped list takes no drop, and the wildcard takes
     auto any = MakeRef<app::ContainerListEditor>(DefaultAllocator(), StringView(u8"Anything"),
                                                  StringView(u8"Cat"));
     any->slotNames.PushBack(String(u8"a"));
-    any->SetAcceptedTypes(Types(app::AssetPickerSlot::kAnyAsset));
+    any->SetAcceptedTypes(Types(app::AssetPickerSlot::AnyAssetType()));
     Guid assigned;
     any->OnAssignSlot = [&](usize, const Guid& id) { assigned = id; };
     auto texture = Drag(kTexture, u8"TextureAsset");
@@ -424,7 +424,7 @@ TEST_CASE("resource-row: the settings dialog lists an asset list setting as slot
 TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
 {
     Guid current;
-    const StringView entityType[] = {app::AssetPickerSlot::kEntity};
+    const StringView entityType[] = {app::AssetPickerSlot::EntityType()};
     auto row = MakeRef<app::ResourceRefEditor>(DefaultAllocator(), StringView(u8"Target"),
                                                StringView(u8"(none)"), StringView(u8"Follow"),
                                                Span<const StringView>{entityType, 1});
@@ -436,7 +436,7 @@ TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
 
     // A hierarchy row that names its entity is assigned.
     auto entity = MakeRef<ui::toolkit::TreeDragData>(DefaultAllocator(), 0);
-    entity->ItemKind = String(app::AssetPickerSlot::kEntityItemKind);
+    entity->ItemKind = String(app::AssetPickerSlot::EntityItemKind());
     entity->ItemId = kMaterial;
     entity->ItemName = String(u8"Cart");
     CHECK(slot->OnDrop(entity.Get(), 0, 0) == ui::DragDropEffects::Link);
@@ -456,13 +456,13 @@ TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
     CHECK(row->ValueText() == StringView(u8"(none)"));
 
     // An asset slot, even the any-asset one, refuses an entity, and says what it wanted.
-    const StringView anyType[] = {app::AssetPickerSlot::kAnyAsset};
+    const StringView anyType[] = {app::AssetPickerSlot::AnyAssetType()};
     auto any = MakeRef<app::ResourceRefEditor>(DefaultAllocator(), StringView(u8"Thing"),
                                                StringView(u8"(none)"), StringView(u8"Cat"),
                                                Span<const StringView>{anyType, 1});
     CHECK(Cast<app::AssetPickerSlot>(any->EditorView())->OnDrop(entity.Get(), 0, 0) ==
           ui::DragDropEffects::None);
-    CHECK(app::AssetPickerSlot::RejectionText(u8"Cart", app::AssetPickerSlot::kEntity,
+    CHECK(app::AssetPickerSlot::RejectionText(u8"Cart", app::AssetPickerSlot::EntityType(),
                                               any->AcceptedTypes(), u8"field") ==
           StringView(u8"Cart is an entity - this field takes any asset"));
 
@@ -470,7 +470,7 @@ TEST_CASE("resource-row: an entity slot takes a hierarchy row and no asset")
     auto list = MakeRef<app::ContainerListEditor>(DefaultAllocator(), StringView(u8"Targets"),
                                                   StringView(u8"Follow"));
     list->slotNames.PushBack(String(u8"(none)"));
-    list->SetAcceptedTypes(Types(app::AssetPickerSlot::kEntity));
+    list->SetAcceptedTypes(Types(app::AssetPickerSlot::EntityType()));
     Guid assigned;
     Guid appended;
     list->OnAssignSlot = [&](usize, const Guid& id) { assigned = id; };

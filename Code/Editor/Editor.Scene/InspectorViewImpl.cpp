@@ -2255,7 +2255,7 @@ namespace editor
             value.guid = picked;
             access->setOverride(value);
         };
-        const StringView entityType[] = {editor::app::AssetPickerSlot::kEntity};
+        const StringView entityType[] = {editor::app::AssetPickerSlot::EntityType()};
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), property.name.AsView(),
                                                  StringView(u8"(none)"), category,
                                                  Span<const StringView>{entityType, 1});
@@ -2310,7 +2310,7 @@ namespace editor
         // undoable SetComponentEntityRef.
         auto assign = [edit, id, type, propName, path](const Guid& target)
         { edit->SetComponentEntityRef(id, type, path, propName, target); };
-        const StringView entityType[] = {editor::app::AssetPickerSlot::kEntity};
+        const StringView entityType[] = {editor::app::AssetPickerSlot::EntityType()};
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), name, StringView(u8"(none)"),
                                                  category, Span<const StringView>{entityType, 1});
         ResourceRefEditor* raw = editor.Get();
@@ -2344,7 +2344,7 @@ namespace editor
         String assetTypeName(property.assetType.AsView());
         assetTypeName.Append(u8"Asset");
         const StringView acceptedType = property.assetType.IsEmpty()
-                                            ? editor::app::AssetPickerSlot::kAnyAsset
+                                            ? editor::app::AssetPickerSlot::AnyAssetType()
                                             : assetTypeName.AsView();
 
         auto editor = MakeRef<ResourceRefEditor>(
@@ -2682,7 +2682,7 @@ namespace editor
             };
             // A hierarchy row dropped on a slot assigns it, on the list appends it.
             Array<String> accepted;
-            accepted.PushBack(String(editor::app::AssetPickerSlot::kEntity));
+            accepted.PushBack(String(editor::app::AssetPickerSlot::EntityType()));
             rawList->SetAcceptedTypes(Move(accepted));
             rawList->OnAssignSlot = assignEntity;
             rawList->OnAppendDropped = [self, id, type, propPtr](const Guid& target)

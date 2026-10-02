@@ -1007,7 +1007,7 @@ TEST_CASE("inspector: a hierarchy row drops on an entity slot")
     // The hierarchy names the dragged row's entity: Track is the second root.
     auto drag = MakeRef<foundation::ui::toolkit::TreeDragData>(DefaultAllocator(), 1);
     hierarchy.DecorateDrag(*drag);
-    CHECK(drag->ItemKind.AsView() == editor::app::AssetPickerSlot::kEntityItemKind);
+    CHECK(drag->ItemKind.AsView() == editor::app::AssetPickerSlot::EntityItemKind());
     CHECK(drag->ItemId == track);
     CHECK(drag->ItemName == u8"Track");
 

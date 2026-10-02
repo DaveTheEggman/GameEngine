@@ -28,7 +28,7 @@ import foundation.fonts;
 import foundation.scene;
 import foundation.ui;
 import foundation.ui.toolkit;
-import editor.app; // AssetPickerSlot::kEntityItemKind (a dragged row names its entity)
+import editor.app; // AssetPickerSlot::EntityItemKind() (a dragged row names its entity)
 import editor.core;
 import :edit;
 import :actions;
@@ -132,7 +132,7 @@ namespace editor
         {
             return;
         }
-        data.ItemKind = String(editor::app::AssetPickerSlot::kEntityItemKind);
+        data.ItemKind = String(editor::app::AssetPickerSlot::EntityItemKind());
         data.ItemId = id;
         const scene::EntityHandle h = m_edit->Scene().FindEntity(id);
         if (h.IsAssigned())

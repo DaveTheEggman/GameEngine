@@ -27,8 +27,8 @@ namespace editor::app
         {
             m_acceptedTypes.PushBack(String(type));
         }
-        if (!acceptedTypes.IsEmpty() && acceptedTypes[0] != AssetPickerSlot::kAnyAsset &&
-            acceptedTypes[0] != AssetPickerSlot::kEntity)
+        if (!acceptedTypes.IsEmpty() && acceptedTypes[0] != AssetPickerSlot::AnyAssetType() &&
+            acceptedTypes[0] != AssetPickerSlot::EntityType())
         {
             m_previewIcon = EditorIcons::Get().ForAssetType(acceptedTypes[0]);
         }
@@ -60,7 +60,7 @@ namespace editor::app
             Array<String> names;
             for (const String& type : self->m_acceptedTypes)
             {
-                if (type.AsView() != AssetPickerSlot::kAnyAsset)
+                if (type.AsView() != AssetPickerSlot::AnyAssetType())
                 {
                     names.PushBack(type);
                 }
