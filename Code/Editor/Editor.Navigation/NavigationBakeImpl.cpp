@@ -28,6 +28,26 @@ namespace editor::navigation
 {
     namespace nav = foundation::navigation;
 
+    namespace
+    {
+        // A zone's bake settings. The bake covers the zone's box (zone-local, where the geometry
+        // is), so a ground plane as wide as the level does not widen the grid past the zone.
+        [[nodiscard]] nav::NavigationBakeParams ParamsFor(const engine::navigation::NavMeshZoneComponent& zone,
+                                                          bool parallelBake)
+        {
+            nav::NavigationBakeParams params;
+            params.cellSize = zone.cellSize;
+            params.cellHeight = zone.cellHeight;
+            params.agentRadius = zone.agentRadius;
+            params.agentHeight = zone.agentHeight;
+            params.agentMaxClimb = zone.agentMaxClimb;
+            params.agentMaxSlopeDegrees = zone.agentMaxSlopeDegrees;
+            params.parallelBake = parallelBake; // the domain-contributed editor setting
+            params.bounds = AABB{-zone.extents, zone.extents};
+            return params;
+        }
+    }
+
     void RegisterNavigationEditorSettingsTypes()
     {
         GlobalTypeRegistry().Register(NavigationEditorSettings::StaticType());
@@ -156,14 +176,7 @@ namespace editor::navigation
         pipeline::NavigationZoneAsset asset;
         if (result.triangleCount > 0)
         {
-            nav::NavigationBakeParams params;
-            params.cellSize = zone->cellSize;
-            params.cellHeight = zone->cellHeight;
-            params.agentRadius = zone->agentRadius;
-            params.agentHeight = zone->agentHeight;
-            params.agentMaxClimb = zone->agentMaxClimb;
-            params.agentMaxSlopeDegrees = zone->agentMaxSlopeDegrees;
-            params.parallelBake = parallelBake; // the domain-contributed editor setting
+            const nav::NavigationBakeParams params = ParamsFor(*zone, parallelBake);
 
             Array<byte> blob;
             // TILED (the Lumix-parity build): small zones come out as one tile; large ones
@@ -241,14 +254,7 @@ namespace editor::navigation
             return result; // nothing to bake against - leave the asset alone
         }
 
-        nav::NavigationBakeParams params;
-        params.cellSize = zone->cellSize;
-        params.cellHeight = zone->cellHeight;
-        params.agentRadius = zone->agentRadius;
-        params.agentHeight = zone->agentHeight;
-        params.agentMaxClimb = zone->agentMaxClimb;
-        params.agentMaxSlopeDegrees = zone->agentMaxSlopeDegrees;
-        params.parallelBake = parallelBake;
+        const nav::NavigationBakeParams params = ParamsFor(*zone, parallelBake);
 
         // The edited region in ZONE-LOCAL space (the grid's frame), padded by the bake's
         // border apron so tiles whose border overlapped the edit also refresh.

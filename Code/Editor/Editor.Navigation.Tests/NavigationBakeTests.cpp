@@ -387,3 +387,46 @@ TEST_CASE("editor.navigation: only static, solid bodies are baked; what moves an
     REQUIRE(!walled.IsEmpty());
     CHECK_FALSE(PathAcross(Span<const byte>{walled.Data(), walled.Size()}, Float3{-8, 0, 0}, Float3{8, 0, 0}));
 }
+
+// A level's ground is often a static plane as wide as physics allows (PaperKid's: 2000 m). Its
+// triangles reach far past the zone, and the bake once sized the navmesh grid from them: a 2000 m
+// grid that did not load at runtime. The zone's box bounds the bake.
+TEST_CASE("editor.navigation: a ground plane wider than the zone bakes to the zone's box")
+{
+    pipeline::RegisterNavigationZoneAsset();
+    RemoveTree(u8"scratch_navbake_plane_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navbake_plane_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    auto* assetInstance = db.RootGroup()->CreateInstance(u8"zone", pipeline::NavigationZoneAsset::StaticType());
+    REQUIRE(assetInstance != nullptr);
+
+    scene::Scene sceneObj(DefaultAllocator(), u8"bake_plane");
+    engine::navigation::AddNavigationSceneManagers(sceneObj);
+    sceneObj.AddSystem<engine::physics::RigidBodyComponentManager>();
+    const scene::EntityHandle ground = AddBody(sceneObj, u8"ground", Float3{0, 0, 0}, Float3{1, 1, 1},
+                                               foundation::physics::MotionKind::Static);
+    engine::physics::RigidBodyComponent& plane =
+        *sceneObj.GetSystem<engine::physics::RigidBodyComponentManager>()->Get(ground);
+    plane.shape = foundation::physics::ShapeKind::Plane;
+    plane.planeHalfExtent = 1000.0f;
+    scene::EntityHandle zoneEntity = sceneObj.CreateEntity(u8"zone");
+    sceneObj.GetSystem<engine::navigation::NavMeshZoneComponentManager>()->Add(zoneEntity).extents =
+        Float3{20, 6, 20};
+    sceneObj.UpdateTransforms();
+
+    const editor::navigation::BakeResult result =
+        editor::navigation::BakeNavigationZone(sceneObj, zoneEntity, *assetInstance);
+    REQUIRE(result.baked);
+    RefPtr<ISerializable> object = assetInstance->ReadObject();
+    auto* asset = Cast<pipeline::NavigationZoneAsset>(object.Get());
+    REQUIRE(asset != nullptr);
+    REQUIRE(pipeline::EnsureNavMeshLoaded(*assetInstance, *asset).IsOk());
+    const Span<const byte> blob{reinterpret_cast<const byte*>(asset->navMeshBlob.Data()),
+                                asset->navMeshBlob.Size()};
+    NavigationTileGridDesc grid;
+    REQUIRE(ReadTiledBlobGrid(blob, grid));
+    CHECK(grid.countX == 3); // the zone's 40 m, not the plane's 2000 m
+    CHECK(grid.countY == 3);
+    CHECK(PathAcross(blob, Float3{-15, 0, -15}, Float3{15, 0, 15}));
+    RemoveTree(u8"scratch_navbake_plane_db");
+}
