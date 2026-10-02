@@ -563,6 +563,27 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
     }
 }
 
+TEST_CASE("LimitPostForOrthographic drops the passes that assume a perspective depth")
+{
+    ViewPostConfig vp;
+    vp.aoMode = 1u;
+    vp.ssrEnabled = true;
+    vp.ssgiEnabled = true;
+    vp.taaEnabled = true;
+    vp.bloomEnabled = true;
+    vp.fxaaEnabled = true;
+    vp.autoExposure = true;
+    LimitPostForOrthographic(vp);
+    CHECK(vp.aoMode == 0u);
+    CHECK_FALSE(vp.ssrEnabled);
+    CHECK_FALSE(vp.ssgiEnabled);
+    CHECK_FALSE(vp.taaEnabled);
+    // What reads only the colour stays.
+    CHECK(vp.bloomEnabled);
+    CHECK(vp.fxaaEnabled);
+    CHECK(vp.autoExposure);
+}
+
 TEST_CASE("ApplyViewPostOverride strips effects per view without touching the authored config")
 {
     // Start from a fully-enabled config (exposure/tonemap preserved by every override).

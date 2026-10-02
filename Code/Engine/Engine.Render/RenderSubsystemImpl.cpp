@@ -492,6 +492,10 @@ namespace engine::render
         {
             settings.debug = *debugView;
         }
+        if (projection::IsOrthographic(camera.projection))
+        {
+            LimitPostForOrthographic(settings.post);
+        }
         settings.viewportKey = viewportKey; // pick requests bind to it
         // Finalize per-view motion-vector need AFTER any override: TAA OR an SSR temporal pass.
         // SSR's `temporal` stays frame-global, so the OR lands here, not in ResolveScenePost.

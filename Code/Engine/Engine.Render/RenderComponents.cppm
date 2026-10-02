@@ -803,6 +803,17 @@ export namespace engine::render
         }
     }
 
+    // The screen-space passes rebuild view-space positions from depth with perspective math (AO,
+    // SSR, SSGI) or linearize depth as perspective (TAA's rejection), so an orthographic view runs
+    // without them. Like ApplyViewPostOverride, needsMotion is the caller's to finalize after.
+    inline void LimitPostForOrthographic(ViewPostConfig& vp)
+    {
+        vp.aoMode = 0u; // AoMode::Off
+        vp.ssrEnabled = false;
+        vp.ssgiEnabled = false;
+        vp.taaEnabled = false;
+    }
+
     // Live re-resolving handles over the render scene-SYSTEMS' one-per-scene settings:
     // EnvironmentSettings.of(scene) / PostProcessSettings.of(scene) return a handle typed as the
     // settings struct that re-resolves the scene's LIVE settings on every field access - so a
