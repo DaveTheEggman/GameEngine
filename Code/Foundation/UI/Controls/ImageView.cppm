@@ -129,7 +129,17 @@ export namespace foundation::ui
         void ResolveSource()
         {
             const StringView source = Source.Value().AsView();
-            if (source.IsEmpty() || m_resolvedSource.AsView() == source)
+            if (source.IsEmpty())
+            {
+                if (!m_resolvedSource.IsEmpty()) // the source was cleared: so is its image
+                {
+                    m_resolvedSource = String{};
+                    m_image = nullptr;
+                    Invalidate();
+                }
+                return;
+            }
+            if (m_resolvedSource.AsView() == source)
             {
                 return;
             }

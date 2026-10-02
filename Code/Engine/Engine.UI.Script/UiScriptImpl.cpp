@@ -145,6 +145,7 @@ namespace engine::uiscript
     UI_SCRIPT_DEFINE_COMMON(ProgressBar)
     UI_SCRIPT_DEFINE_COMMON(Slider)
     UI_SCRIPT_DEFINE_COMMON(TextBox)
+    UI_SCRIPT_DEFINE_COMMON(Image)
     UI_SCRIPT_DEFINE_COMMON(ViewGroup)
     UI_SCRIPT_DEFINE_COMMON(Screen)
 #undef UI_SCRIPT_DEFINE_COMMON
@@ -299,6 +300,31 @@ namespace engine::uiscript
         }
     }
 
+    // ------------------------------------------------------------------------------------- Image ---
+    Guid Image::source() const
+    {
+        auto* i = As<ui::ImageView>(view);
+        Guid id;
+        if (i == nullptr)
+        {
+            return id;
+        }
+        StringView text = i->Source.Value().AsView();
+        if (text.Size() == 38 && text[0] == utf8char('{') && text[37] == utf8char('}'))
+        {
+            text = text.SubStr(1, 36);
+        }
+        (void)Guid::TryParse(text, id);
+        return id;
+    }
+    void Image::setSource(Guid value)
+    {
+        if (auto* i = As<ui::ImageView>(view))
+        {
+            i->Source.SetValue(value.IsNil() ? String{} : Format(u8"{}", value));
+        }
+    }
+
     // --------------------------------------------------------- ViewGroup / Screen finders (shared) ---
 #define UI_SCRIPT_DEFINE_FINDERS(H)                                                                     \
     i32 H::childCount() const                                                                           \
@@ -329,6 +355,10 @@ namespace engine::uiscript
     TextBox H::findTextBox(String name) const                                                           \
     {                                                                                                   \
         return FindAs<ui::EditText, TextBox>(view, name.AsView());                                      \
+    }                                                                                                   \
+    Image H::findImage(String name) const                                                               \
+    {                                                                                                   \
+        return FindAs<ui::ImageView, Image>(view, name.AsView());                                       \
     }                                                                                                   \
     ViewGroup H::findGroup(String name) const                                                           \
     {                                                                                                   \
@@ -385,6 +415,7 @@ namespace engine::uiscript
     ProgressBar Ui::findProgressBar(String name) { return root().findProgressBar(Move(name)); }
     Slider Ui::findSlider(String name) { return root().findSlider(Move(name)); }
     TextBox Ui::findTextBox(String name) { return root().findTextBox(Move(name)); }
+    Image Ui::findImage(String name) { return root().findImage(Move(name)); }
     ViewGroup Ui::findGroup(String name) { return root().findGroup(Move(name)); }
 
     Screen Ui::push(Guid document)
@@ -533,6 +564,21 @@ namespace engine::uiscript
         builder.Method<&TextBox::setText>("setText", {"value"});
         builder.Constructor();
     }
+    REFLECT_VALUE(Image, "rtti::engine.ui.script")
+    {
+        builder.Method<&Image::isValid>("isValid");
+        builder.ComputedProperty<&Image::name>("name");
+        builder.ComputedProperty<&Image::visible>("visible");
+        builder.ComputedProperty<&Image::enabled>("enabled");
+        builder.ComputedProperty<&Image::source>("source");
+        builder.Method<&Image::setVisible>("setVisible", {"value"});
+        builder.Method<&Image::setEnabled>("setEnabled", {"value"});
+        builder.ComputedProperty<&Image::opacity>("opacity");
+        builder.Method<&Image::setOpacity>("setOpacity", {"value"});
+        builder.Method<&Image::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<&Image::setSource>("setSource", {"value"});
+        builder.Constructor();
+    }
     REFLECT_VALUE(ViewGroup, "rtti::engine.ui.script")
     {
         builder.Method<&ViewGroup::isValid>("isValid");
@@ -552,6 +598,7 @@ namespace engine::uiscript
         builder.Method<&ViewGroup::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&ViewGroup::findSlider>("findSlider", {"name"});
         builder.Method<&ViewGroup::findTextBox>("findTextBox", {"name"});
+        builder.Method<&ViewGroup::findImage>("findImage", {"name"});
         builder.Method<&ViewGroup::findGroup>("findGroup", {"name"});
         builder.Method<&ViewGroup::findScreen>("findScreen", {"name"});
         builder.Constructor();
@@ -575,6 +622,7 @@ namespace engine::uiscript
         builder.Method<&Screen::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&Screen::findSlider>("findSlider", {"name"});
         builder.Method<&Screen::findTextBox>("findTextBox", {"name"});
+        builder.Method<&Screen::findImage>("findImage", {"name"});
         builder.Method<&Screen::findGroup>("findGroup", {"name"});
         builder.Constructor();
     }
@@ -591,6 +639,7 @@ namespace engine::uiscript
         builder.Method<&Ui::findProgressBar>("findProgressBar", {"name"});
         builder.Method<&Ui::findSlider>("findSlider", {"name"});
         builder.Method<&Ui::findTextBox>("findTextBox", {"name"});
+        builder.Method<&Ui::findImage>("findImage", {"name"});
         builder.Method<&Ui::findGroup>("findGroup", {"name"});
         builder.Method<&Ui::push>("push", {"document"});
         builder.Method<&Ui::pop>("pop");
@@ -610,6 +659,7 @@ namespace engine::uiscript
             RttiRegisterValue_ProgressBar();
             RttiRegisterValue_Slider();
             RttiRegisterValue_TextBox();
+            RttiRegisterValue_Image();
             RttiRegisterValue_ViewGroup();
             RttiRegisterValue_Screen();
             GlobalTypeRegistry().Register(TypeOf<View>());
@@ -618,6 +668,7 @@ namespace engine::uiscript
             GlobalTypeRegistry().Register(TypeOf<ProgressBar>());
             GlobalTypeRegistry().Register(TypeOf<Slider>());
             GlobalTypeRegistry().Register(TypeOf<TextBox>());
+            GlobalTypeRegistry().Register(TypeOf<Image>());
             GlobalTypeRegistry().Register(TypeOf<ViewGroup>());
             GlobalTypeRegistry().Register(TypeOf<Screen>());
             return true;

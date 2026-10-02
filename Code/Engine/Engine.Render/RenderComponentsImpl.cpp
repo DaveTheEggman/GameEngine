@@ -174,6 +174,7 @@ namespace engine::render
             &SceneRender::setMaterial)>("setMaterial", {"entity", "resourceId"});
         builder.Method<static_cast<bool (SceneRender::*)(foundation::script::Entity, Guid, i32) const>(
             &SceneRender::setMaterial)>("setMaterial", {"entity", "resourceId", "slot"});
+        builder.Method<&SceneRender::setCameraTarget>("setCameraTarget", {"entity", "textureId"});
         builder.Method<&SceneRender::of>("of", {"scene"});
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }

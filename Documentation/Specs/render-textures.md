@@ -207,9 +207,12 @@ The UI already has the seam: `IResourceProvider::LoadImage(path)` returns a borr
 ### Decision 6: script access
 
 - Camera fields come through `REFLECT_VALUE(CameraComponent)` as today: `projection`,
-  `orthoHeight`, `target`, `targetInterval` are added to it.
+  `orthoHeight` and `targetInterval`. The script backends bind no texture-reference field, so
+  `target` is set the way `setMesh`/`setMaterial` set theirs: `SceneRender.of(scene)
+  .setCameraTarget(camera, textureId)`, bound through the run's resource manager; a nil id
+  clears it.
 - A UI `Image` handle (`UiScriptTypes.cppm`) with a `findImage` finder and a `source` property
-  (a Guid), so a script can swap what an image shows.
+  (a Guid; `setSource` swaps it, a nil id clears it, and so does its image).
 - Markers on a minimap need nothing new: they are views in the HUD whose position a script sets.
   With an orthographic top-down camera, world to map is a scale and an offset; the spec's sample
   includes that helper in the game script, not the engine.

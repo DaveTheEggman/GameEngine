@@ -62,6 +62,9 @@ namespace
                     auto slider = MakeRef<ui::Slider>(DefaultAllocator());
                     slider->Name = String(u8"volume");
                     group->AddView(slider.Get());
+                    auto image = MakeRef<ui::ImageView>(DefaultAllocator());
+                    image->Name = String(u8"minimap");
+                    group->AddView(image.Get());
                     return group;
                 }};
         }
@@ -181,6 +184,34 @@ TEST_CASE("ui-facade: Luau pushes a screen, finds + drives typed controls, reads
 #endif // OPTION_HAS_LUAU
 
 #ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("ui-facade: AngelScript sets what an image shows by texture asset id, and reads it back")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status = ctx->Load(u8"bool readBack = false;\n"
+                                    u8"bool wrong = true;\n"
+                                    u8"void main() {\n"
+                                    u8"  ui::push(Guid(17, 34));\n"
+                                    u8"  Image map = ui::findImage(\"minimap\");\n"
+                                    u8"  map.setSource(Guid(5, 6));\n"
+                                    u8"  readBack = map.source.low == 6 && map.source.high == 5;\n"
+                                    u8"  wrong = ui::findImage(\"cancel\").isValid();\n"
+                                    u8"}\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"readBack").template Get<bool>());
+    CHECK_FALSE(ctx->GetGlobal(u8"wrong").template Get<bool>()); // a button is no image
+    ui::ImageView* map = bed.root->FindByName<ui::ImageView>(u8"minimap");
+    REQUIRE(map != nullptr);
+    CHECK(map->Source.Value() == Format(u8"{}", Guid{5, 6})); // what the provider resolves
+}
+
 TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; firing runs the handler")
 {
     RegisterCoreTypes();
@@ -259,6 +290,32 @@ TEST_CASE("ui-facade: Luau drives a slider - range, step, value, and a change ha
     CHECK(ctx->GetGlobal(u8"changes").template Get<f64>() == doctest::Approx(0.0));
     bed.context.MutationQueueRef().Drain();
     CHECK(ctx->GetGlobal(u8"changes").template Get<f64>() == doctest::Approx(1.0));
+}
+
+TEST_CASE("ui-facade: Luau sets what an image shows, and a nil id clears it")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    UiBed bed;
+    engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+    const Status status = ctx->Load(u8"ui.push(Guid.new(17, 34))\n"
+                                    u8"local map = ui.findImage(\"minimap\")\n"
+                                    u8"map:setSource(Guid.new(5, 6))\n"
+                                    u8"set = not map.source:IsNil()\n",
+                                    u8"main");
+    REQUIRE(status.IsOk());
+    CHECK(ctx->GetGlobal(u8"set").template Get<bool>());
+    ui::ImageView* map = bed.root->FindByName<ui::ImageView>(u8"minimap");
+    REQUIRE(map != nullptr);
+    CHECK(map->Source.Value() == Format(u8"{}", Guid{5, 6}));
+
+    REQUIRE(ctx->Load(u8"ui.findImage(\"minimap\"):setSource(Guid.new(0, 0))\n", u8"clear")
+                .IsOk());
+    CHECK(map->Source.Value().IsEmpty());
 }
 
 TEST_CASE("ui-facade: Luau binds a button click to a script function; firing runs the handler")

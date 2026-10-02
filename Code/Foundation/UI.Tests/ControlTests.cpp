@@ -448,6 +448,14 @@ TEST_CASE("control: ImageView resolves its Source through the context's resource
     iv->Source.SetValue(String(u8"icon"));
     LayoutPass(ctx, root.Get());
     CHECK(iv->GetImage() == &provider.icon);
+
+    // Clearing the source clears its image; setting it again resolves again.
+    iv->Source.SetValue(String{});
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == nullptr);
+    iv->Source.SetValue(String(u8"icon"));
+    LayoutPass(ctx, root.Get());
+    CHECK(iv->GetImage() == &provider.icon);
 }
 
 TEST_CASE("control: ImageView without a provider keeps the image SetImage gave")

@@ -32,6 +32,7 @@ export namespace engine::uiscript
     struct ProgressBar;
     struct Slider;
     struct TextBox;
+    struct Image;
     struct ViewGroup;
     struct Screen;
 
@@ -113,6 +114,15 @@ export namespace engine::uiscript
         void setText(String value);
     };
 
+    /// An image. `image.source` is the texture asset it shows (a render texture a camera draws
+    /// into included); `image.setSource(id)` swaps it, a nil id clears it.
+    struct Image
+    {
+        UI_SCRIPT_COMMON_HANDLE_MEMBERS
+        [[nodiscard]] Guid source() const;
+        void setSource(Guid value);
+    };
+
     /// A container - the search surface. Every finder searches this group's subtree recursively, first
     /// match, and returns a null-but-valid handle when the name is missing or is the wrong control type.
     struct ViewGroup
@@ -126,6 +136,7 @@ export namespace engine::uiscript
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
         [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
+        [[nodiscard]] Image findImage(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
         [[nodiscard]] Screen findScreen(String name) const;
     };
@@ -143,6 +154,7 @@ export namespace engine::uiscript
         [[nodiscard]] ProgressBar findProgressBar(String name) const;
         [[nodiscard]] Slider findSlider(String name) const;
         [[nodiscard]] TextBox findTextBox(String name) const;
+        [[nodiscard]] Image findImage(String name) const;
         [[nodiscard]] ViewGroup findGroup(String name) const;
     };
 

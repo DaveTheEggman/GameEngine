@@ -74,6 +74,12 @@ Play-in-editor works by construction (the same event stream through the viewport
   as built-in fallbacks. Swappable-theme-asset model (Godot) over our SSS.
 - **UI facade** - addresses a control by its authored `id`: `setText` / `setProgress` / `setVisible`,
   and `onClick` binds a script delegate, resolved through the live screen tier + resource manager.
+- **Images** - `<ImageView source="{guid}"/>` shows a texture asset: the subsystem is its context's
+  `IResourceProvider` and binds the id through the application's resource manager, one image key per
+  texture, registered on every VG renderer before it draws. A render texture a camera targets is a
+  texture too, so a HUD shows a live minimap or monitor (Specs/render-textures.md). Script:
+  `ui::findImage(id).setSource(textureId)`, and `SceneRender.of(scene).setCameraTarget(camera,
+  textureId)` on the render side.
 
 ## Locked decisions
 

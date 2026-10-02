@@ -960,6 +960,29 @@ export namespace engine::render
             return true;
         }
 
+        // Point the entity's camera at the texture `id` (a render texture asset): it then draws
+        // into that texture instead of the screen. A nil id clears the target, so the camera may
+        // be the screen's again. Bound through the run's resource manager, like setMesh. False
+        // (a no-op) for an entity without a CameraComponent.
+        bool setCameraTarget(foundation::script::Entity entity, Guid id) const
+        {
+            CameraComponentManager* cameras =
+                (scene != nullptr) ? scene->GetSystem<CameraComponentManager>() : nullptr;
+            CameraComponent* camera = (cameras != nullptr) ? cameras->Get(entity.Handle()) : nullptr;
+            if (camera == nullptr)
+            {
+                return false;
+            }
+            camera->target = foundation::resource::Ref<texture::Texture>{};
+            camera->target.SetId(id);
+            if (auto* resources = foundation::script::CurrentRunResources(); resources != nullptr &&
+                                                                             !id.IsNil())
+            {
+                camera->target.Bind(*resources);
+            }
+            return true;
+        }
+
         [[nodiscard]] static SceneRender of(foundation::script::Scene sceneHandle)
         {
             return SceneRender{sceneHandle.scene};
