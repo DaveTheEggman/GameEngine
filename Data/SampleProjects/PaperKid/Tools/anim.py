@@ -69,7 +69,8 @@ write("MatPulse", 1.0, [("Transform", "scale", [swing(2.4, 2.9, 1.0), hold(0.04,
 
 
 def glow_material(name, brightness):
-    """An unlit material whose base colour is `brightness` (above 1, the bloom picks it up), tinted
+    """An unlit material whose base colour is `brightness` (sRGB like every colour; above 1 it
+    decodes past white and the bloom picks it up), tinted
     per piece by its mesh colour: the aim's dots and the target ring glow without lighting."""
     import struct
     assets = {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"]}
@@ -85,4 +86,4 @@ def glow_material(name, brightness):
 
 
 # The throw's guides (kit.py's AimDot and TargetRing).
-glow_material("AimGuide", 2.0)
+glow_material("AimGuide", 1.35)  # decodes to 2.0

@@ -10,23 +10,25 @@ kit = json.load(open(os.path.join(HERE, "kit.json")))
 CUBE, PLANE = ids["Cube"], ids["Plane"]
 HOUSES = [kit["HouseRed"], kit["HouseBlue"], kit["HouseCream"]]
 SUN_ROT = (-0.4935577, 0.15065993, 0.08726525, 0.85210747)
+SUN_INTENSITY = 4.5
 
 
 # The look, as the user set it on Start (2026-10-02): GTAO, bloom, a fixed exposure. FXAA until
 # TAA's resolve is less jittery, and auto exposure off: it dimmed and brightened over the first
 # second or two of every scene (user, 2026-10-03; both in the engine backlog). Every scene gets
-# the same until scenes can share a post/environment asset.
-POST = dict(exposureEV=0.0, tonemapOperator=1, bloomEnabled=True, bloomThreshold=1.0, bloomKnee=0.6,
-            bloomIntensity=0.05, aoMode=1, aoStrength=0.6, aoRadius=0.5, aoIntensity=1.0, ssrEnabled=False,
+# the same until scenes can share a post/environment asset. Colours are sRGB, as entered anywhere
+# (the sky's were tuned while colours were read raw, and are written as the values they decode from).
+POST = dict(exposureEV=1.0, tonemapOperator=1, bloomEnabled=True, bloomThreshold=1.0, bloomKnee=0.6,
+            bloomIntensity=0.05, aoMode=2, aoStrength=1.0, aoRadius=1.0, aoIntensity=1.0, ssrEnabled=False,
             ssrIntensity=1.0, aaMode=1, taaBlendFactor=0.97, taaVarianceGamma=1.25, fxaaSubpixel=0.75,
             autoExposure=False, autoExposureKey=0.25, autoExposureSpeed=2.0, autoExposureMinEV=-4.0,
             autoExposureMaxEV=4.0, gradingIntensity=1.0, ssgiEnabled=False, ssgiIntensity=1.0)
-ENVIRONMENT = dict(ambientColor={"r": 0.1, "g": 0.12, "b": 0.16, "a": 1.0}, ambientIntensity=0.3, skyMode=0,
-                   skyIntensity=1.0, skyBackgroundIntensity=0.5, skyRotation=0.0,
-                   skyHorizon={"r": 0.52, "g": 0.6, "b": 0.7, "a": 1.0},
-                   skyZenith={"r": 0.2, "g": 0.36, "b": 0.58, "a": 1.0},
-                   skyGround={"r": 0.26, "g": 0.26, "b": 0.26, "a": 1.0}, sunIntensity=1.0, sunAngularSize=0.5,
-                   turbidity=3.0, iblDiffuseIntensity=1.0, iblSpecularIntensity=1.0)
+ENVIRONMENT = dict(ambientColor={"r": 0.349, "g": 0.381, "b": 0.437, "a": 1.0}, ambientIntensity=0.08, skyMode=0,
+                   skyIntensity=1.0, skyBackgroundIntensity=1.0, skyRotation=0.0,
+                   skyHorizon={"r": 0.626, "g": 0.767, "b": 0.978, "a": 1.0},
+                   skyZenith={"r": 0.313, "g": 0.537, "b": 0.931, "a": 1.0},
+                   skyGround={"r": 0.547, "g": 0.547, "b": 0.547, "a": 1.0}, sunIntensity=1.0, sunAngularSize=0.5,
+                   turbidity=3.0, iblDiffuseIntensity=0.35, iblSpecularIntensity=1.0)
 
 
 def look(doc):
@@ -50,7 +52,7 @@ def static(doc, name, pos, half, shape=0):
 def world(doc, size):
     look(doc)
     sun = doc.entity("Sun", rot=SUN_ROT)
-    doc.add(sun, "light", type=0, intensity=2.2, castsShadows=True)
+    doc.add(sun, "light", type=0, intensity=SUN_INTENSITY, castsShadows=True)
     mesh(doc, "Ground", PLANE, (0, 0, 0), (size, 1, size), (0.36, 0.5, 0.3))
     static(doc, "GroundCollider", (0, 0, 0), (0, 0, 0), shape=4)
 
