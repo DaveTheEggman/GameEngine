@@ -48,6 +48,7 @@ target_sources(Editor.Scene
         AnimationClipPageImpl.cpp
         SkeletonPageImpl.cpp
         SettingsProfilesImpl.cpp
+        SettingsProfilePageImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             SceneViewSettings.cppm
@@ -72,6 +73,7 @@ target_sources(Editor.Scene
             GamePage.cppm
             GameResolution.cppm
             MaterialPage.cppm
+            SettingsProfilePage.cppm
             MeshPage.cppm
             ParticleEffectPage.cppm
             AnimationGraphPage.cppm

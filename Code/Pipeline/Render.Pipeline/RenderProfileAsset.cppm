@@ -32,6 +32,8 @@ export namespace pipeline
         /// Take a settings block's values (ValuesType()'s layout); the block's own source and
         /// profile reference are not a profile's.
         virtual void SetValues(const void* values) = 0;
+        /// Give a settings block these values (a preview scene's); its source and profile kept.
+        virtual void CopyValuesInto(void* block) const = 0;
     };
 
     class EnvironmentProfileAsset final : public SettingsProfileAsset
@@ -49,6 +51,15 @@ export namespace pipeline
             values = *static_cast<const engine::render::EnvironmentSettings*>(from);
             values.source = engine::render::SettingsSource::Scene;
             values.profile = {};
+        }
+        void CopyValuesInto(void* block) const override
+        {
+            auto& to = *static_cast<engine::render::EnvironmentSettings*>(block);
+            const engine::render::SettingsSource source = to.source;
+            const auto profile = to.profile;
+            to = values;
+            to.source = source;
+            to.profile = profile;
         }
 
         void Serialize(ISerializer& ar) override
@@ -73,6 +84,15 @@ export namespace pipeline
             values = *static_cast<const engine::render::PostProcessSettings*>(from);
             values.source = engine::render::SettingsSource::Scene;
             values.profile = {};
+        }
+        void CopyValuesInto(void* block) const override
+        {
+            auto& to = *static_cast<engine::render::PostProcessSettings*>(block);
+            const engine::render::SettingsSource source = to.source;
+            const auto profile = to.profile;
+            to = values;
+            to.source = source;
+            to.profile = profile;
         }
 
         void Serialize(ISerializer& ar) override

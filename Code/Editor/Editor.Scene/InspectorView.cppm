@@ -243,6 +243,133 @@ export namespace editor
     // reuse the identical widget. Brought into this namespace below for the inspector's use sites.
     using editor::app::ContainerListEditor;
 
+    // Raw integral value of a bool/enum/int property via the address escape hatch.
+    [[nodiscard]] inline i64 RawPropertyValue(const Instance& obj, const PropertyInfo& p)
+    {
+        void* address = (p.address != nullptr) ? p.address(obj) : nullptr;
+        return address != nullptr ? ReadEnumValue(address, *p.type) : 0;
+    }
+
+    // Applies the displayName/description/visibleWhen conventions to every row that `prop`'s row
+    // builder just added to `grid` (rows firstRow..end). `instance` is a copyable callable
+    // re-reading the owning object each frame so visibleWhen rows follow live edits (a plain
+    // lambda, NOT core::Function - that one is move-only and each row's refresher needs its own).
+template <typename GetInstance>
+void ApplyPropertyPresentation(ui::toolkit::PropertyGrid& grid,
+                               Array<Function<void()>>& refreshers, const TypeInfo* type,
+                               const PropertyInfo& prop, usize firstRow, GetInstance instance)
+    {
+        const core::Attribute* displayName = FindAttribute(prop, u8"displayName");
+        const core::Attribute* description = FindAttribute(prop, u8"description");
+        const core::Attribute* visibleWhen = FindAttribute(prop, u8"visibleWhen");
+
+        // Resolve the dependent property + condition once; refreshers share them.
+        const PropertyInfo* dependent = nullptr;
+        PropertyCondition condition;
+        if (visibleWhen != nullptr)
+        {
+            const String* spec = visibleWhen->value.TryGet<String>();
+            if (spec != nullptr && ParsePropertyCondition(spec->AsView(), condition))
+            {
+                for (const PropertyInfo& p : Properties(*type))
+                {
+                    if (StringView(reinterpret_cast<const utf8char*>(p.name)) ==
+                        condition.prop.AsView())
+                    {
+                        dependent = &p;
+                        break;
+                    }
+                }
+            }
+        }
+
+        for (usize i = firstRow; i < grid.PropertyCount(); ++i)
+        {
+            ui::toolkit::PropertyEditor* editor = grid.PropertyAt(i);
+            const String* label =
+                (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
+            editor->SetDisplayName(label != nullptr
+                                       ? label->AsView()
+                                       : PrettifyPropertyName(editor->Name()).AsView());
+            if (description != nullptr)
+            {
+                if (const String* s = description->value.TryGet<String>())
+                {
+                    editor->SetTooltip(s->AsView());
+                }
+            }
+            if (dependent != nullptr)
+            {
+                auto refresh = [editor, dependent, condition, get = instance]()
+                {
+                    const Instance obj = get();
+                    editor->SetRowVisible(
+                        !obj.IsEmpty() &&
+                        MatchesPropertyCondition(condition, RawPropertyValue(obj, *dependent)));
+                };
+                refresh();
+                refreshers.PushBack(Function<void()>{Move(refresh)});
+            }
+        }
+    }
+
+    // A settings block's section name: its type's name minus a trailing "Settings"
+    // ("EnvironmentSettings" -> "Environment").
+    [[nodiscard]] inline StringView SettingsCategoryName(const TypeInfo& type)
+    {
+        StringView category(reinterpret_cast<const utf8char*>(type.name));
+        const StringView suffix = u8"Settings";
+        if (category.Size() > suffix.Size() &&
+            category.SubStr(category.Size() - suffix.Size(), suffix.Size()) == suffix)
+        {
+            category = category.SubStr(0, category.Size() - suffix.Size());
+        }
+        return category;
+    }
+
+    // === Settings rows: a reflected settings block's fields, wherever its values live ===
+    // The scene inspector's settings sections and a profile asset's page build the same rows
+    // (enum dropdowns, colour pickers, sliders from the reflected ranges, reference pickers):
+    // `values` answers where a field's value is now, and the setters are the host's undoable
+    // writes (the scene's settings commands, the page's asset edits). Ref-counted so its
+    // move-only hooks are shared by every row's closures.
+    struct SettingsAccess : public RefCounted
+    {
+        const TypeInfo* type = nullptr;
+        Function<void*(const char* property)> values; // null = nothing to show
+        Function<void(const char* property, const Variant& value)> set;
+        Function<void(const char* property, i64 raw)> setRaw; // enums, by their underlying value
+        Function<void(const char* property, const Guid& id)> setReference; // reference-shaped
+    };
+
+    class SettingsRows
+    {
+    public:
+        SettingsRows(EditorContext& editor, ui::toolkit::PropertyGrid& grid,
+                     Array<Function<void()>>& refreshers)
+            : m_editor(&editor), m_grid(&grid), m_refreshers(&refreshers)
+        {
+        }
+
+        /// `prop`'s row (a leaf field of access->type), presented by its attributes. A kind with
+        /// no row yet adds none.
+        void Build(const RefPtr<SettingsAccess>& access, const PropertyInfo& prop,
+                   StringView category);
+
+        /// A row of the host's own (a button), refreshed with the rest.
+        void AddEditor(ui::toolkit::PropertyEditor* editor, Function<void()> refresher);
+
+    private:
+        void BuildRow(const RefPtr<SettingsAccess>& access, const PropertyInfo& prop,
+                      StringView category);
+        void BuildReferenceRow(const RefPtr<SettingsAccess>& access, const PropertyInfo& prop,
+                               StringView category);
+
+        EditorContext* m_editor;
+        ui::toolkit::PropertyGrid* m_grid;
+        Array<Function<void()>>* m_refreshers;
+    };
+
     class SceneInspectorView : public ui::ViewGroup
     {
         RTTI_OBJECT(SceneInspectorView, ui::ViewGroup)
@@ -360,13 +487,12 @@ export namespace editor
         // names + symmetric collide matrix through whole-block undoable commands.
         void BuildCollisionMatrixRow(const TypeInfo* type, StringView category);
 
-        // A scene-setting property row: same editor kinds as components, but reading the
-        // system's settings instance and writing through SetSceneSettingProperty commands
-        // (merged scrubs, one undo entry). Covers the kinds settings blocks use today.
-        void BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop, StringView category);
         // A block whose values can come from a profile: Make Profile, Copy Into Scene and Open
         // Profile, between the block's own fields (the source, the profile) and its values.
-        void BuildSettingsProfileRows(const TypeInfo* type, StringView category);
+        void BuildSettingsProfileRows(SettingsRows& rows, const TypeInfo* type, StringView category);
+        // The scene's settings block of `type` as a settings-rows access: values where an edit of
+        // each field lands (SceneEditContext::SettingsValuesFor), written through its commands.
+        [[nodiscard]] RefPtr<SettingsAccess> SceneSettingsAccess(const TypeInfo* type);
 
         void BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr);
 
@@ -382,58 +508,8 @@ export namespace editor
         void ApplyPropertyPresentation(const TypeInfo* type, const PropertyInfo& prop,
                                        usize firstRow, GetInstance instance)
         {
-            const core::Attribute* displayName = FindAttribute(prop, u8"displayName");
-            const core::Attribute* description = FindAttribute(prop, u8"description");
-            const core::Attribute* visibleWhen = FindAttribute(prop, u8"visibleWhen");
-
-            // Resolve the dependent property + condition once; refreshers share them.
-            const PropertyInfo* dependent = nullptr;
-            PropertyCondition condition;
-            if (visibleWhen != nullptr)
-            {
-                const String* spec = visibleWhen->value.TryGet<String>();
-                if (spec != nullptr && ParsePropertyCondition(spec->AsView(), condition))
-                {
-                    for (const PropertyInfo& p : Properties(*type))
-                    {
-                        if (StringView(reinterpret_cast<const utf8char*>(p.name)) ==
-                            condition.prop.AsView())
-                        {
-                            dependent = &p;
-                            break;
-                        }
-                    }
-                }
-            }
-
-            for (usize i = firstRow; i < m_grid->PropertyCount(); ++i)
-            {
-                ui::toolkit::PropertyEditor* editor = m_grid->PropertyAt(i);
-                const String* label =
-                    (displayName != nullptr) ? displayName->value.TryGet<String>() : nullptr;
-                editor->SetDisplayName(label != nullptr
-                                           ? label->AsView()
-                                           : PrettifyPropertyName(editor->Name()).AsView());
-                if (description != nullptr)
-                {
-                    if (const String* s = description->value.TryGet<String>())
-                    {
-                        editor->SetTooltip(s->AsView());
-                    }
-                }
-                if (dependent != nullptr)
-                {
-                    auto refresh = [editor, dependent, condition, get = instance]()
-                    {
-                        const Instance obj = get();
-                        editor->SetRowVisible(
-                            !obj.IsEmpty() &&
-                            MatchesPropertyCondition(condition, RawIntValue(obj, *dependent)));
-                    };
-                    refresh();
-                    m_refreshers.PushBack(Function<void()>{Move(refresh)});
-                }
-            }
+            editor::ApplyPropertyPresentation(*m_grid, m_refreshers, type, prop, firstRow,
+                                              Move(instance));
         }
 
         // `path` addresses the property's owner: the component (empty) or a struct element of one
@@ -527,57 +603,6 @@ export namespace editor
         void BuildSceneScriptPropertyRows(const TypeInfo* settingsType, StringView category);
 
         [[nodiscard]] StringView AssetNameFor(const Guid& target);
-
-        // The settings twin of RefTarget (the Ref lives on a scene system's settings block).
-        template <typename T>
-        [[nodiscard]] Guid SettingRefTarget(const TypeInfo* type, const char* propName)
-        {
-            void* values = m_edit->SettingsValuesFor(type, propName);
-            if (values == nullptr)
-            {
-                return Guid{};
-            }
-            const Instance settings{values, type};
-            const PropertyInfo* p = FindProperty(*type, propName);
-            void* address =
-                (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;
-            return (address != nullptr) ? static_cast<foundation::resource::Ref<T>*>(address)->id
-                                        : Guid{};
-        }
-
-        // Any other reference-shaped settings field: a picker filtered to the source asset types
-        // that make the reference's product (the editor's join of factories and builders), so a
-        // new reference type gets its picker by being declared, not by a branch here.
-        void BuildSettingReferenceRow(const TypeInfo* type, const PropertyInfo& prop,
-                                      StringView category);
-
-        // The settings twin of BuildResourceRefRow.
-        template <typename T>
-        void BuildSettingResourceRefRow(const TypeInfo* type, const PropertyInfo& prop,
-                                        StringView category,
-                                        std::initializer_list<StringView> assetTypeNames)
-        {
-            SceneInspectorView* self = this;
-            SceneEditContext* edit = m_edit;
-            const char* propName = prop.name;
-            const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-            auto editor = MakeRef<ResourceRefEditor>(
-                MemoryAllocator(), name, AssetNameFor(SettingRefTarget<T>(type, propName)), category,
-                Span<const StringView>{assetTypeNames.begin(), assetTypeNames.size()});
-            ResourceRefEditor* raw = editor.Get();
-            raw->BindAsset(
-                *m_editor,
-                [self, type, propName]() { return self->SettingRefTarget<T>(type, propName); },
-                [self, edit, type, propName](const Guid& target)
-                {
-                    if (self->m_editor->Project() != nullptr)
-                    {
-                        edit->SetSceneSettingResourceRef<T>(type, propName, target,
-                                                            self->m_editor->Resources());
-                    }
-                });
-            AddEditor(raw, [raw]() { raw->Refresh(); });
-        }
 
         template <typename T>
         void BuildResourceRefRow(const Guid& id, const TypeInfo* type, const PropertyInfo& prop,

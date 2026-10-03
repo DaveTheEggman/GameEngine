@@ -4,7 +4,9 @@
 // Scene settings from a profile: while a block's source is a profile, an edit of a value field
 // lands in the profile (the block's own fields stay the scene's) and undoes; Copy Into Scene and a
 // source switch are one undo step each; Make Profile writes a profile asset from the block's values
-// and switches to it; a profile-mode edit is queued for the save flow and written to the asset.
+// and switches to it; a profile-mode edit is queued for the save flow and written to the asset;
+// the shared settings rows read where their access points and write through it; the profile
+// page's preview takes the profile's values.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -18,6 +20,7 @@ import pipeline.core;
 import render.pipeline;
 import editor.core;
 import editor.scene;
+import foundation.ui.toolkit; // the rows' editors
 
 using namespace foundation::core;
 using namespace engine::render;
@@ -190,4 +193,98 @@ TEST_CASE("settings profiles: Make Profile writes the values and switches; an ed
     }
     project.Reset();
     (void)RemoveDirectoryRecursive(dir);
+}
+
+namespace
+{
+    // The editor of the row named `name` (the reflected field name), or null.
+    template <typename E>
+    E* RowNamed(foundation::ui::toolkit::PropertyGrid& grid, StringView name)
+    {
+        for (usize i = 0; i < grid.PropertyCount(); ++i)
+        {
+            if (grid.PropertyAt(i)->Name() == name)
+            {
+                return Cast<E>(grid.PropertyAt(i));
+            }
+        }
+        return nullptr;
+    }
+}
+
+TEST_CASE("settings profiles: the shared rows read where their access points and write through it")
+{
+    RegisterRenderComponentReflection();
+    editor::EditorContext context(DefaultAllocator());
+    RefPtr<foundation::ui::toolkit::PropertyGrid> grid =
+        MakeRef<foundation::ui::toolkit::PropertyGrid>(DefaultAllocator());
+    Array<Function<void()>> refreshers;
+
+    EnvironmentSettings first;
+    EnvironmentSettings second;
+    first.turbidity = 3.0f;
+    second.turbidity = 9.0f;
+    EnvironmentSettings* shown = &first;
+    Array<String> written;
+    auto access = MakeRef<editor::SettingsAccess>(DefaultAllocator());
+    access->type = EnvType();
+    access->values = [&shown](const char*) -> void* { return shown; };
+    access->set = [&written](const char* property, const Variant&)
+    { written.PushBack(String(reinterpret_cast<const utf8char*>(property))); };
+
+    editor::SettingsRows rows(context, *grid, refreshers);
+    usize shownFields = 0;
+    for (const PropertyInfo& prop : Properties(*EnvType()))
+    {
+        if (IsNested(prop) || FindAttribute(prop, u8"sceneOnly") != nullptr)
+        {
+            continue;
+        }
+        rows.Build(access, prop, u8"Environment");
+        ++shownFields;
+    }
+    CHECK(grid->PropertyCount() == shownFields); // one row per value field
+
+    auto* turbidity = RowNamed<foundation::ui::toolkit::RangeEditor>(*grid, u8"turbidity");
+    REQUIRE(turbidity != nullptr);
+    CHECK(turbidity->Value() == doctest::Approx(3.0f));
+    shown = &second; // the values moved (a block's source switched): the next refresh follows
+    for (const Function<void()>& refresh : refreshers)
+    {
+        refresh();
+    }
+    CHECK(turbidity->Value() == doctest::Approx(9.0f));
+    REQUIRE(static_cast<bool>(turbidity->Setter));
+    turbidity->Setter(4.0f);
+    REQUIRE(written.Size() == 1);
+    CHECK(written[0] == u8"turbidity");
+}
+
+TEST_CASE("settings profiles: the profile page's preview takes the profile's values")
+{
+    RegisterRenderComponentReflection();
+    pipeline::RegisterRenderProfileAssets();
+    scene::Scene scene(DefaultAllocator(), u8"profile.preview");
+    auto* env = scene.AddSystem<EnvironmentSystem>();
+    auto* post = scene.AddSystem<PostProcessSystem>();
+    env->Environment().profile.SetId(Guid{0x1u, 0x2u});
+
+    RefPtr<pipeline::EnvironmentProfileAsset> environment =
+        MakeRef<pipeline::EnvironmentProfileAsset>(DefaultAllocator());
+    environment->values.turbidity = 7.0f;
+    environment->values.shadowDistance = 45.0f;
+    CHECK(editor::ApplySettingsProfileToScene(*environment, scene, nullptr));
+    CHECK(env->Environment().turbidity == doctest::Approx(7.0f));
+    CHECK(env->Environment().shadowDistance == doctest::Approx(45.0f));
+    CHECK(env->Environment().source == SettingsSource::Scene); // the block's own fields kept
+    CHECK(env->Environment().profile.id == Guid{0x1u, 0x2u});
+
+    RefPtr<pipeline::PostProcessProfileAsset> look =
+        MakeRef<pipeline::PostProcessProfileAsset>(DefaultAllocator());
+    look->values.exposureEV = 1.25f;
+    CHECK(editor::ApplySettingsProfileToScene(*look, scene, nullptr));
+    CHECK(post->Post().exposureEV == doctest::Approx(1.25f));
+
+    scene::Scene empty(DefaultAllocator(), u8"empty");
+    CHECK_FALSE(editor::ApplySettingsProfileToScene(*look, empty, nullptr)); // no block to take them
 }

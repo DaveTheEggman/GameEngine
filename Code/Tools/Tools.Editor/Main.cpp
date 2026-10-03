@@ -383,6 +383,7 @@ int main(int argc, char** argv)
         editor::RegisterSceneEditor(app.Context(), host, uiHost,
                                               app.EmbeddedApplication());
         editor::RegisterMaterialEditor(app.Context(), host, uiHost);
+        editor::RegisterSettingsProfileEditor(app.Context(), host, uiHost);
         editor::RegisterMeshEditor(app.Context(), host, uiHost);
         editor::RegisterParticleEditor(app.Context(), host, uiHost);
         editor::RegisterAnimationGraphEditor(app.Context(), host, uiHost);

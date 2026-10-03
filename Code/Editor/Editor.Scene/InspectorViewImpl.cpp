@@ -487,15 +487,9 @@ namespace editor
                 {
                     return;
                 }
-                // Category = the settings type minus a trailing "Settings"
-                // ("EnvironmentSettings" -> "Environment").
-                StringView category(reinterpret_cast<const utf8char*>(type->name));
-                const StringView suffix = u8"Settings";
-                if (category.Size() > suffix.Size() &&
-                    category.SubStr(category.Size() - suffix.Size(), suffix.Size()) == suffix)
-                {
-                    category = category.SubStr(0, category.Size() - suffix.Size());
-                }
+                const StringView category = SettingsCategoryName(*type);
+                SettingsRows rows(*m_editor, *m_grid, m_refreshers);
+                const RefPtr<SettingsAccess> access = SceneSettingsAccess(type);
                 bool profileRowsBuilt = system.SettingsProfileType() == nullptr;
                 for (const PropertyInfo& prop : Properties(*type))
                 {
@@ -505,18 +499,10 @@ namespace editor
                     }
                     if (!profileRowsBuilt && FindAttribute(prop, u8"sceneOnly") == nullptr)
                     {
-                        BuildSettingsProfileRows(type, category);
+                        BuildSettingsProfileRows(rows, type, category);
                         profileRowsBuilt = true;
                     }
-                    const usize firstRow = m_grid->PropertyCount();
-                    BuildSettingRow(type, prop, category);
-                    ApplyPropertyPresentation(
-                        type, prop, firstRow,
-                        [edit = m_edit, type, propName = prop.name]() -> Instance
-                        {
-                            void* values = edit->SettingsValuesFor(type, propName);
-                            return (values != nullptr) ? Instance{values, type} : Instance{};
-                        });
+                    rows.Build(access, prop, category);
                 }
                 if (type == &TypeOf<engine::physics::PhysicsSceneSettings>())
                 {
@@ -646,50 +632,27 @@ namespace editor
         AddEditor(matrix.Get(), []() {});
     }
 
-    void SceneInspectorView::BuildSettingReferenceRow(const TypeInfo* type, const PropertyInfo& prop,
-                                                      StringView category)
+    RefPtr<SettingsAccess> SceneInspectorView::SceneSettingsAccess(const TypeInfo* type)
     {
-        SceneInspectorView* self = this;
         SceneEditContext* edit = m_edit;
-        const char* propName = prop.name;
-        const StringView name(reinterpret_cast<const utf8char*>(prop.name));
-        Array<StringView> accepted;
-        if (m_editor->SourceAssetTypesOf)
-        {
-            for (const TypeInfo* asset : m_editor->SourceAssetTypesOf(*prop.type->reference->Target()))
-            {
-                accepted.PushBack(StringView(reinterpret_cast<const utf8char*>(asset->name)));
-            }
-        }
-        auto target = [edit, type, propName]() -> Guid
-        {
-            void* values = edit->SettingsValuesFor(type, propName);
-            const PropertyInfo* p = FindProperty(*type, propName);
-            if (values == nullptr || p == nullptr || p->address == nullptr ||
-                p->type->reference == nullptr)
-            {
-                return Guid{};
-            }
-            const Guid* id = p->type->reference->Id(p->address(Instance{values, type}));
-            return id != nullptr ? *id : Guid{};
-        };
-        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), name, AssetNameFor(target()),
-                                                 category,
-                                                 Span<const StringView>{accepted.Data(), accepted.Size()});
-        ResourceRefEditor* raw = editor.Get();
-        raw->BindAsset(*m_editor, target,
-                       [self, edit, type, propName](const Guid& id)
-                       {
-                           if (self->m_editor->Project() != nullptr)
-                           {
-                               edit->SetSceneSettingReference(type, propName, id,
-                                                              self->m_editor->Resources());
-                           }
-                       });
-        AddEditor(raw, [raw]() { raw->Refresh(); });
+        EditorContext* context = m_editor;
+        auto access = MakeRef<SettingsAccess>(MemoryAllocator());
+        access->type = type;
+        // The values shown are the ones an edit writes: the profile's for a value field while the
+        // block's source is a profile, the scene's own otherwise.
+        access->values = [edit, type](const char* property)
+        { return edit->SettingsValuesFor(type, property); };
+        access->set = [edit, type](const char* property, const Variant& value)
+        { edit->SetSceneSettingProperty(type, property, value); };
+        access->setRaw = [edit, type](const char* property, i64 raw)
+        { edit->SetSceneSettingPropertyRaw(type, property, raw); };
+        access->setReference = [edit, type, context](const char* property, const Guid& id)
+        { edit->SetSceneSettingReference(type, property, id, context->Resources()); };
+        return access;
     }
 
-    void SceneInspectorView::BuildSettingsProfileRows(const TypeInfo* type, StringView category)
+    void SceneInspectorView::BuildSettingsProfileRows(SettingsRows& rows, const TypeInfo* type,
+                                                      StringView category)
     {
         SceneEditContext* edit = m_edit;
         EditorContext* context = m_editor;
@@ -713,7 +676,7 @@ namespace editor
             category);
         open->SetTooltip(u8"The values below are this profile's: an edit changes every scene "
                          u8"using it (written to the profile on save).");
-        AddEditor(open.Get(),
+        rows.AddEditor(open.Get(),
                   [context, usesProfile, raw = open.Get()]()
                   {
                       const Guid id = usesProfile();
@@ -741,7 +704,7 @@ namespace editor
                              }},
             category);
         make->SetTooltip(u8"Saves these values as a new profile asset, and this scene uses it.");
-        AddEditor(make.Get(), [usesProfile, raw = make.Get()]()
+        rows.AddEditor(make.Get(), [usesProfile, raw = make.Get()]()
                   { raw->SetButtonEnabled(usesProfile().IsNil()); });
 
         auto copy = MakeRef<ui::toolkit::ButtonEditor>(
@@ -755,46 +718,103 @@ namespace editor
             category);
         copy->SetTooltip(u8"Copies the profile's values into this scene, which then uses its own "
                          u8"(the profile is unchanged).");
-        AddEditor(copy.Get(), [usesProfile, raw = copy.Get()]()
+        rows.AddEditor(copy.Get(), [usesProfile, raw = copy.Get()]()
                   { raw->SetButtonEnabled(!usesProfile().IsNil()); });
     }
 
-    void SceneInspectorView::BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop,
-                                             StringView category)
+    void SettingsRows::Build(const RefPtr<SettingsAccess>& access, const PropertyInfo& prop,
+                             StringView category)
     {
-        SceneEditContext* edit = m_edit;
+        const usize firstRow = m_grid->PropertyCount();
+        BuildRow(access, prop, category);
+        const char* propName = prop.name;
+        ApplyPropertyPresentation(*m_grid, *m_refreshers, access->type, prop, firstRow,
+                                  [access, propName]() -> Instance
+                                  {
+                                      void* values =
+                                          access->values ? access->values(propName) : nullptr;
+                                      return (values != nullptr) ? Instance{values, access->type}
+                                                                 : Instance{};
+                                  });
+    }
+
+    void SettingsRows::AddEditor(ui::toolkit::PropertyEditor* editor, Function<void()> refresher)
+    {
+        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(editor));
+        ui::toolkit::PropertyEditor* raw = editor;
+        m_refreshers->PushBack(Function<void()>{[raw, pull = Move(refresher)]()
+                                                {
+                                                    if (!raw->IsEditing())
+                                                    {
+                                                        pull();
+                                                    }
+                                                }});
+    }
+
+    void SettingsRows::BuildReferenceRow(const RefPtr<SettingsAccess>& access,
+                                         const PropertyInfo& prop, StringView category)
+    {
+        // A picker filtered to the source asset types that make the reference's product (the
+        // editor's join of factories and builders), so a new reference type gets its picker by
+        // being declared, not by a branch here.
+        EditorContext* context = m_editor;
+        const char* propName = prop.name;
+        const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+        Array<StringView> accepted;
+        if (context->SourceAssetTypesOf)
+        {
+            for (const TypeInfo* asset : context->SourceAssetTypesOf(*prop.type->reference->Target()))
+            {
+                accepted.PushBack(StringView(reinterpret_cast<const utf8char*>(asset->name)));
+            }
+        }
+        auto target = [access, propName]() -> Guid
+        {
+            void* values = access->values ? access->values(propName) : nullptr;
+            const PropertyInfo* p = FindProperty(*access->type, propName);
+            if (values == nullptr || p == nullptr || p->address == nullptr ||
+                p->type->reference == nullptr)
+            {
+                return Guid{};
+            }
+            const Guid* id = p->type->reference->Id(p->address(Instance{values, access->type}));
+            return id != nullptr ? *id : Guid{};
+        };
+        auto editor = MakeRef<ResourceRefEditor>(m_grid->MemoryAllocator(), name,
+                                                 context->AssetNameFor(target()), category,
+                                                 Span<const StringView>{accepted.Data(), accepted.Size()});
+        ResourceRefEditor* raw = editor.Get();
+        raw->BindAsset(*context, target,
+                       [context, access, propName](const Guid& id)
+                       {
+                           if (context->Project() != nullptr && access->setReference)
+                           {
+                               access->setReference(propName, id);
+                           }
+                       });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
+    }
+
+    void SettingsRows::BuildRow(const RefPtr<SettingsAccess>& access, const PropertyInfo& prop,
+                                StringView category)
+    {
+        const TypeInfo* type = access->type;
         const StringView name(reinterpret_cast<const utf8char*>(prop.name));
         const bool readOnly =
             (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
         const char* propName = prop.name;
 
-        // The values shown are the ones an edit writes: the profile's for a value field while the
-        // block's source is a profile, the scene's own otherwise (decided at each read).
-        auto getInstance = [edit, type, propName]() -> Instance
+        // Read at each refresh: where the value is can change (a scene block's source).
+        auto getInstance = [access, type, propName]() -> Instance
         {
-            void* values = edit->SettingsValuesFor(type, propName);
+            void* values = access->values ? access->values(propName) : nullptr;
             return (values != nullptr) ? Instance{values, type} : Instance{};
         };
 
-        // Resource references (the environment's sky texture): the browser-mirroring picker,
-        // writing through the settings-flavored ref command.
-        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::texture::Texture>>())
-        {
-            BuildSettingResourceRefRow<foundation::texture::Texture>(type, prop, category,
-                                                                   {u8"TextureAsset"});
-            return;
-        }
-        // The scene's Level-script reference (SceneScriptSettings::script): the same
-        // browser-mirroring picker, filtered to script class assets.
-        if (prop.type == &TypeOf<foundation::resource::Ref<foundation::script::ScriptClass>>())
-        {
-            BuildSettingResourceRefRow<foundation::script::ScriptClass>(type, prop, category,
-                                                                      {u8"ScriptClassAsset"});
-            return;
-        }
+        // Reference-shaped fields (a sky texture, a Level script, a profile): one picker for all.
         if (prop.type->reference != nullptr && prop.type->reference->Target != nullptr)
         {
-            BuildSettingReferenceRow(type, prop, category);
+            BuildReferenceRow(access, prop, category);
             return;
         }
         auto getVariant = [getInstance, type, propName]() -> Variant
@@ -838,17 +858,15 @@ namespace editor
                 return 0;
             };
             auto editor = MakeRef<ui::toolkit::EnumEditor>(
-                MemoryAllocator(), name, indexOf(rawRead()),
+                m_grid->MemoryAllocator(), name, indexOf(rawRead()),
                 Span<const StringView>{items.Data(), items.Size()},
                 readOnly ? Function<void(i32)>{}
-                         : Function<void(i32)>{[edit, type, propName, values](i32 index)
+                         : Function<void(i32)>{[access, propName, values](i32 index)
                                                {
                                                    if (index >= 0 &&
                                                        index < static_cast<i32>(values.Size()))
                                                    {
-                                                       edit->SetSceneSettingPropertyRaw(
-                                                           type, propName,
-                                                           values[static_cast<usize>(index)].value);
+                                                       access->setRaw(propName, values[static_cast<usize>(index)].value);
                                                    }
                                                }},
                 category);
@@ -866,16 +884,17 @@ namespace editor
                 return (f != nullptr) ? static_cast<f64>(*f) : 0.0;
             };
             // "range" attribute -> bounded slider+field instead of a bare numeric field.
-            if (const Float4* range = RangeOf(prop))
+            const core::Attribute* rangeAttribute = FindAttribute(prop, u8"range");
+            if (const Float4* range =
+                    rangeAttribute != nullptr ? rangeAttribute->value.TryGet<Float4>() : nullptr)
             {
                 auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                    MemoryAllocator(), name, static_cast<f32>(value()), range->x, range->y,
+                    m_grid->MemoryAllocator(), name, static_cast<f32>(value()), range->x, range->y,
                     range->z,
                     readOnly ? Function<void(f32)>{}
-                             : Function<void(f32)>{[edit, type, propName](f32 v)
+                             : Function<void(f32)>{[access, propName](f32 v)
                                                    {
-                                                       edit->SetSceneSettingProperty(
-                                                           type, propName, Variant::From<f32>(v));
+                                                       access->set(propName, Variant::From<f32>(v));
                                                    }},
                     category);
                 AddEditor(editor.Get(), [value, raw = editor.Get()]()
@@ -883,13 +902,11 @@ namespace editor
                 return;
             }
             auto editor = MakeRef<ui::toolkit::FloatEditor>(
-                MemoryAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
+                m_grid->MemoryAllocator(), name, value(), -1e9, 1e9, 0.1, 2,
                 readOnly ? Function<void(f64)>{}
-                         : Function<void(f64)>{[edit, type, propName](f64 v)
+                         : Function<void(f64)>{[access, propName](f64 v)
                                                {
-                                                   edit->SetSceneSettingProperty(
-                                                       type, propName,
-                                                       Variant::From<f32>(static_cast<f32>(v)));
+                                                   access->set(propName, Variant::From<f32>(static_cast<f32>(v)));
                                                }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -905,12 +922,11 @@ namespace editor
                 return (c != nullptr) ? *c : Color{1, 1, 1, 1};
             };
             auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                MemoryAllocator(), name, value(),
+                m_grid->MemoryAllocator(), name, value(),
                 readOnly ? Function<void(Color)>{}
-                         : Function<void(Color)>{[edit, type, propName](Color v)
+                         : Function<void(Color)>{[access, propName](Color v)
                                                  {
-                                                     edit->SetSceneSettingProperty(
-                                                         type, propName, Variant::From<Color>(v));
+                                                     access->set(propName, Variant::From<Color>(v));
                                                  }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -926,12 +942,11 @@ namespace editor
                 return (b != nullptr) && *b;
             };
             auto editor = MakeRef<ui::toolkit::BoolEditor>(
-                MemoryAllocator(), name, value(),
+                m_grid->MemoryAllocator(), name, value(),
                 readOnly ? Function<void(bool)>{}
-                         : Function<void(bool)>{[edit, type, propName](bool v)
+                         : Function<void(bool)>{[access, propName](bool v)
                                                 {
-                                                    edit->SetSceneSettingProperty(
-                                                        type, propName, Variant::From<bool>(v));
+                                                    access->set(propName, Variant::From<bool>(v));
                                                 }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
@@ -947,12 +962,11 @@ namespace editor
                 return (f != nullptr) ? *f : Float3{};
             };
             auto editor = MakeRef<ui::toolkit::Float3Editor>(
-                MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
+                m_grid->MemoryAllocator(), name, value(), -100000.0f, 100000.0f, 0.1f,
                 readOnly ? Function<void(Float3)>{}
-                         : Function<void(Float3)>{[edit, type, propName](Float3 v)
+                         : Function<void(Float3)>{[access, propName](Float3 v)
                                                   {
-                                                      edit->SetSceneSettingProperty(
-                                                          type, propName, Variant::From<Float3>(v));
+                                                      access->set(propName, Variant::From<Float3>(v));
                                                   }},
                 category);
             AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
