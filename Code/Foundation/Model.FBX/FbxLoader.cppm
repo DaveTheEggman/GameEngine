@@ -326,12 +326,11 @@ export namespace foundation::model::fbx
                     // Legacy FBX (Lambert/Phong): map to PBR.
                     if (mat->fbx.diffuse_color.has_value)
                     {
+                        // The colour alone: DiffuseFactor is ignored, as glTF has none. Blender
+                        // writes its legacy 0.8 there, which made an FBX a fifth darker than the
+                        // same model's glTF.
                         auto c = mat->fbx.diffuse_color.value_vec4;
-                        f32 factor = mat->fbx.diffuse_factor.has_value
-                                         ? static_cast<f32>(mat->fbx.diffuse_factor.value_real)
-                                         : 1.0f;
-                        material->baseColorFactor =
-                            SrgbColor(c.x * factor, c.y * factor, c.z * factor, 1.0);
+                        material->baseColorFactor = SrgbColor(c.x, c.y, c.z, 1.0);
                     }
                     if (mat->fbx.diffuse_color.texture)
                     {

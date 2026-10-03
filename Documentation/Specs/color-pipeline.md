@@ -99,7 +99,8 @@ The pickers need no conversion of their own: they show and edit the stored sRGB 
   (`GltfLoader.cppm`, `SrgbFactor`).
 - FBX (and OBJ, read by the same loader): encoded too. Its colours are the DCC's scene-linear
   values: Platformer Game Kit's character, exported from Blender as both FBX and glTF, carries
-  the same numbers in each (the FBX times its legacy 0.8 diffuse factor).
+  the same numbers in each. A legacy material's DiffuseFactor is ignored, as glTF has none
+  (Blender writes 0.8 there, which made the FBX a fifth darker than its glTF).
 - Images: unchanged. The texture import's colour space setting stays the switch between colour
   imagery (sRGB) and data (normal, roughness, masks: linear).
 

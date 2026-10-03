@@ -118,6 +118,39 @@ TEST_CASE("fbx.obj: a material colour (scene-linear in the file) reads as author
     std::remove("welded.mtl");
 }
 
+TEST_CASE("fbx: a legacy material's colour ignores its diffuse factor, as the glTF has none")
+{
+    // Blender writes DiffuseFactor 0.8 beside the colour; the same model's glTF carries the colour
+    // alone. Linear 0.2140 reads as sRGB 0.5 whatever the factor.
+    constexpr const char* kFbx = R"(; FBX 7.4.0 project file
+FBXHeaderExtension:  {
+	FBXHeaderVersion: 1003
+	FBXVersion: 7400
+}
+Objects:  {
+	Material: 1000, "Material::Grey", "" {
+		Version: 102
+		ShadingModel: "phong"
+		Properties70:  {
+			P: "DiffuseColor", "Color", "", "A",0.2140,0.2140,0.2140
+			P: "DiffuseFactor", "Number", "", "A",0.8
+		}
+	}
+}
+Connections:  {
+}
+)";
+    WriteText("scratch_fbx_factor.fbx", kFbx);
+    Model model;
+    fbx::FbxLoader loader;
+    REQUIRE(loader.load(StringView(reinterpret_cast<const utf8char*>("scratch_fbx_factor.fbx")),
+                        model) == ModelLoadResult::Ok);
+    REQUIRE(model.materials().Size() >= 1u);
+    const ModelMaterial* grey = model.materials()[0];
+    CHECK(grey->baseColorFactor.x == doctest::Approx(0.5f).epsilon(0.002));
+    std::remove("scratch_fbx_factor.fbx");
+}
+
 TEST_CASE("fbx.obj: a missing .mtl is not an error")
 {
     WriteText("scratch_fbx_nomtl.obj", kQuadObj); // references welded.mtl, which is absent
