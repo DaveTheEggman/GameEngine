@@ -9,6 +9,15 @@
 //
 // The block's traffic is set here too: on the first frame (every behavior has started by then) it
 // tells the cars and pedestrians their speeds, and the pedestrians where the ring road runs. A crash ("BikeCrashed", from the Bike) costs time.
+// The clock's tells: "Hurry up!" once at 20 s left, a tick every second of the last 10 while the
+// HUD's time blinks, and "Time over!" when it runs out. All on scene time, so a pause stops them.
+Guid kHurrySound = Guid("75413373-fbc2-4da3-9966-76e93a13782d");
+Guid kTickSound = Guid("96dd2268-4344-4224-bfad-661e2b5cf12b");
+Guid kTimeOverSound = Guid("2c347e4a-e1cb-42e2-ab4c-bd3caea67332");
+
+const float kHurryAt = 20.0f;
+const float kTicksFrom = 10.0f;
+
 class Level
 {
     private Scene@ scene;
@@ -28,6 +37,8 @@ class Level
     private bool m_ended = false;
     private float m_graceLeft = -1.0f; // counting down once the last paper is thrown
     private bool m_trafficSet = false;
+    private bool m_hurried = false;
+    private int m_lastTick = -1; // the whole second last ticked
 
     Level(Scene@ s) { @scene = s; }
 
@@ -56,9 +67,11 @@ class Level
         if (m_timeLeft <= 0.0f)
         {
             m_timeLeft = 0.0f;
+            Audio::playOneShot(kTimeOverSound, AudioBus::Effects);
             end(false, 0);
             return;
         }
+        clockTells();
         if (m_graceLeft >= 0.0f)
         {
             m_graceLeft -= float(dt);
@@ -110,9 +123,33 @@ class Level
         }
     }
 
+    private void clockTells()
+    {
+        if (!m_hurried && m_timeLeft <= kHurryAt)
+        {
+            m_hurried = true;
+            Audio::playOneShot(kHurrySound, AudioBus::Effects);
+        }
+        Label@ time = ui::findLabel("hud-time");
+        if (m_timeLeft > kTicksFrom)
+        {
+            time.setOpacity(1.0f);
+            return;
+        }
+        int second = int(m_timeLeft);
+        if (second != m_lastTick)
+        {
+            m_lastTick = second;
+            Audio::playOneShot(kTickSound, AudioBus::Effects, 0.7f);
+        }
+        // Dim for the second half of every second: a blink in step with the ticks.
+        time.setOpacity((m_timeLeft - float(second)) < 0.5f ? 0.35f : 1.0f);
+    }
+
     private void end(bool cleared, int reason)
     {
         m_ended = true;
+        ui::findLabel("hud-time").setOpacity(1.0f); // not left dim by the blink
         updateHud();
         if (cleared)
         {

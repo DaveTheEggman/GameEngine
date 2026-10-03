@@ -1,0 +1,90 @@
+<root>
+	<string name="guid">45426922-dadc-4b9a-9681-f7ac482efcea</string>
+	<string name="typeNamespace">rtti::pipeline::propertyanimation</string>
+	<string name="typeName">PropertyAnimationClipAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">6746997250886510510</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName"/>
+		<f32 name="duration">1</f32>
+		<array name="trackComponent" count="1">
+			<string>Transform</string>
+		</array>
+		<array name="trackPath" count="1">
+			<string>scale</string>
+		</array>
+		<array name="trackKind" count="1">
+			<u8>1</u8>
+		</array>
+		<array name="channelKeyStart" count="3">
+			<u32>0</u32>
+			<u32>3</u32>
+			<u32>5</u32>
+		</array>
+		<array name="channelKeyCount" count="3">
+			<u32>3</u32>
+			<u32>2</u32>
+			<u32>3</u32>
+		</array>
+		<array name="keyTime" count="8">
+			<f32>0</f32>
+			<f32>0.5</f32>
+			<f32>1</f32>
+			<f32>0</f32>
+			<f32>1</f32>
+			<f32>0</f32>
+			<f32>0.5</f32>
+			<f32>1</f32>
+		</array>
+		<array name="keyValue" count="8">
+			<f32>2.4</f32>
+			<f32>2.9</f32>
+			<f32>2.4</f32>
+			<f32>0.04</f32>
+			<f32>0.04</f32>
+			<f32>2.4</f32>
+			<f32>2.9</f32>
+			<f32>2.4</f32>
+		</array>
+		<array name="keyTangentIn" count="8">
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+		</array>
+		<array name="keyTangentOut" count="8">
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+			<f32>0</f32>
+		</array>
+		<array name="keyInterp" count="8">
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+			<u8>2</u8>
+		</array>
+		<array name="trackQuatStart" count="1">
+			<u32>0</u32>
+		</array>
+		<array name="trackQuatCount" count="1">
+			<u32>0</u32>
+		</array>
+		<array name="quatTime" count="0"/>
+		<array name="quatValue" count="0"/>
+	</object>
+</root>
