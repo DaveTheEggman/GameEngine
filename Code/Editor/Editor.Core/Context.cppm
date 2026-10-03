@@ -306,6 +306,11 @@ export namespace editor
 
         /// File > New's creators, every pipeline domain's (pipeline::RegisterAllCreators fills
         /// it); the host runs one and does what follows a creation.
+        /// The source asset types a resource reference to `product` takes (a picker's filter),
+        /// wired by the application from its builders and the engine composition; empty when
+        /// unwired (headless hosts, tests).
+        Function<Array<const TypeInfo*>(const TypeInfo& product)> SourceAssetTypesOf;
+
         [[nodiscard]] pipeline::AssetCreatorRegistry& Creators() noexcept { return m_creators; }
         [[nodiscard]] const pipeline::AssetCreatorRegistry& Creators() const noexcept
         {

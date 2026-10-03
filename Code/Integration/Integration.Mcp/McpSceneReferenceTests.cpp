@@ -21,6 +21,8 @@ import pipeline.registration;
 import engine.composition;
 import editor.project;
 import editor.mcp;
+import engine.render;             // the render profiles (a reference's product)
+import foundation.texture.resource; // texture::Texture (a product made from two cooked forms)
 
 using namespace foundation::core;
 using namespace foundation::mcp;
@@ -340,6 +342,32 @@ TEST_CASE("integration.mcp: scene reference - the example loads through LoadScen
     CHECK(report.Get(u8"valid").AsBool() == true);
     CHECK(report.Get(u8"warnings").Count() == 0);
     CHECK(report.Get(u8"entityCount").AsNumber() == doctest::Approx(static_cast<f64>(loaded.EntityCount())));
+}
+
+TEST_CASE("integration.mcp: a reference's product joins to the source asset types that make it")
+{
+    // What a settings field's picker filters by (the editor wires SourceAssetTypesOf to this):
+    // the product's factory description gives its cooked forms, the builders their asset types.
+    Fixture f;
+    const auto names = [&](const TypeInfo& product)
+    {
+        Array<String> out;
+        for (const TypeInfo* asset : editor::mcp::SourceAssetTypesFor(f.builders, product))
+        {
+            out.PushBack(String(reinterpret_cast<const utf8char*>(asset->name)));
+        }
+        return out;
+    };
+    const Array<String> environment = names(engine::render::EnvironmentProfile::StaticType());
+    REQUIRE(environment.Size() == 1u);
+    CHECK(environment[0] == u8"EnvironmentProfileAsset");
+    const Array<String> post = names(engine::render::PostProcessProfile::StaticType());
+    REQUIRE(post.Size() == 1u);
+    CHECK(post[0] == u8"PostProcessProfileAsset");
+    // A product made from two cooked forms has two asset types.
+    CHECK(names(foundation::texture::Texture::StaticType()).Size() == 2u);
+    // Something nothing makes has none.
+    CHECK(names(TypeOf<f32>()).IsEmpty());
 }
 
 TEST_CASE("integration.mcp: scene reference - two generations are byte identical")

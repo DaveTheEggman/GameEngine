@@ -542,6 +542,12 @@ export namespace editor
                                         : Guid{};
         }
 
+        // Any other reference-shaped settings field: a picker filtered to the source asset types
+        // that make the reference's product (the editor's join of factories and builders), so a
+        // new reference type gets its picker by being declared, not by a branch here.
+        void BuildSettingReferenceRow(const TypeInfo* type, const PropertyInfo& prop,
+                                      StringView category);
+
         // The settings twin of BuildResourceRefRow.
         template <typename T>
         void BuildSettingResourceRefRow(const TypeInfo* type, const PropertyInfo& prop,

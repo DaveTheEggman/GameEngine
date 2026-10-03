@@ -641,6 +641,50 @@ namespace editor
         AddEditor(matrix.Get(), []() {});
     }
 
+    void SceneInspectorView::BuildSettingReferenceRow(const TypeInfo* type, const PropertyInfo& prop,
+                                                      StringView category)
+    {
+        SceneInspectorView* self = this;
+        SceneEditContext* edit = m_edit;
+        const char* propName = prop.name;
+        const StringView name(reinterpret_cast<const utf8char*>(prop.name));
+        Array<StringView> accepted;
+        if (m_editor->SourceAssetTypesOf)
+        {
+            for (const TypeInfo* asset : m_editor->SourceAssetTypesOf(*prop.type->reference->Target()))
+            {
+                accepted.PushBack(StringView(reinterpret_cast<const utf8char*>(asset->name)));
+            }
+        }
+        auto target = [edit, type, propName]() -> Guid
+        {
+            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+            const PropertyInfo* p = FindProperty(*type, propName);
+            if (system == nullptr || p == nullptr || p->address == nullptr ||
+                p->type->reference == nullptr)
+            {
+                return Guid{};
+            }
+            const Guid* id =
+                p->type->reference->Id(p->address(Instance{system->SettingsInstance(), type}));
+            return id != nullptr ? *id : Guid{};
+        };
+        auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), name, AssetNameFor(target()),
+                                                 category,
+                                                 Span<const StringView>{accepted.Data(), accepted.Size()});
+        ResourceRefEditor* raw = editor.Get();
+        raw->BindAsset(*m_editor, target,
+                       [self, edit, type, propName](const Guid& id)
+                       {
+                           if (self->m_editor->Project() != nullptr)
+                           {
+                               edit->SetSceneSettingReference(type, propName, id,
+                                                              self->m_editor->Resources());
+                           }
+                       });
+        AddEditor(raw, [raw]() { raw->Refresh(); });
+    }
+
     void SceneInspectorView::BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop,
                                              StringView category)
     {
@@ -670,6 +714,11 @@ namespace editor
         {
             BuildSettingResourceRefRow<foundation::script::ScriptClass>(type, prop, category,
                                                                       {u8"ScriptClassAsset"});
+            return;
+        }
+        if (prop.type->reference != nullptr && prop.type->reference->Target != nullptr)
+        {
+            BuildSettingReferenceRow(type, prop, category);
             return;
         }
         auto getVariant = [getInstance, type, propName]() -> Variant

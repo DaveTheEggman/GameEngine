@@ -46,6 +46,13 @@ export namespace editor::mcp
     [[nodiscard]] SceneReference
     GenerateSceneReference(IAllocator& allocator, const pipeline::BuilderRegistry& builders);
 
+    /// The source asset types a resource reference to `product` takes: the runtime type's factory
+    /// description in the engine composition gives its cooked forms, and the builder producing
+    /// each gives its asset type (a texture's and a render texture's for a Texture). Declarations
+    /// only, nothing constructed. Empty when nothing in this composition makes the product.
+    [[nodiscard]] Array<const TypeInfo*> SourceAssetTypesFor(const pipeline::BuilderRegistry& builders,
+                                                             const TypeInfo& product);
+
     /// The schema entry for `name`: a component by wire name (a record's `type`) or reflected type
     /// name, or a settings block by system id or type name; ASCII case folded. Null when none.
     [[nodiscard]] foundation::json::JsonValue

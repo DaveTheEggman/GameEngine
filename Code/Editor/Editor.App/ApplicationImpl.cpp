@@ -2548,6 +2548,8 @@ namespace editor::app
         // Cook-gated starts (PIE waits for the cook): busy = anything in flight OR a
         // remembered mid-cook request still waiting to re-issue (IsIdle, not MutationLocked).
         m_context.CookBusy = [this]() { return m_cookService.IsReady() && !m_cookService.IsIdle(); };
+        m_context.SourceAssetTypesOf = [this](const TypeInfo& product)
+        { return editor::mcp::SourceAssetTypesFor(m_builders, product); };
         StartMcpHost(); // the agent surface over this project, if enabled
         // Background jobs (export) read the source DB structure and pack cooked FILES
         // from their worker - DB mutations and new cooks must hold off while one runs,

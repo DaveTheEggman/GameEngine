@@ -147,7 +147,6 @@ namespace
     struct Joiner
     {
         const pipeline::BuilderRegistry* builders = nullptr;
-        const engine::EngineComposition* composition = nullptr;
 
         // `ref` for a reference-shaped value type: "entity" for an EntityRef, {resource, asset}
         // for a Ref<T> - the runtime type T, the factory DESCRIPTION the composition carries for
@@ -175,44 +174,8 @@ namespace
             }
             JsonValue out = JsonValue::MakeObject();
             out.Set(u8"resource", JsonValue::MakeString(String(Utf8(target->name))));
-            Array<const TypeInfo*> cookedForms;
-            if (composition != nullptr)
-            {
-                composition->ForEachFactoryDescription(
-                    [&](const foundation::resource::ResourceModule&,
-                        const foundation::resource::ResourceFactoryDesc& desc)
-                    {
-                        const TypeInfo* product = desc.product();
-                        if (cookedForms.IsEmpty() && product != nullptr &&
-                            product->id == target->id)
-                        {
-                            desc.ForEachCooked([&](const TypeInfo* cooked)
-                                               { cookedForms.PushBack(cooked); });
-                        }
-                    });
-            }
-            Array<const TypeInfo*> assets;
-            for (const TypeInfo* cooked : cookedForms)
-            {
-                if (cooked == nullptr || builders == nullptr)
-                {
-                    continue;
-                }
-                const TypeInfo* asset = nullptr;
-                builders->ForEach(
-                    [&](const pipeline::IAssetBuilder& builder)
-                    {
-                        const TypeInfo* product = builder.ProductType();
-                        if (asset == nullptr && product != nullptr && product->id == cooked->id)
-                        {
-                            asset = builder.AssetType();
-                        }
-                    });
-                if (asset != nullptr)
-                {
-                    assets.PushBack(asset);
-                }
-            }
+            const Array<const TypeInfo*> assets =
+                builders != nullptr ? editor::mcp::SourceAssetTypesFor(*builders, *target) : Array<const TypeInfo*>{};
             if (assets.IsEmpty())
             {
                 resolved = false;
@@ -980,6 +943,42 @@ namespace
 
 namespace editor::mcp
 {
+    Array<const TypeInfo*> SourceAssetTypesFor(const pipeline::BuilderRegistry& builders,
+                                               const TypeInfo& product)
+    {
+        Array<const TypeInfo*> cookedForms;
+        engine::FullComposition().ForEachFactoryDescription(
+            [&](const foundation::resource::ResourceModule&,
+                const foundation::resource::ResourceFactoryDesc& desc)
+            {
+                const TypeInfo* made = desc.product();
+                if (cookedForms.IsEmpty() && made != nullptr && made->id == product.id)
+                {
+                    desc.ForEachCooked([&](const TypeInfo* cooked) { cookedForms.PushBack(cooked); });
+                }
+            });
+        Array<const TypeInfo*> assets;
+        for (const TypeInfo* cooked : cookedForms)
+        {
+            const TypeInfo* asset = nullptr;
+            builders.ForEach(
+                [&](const pipeline::IAssetBuilder& builder)
+                {
+                    const TypeInfo* output = builder.ProductType();
+                    if (asset == nullptr && cooked != nullptr && output != nullptr &&
+                        output->id == cooked->id)
+                    {
+                        asset = builder.AssetType();
+                    }
+                });
+            if (asset != nullptr)
+            {
+                assets.PushBack(asset);
+            }
+        }
+        return assets;
+    }
+
     SceneReference GenerateSceneReference(IAllocator& allocator,
                                           const pipeline::BuilderRegistry& builders)
     {
@@ -992,7 +991,7 @@ namespace editor::mcp
         const Example example = ComposeExample(world, rng);
 
         // The schema's bodies first, over the DEFAULTS (D1), before the example gets its content.
-        Joiner joiner{&builders, &engine::FullComposition()};
+        Joiner joiner{&builders};
         JsonValue schema = JsonValue::MakeObject();
         JsonValue components = ComponentsSection(allocator, world, example, joiner);
         JsonValue settings = SettingsSection(allocator, world, joiner);

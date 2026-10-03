@@ -253,6 +253,17 @@ export namespace editor
                                           editor::EditorRootAllocator()));
         }
 
+        /// Any reference-shaped settings field (its type's reference traits), undoable.
+        void SetSceneSettingReference(const TypeInfo* settingsType, const char* property,
+                                      const Guid& value,
+                                      foundation::resource::ResourceManager* resources)
+        {
+            (void)m_commands->Execute(UniquePtr<IEditorCommand>(
+                editor::EditorRootAllocator().New<SetSceneSettingReferenceCommand>(
+                    *this, settingsType, property, value, resources),
+                editor::EditorRootAllocator()));
+        }
+
         /// Whole-block scene-settings edit (shapes reflection rows can't express - e.g.
         /// the collision-group matrix): `newBlob` = the settings serialized via the
         /// system's own SerializeSettings; undo restores the prior serialized state.
@@ -1140,6 +1151,77 @@ export namespace editor
 
         // The settings twin of SetResourceRefCommand: the Ref lives on a scene SYSTEM's
         // settings block (no entity); the address re-derives from the scene each apply.
+        // Any reference-shaped settings field, through its reference traits (the id) and the
+        // system's own resolve (the rebind): what a settings row needs when nothing names T.
+        class SetSceneSettingReferenceCommand final : public IEditorCommand
+        {
+        public:
+            SetSceneSettingReferenceCommand(SceneEditContext& ctx, const TypeInfo* settingsType,
+                                            const char* property, const Guid& value,
+                                            foundation::resource::ResourceManager* resources)
+                : m_ctx(&ctx), m_settingsType(settingsType), m_property(property), m_new(value),
+                  m_resources(resources)
+            {
+            }
+
+            [[nodiscard]] bool Execute() override
+            {
+                const ReferenceOps* ops = nullptr;
+                void* value = Resolve(ops);
+                if (value == nullptr)
+                {
+                    return false;
+                }
+                if (!m_hasOld)
+                {
+                    const Guid* current = ops->Id(value);
+                    m_old = current != nullptr ? *current : Guid{};
+                    m_hasOld = true;
+                }
+                Apply(m_new);
+                return true;
+            }
+            void Undo() override { Apply(m_old); }
+            [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting_ref"; }
+
+        private:
+            void* Resolve(const ReferenceOps*& ops)
+            {
+                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                const PropertyInfo* prop = FindProperty(*m_settingsType, m_property);
+                if (system == nullptr || prop == nullptr || prop->address == nullptr ||
+                    prop->type == nullptr || prop->type->reference == nullptr)
+                {
+                    return nullptr;
+                }
+                ops = prop->type->reference;
+                return prop->address(Instance{system->SettingsInstance(), m_settingsType});
+            }
+            void Apply(const Guid& id)
+            {
+                const ReferenceOps* ops = nullptr;
+                void* value = Resolve(ops);
+                if (value == nullptr)
+                {
+                    return;
+                }
+                ops->SetId(value, id);
+                if (m_resources != nullptr)
+                {
+                    // The system binds its references (this one among them) as a load does.
+                    m_ctx->FindSystemBySettingsType(m_settingsType)->ResolveResources(*m_resources);
+                }
+            }
+
+            SceneEditContext* m_ctx;
+            const TypeInfo* m_settingsType;
+            const char* m_property;
+            Guid m_new;
+            Guid m_old;
+            bool m_hasOld = false;
+            foundation::resource::ResourceManager* m_resources;
+        };
+
         template <typename T>
         class SetSceneSettingRefCommand final : public IEditorCommand
         {

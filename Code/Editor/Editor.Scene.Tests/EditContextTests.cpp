@@ -695,6 +695,25 @@ TEST_CASE("edit-context: scene-setting edits are undoable commands and merge lik
     CHECK(wind->settings.speed == 3.0f);
 }
 
+TEST_CASE("edit-context: a settings reference with no typed row sets and undoes through its traits")
+{
+    // The environment's profile (a Ref<EnvironmentProfile>): set by id, undone, redone.
+    engine::render::RegisterRenderComponentReflection();
+    scene::Scene scene(DefaultAllocator(), u8"s");
+    auto* env = scene.AddSystem<engine::render::EnvironmentSystem>();
+    editor::EditorCommandStack commands;
+    SceneEditContext edit(scene, commands);
+    const TypeInfo* type = &TypeOf<engine::render::EnvironmentSettings>();
+    const Guid profile{0xABu, 0xCDu};
+
+    edit.SetSceneSettingReference(type, "profile", profile, nullptr);
+    CHECK(env->Environment().profile.id == profile);
+    commands.Undo();
+    CHECK(env->Environment().profile.id.IsNil());
+    commands.Redo();
+    CHECK(env->Environment().profile.id == profile);
+}
+
 TEST_CASE("material creator: PBR/Unlit presets land in Materials/ with the right shader")
 {
     pipeline::RegisterMaterialAsset();
