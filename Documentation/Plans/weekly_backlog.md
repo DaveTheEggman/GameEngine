@@ -12,6 +12,11 @@
 
 ## Queued 2026-10-03 (user)
 
+- **Shadow acne, and no shadow controls** (found tuning PaperKid's look, shared with Sedulous):
+  the sun's shadow biases are constants (`MeshRendererImpl.cpp:1005`, a normal offset of 2% of
+  a texel, effectively none), so grazing walls mottle; a light offers nothing to tune.
+  Proposal: `Documentation/Specs/shadow-controls.md` (defaults that work, per-light depth bias,
+  normal bias and strength in the inspector). Both trees, after Sedulous's sync.
 - **Stopping a game does not stop its music** (user: they close the editor to silence it; shared
   with Sedulous): a game's script audio (music, one-shots) belongs to no scene or run, so Stop
   leaves it playing, and multi-PIE mixes every instance into one output with all their
