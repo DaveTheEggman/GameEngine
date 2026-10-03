@@ -45,6 +45,19 @@
   PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
   give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
   log a failed load. Check what Sedulous's player does first.
+- **`var()` inside a drawable's arguments draws white, silently** (found 2026-10-03, PaperKid's
+  theme): `background: rounded-rect(var(--paper), radius=6, border=var(--ink), ...)` in a project
+  theme (`.sss`) draws a plain white rect with no border, and the log says nothing; `var()` works
+  as a whole property value (`text-color: var(--ink)`). A project theme cannot declare a `$name`
+  palette either (the palette is the engine theme's `ThemePalette`), so a theme writes every
+  colour out. Fix: resolve `var()` in factory arguments at compute time (or a sheet-declared
+  palette), and warn on an argument that does not parse. Check Sedulous first.
+- **Every new particle system has the same random seed** (found 2026-10-03, PaperKid's confetti):
+  `ParticleSystem`'s default seed is one constant, so two systems in an effect spawn their
+  particles in identical places and only the last drawn shows (four confetti colours drew as one
+  green). PaperKid's `fx.py` seeds each system by name. Fix: give a system a fresh seed when the
+  particle page (and `asset_create`'s default) adds one.
+
 ## Queued 2026-10-02 (user, render-textures review)
 
 - **Post effects for an orthographic camera**: `LimitPostForOrthographic`
