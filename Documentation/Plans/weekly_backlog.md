@@ -12,17 +12,14 @@
 
 ## Queued 2026-10-03 (user)
 
-- **Shadow acne, and no shadow controls** (found tuning PaperKid's look, shared with Sedulous):
-  the sun's shadow biases are constants (`MeshRendererImpl.cpp:1005`, a normal offset of 2% of
-  a texel, effectively none), so grazing walls mottle; a light offers nothing to tune.
-  Proposal: `Documentation/Specs/shadow-controls.md` (defaults that work, per-light depth bias,
-  normal bias and strength in the inspector). Both trees, after Sedulous's sync.
-- **Stopping a game does not stop its music** (user: they close the editor to silence it; shared
-  with Sedulous): a game's script audio (music, one-shots) belongs to no scene or run, so Stop
-  leaves it playing, and multi-PIE mixes every instance into one output with all their
-  listeners on. Proposal: `Documentation/Specs/run-audio.md` (a run group above the scene
-  groups, the run's script binding carrying it, Stop and Pause acting on the run, only the
-  focused Game tab heard). To settle with the user, for both trees, before building.
+- **Shadow acne, and no shadow controls**: RESOLVED 2026-10-03 (branch shadow-controls). Not
+  acne: PaperKid's wall mottling was the roof's shadow under-resolved by cascades reaching 300 m.
+  A light now has strength, normal bias and depth-bias scale; a scene sets its shadow reach,
+  split and fade (PaperKid: 60 m). Spec: `Documentation/Specs/shadow-controls.md`.
+- **Stopping a game does not stop its music**: RESOLVED 2026-10-03 (branch run-audio). A game's
+  sound belongs to its run (a group above its scenes'): the Game tab's Stop ends it, its pause
+  freezes it, only the focused tab is heard (Preferences > Game audio for every tab), and a run's
+  bus volumes are its own. Spec: `Documentation/Specs/run-audio.md`.
 
 ## Queued 2026-10-02 (user, PaperKid)
 

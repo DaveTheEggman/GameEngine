@@ -413,6 +413,10 @@ namespace engine::runtime
             }
             instance->Scenes().Clear(); // destroy any remaining scenes (aware subsystems notified)
             instance->RunHost().Teardown();
+            if (m_audio != nullptr)
+            {
+                m_audio->EndRun(instance); // its sound ends with it
+            }
             m_extraInstances.RemoveAt(i); // frees the GameInstance
             return;
         }

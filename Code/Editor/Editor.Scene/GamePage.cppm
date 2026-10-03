@@ -14,6 +14,7 @@
 module;
 #include "Core/Prelude.h"
 #include "Core/Log/Log.h"
+#include "Core/Reflection/Reflect.h" // RTTI_OBJECT (the game-audio settings section)
 
 export module editor.scene:game_page;
 
@@ -59,6 +60,30 @@ namespace rhi = foundation::rhi;
 
 export namespace editor
 {
+    // The editor's game-audio preference (a user settings section, the Preferences dialog's
+    // "Game audio" category): with several Game tabs running, hear only the focused one (the
+    // default) or every instance at once.
+    class GameAudioEditorSettings final : public ISerializable
+    {
+        RTTI_OBJECT(GameAudioEditorSettings, ISerializable)
+    public:
+        bool hearAllInstances = false;
+
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "hearAllInstances", hearAllInstances);
+        }
+    };
+
+    RTTI_DEFINE_OBJECT(GameAudioEditorSettings, "rtti::editor")
+
+    /// TYPE registration, before the app constructs (the user settings file loads during boot).
+    void RegisterGameAudioEditorSettingsTypes();
+    /// The Preferences contribution (needs the live context).
+    void RegisterGameAudioEditorSettings(EditorContext& context);
+    /// The preference's value (the default when no store or section exists).
+    [[nodiscard]] bool HearAllGameInstances(const EditorContext& context);
+
     namespace runtime = foundation::runtime;
     namespace ui = foundation::ui;
     namespace scene = foundation::scene;
@@ -250,6 +275,7 @@ export namespace editor
             Provide<IGameRunPage>(*this);     // what the editor stops before a native reload
             m_scenes = host.Ctx().GetSubsystem<engine::scene::SceneSubsystem>();
             m_render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
+            m_audio = host.Ctx().GetSubsystem<engine::audio::AudioSubsystem>();
             m_input = host.Ctx().GetSubsystem<engine::input::InputSubsystem>();
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
@@ -473,6 +499,8 @@ export namespace editor
         // Diff-apply the shared breakpoint store onto the live run's debugger (gutter
         // toggles during a run take effect without a restart).
         void SyncBreakpointsToDebugger();
+        // The run's sound follows the tab: the host pause, the focus, the hear-all preference.
+        void SyncRunAudio();
 
         // The resolution dropdown (:game_resolution): built once, its choices refreshed when
         // what they come from changes (looked at once a second), the choice kept per project.
@@ -519,6 +547,7 @@ export namespace editor
             nullptr; // borrowed; tracks dock/float moves
         engine::scene::SceneSubsystem* m_scenes = nullptr;
         engine::render::RenderSubsystem* m_render = nullptr;
+        engine::audio::AudioSubsystem* m_audio = nullptr; // the run's sound: stop, pause, focus
         scene::Scene* m_scene = nullptr;
         engine::input::InputSubsystem* m_input = nullptr;
         foundation::shell::IInputManager* m_shellInput = nullptr;

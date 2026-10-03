@@ -1,8 +1,5 @@
 # Run audio - a game's sound belongs to its run
 
-> STATUS: PROPOSED 2026-10-03; bus volumes decided (a). Waiting on Sedulous's sync before any code. The problem is shared with Sedulous (user); the
-> design is meant for both trees, so it is settled with the user before either builds it.
-
 ## The problem
 
 Stopping a game in the editor does not stop its music. The user closes the editor to silence it.
@@ -102,3 +99,22 @@ its sync, so no code changes under it.
 
 Separate audio devices per instance; mixing several instances into one output deliberately;
 networked audio.
+
+## Built (run-audio branch)
+
+- Audio engine: run groups (`CreateRunGroup`, `StopRunGroup`, `DestroyRunGroup`, pause, mute with a
+  0.1 s ramp, volume, per-run bus gains and mutes, a music slot per run); scene groups nest under
+  their run; a scene-less voice can name its run. Custom named-bus voices route outside the run's
+  groups: they take the run's Master gain, volume and mute on the voice, and pause one by one.
+- The run key: `Scene::Run` (set by the creating manager) and the script runtime binding's `run`
+  (`CurrentRun`); a `GameInstance` gives both itself.
+- Audio subsystem: a run registry keyed by run (`RunGroupFor`, `EndRun` with a fade then free,
+  `SetRunPaused`, `SetFocusedRun`, `SetHearAllRuns`); scenes of a run start their group under it;
+  the `Audio` facade plays into the calling script's run and its bus volumes and mutes are the
+  run's; only heard runs' scenes feed the listeners.
+- Hosts: the Game tab ends its run on Stop, keeps its run paused with the toolbar's pause and a
+  debugger break, focuses its run on Play and when its viewport takes the keyboard; the app ends
+  a released instance's run; Preferences > Game audio > "Hear every Game tab" (default off).
+- Not built: a layout's custom named buses stay global (a run's `setNamedBusVolume` on one moves
+  it for every run).
+

@@ -398,6 +398,10 @@ namespace editor
         m_sceneTitle = (m_scene != nullptr) ? String(m_scene->Name()) : String(u8"(no scene)");
         BindInput();
         BindBusLayout(*m_host);
+        if (m_audio != nullptr && m_gameInstance != nullptr)
+        {
+            m_audio->SetFocusedRun(m_gameInstance); // the tab Play was pressed in is the one heard
+        }
         LOG_INFO(u8"Editor", u8"Game: running scene '{}'", m_sceneTitle);
         RefreshToolbar();
     }
@@ -466,6 +470,12 @@ namespace editor
                 m_fallbackScenes.Clear(); // no instance: the page's own placeholder group
             }
             m_scene = nullptr;
+        }
+        // The run's sound ends with it: its music, one-shots and anything still fading (another
+        // tab's run and the editor's own sounds play on).
+        if (m_audio != nullptr && m_gameInstance != nullptr)
+        {
+            m_audio->EndRun(m_gameInstance);
         }
         m_running = false;
         RefreshToolbar();
@@ -589,6 +599,33 @@ namespace editor
         m_hostWindow = window;
     }
 
+    void GameEditorPage::SyncRunAudio()
+    {
+        if (m_audio == nullptr || m_gameInstance == nullptr)
+        {
+            return;
+        }
+        const bool hearAll = HearAllGameInstances(*m_context);
+        if (m_audio->HearAllRuns() != hearAll)
+        {
+            m_audio->SetHearAllRuns(hearAll);
+        }
+        if (!m_running)
+        {
+            return;
+        }
+        // The toolbar's pause and a debugger break freeze the run's sound with the game (a game's
+        // own pause menu is time scale 0, the game's business: its menu music plays on).
+        const bool paused =
+            m_simPausedByDebugger || (m_pauseToggle != nullptr && m_pauseToggle->IsChecked());
+        m_audio->SetRunPaused(m_gameInstance, paused);
+        // Clicking into this tab's viewport makes its run the one heard.
+        if (m_viewport->HostKeyboardFocusHere() && m_audio->FocusedRun() != m_gameInstance)
+        {
+            m_audio->SetFocusedRun(m_gameInstance);
+        }
+    }
+
     void GameEditorPage::OnUpdate(runtime::IApplicationHost& host, f32 dt)
     {
         // A capture recorded last frame: the GPU has to finish the copy.
@@ -616,6 +653,7 @@ namespace editor
         // A running game owns the keys its focused viewport receives: the editor's arrow key
         // focus moves and single key bindings stay out of it.
         m_viewport->SetCapturesKeys(m_running);
+        SyncRunAudio();
         if (m_router.Get() != nullptr)
         {
             // One app keyboard (issues repro: Tab in an editor dialog field traversed the PIE
@@ -1336,5 +1374,44 @@ namespace editor
             return {};
         }
         return shellInput->Events();
+    }
+
+    void RegisterGameAudioEditorSettingsTypes()
+    {
+        GlobalTypeRegistry().Register(GameAudioEditorSettings::StaticType());
+        RegisterSerializable<GameAudioEditorSettings>();
+    }
+
+    bool HearAllGameInstances(const EditorContext& context)
+    {
+        foundation::settings::Settings* store = context.UserEditorSettings();
+        const GameAudioEditorSettings* section =
+            store != nullptr ? store->Find<GameAudioEditorSettings>() : nullptr;
+        return section != nullptr && section->hearAllInstances;
+    }
+
+    void RegisterGameAudioEditorSettings(EditorContext& context)
+    {
+        RegisterGameAudioEditorSettingsTypes(); // idempotent belt for odd boot orders
+        EditorContext* ctx = &context;
+        EditorContext::EditorSettingsContribution contribution;
+        contribution.category = String(u8"Game audio");
+        EditorContext::EditorSettingsBoolField all;
+        all.label = String(u8"Hear every Game tab");
+        all.description = String(u8"With several Game tabs running, mix every instance's sound. Off "
+                                 u8"(the default): only the focused tab is heard, the others run "
+                                 u8"muted.");
+        all.get = [ctx]() { return HearAllGameInstances(*ctx); };
+        all.set = [ctx](bool value)
+        {
+            if (foundation::settings::Settings* store = ctx->UserEditorSettings())
+            {
+                store->Section<GameAudioEditorSettings>().hearAllInstances = value;
+                store->MarkChanged<GameAudioEditorSettings>();
+            }
+        };
+        contribution.bools.PushBack(static_cast<EditorContext::EditorSettingsBoolField&&>(all));
+        context.RegisterEditorSettingsContribution(
+            static_cast<EditorContext::EditorSettingsContribution&&>(contribution));
     }
 }

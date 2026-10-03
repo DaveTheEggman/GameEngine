@@ -141,6 +141,7 @@ namespace
         // Domain editor-settings SECTIONS register before the app boots (the user settings
         // file loads in the app ctor; see RegisterNavigationEditorSettingsTypes).
         editor::navigation::RegisterNavigationEditorSettingsTypes();
+        editor::RegisterGameAudioEditorSettingsTypes();
         pipeline::RegisterAllBuilders(registry);
         // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/...
         // facades), so BOTH the editor's cook AND its live script validation (ScriptApiSurface
@@ -389,6 +390,7 @@ int main(int argc, char** argv)
         editor::RegisterSkeletonEditor(app.Context(), host, uiHost);
         editor::RegisterInputEditor(app.Context(), host);
         editor::navigation::RegisterNavigationEditorSettings(app.Context());
+        editor::RegisterGameAudioEditorSettings(app.Context());
         editor::RegisterPropertyAnimationEditor(app.Context(), host);
         editor::RegisterGameUIEditor(app.Context(), host, uiHost);
         editor::RegisterAudioClipEditor(app.Context(), host);

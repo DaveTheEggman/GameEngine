@@ -243,6 +243,12 @@ export namespace foundation::ui::viewport
         /// (game UI, action bindings, camera keys - all reading the surface-gated source)
         /// stops receiving keys the editor widget is consuming. Null/absent focus does NOT
         /// count as elsewhere - clicking dead editor space must not mute a playing game.
+        /// The host's keyboard focus is on this viewport (the view the user is playing in).
+        [[nodiscard]] bool HostKeyboardFocusHere() const
+        {
+            return Context != nullptr && Context->GetFocusManager()->FocusedView() == this;
+        }
+
         [[nodiscard]] bool HostKeyboardFocusElsewhere() const
         {
             if (Context == nullptr)
