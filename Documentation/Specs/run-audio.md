@@ -1,6 +1,6 @@
 # Run audio - a game's sound belongs to its run
 
-> STATUS: PROPOSED 2026-10-03, for discussion. The problem is shared with Sedulous (user); the
+> STATUS: PROPOSED 2026-10-03; bus volumes decided (a). Waiting on Sedulous's sync before any code. The problem is shared with Sedulous (user); the
 > design is meant for both trees, so it is settled with the user before either builds it.
 
 ## The problem
@@ -76,7 +76,7 @@ sound is heard from one place.
 An editor setting, **Game audio: focused instance | all instances**, keeps the old behaviour for
 the rare test that wants every instance heard (default: focused).
 
-### 5. Bus volumes in play-in-editor (open)
+### 5. Bus volumes in play-in-editor
 
 A game's Settings sliders set the global buses, so in multi-PIE one instance changes the others,
 and in any PIE it changes the editor's own volume and the volumes the player saves. Options:
@@ -85,7 +85,8 @@ and in any PIE it changes the editor's own volume and the volumes the player sav
   player still saves them; PIE never touches the editor's buses.
 - (b) Leave buses global and accept it, since only the focused instance is heard anyway.
 
-Recommendation: (b) now, (a) if it bites. To decide with the user.
+Decided (user, 2026-10-03): **(a)**, per-run bus gains. Not to start until Sedulous has finished
+its sync, so no code changes under it.
 
 ## Tests
 
