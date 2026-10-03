@@ -387,7 +387,7 @@ namespace editor
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{0.10f, 0.11f, 0.13f, 1.0f};
+        cameraOverride.clearColor = Color{0.10f, 0.11f, 0.13f, 1.0f}; // linear (a render view)
 
         // Scene documents look like themselves: their own primary camera + clear color when
         // one exists (RenderScene extracts both when no override is passed).

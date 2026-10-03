@@ -101,7 +101,9 @@ export namespace foundation::render
     struct CameraOverride
     {
         ViewCamera camera;
-        Color clearColor = Color{0.392f, 0.584f, 0.929f, 1.0f}; // the view's backdrop
+        // The view's backdrop, LINEAR like all render data (an authored colour is decoded with
+        // ToLinear before it lands here); cornflower blue's sRGB, decoded.
+        Color clearColor = Color{0.127f, 0.300f, 0.846f, 1.0f};
     };
 
     // Ephemeral per-view post-processing overrides for a RenderScene call - the editor viewport's

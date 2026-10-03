@@ -373,7 +373,8 @@ namespace engine::render
         // The view's camera, resolved BEFORE extraction: the first view's position rides on the
         // snapshot for producers that thin by distance (vegetation's fade prefix).
         ViewCamera camera;
-        Color clearColor{0.392f, 0.584f, 0.929f, 1.0f}; // cornflower fallback (no primary camera)
+        CameraOverride fallback;                 // the default backdrop (no primary camera)
+        Color clearColor = fallback.clearColor; // linear: cameras' authored colours are decoded
         if (cameraOverride != nullptr)
         {
             camera = cameraOverride->camera;

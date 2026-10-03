@@ -94,10 +94,10 @@ TEST_CASE("ExtractSceneInto builds the draw list; ExtractPrimaryCamera reads the
         CHECK(m->material == material.Get());
         CHECK(m->entityId != 0); // tagged with a packed entity handle
         sumX += m->world.m[3][0];
-        if (Near(m->color.b, 0.8f))
+        if (Near(m->color.b, SrgbToLinear(0.8f)))
         {
             sawBlue = true;
-        } // per-instance color carried through
+        } // per-instance color carried through, decoded to linear
     }
     CHECK(Near(sumX, 1.0f)); // -2 + 3
     CHECK(sawBlue);
@@ -299,6 +299,94 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     REQUIRE(rd4->instanceCount == 2u);
     CHECK(Near(rd4->transforms[0].m[3][0], 6.0f)); // 1 + entity x=5
     CHECK(Near(rd4->transforms[1].m[3][0], 4.0f)); // -1 + entity x=5
+}
+
+TEST_CASE("extract: authored (sRGB) colours reach render data decoded to linear")
+{
+    // What is entered is what is seen: every authored colour is sRGB, like an sRGB image, and
+    // the renderer works in linear. Extraction is where the one decode happens.
+    const Color authored{0.5f, 0.25f, 0.75f, 0.5f};
+    const Color linear = ToLinear(authored);
+    const auto same = [](Color a, Color b) { return NearlyEqual(a, b, 1.0e-4f); };
+    const auto same3 = [](Float3 a, Color b)
+    { return Near(a.x, b.r) && Near(a.y, b.g) && Near(a.z, b.b); };
+
+    scene::Scene scene(DefaultAllocator(), u8"colours");
+    auto* sets = scene.AddSystem<InstancedMeshComponentManager>();
+    auto* sprites = scene.AddSystem<SpriteComponentManager>();
+    auto* decals = scene.AddSystem<DecalComponentManager>();
+    auto* lights = scene.AddSystem<LightComponentManager>();
+    auto* cameras = scene.AddSystem<CameraComponentManager>();
+    auto* env = scene.AddSystem<EnvironmentSystem>();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    rhi::TextureView* fakeView = reinterpret_cast<rhi::TextureView*>(0x1); // extract only stores it
+
+    InstancedMeshComponent& set = sets->Add(scene.CreateEntity(u8"set"));
+    set.mesh = cube;
+    set.color = authored;
+    set.tints.PushBack(Color{0.5f, 0.5f, 0.5f, 1.0f});
+    set.SetInstances(Span<const Float4x4>{&set.instances[0], 1});
+    SpriteComponent& sprite = sprites->Add(scene.CreateEntity(u8"sprite"));
+    sprite.texture = fakeView;
+    sprite.tint = authored;
+    DecalComponent& decal = decals->Add(scene.CreateEntity(u8"decal"));
+    decal.texture = fakeView;
+    decal.color = authored;
+    LightComponent& light = lights->Add(scene.CreateEntity(u8"light"));
+    light.color = authored;
+    CameraComponent& cam = cameras->Add(scene.CreateEntity(u8"camera"));
+    cam.clearColor = authored;
+    EnvironmentSettings& e = env->Environment();
+    e.ambientColor = authored;
+    e.ambientIntensity = 1.0f;
+    e.skyHorizon = authored;
+    e.skyZenith = authored;
+    e.skyGround = authored;
+    scene.UpdateTransforms();
+
+    // A separate scene for the plain mesh: ExtractSceneInto gathers several kinds of item.
+    scene::Scene meshScene(DefaultAllocator(), u8"mesh");
+    MeshComponent& mesh = meshScene.AddSystem<MeshComponentManager>()->Add(
+        meshScene.CreateEntity(u8"mesh"));
+    mesh.mesh = cube;
+    mesh.color = authored;
+    meshScene.UpdateTransforms();
+    ExtractedScene meshOut{DefaultAllocator()};
+    ExtractSceneInto(meshScene, meshOut);
+    REQUIRE(meshOut.Items().Size() == 1u);
+    CHECK(same(static_cast<const MeshRenderData*>(meshOut.Items()[0])->color, linear));
+
+    ExtractedScene setOut{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, setOut);
+    REQUIRE(setOut.Items().Size() == 1u);
+    const auto* setData = static_cast<const MultiMeshRenderData*>(setOut.Items()[0]);
+    CHECK(same(setData->color, linear));
+    REQUIRE(setData->tints != nullptr);
+    CHECK(Near(setData->tints[0].r, SrgbToLinear(0.5f))); // per-instance tints too
+    CHECK(Near(set.tints[0].r, 0.5f));                    // the authored array is untouched
+
+    ExtractedScene spriteOut{DefaultAllocator()};
+    ExtractSpritesInto(scene, spriteOut, /*rendererId*/ 1);
+    REQUIRE(spriteOut.Items().Size() == 1u);
+    CHECK(same(static_cast<const SpriteRenderData*>(spriteOut.Items()[0])->tint, linear));
+
+    ExtractedScene rest{DefaultAllocator()};
+    ExtractDecalsInto(scene, rest);
+    ExtractLightsInto(scene, rest);
+    ExtractEnvironmentInto(scene, rest);
+    REQUIRE(rest.Decals().Size() == 1u);
+    CHECK(same(rest.Decals()[0].color, linear));
+    REQUIRE(rest.Lights().Size() == 1u);
+    CHECK(same3(rest.Lights()[0].color, linear));
+    CHECK(same3(rest.Ambient(), linear));
+    CHECK(same3(rest.Sky().horizon, linear));
+    CHECK(same3(rest.Sky().zenith, linear));
+    CHECK(same3(rest.Sky().ground, linear));
+
+    ViewCamera vc;
+    Color clear;
+    REQUIRE(ExtractPrimaryCamera(scene, vc, &clear));
+    CHECK(same(clear, linear));
 }
 
 TEST_CASE("ExtractEnvironmentInto carries the sky texture product (uid identity, cube flag)")
@@ -978,7 +1066,7 @@ TEST_CASE("extract: target cameras render at their texture's aspect, active and 
         }
     }
     CHECK(Near(views[0].camera.camera.position.y, 40.0f));
-    CHECK(Near(views[0].camera.clearColor.g, 0.5f));
+    CHECK(Near(views[0].camera.clearColor.g, SrgbToLinear(0.5f))); // authored sRGB, decoded
 
     CollectTargetCameras(scene, 4, views); // the monitor draws every third frame only
     REQUIRE(views.Size() == 1u);

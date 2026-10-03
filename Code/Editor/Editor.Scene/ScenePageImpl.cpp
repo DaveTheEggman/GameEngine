@@ -241,8 +241,10 @@ namespace editor
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                                          m_viewport->ClearColor.b, m_viewport->ClearColor.a};
+        // The viewport's colour is a UI colour (sRGB); the render view takes linear.
+        cameraOverride.clearColor =
+            ToLinear(Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
+                           m_viewport->ClearColor.b, m_viewport->ClearColor.a});
 
         // The graph imports the color target and owns its transitions: from the viewport's
         // tracked state (Undefined right after create/resize) to ShaderRead for the UI's

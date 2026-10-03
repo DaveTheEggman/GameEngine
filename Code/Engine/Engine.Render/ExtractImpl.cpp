@@ -84,7 +84,7 @@ namespace engine::render
             (mc.mesh.Get() != nullptr) ? mc.mesh->bounds : AABB{Float3{0, 0, 0}, Float3{0, 0, 0}};
         rd.worldCenter = TransformPoint(lb.Center(), rd.world); // bounds center (cull + depth sort)
         rd.worldRadius = WorldBoundsRadius(lb, rd.world);
-        rd.color = mc.color;
+        rd.color = ToLinear(mc.color); // authored sRGB -> linear render data
         rd.mesh = mc.mesh.Get();
         rd.material = primary;
         rd.entityId = PackEntity(e);
@@ -221,6 +221,11 @@ namespace engine::render
                     {
                         c.worldTransforms[i] = c.instances[i] * entityWorld;
                     }
+                    c.linearTints.Resize(c.tints.Size());
+                    for (usize i = 0; i < c.tints.Size(); ++i)
+                    {
+                        c.linearTints[i] = ToLinear(c.tints[i]);
+                    }
                     c.composedEntityWorld = entityWorld;
                     c.composedFromVersion = c.version;
                     ++c.composedVersion;
@@ -253,8 +258,8 @@ namespace engine::render
                 rd->key = PackEntity(e);
                 rd->transforms =
                     c.worldTransforms.Data(); // borrowed for the frame (immutable snapshot)
-                rd->tints = (!c.tints.IsEmpty() && c.tints.Size() == c.instances.Size())
-                                ? c.tints.Data()
+                rd->tints = (!c.linearTints.IsEmpty() && c.linearTints.Size() == c.instances.Size())
+                                ? c.linearTints.Data()
                                 : nullptr;
                 rd->instanceCount = c.Count();
                 rd->version = c.composedVersion;
@@ -263,7 +268,7 @@ namespace engine::render
                 rd->submeshMaterials =
                     c.submeshMaterials.IsEmpty() ? nullptr : c.submeshMaterials.Data();
                 rd->submeshMaterialCount = static_cast<u32>(c.submeshMaterials.Size());
-                rd->color = c.color;
+                rd->color = ToLinear(c.color);
                 rd->worldCenter = c.cachedCenter; // merged bounds -> single-AABB cull + depth sort
                 rd->worldRadius = c.cachedRadius;
                 rd->entityId = PackEntity(e);
@@ -326,7 +331,7 @@ namespace engine::render
                 rd->worldRadius = 0.5f * Length(sc.size);
                 rd->size = sc.size;
                 rd->uvRect = sc.uvRect;
-                rd->tint = sc.tint;
+                rd->tint = ToLinear(sc.tint);
                 rd->orientation = static_cast<u32>(sc.orientation);
                 rd->additive = sc.additive;
                 rd->postTonemap = sc.postTonemap;
@@ -370,7 +375,7 @@ namespace engine::render
                 }
                 DecalInstance di;
                 di.world = Float4x4::Scale(dc.size) * scene.GetWorldMatrix(e);
-                di.color = dc.color;
+                di.color = ToLinear(dc.color);
                 di.fadeStart = dc.fadeStart;
                 di.fadeEnd = dc.fadeEnd;
                 di.texture = view;
@@ -401,7 +406,7 @@ namespace engine::render
                     out.farZ = cam.farZ;
                     if (outClear != nullptr)
                     {
-                        *outClear = cam.clearColor;
+                        *outClear = ToLinear(cam.clearColor);
                     }
                 });
         }
@@ -439,7 +444,7 @@ namespace engine::render
                              static_cast<f32>(Max(target->Height(), 1u)));
                 view.camera.camera.position = TransformPoint(Float3{0, 0, 0}, world);
                 view.camera.camera.farZ = cam.farZ;
-                view.camera.clearColor = cam.clearColor;
+                view.camera.clearColor = ToLinear(cam.clearColor);
                 out.PushBack(view);
             });
     }
@@ -468,7 +473,8 @@ namespace engine::render
                 // Forward is -Z (row 2 negated) in world space (row-major, row-vector convention).
                 g.directionWS = Normalized(Float3{-world.m[2][0], -world.m[2][1], -world.m[2][2]});
                 g.range = lc.range;
-                g.color = Float3{lc.color.r, lc.color.g, lc.color.b};
+                const Color lightColor = ToLinear(lc.color);
+                g.color = Float3{lightColor.r, lightColor.g, lightColor.b};
                 g.intensity = lc.intensity;
                 g.type = static_cast<f32>(static_cast<u32>(lc.type));
                 g.innerCos = Cos(lc.innerAngle);
@@ -516,16 +522,22 @@ namespace engine::render
         {
             const EnvironmentSettings& e = env->Environment();
             out.SetTime(env->TimeSeconds(), env->PrevTimeSeconds()); // the scene clock (WIND)
-            out.SetAmbient(Float3{e.ambientColor.r, e.ambientColor.g, e.ambientColor.b} *
-                           e.ambientIntensity);
+            // The environment's colours are authored sRGB, like every colour; the sky and
+            // ambient snapshots carry them decoded.
+            const auto linear3 = [](Color c)
+            {
+                const Color l = ToLinear(c);
+                return Float3{l.r, l.g, l.b};
+            };
+            out.SetAmbient(linear3(e.ambientColor) * e.ambientIntensity);
             SkySnapshot s{};
             s.mode = e.skyMode;
             s.intensity = e.skyIntensity;
             s.backgroundIntensity = e.skyBackgroundIntensity;
             s.rotation = e.skyRotation;
-            s.horizon = Float3{e.skyHorizon.r, e.skyHorizon.g, e.skyHorizon.b};
-            s.zenith = Float3{e.skyZenith.r, e.skyZenith.g, e.skyZenith.b};
-            s.ground = Float3{e.skyGround.r, e.skyGround.g, e.skyGround.b};
+            s.horizon = linear3(e.skyHorizon);
+            s.zenith = linear3(e.skyZenith);
+            s.ground = linear3(e.skyGround);
             s.sunIntensity = e.sunIntensity;
             s.sunAngularSize = e.sunAngularSize;
             s.turbidity = e.turbidity;

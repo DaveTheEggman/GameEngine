@@ -177,8 +177,9 @@ namespace editor
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
-        cameraOverride.clearColor = Color{vp->ClearColor.r, vp->ClearColor.g, vp->ClearColor.b,
-                                          vp->ClearColor.a};
+        // The viewport's colour is a UI colour (sRGB); the render view takes linear.
+        cameraOverride.clearColor = ToLinear(
+            Color{vp->ClearColor.r, vp->ClearColor.g, vp->ClearColor.b, vp->ClearColor.a});
 
         render::TargetState targetState;
         targetState.texture = vp->ColorTexture();

@@ -47,7 +47,8 @@ TEST_CASE("camera-preview: BuildCameraPreviewOverride maps a component + world t
     const render::CameraOverride ov = editor::BuildCameraPreviewOverride(cam, world);
 
     // view = inverse(world); projection = the RH perspective from the lens fields (matches the
-    // runtime primary-camera extraction); position = the world origin; farZ + clearColor carried.
+    // runtime primary-camera extraction); position = the world origin; farZ carried; the clear
+    // colour (authored sRGB) decoded to linear, as the runtime extraction does.
     CHECK(MatNear(ov.camera.view, Inverse(world)));
     CHECK(MatNear(ov.camera.projection,
                   Float4x4::PerspectiveFovRH(1.0f, 4.0f / 3.0f, 0.5f, 250.0f)));
@@ -55,8 +56,8 @@ TEST_CASE("camera-preview: BuildCameraPreviewOverride maps a component + world t
     CHECK(ov.camera.position.y == doctest::Approx(5.0f));
     CHECK(ov.camera.position.z == doctest::Approx(3.0f));
     CHECK(ov.camera.farZ == doctest::Approx(250.0f));
-    CHECK(ov.clearColor.r == doctest::Approx(0.1f));
-    CHECK(ov.clearColor.b == doctest::Approx(0.3f));
+    CHECK(ov.clearColor.r == doctest::Approx(SrgbToLinear(0.1f)));
+    CHECK(ov.clearColor.b == doctest::Approx(SrgbToLinear(0.3f)));
     CHECK(ov.clearColor.a == doctest::Approx(1.0f));
 }
 

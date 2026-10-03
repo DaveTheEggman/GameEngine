@@ -146,6 +146,9 @@ export namespace engine::render
         // authored set OR the entity's world matrix changed; `composedVersion` is what the renderer
         // sees, so an entity move re-uploads the GPU buffer like any other mutation. Runtime-only.
         Array<Float4x4> worldTransforms;
+        // `tints` decoded to linear for the renderer (authored colours are sRGB), rebuilt with
+        // `worldTransforms` since the renderer reads tints at the same upload. Runtime-only.
+        Array<Color> linearTints;
         Float4x4 composedEntityWorld = Float4x4::Identity();
         u32 composedFromVersion = 0; // authored `version` the cache was built from (0 = never)
         u32 composedVersion = 0;     // bumped on every recompose (renderer upload key)

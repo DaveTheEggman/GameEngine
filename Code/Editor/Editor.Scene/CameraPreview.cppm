@@ -41,7 +41,7 @@ export namespace editor
 
         render::CameraOverride result;
         result.camera = view;
-        result.clearColor = camera.clearColor;
+        result.clearColor = ToLinear(camera.clearColor); // authored sRGB -> render view
         return result;
     }
 
