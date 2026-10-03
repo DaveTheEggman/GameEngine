@@ -81,7 +81,8 @@ stateDiagram-v2
     Paused --> Loading: Restart
     Paused --> Settings: Settings
     Paused --> MainMenu: Quit to menu
-    Playing --> LevelCleared: quota met
+    Playing --> Celebrating: quota met
+    Celebrating --> LevelCleared: about 2 s
     Playing --> LevelFailed: time out / no papers
     LevelCleared --> Loading: Continue
     LevelCleared --> GameOver: last level done
@@ -91,6 +92,11 @@ stateDiagram-v2
     Settings --> MainMenu: Back (from menu)
     Settings --> Paused: Back (from pause)
 ```
+
+A cleared level is celebrated before its screen: the clock stops, a "Block cleared!" banner
+drops in, and the street eases into slow motion under a fanfare while the music fades; the
+Level cleared screen then comes up and the level freezes. A failed level cuts straight to its
+screen, so a clear stands apart.
 
 Main menu (New game, Settings, Quit); HUD; Pause (Resume, Restart, Settings, Quit to menu);
 Level cleared (deliveries, score, bonus; Continue); Level failed (reason; Retry or Quit);

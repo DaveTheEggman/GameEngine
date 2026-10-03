@@ -12,9 +12,13 @@
 // Settings, from the title or the pause menu, sets the audio buses' volumes, which the player saves
 // when it exits, and goes back to whichever opened it (Documentation/Specs/paperkid.md).
 //
-// The sound: the title's music on the menus, a track per block, a jingle when a block is cleared
-// or failed, and a voice and a jingle over the final screen before the ending's music. Buttons
-// click, and a delivery's points rise from under the score and fade.
+// A cleared block is celebrated before its screen: the clock stops, a banner drops in, the world
+// eases into slow motion under a fanfare while the music fades, and only then does the Block
+// cleared screen come up and the block freeze. A failed block cuts straight to its screen.
+//
+// The sound: the title's music on the menus, a track per block, a fanfare when a block is cleared
+// and a jingle when one is failed, and the fanfare and a voice over the final screen before the
+// ending's music. Buttons click, and a delivery's points rise from under the score and fade.
 
 Guid kTitleDoc = Guid("{{Title}}");
 Guid kHudDoc = Guid("{{Hud}}");
@@ -26,9 +30,8 @@ Guid kSettingsDoc = Guid("{{Settings}}");
 
 Guid kTitleMusic = Guid("{{MusicTitle}}");
 Guid kEndingMusic = Guid("{{MusicEnding}}");
-Guid kClearedJingle = Guid("{{ClearedJingle}}");
+Guid kClearedFanfare = Guid("{{ClearedFanfare}}");
 Guid kFailedJingle = Guid("{{FailedJingle}}");
-Guid kRouteCompleteJingle = Guid("{{RouteCompleteJingle}}");
 Guid kCongratulations = Guid("{{Congratulations}}");
 Guid kGameOverVoice = Guid("{{GameOverVoice}}");
 Guid kClickSound = Guid("{{Click}}");
@@ -38,6 +41,12 @@ const float kMusicVolume = 0.5f;
 const float kPopSeconds = 0.9f;
 const float kPopX = 262.0f; // under the HUD's score
 const float kPopY = 96.0f;
+// The celebration of a cleared block: the world slows to kCelebrateSlowest of real time over
+// kCelebrateEase seconds (easing out), and the Block cleared screen comes up at kCelebrateSeconds.
+const float kCelebrateEase = 1.1f;
+const float kCelebrateSlowest = 0.12f;
+const float kCelebrateSeconds = 1.9f;
+const float kBannerDrop = 0.35f; // seconds for the banner to drop into place
 Guid kStart = Guid("{{Start}}");
 
 const int kStartLives = 3;
@@ -49,6 +58,7 @@ enum Phase
     Playing,
     Paused,
     Settings,
+    Celebrating,
     Ended
 }
 
@@ -65,6 +75,8 @@ class Game
     private array<Guid> m_blockMusic;
     private float m_endingIn = -1.0f; // seconds until the ending's music, after the final screen's voice
     private float m_pop = 0.0f;       // seconds left of the points rising from the score
+    private float m_celebrated = 0.0f; // seconds into a cleared block's celebration
+    private int m_secondsLeft = 0;     // the clock when the block was cleared (its time bonus)
 
     void launch()
     {
@@ -85,6 +97,10 @@ class Game
     void update(float dt)
     {
         tickPop(dt);
+        if (m_phase == Phase::Celebrating)
+        {
+            tickCelebration(dt);
+        }
         if (m_endingIn >= 0.0f)
         {
             m_endingIn -= dt;
@@ -138,12 +154,50 @@ class Game
         {
             return;
         }
+        m_phase = Phase::Celebrating;
+        m_celebrated = 0.0f;
+        m_secondsLeft = secondsLeft;
+        Audio::stopMusic(1.2f);
+        Audio::playOneShot(kClearedFanfare, AudioBus::Music);
+        Label@ banner = ui::findLabel("hud-banner");
+        banner.setOpacity(0.0f);
+        banner.setVisible(true);
+    }
+
+    // The block winds down under the banner, then its screen comes up and it freezes.
+    private void tickCelebration(float dt)
+    {
+        m_celebrated += dt;
+        float eased = m_celebrated / kCelebrateEase;
+        if (eased > 1.0f)
+        {
+            eased = 1.0f;
+        }
+        eased = 1.0f - (1.0f - eased) * (1.0f - eased);
+        run::setTimeScale(1.0f + (kCelebrateSlowest - 1.0f) * eased);
+
+        Label@ banner = ui::findLabel("hud-banner");
+        float drop = m_celebrated / kBannerDrop;
+        if (drop > 1.0f)
+        {
+            drop = 1.0f;
+        }
+        banner.setOpacity(drop);
+        banner.setTranslation(0.0f, -60.0f * (1.0f - drop) * (1.0f - drop));
+
+        if (m_celebrated >= kCelebrateSeconds)
+        {
+            banner.setVisible(false);
+            showCleared();
+        }
+    }
+
+    private void showCleared()
+    {
         m_phase = Phase::Ended;
         run::setTimeScale(0.0f);
-        Audio::stopMusic(0.3f);
-        Audio::playOneShot(kClearedJingle, AudioBus::Music);
         int earned = m_score - m_banked;
-        int bonus = secondsLeft * kTimeBonusPerSecond;
+        int bonus = m_secondsLeft * kTimeBonusPerSecond;
         m_score += bonus;
         m_banked = m_score;
         ui::findLabel("hud-score").setText("" + m_score);
@@ -357,14 +411,14 @@ class Game
         Audio::stopMusic(0.3f);
         if (won)
         {
-            Audio::playOneShot(kRouteCompleteJingle, AudioBus::Music);
+            Audio::playOneShot(kClearedFanfare, AudioBus::Music);
             Audio::playOneShot(kCongratulations, AudioBus::Effects);
         }
         else
         {
             Audio::playOneShot(kGameOverVoice, AudioBus::Effects);
         }
-        m_endingIn = 2.0f; // the ending's music once the jingle and the voice are done
+        m_endingIn = won ? 4.2f : 2.0f; // the ending's music once the fanfare or the voice is done
         Screen@ s = ui::push(kGameOverDoc);
         s.findLabel("over-title").setText(won ? "Route complete!" : "Game over");
         s.findLabel("over-score").setText("Score " + m_score);

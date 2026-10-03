@@ -34,6 +34,10 @@
     <Label id="hud-pop" gravity="Top|Left" text="+100" font-family="Lilita One" font-size="30" visibility="hidden"
            style="text-color: rgb(255, 214, 102);"/>
 
+    <!-- A cleared block's banner, dropping in over the slowing street (PaperKidGame.as). -->
+    <Label id="hud-banner" gravity="Center" text="Block cleared!" font-family="Lilita One" font-size="84"
+           visibility="hidden" style="text-color: rgb(255, 214, 102);"/>
+
     <!-- The minimap: the Minimap render texture the block's top-down camera draws, with markers
          over it that Minimap.as places from world positions (translations from the map's corner). -->
     <Panel gravity="Top|Right" padding="6"
