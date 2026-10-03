@@ -670,7 +670,7 @@ namespace editor
             u8"editor's undo path: one undo step per call, labelled mcp, the page marked dirty, "
             u8"nothing saved (file.save / the page's Save does that). `value` takes the shape "
             u8"entity_inspect shows: numbers, booleans, strings, [x,y,z] vectors, [r,g,b,a] "
-            u8"colors, [x,y,z,w] quaternions, an enumerator's name, an asset guid for a "
+            u8"colors (sRGB, as a colour picker shows them), [x,y,z,w] quaternions, an enumerator's name, an asset guid for a "
             u8"reference, an entity guid (or null) for an entity reference. REFUSED while the "
             u8"page simulates, on a read-only property, on a nested structure or a list (not "
             u8"writable here yet), and on a value of the wrong shape - nothing changes then. "

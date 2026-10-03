@@ -157,6 +157,13 @@ transform, a fresh `rootLive` guid, and empty `members`, `destroyed`, `transform
 `prefabInstances`, apart from `entityCount`, and warns about one whose prefab is not in the
 project.
 
+**Colours**: every colour is written as it is meant to look, in sRGB, the value a colour picker
+and a hex code show (0.5 is `#808080`): component colours, the environment's ambient and sky, a
+material's `Color` properties, particle colours, debug draw. The renderer decodes them; never
+pre-convert. Brightness above white is an intensity, not a component above 1: a light's
+`intensity`, or the w of a material's `ColorHdr` (its emissive). In a material's
+`uniformDefaults` a colour is four floats (rgba, or rgb and the intensity).
+
 **Scripts**: `script_api` first - the LIVE bound API per backend (angelscript | luau);
 never trust memorized signatures. A member with `readOnly: true` (a network identity's
 `authority`, for one) reads and refuses assignment in every backend. `script_create` seeds a starter asset

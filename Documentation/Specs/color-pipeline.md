@@ -54,64 +54,86 @@ Why sRGB in the data and not linear with a converting picker (both look the same
 
 ### 2. Brightness above 1 is an intensity, never a colour
 
-sRGB has no meaning above 1. A colour that has to be brighter than white (a light, emissive, an
-HDR sky or particle glow) is an sRGB colour plus a separate linear intensity, as lights already
-are (`color` plus `intensity`). Where a field is a single HDR `Float4` today (a material's
-`EmissiveColor`, particle colours), it becomes colour plus intensity, edited with the HDR picker
-(an sRGB colour plus an intensity, shown in EV as well as the multiplier).
+sRGB has no meaning above 1. A colour that has to be brighter than white is an sRGB colour plus a
+separate linear intensity, as lights already are (`color` plus `intensity`).
 
-### 3. A colour's role is asked of its field, not listed
+- A material's `EmissiveColor` is a `ColorHdr`: the sRGB colour in rgb and the intensity in w
+  (the forward cbuffer has no spare lane for a separate field). The GPU receives linear rgb times
+  the intensity. glTF's `KHR_materials_emissive_strength` becomes that intensity.
+- Particle colours have no intensity of their own yet. A value above 1 decodes along the same
+  curve and stays over-bright; a colour-plus-intensity split comes when an effect needs one.
 
-- A reflected property says what it is through the property metadata the inspector already reads
-  ("range", "visibleWhen", `Reflection.cppm:1785`): `color` = an sRGB colour (the default for a
-  `Color` field), `color=linear` for the rare colour that is genuinely linear data (a mask, an
-  ID), `color=hdr` for colour plus intensity.
-- A material property gains a colour type: `MaterialPropertyType::Color` (sRGB, decoded when the
-  uniform is written for the GPU) and `ColorHdr`. `MaterialBuilder::Color` declares it; the
-  material page shows a colour editor only for these, and plain number fields for any other
-  `Float4`. Shaders keep receiving a linear `float4`.
-- The extraction decodes by that role, so a new colour field gets the rule by being declared, not
-  by being added to a list.
+### 3. Every `Color` is sRGB; materials say which uniforms are colours
 
-### 4. One picker behaviour
+- No per-field marker: every reflected `Color` field is an authored sRGB colour, and nothing in
+  the engine today is a linear colour stored as a `Color`. A field that ever needs another
+  meaning gets a different type, not a flag.
+- A material property gains two colour types, `MaterialPropertyType::Color` (sRGB rgba) and
+  `ColorHdr` (sRGB rgb, linear intensity in w). `MaterialBuilder::Color` and `::ColorHdr` declare
+  them; the one uniform upload decodes them (`EncodeUniformsForGpu`), so shaders keep receiving a
+  linear `float4`. The material page shows a colour picker only for these (a `ColorHdr` adds an
+  intensity row) and plain number fields for any other `Float4`.
+- A material stored before these types declared its colours as `Float4`. As it is read, a `Float4`
+  that the builtin template of its shader (`CreatePBR` for `forward`, `CreateUnlit` for `unlit`)
+  declares as a colour takes the template's type; a custom shader's `Float4`s are left alone.
 
-The swatch, the HSV square, the RGB fields and the hex field show and edit the stored sRGB value;
-since storage is sRGB, the pickers need no conversion of their own, only the HDR picker's
-intensity row. An optional "linear" readout shows the decoded value for debugging.
+### 4. Where the decode happens
+
+Once per path, where the colour is handed to the GPU:
+
+- Render extraction (`ExtractImpl.cpp`): mesh and instance colours and tints, sprite and decal
+  tints, light colours, the ambient and sky colours, the camera clear.
+- The material uniform upload (`EncodeUniformsForGpu`, `MaterialSystem`).
+- Particles where they leave the simulation (`ParticleColorToLinear`): billboards, trails,
+  mesh-particle tints, particle lights. They are simulated as entered, so a gradient moves evenly
+  to the eye.
+- Vertex colours that arrive as bytes, in the shader: debug draw (`debug_geom`, `debug_screen`)
+  and VG (already so), through the shared `color.hlsli`.
+- Viewport backdrops (`ViewportView::LinearClearColor`): a viewport's clear colour is a UI colour.
+
+The pickers need no conversion of their own: they show and edit the stored sRGB value.
 
 ### 5. Imports keep their look
 
-- glTF: `baseColorFactor` and `emissiveFactor` are encoded linear to sRGB on import (emissive
-  above 1 split into colour and intensity).
-- FBX: stored as read (its values are already display values); checked against a reference model
-  rendered in Blender.
+- glTF: `baseColorFactor` and `emissiveFactor` are encoded linear to sRGB as they are read
+  (`GltfLoader.cppm`, `SrgbFactor`).
+- FBX: stored as read (its values are already display values).
 - Images: unchanged. The texture import's colour space setting stays the switch between colour
   imagery (sRGB) and data (normal, roughness, masks: linear).
 
 ### 6. Existing content
 
-Content authored so far renders darker and richer once, because its colours finally mean what was
-typed. Sky Hopper and PaperKid are retuned (exposure, ambient, sky) after the change and measured
-the way PaperKid's tuning measures (`Tools/look.py`); the built-in defaults whose values were
-chosen by eye against the linear reading (the default ambient and sky colours,
-`RenderComponents.cppm:518`, :538) are re-picked so a new scene still looks as intended.
+Content authored so far renders darker and richer, because its colours finally mean what was
+typed. The engine's own values picked under the raw reading (the default ambient and sky colours,
+the editor's viewport backdrops) are re-expressed in sRGB so they look as before. The samples:
+Sky Hopper's colours were tuned under the old reading and its imported materials hold linear glTF
+values, so they are converted to keep its approved look; PaperKid's colours were typed as the
+colours wanted, so they stay, and its lighting is retuned.
+
+## Known gaps
+
+- Post-tonemap passes (debug draw, post-tonemap sprites and world UI, the VG scene overlay) output
+  linear values, right for an sRGB or float target. A plain UNORM target (a browser canvas, a
+  Vulkan surface without an sRGB format) stores what it is given, so they come out dark there;
+  the tonemap and FXAA passes already encode for it (`EncodeOutput`). Older than this change.
+- The ImGui extension passes its byte colours raw.
+- The terrain shader's fallback ramp (no layers painted) is a pair of constants in the shader.
 
 ## Tests
 
-- A picked tint matches a texture: a quad tinted `#808080` over a white texture and a quad with a
-  128-grey texture render to the same pixel value (render test).
-- Extraction decodes by role: an sRGB colour field reaches render data as `SrgbToLinear` of the
-  stored value; a `color=linear` field arrives unchanged; an HDR field arrives as decoded colour
-  times intensity.
-- Materials: a `Color` property is decoded when written for the GPU, a `Float4` is not; the
-  material page shows a colour editor only for colour properties.
-- glTF import: a `baseColorFactor` of linear 0.2140 is stored as sRGB 0.5 (within rounding).
-- The pickers: the hex shown for a stored colour is its sRGB bytes; the HDR picker round-trips
-  colour plus intensity, and its EV readout matches the multiplier.
-- Serialization: the colour-plus-intensity split reads older data (an HDR `Float4` becomes its
-  normalized colour and intensity).
+- Real device (`Render.Backend.Tests`, ColorProbeTests): a debug colour reads back from an sRGB
+  target as the bytes entered; an unlit quad whose `BaseColor` is sRGB 0.5 over white renders the
+  same pixel as one whose texture is 128 under white.
+- Extraction: every component colour reaches render data as `ToLinear` of the stored value.
+- Materials: `Color` and `ColorHdr` decode at upload and a `Float4` does not; the builtin
+  templates declare their colours; a stored `Float4` colour takes the template's type, idempotent,
+  and a custom shader's does not; the material page's row follows the type.
+- Particles: a simulated colour reaches billboards and particle lights decoded.
+- glTF: a `baseColorFactor` of linear 0.2140 reads as sRGB 0.5; emissive strength becomes the
+  intensity.
+- Viewports: the clear colour is cleared with its linear value.
 
 ## Not in scope
 
 Wide-gamut or HDR display output; a colour-managed (ACES/OCIO) authoring pipeline; changes to the
-tonemapper. The DDS item in the backlog is unrelated (a test's bit shift, not a colour shift).
+tonemapper.
