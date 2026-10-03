@@ -218,7 +218,7 @@ export namespace editor
 
             // The live preview surface (offscreen; the runtime UI subsystem renders into it).
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
-            m_viewport->ClearColor = rhi::ClearColor{0.08f, 0.09f, 0.11f, 1.0f};
+            m_viewport->ClearColor = rhi::ClearColor{0.313f, 0.332f, 0.366f, 1.0f};
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Match();

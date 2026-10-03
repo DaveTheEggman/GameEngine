@@ -181,7 +181,7 @@ export namespace editor
             // and manages its transitions via TargetState (ColorState()/SetColorState tracking),
             // inside the app's single per-frame bracket.
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
-            m_viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
+            m_viewport->ClearColor = rhi::ClearColor{0.349f, 0.366f, 0.396f, 1.0f};
 
             // Everything scene-scoped is PER PAGE (multi-scene): mutation mediator (all edits
             // are commands on THIS page's stack), selection, hierarchy + inspector views.

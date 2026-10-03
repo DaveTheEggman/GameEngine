@@ -398,3 +398,15 @@ TEST_CASE("ui.viewport: content of its own resolution maps the pointer into that
     view->SyncInputRegion();
     CHECK(view->Surface()->Fit().contentSize.x == doctest::Approx(640.0f));
 }
+
+TEST_CASE("ui.viewport: the clear colour is a UI colour (sRGB), cleared with its linear value")
+{
+    auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());
+    ViewportView& view = *viewRef;
+    view.ClearColor = rhi::ClearColor{0.5f, 0.25f, 1.0f, 0.75f};
+    const rhi::ClearColor linear = view.LinearClearColor();
+    CHECK(linear.r == doctest::Approx(SrgbToLinear(0.5f)));
+    CHECK(linear.g == doctest::Approx(SrgbToLinear(0.25f)));
+    CHECK(linear.b == doctest::Approx(1.0f));
+    CHECK(linear.a == doctest::Approx(0.75f)); // alpha is coverage, not decoded
+}

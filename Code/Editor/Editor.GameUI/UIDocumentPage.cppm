@@ -128,7 +128,7 @@ export namespace editor
             // The preview surface: an offscreen target the RUNTIME UI subsystem renders
             // into (the editor UI just displays the texture).
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
-            m_viewport->ClearColor = rhi::ClearColor{0.08f, 0.09f, 0.11f, 1.0f};
+            m_viewport->ClearColor = rhi::ClearColor{0.313f, 0.332f, 0.366f, 1.0f};
             {
                 ui::LayoutStyle lp;
                 lp.Width = ui::SizeSpec::Match();

@@ -67,8 +67,15 @@ export namespace foundation::ui::viewport
         /// the viewport resolution (e.g. a runtime UI that must lay out at the same canvas).
         Function<void(u32 width, u32 height)> OnRenderTargetResized;
 
-        /// Clear color for the 3D pass background (read by the render callback).
-        rhi::ClearColor ClearColor{0.098f, 0.098f, 0.118f, 1.0f};
+        /// Clear color for the 3D pass background (read by the render callback). sRGB, like every
+        /// UI colour: ClearContent decodes it, and a render host decodes it for its render view.
+        rhi::ClearColor ClearColor{0.347f, 0.347f, 0.377f, 1.0f};
+        /// ClearColor decoded to linear: the value a render target is cleared with.
+        [[nodiscard]] rhi::ClearColor LinearClearColor() const noexcept
+        {
+            return rhi::ClearColor{SrgbToLinear(ClearColor.r), SrgbToLinear(ClearColor.g),
+                                   SrgbToLinear(ClearColor.b), ClearColor.a};
+        }
 
         ViewportView() { IsFocusable = true; }
         ~ViewportView() override { ReleaseResources(); }
@@ -368,7 +375,7 @@ export namespace foundation::ui::viewport
             color.view = m_colorView;
             color.loadOp = rhi::LoadOp::Clear;
             color.storeOp = rhi::StoreOp::Store;
-            color.clearValue = ClearColor;
+            color.clearValue = LinearClearColor();
             pass.colorAttachments.Add(color);
             if (rhi::RenderPassEncoder* rp = encoder.BeginRenderPass(pass))
             {

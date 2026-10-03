@@ -153,7 +153,8 @@ namespace editor
             render::debug::DebugDraw& dd = m_render->DebugView(m_viewport.Get());
             if (m_showGrid)
             {
-                dd.DrawGrid(Float3{0, 0, 0}, 20.0f, 20, Color{0.35f, 0.35f, 0.38f, 1.0f});
+                // sRGB, like every colour: a light grey that stays clear of the backdrop.
+                dd.DrawGrid(Float3{0, 0, 0}, 20.0f, 20, Color{0.63f, 0.63f, 0.65f, 1.0f});
                 dd.DrawLine(Float3{0, 0, 0}, Float3{1, 0, 0}, Color{0.9f, 0.2f, 0.2f, 1.0f});
                 dd.DrawLine(Float3{0, 0, 0}, Float3{0, 1, 0}, Color{0.2f, 0.9f, 0.2f, 1.0f});
                 dd.DrawLine(Float3{0, 0, 0}, Float3{0, 0, 1}, Color{0.2f, 0.4f, 0.95f, 1.0f});
@@ -242,9 +243,8 @@ namespace editor
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
         // The viewport's colour is a UI colour (sRGB); the render view takes linear.
-        cameraOverride.clearColor =
-            ToLinear(Color{m_viewport->ClearColor.r, m_viewport->ClearColor.g,
-                           m_viewport->ClearColor.b, m_viewport->ClearColor.a});
+        const rhi::ClearColor clear = m_viewport->LinearClearColor();
+        cameraOverride.clearColor = Color{clear.r, clear.g, clear.b, clear.a};
 
         // The graph imports the color target and owns its transitions: from the viewport's
         // tracked state (Undefined right after create/resize) to ShaderRead for the UI's

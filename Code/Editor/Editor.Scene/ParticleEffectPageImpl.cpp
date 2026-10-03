@@ -662,7 +662,7 @@ namespace editor
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
             MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"particle.preview");
-        m_preview->SetClearColor(Color{0.06f, 0.06f, 0.08f, 1.0f}); // darker field shows particles
+        m_preview->SetClearColor(Color{0.272f, 0.272f, 0.313f, 1.0f}); // darker field shows particles
         m_preview->Camera().position = Float3{0.0f, 2.0f, 6.0f};
         m_preview->Camera().LookAt(Float3{0.0f, 1.0f, 0.0f});
 

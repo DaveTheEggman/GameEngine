@@ -271,7 +271,7 @@ namespace editor
         // Shared preview substrate (viewport + preview scene + orbit camera + render loop).
         m_preview =
             MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"animgraph.preview");
-        m_preview->SetClearColor(Color{0.05f, 0.05f, 0.07f, 1.0f});
+        m_preview->SetClearColor(Color{0.248f, 0.248f, 0.293f, 1.0f});
         m_preview->Camera().position = Float3{0.0f, 1.4f, 3.2f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.9f, 0.0f});
 

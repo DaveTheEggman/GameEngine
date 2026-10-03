@@ -254,7 +254,7 @@ export namespace editor
             m_shellInput = host.Shell() != nullptr ? host.Shell()->Input() : nullptr;
 
             m_viewport = MakeRef<ui::viewport::ViewportView>(Allocator());
-            m_viewport->ClearColor = rhi::ClearColor{0.05f, 0.05f, 0.06f, 1.0f};
+            m_viewport->ClearColor = rhi::ClearColor{0.248f, 0.248f, 0.272f, 1.0f};
 
             // THIS instance's exit request stops THIS tab's run, whichever tab it is: the
             // script asking fires inside the embedded app's update, which runs before the

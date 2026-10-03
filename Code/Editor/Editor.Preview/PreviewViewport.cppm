@@ -70,6 +70,7 @@ export namespace editor
 
         // Background clear color of the preview viewport (default a neutral dark grey). Pages
         // that want a different backdrop (e.g. the particle page's darker field) set it here.
+        // sRGB, as every colour is entered.
         void SetClearColor(Color color);
 
         // Whether the preview scene simulates. Default OFF (static previews: mesh/material/clip/

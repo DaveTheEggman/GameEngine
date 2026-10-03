@@ -75,7 +75,7 @@ namespace editor
         }
 
         m_impl->viewport = MakeRef<ui::viewport::ViewportView>(editor::EditorRootAllocator());
-        m_impl->viewport->ClearColor = rhi::ClearColor{0.10f, 0.11f, 0.13f, 1.0f};
+        m_impl->viewport->ClearColor = rhi::ClearColor{0.349f, 0.366f, 0.396f, 1.0f};
     }
 
     PreviewViewport::~PreviewViewport()
@@ -178,8 +178,8 @@ namespace editor
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
         // The viewport's colour is a UI colour (sRGB); the render view takes linear.
-        cameraOverride.clearColor = ToLinear(
-            Color{vp->ClearColor.r, vp->ClearColor.g, vp->ClearColor.b, vp->ClearColor.a});
+        const rhi::ClearColor clear = vp->LinearClearColor();
+        cameraOverride.clearColor = Color{clear.r, clear.g, clear.b, clear.a};
 
         render::TargetState targetState;
         targetState.texture = vp->ColorTexture();
