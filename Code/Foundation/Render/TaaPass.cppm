@@ -25,6 +25,7 @@ import foundation.rhi;
 import foundation.rendergraph;
 import foundation.shaders;
 import foundation.shaders.system;
+import :bind_group_cache;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;
@@ -90,20 +91,13 @@ export namespace foundation::render
 
         rhi::RenderPipeline* MakePipeline();
 
-        // Bind group over the 4 inputs, cached by (current view, generation) - the transients are pooled with
-        // stable generations, the history view is stable per size, so this rebuilds only on resize.
-        rhi::BindGroup* EnsureBindGroup(rhi::TextureView* cur, rhi::TextureView* histPrev,
-                                        rhi::TextureView* motion, rhi::TextureView* depth,
-                                        u64 generation);
+        // One bind group per history view, rebuilt when ANY of the frame's transient inputs (the
+        // jittered colour, motion, depth; BindGroupCache) is a different view or texture.
+        using BindInputs = BindGroupInputs<3>;
+        rhi::BindGroup* EnsureBindGroup(rhi::TextureView* histPrev, const BindInputs& inputs);
 
         void Shutdown();
 
-        struct Entry
-        {
-            rhi::BindGroup* bg = nullptr;
-            rhi::TextureView* cur = nullptr;
-            u64 gen = 0;
-        };
 
         rhi::Device* m_device;
         shaders::ShaderSystem* m_shaders;
@@ -114,7 +108,7 @@ export namespace foundation::render
         rhi::Sampler* m_pointSampler = nullptr;
         rhi::Sampler* m_linearSampler = nullptr;
         ViewHistory m_views[kMaxViews];
-        HashMap<rhi::TextureView*, Entry> m_bindGroups;
+        BindGroupCache<3> m_bindGroups;
     };
 
 } // namespace foundation::render

@@ -27,6 +27,7 @@ import foundation.rhi;
 import foundation.rendergraph;
 import foundation.shaders;
 import foundation.shaders.system;
+import :bind_group_cache;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;
@@ -154,10 +155,11 @@ export namespace foundation::render
                                         rhi::TextureView* normal, rhi::TextureView* material,
                                         u64 generation);
 
-        // Resolve bind group (reflection, history, velocity, hdr + 2 samplers), cached by (history view, gen).
-        rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* refl, rhi::TextureView* histPrev,
-                                               rhi::TextureView* velocity, rhi::TextureView* hdr,
-                                               u64 generation);
+        // Resolve bind group (reflection, history, velocity, hdr + 2 samplers), one per history view, kept only while
+        // its three transient inputs (refl, velocity, hdr: views and generations) are the ones it was
+        // built from (BindGroupCache).
+        using ResolveInputs = BindGroupInputs<3>;
+        rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* histPrev, const ResolveInputs& inputs);
 
         void Shutdown();
 
@@ -167,14 +169,6 @@ export namespace foundation::render
             rhi::TextureView* depth = nullptr;
             rhi::TextureView* normal = nullptr;
             rhi::TextureView* material = nullptr;
-            u64 gen = 0;
-        };
-        struct ResolveEntry
-        {
-            rhi::BindGroup* bg = nullptr;
-            rhi::TextureView* refl = nullptr;
-            rhi::TextureView* velocity = nullptr;
-            rhi::TextureView* hdr = nullptr;
             u64 gen = 0;
         };
         struct Retired
@@ -197,7 +191,7 @@ export namespace foundation::render
         rhi::Sampler* m_linearSampler = nullptr;          // linear: glossy color gather
         ViewHistory m_views[kMaxViews];
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
-        HashMap<rhi::TextureView*, ResolveEntry> m_resolveBindGroups;
+        BindGroupCache<3> m_resolveBindGroups;
         Array<Retired> m_retired;
         u32 m_lastFrame = 0xFFFFFFFFu;
     };

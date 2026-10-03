@@ -103,31 +103,26 @@ namespace foundation::render
         return p;
     }
 
-    rhi::BindGroup* MsaaResolvePass::EnsureBindGroup(rhi::TextureView* normal,
-                                                    rhi::TextureView* velocity,
-                                                    rhi::TextureView* material,
-                                                    rhi::TextureView* depth, u64 gen)
+    rhi::BindGroup* MsaaResolvePass::EnsureBindGroup(const BindInputs& inputs)
     {
-        if (normal == nullptr || velocity == nullptr || material == nullptr || depth == nullptr)
+        if (!inputs.Complete())
         {
             return nullptr;
         }
-        if (Entry* found = m_bindGroups.Find(depth))
+        rhi::TextureView* depth = inputs.views[3];
+        rhi::BindGroup* stale = nullptr;
+        if (rhi::BindGroup* cached = m_bindGroups.Find(depth, inputs, stale))
         {
-            if (found->gen == gen && found->bg != nullptr)
-            {
-                return found->bg;
-            }
-            if (found->bg != nullptr)
-            {
-                m_device->DestroyBindGroup(found->bg);
-                found->bg = nullptr;
-            }
+            return cached;
+        }
+        if (stale != nullptr)
+        {
+            m_device->DestroyBindGroup(stale);
         }
         rhi::BindGroupEntry ent[] = {
-            rhi::BindGroupEntry::TextureEntry(normal),
-            rhi::BindGroupEntry::TextureEntry(velocity),
-            rhi::BindGroupEntry::TextureEntry(material),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[0]),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[1]),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[2]),
             rhi::BindGroupEntry::TextureEntry(depth),
         };
         rhi::BindGroupDesc bgd{};
@@ -138,7 +133,7 @@ namespace foundation::render
         {
             return nullptr;
         }
-        m_bindGroups.InsertOrAssign(depth, Entry{bg, gen});
+        m_bindGroups.Store(depth, inputs, bg);
         return bg;
     }
 
@@ -200,10 +195,12 @@ namespace foundation::render
                     [this, &graph, msaaDepth, msaaNormal, msaaVelocity,
                      msaaMaterial](rhi::RenderPassEncoder& rp)
                     {
-                        rhi::BindGroup* bg = EnsureBindGroup(
-                            graph.GetTextureView(msaaNormal), graph.GetTextureView(msaaVelocity),
-                            graph.GetTextureView(msaaMaterial), graph.GetTextureView(msaaDepth),
-                            graph.GetTextureGeneration(msaaDepth));
+                        BindInputs inputs;
+                        inputs.Set(0, graph.GetTextureView(msaaNormal), graph.GetTextureGeneration(msaaNormal));
+                        inputs.Set(1, graph.GetTextureView(msaaVelocity), graph.GetTextureGeneration(msaaVelocity));
+                        inputs.Set(2, graph.GetTextureView(msaaMaterial), graph.GetTextureGeneration(msaaMaterial));
+                        inputs.Set(3, graph.GetTextureView(msaaDepth), graph.GetTextureGeneration(msaaDepth));
+                        rhi::BindGroup* bg = EnsureBindGroup(inputs);
                         if (bg == nullptr)
                         {
                             return;
@@ -218,14 +215,7 @@ namespace foundation::render
 
     void MsaaResolvePass::Shutdown()
     {
-        for (auto& kv : m_bindGroups)
-        {
-            if (kv.value.bg != nullptr)
-            {
-                m_device->DestroyBindGroup(kv.value.bg);
-            }
-        }
-        m_bindGroups.Clear();
+        m_bindGroups.Release([this](rhi::BindGroup* bg) { m_device->DestroyBindGroup(bg); });
         if (m_pipeline != nullptr)
         {
             m_device->DestroyRenderPipeline(m_pipeline);

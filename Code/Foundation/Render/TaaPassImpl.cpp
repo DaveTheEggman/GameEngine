@@ -169,10 +169,11 @@ namespace foundation::render
                     [this, &graph, current, motion, depth, histPrevView,
                      push](rhi::RenderPassEncoder& rp)
                     {
-                        rhi::BindGroup* bg = EnsureBindGroup(
-                            graph.GetTextureView(current), histPrevView,
-                            graph.GetTextureView(motion), graph.GetTextureView(depth),
-                            graph.GetTextureGeneration(current));
+                        BindInputs inputs;
+                        inputs.Set(0, graph.GetTextureView(current), graph.GetTextureGeneration(current));
+                        inputs.Set(1, graph.GetTextureView(motion), graph.GetTextureGeneration(motion));
+                        inputs.Set(2, graph.GetTextureView(depth), graph.GetTextureGeneration(depth));
+                        rhi::BindGroup* bg = EnsureBindGroup(histPrevView, inputs);
                         if (bg == nullptr)
                         {
                             return;
@@ -278,31 +279,26 @@ namespace foundation::render
         return p;
     }
 
-    rhi::BindGroup* TaaPass::EnsureBindGroup(rhi::TextureView* cur, rhi::TextureView* histPrev,
-                                             rhi::TextureView* motion, rhi::TextureView* depth,
-                                             u64 generation)
+    rhi::BindGroup* TaaPass::EnsureBindGroup(rhi::TextureView* histPrev, const BindInputs& inputs)
     {
-        if (cur == nullptr || histPrev == nullptr || motion == nullptr || depth == nullptr)
+        if (histPrev == nullptr || !inputs.Complete())
         {
             return nullptr;
         }
-        if (Entry* e = m_bindGroups.Find(histPrev))
+        rhi::BindGroup* stale = nullptr;
+        if (rhi::BindGroup* cached = m_bindGroups.Find(histPrev, inputs, stale))
         {
-            if (e->gen == generation && e->cur == cur && e->bg != nullptr)
-            {
-                return e->bg;
-            }
-            if (e->bg != nullptr)
-            {
-                m_device->DestroyBindGroup(e->bg);
-                e->bg = nullptr;
-            }
+            return cached;
+        }
+        if (stale != nullptr)
+        {
+            m_device->DestroyBindGroup(stale);
         }
         rhi::BindGroupEntry ent[] = {
-            rhi::BindGroupEntry::TextureEntry(cur),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[0]),
             rhi::BindGroupEntry::TextureEntry(histPrev),
-            rhi::BindGroupEntry::TextureEntry(motion),
-            rhi::BindGroupEntry::TextureEntry(depth),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[1]),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[2]),
             rhi::BindGroupEntry::SamplerEntry(m_pointSampler),
             rhi::BindGroupEntry::SamplerEntry(m_linearSampler),
         };
@@ -314,20 +310,13 @@ namespace foundation::render
         {
             return nullptr;
         }
-        m_bindGroups.InsertOrAssign(histPrev, Entry{bg, cur, generation});
+        m_bindGroups.Store(histPrev, inputs, bg);
         return bg;
     }
 
     void TaaPass::Shutdown()
     {
-        for (auto& kv : m_bindGroups)
-        {
-            if (kv.value.bg != nullptr)
-            {
-                m_device->DestroyBindGroup(kv.value.bg);
-            }
-        }
-        m_bindGroups.Clear();
+        m_bindGroups.Release([this](rhi::BindGroup* bg) { m_device->DestroyBindGroup(bg); });
         for (u32 v = 0; v < kMaxViews; ++v)
         {
             DestroyHistory(m_views[v]);

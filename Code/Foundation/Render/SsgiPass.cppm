@@ -26,6 +26,7 @@ import foundation.rhi;
 import foundation.rendergraph;
 import foundation.shaders;
 import foundation.shaders.system;
+import :bind_group_cache;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;
@@ -178,10 +179,11 @@ export namespace foundation::render
         rhi::BindGroup* EnsureBlurBindGroup(rhi::TextureView* gi, rhi::TextureView* depth,
                                             u64 generation);
 
-        // Resolve bind group (gi, history, velocity, hdr + 2 samplers), cached by (history view, gen).
-        rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* gi, rhi::TextureView* histPrev,
-                                               rhi::TextureView* velocity, rhi::TextureView* hdr,
-                                               u64 generation);
+        // Resolve bind group (gi, history, velocity, hdr + 2 samplers), one per history view, kept only while
+        // its three transient inputs (gi, velocity, hdr: views and generations) are the ones it was
+        // built from (BindGroupCache).
+        using ResolveInputs = BindGroupInputs<3>;
+        rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* histPrev, const ResolveInputs& inputs);
 
         void Shutdown();
 
@@ -201,14 +203,6 @@ export namespace foundation::render
         {
             rhi::BindGroup* bg = nullptr;
             rhi::TextureView* depth = nullptr;
-            u64 gen = 0;
-        };
-        struct ResolveEntry
-        {
-            rhi::BindGroup* bg = nullptr;
-            rhi::TextureView* gi = nullptr;
-            rhi::TextureView* velocity = nullptr;
-            rhi::TextureView* hdr = nullptr;
             u64 gen = 0;
         };
         struct Retired
@@ -239,7 +233,7 @@ export namespace foundation::render
         HashMap<rhi::TextureView*, Entry> m_bindGroups;
         HashMap<rhi::TextureView*, DownEntry> m_downBindGroups;
         HashMap<rhi::TextureView*, BlurEntry> m_blurBindGroups;
-        HashMap<rhi::TextureView*, ResolveEntry> m_resolveBindGroups;
+        BindGroupCache<3> m_resolveBindGroups;
         Array<Retired> m_retired;
         u32 m_lastFrame = 0xFFFFFFFFu;
     };
