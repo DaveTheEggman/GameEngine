@@ -35,6 +35,14 @@ export namespace foundation::model::gltf
     using namespace foundation::core;
     using namespace foundation::model;
 
+    // glTF stores its colour factors linear (the glTF specification); the engine's authored
+    // colours are sRGB, so a factor is encoded as it is read and the material keeps its look.
+    inline Float4 SrgbFactor(f32 r, f32 g, f32 b, f32 a)
+    {
+        const Color c = ToSrgb(Color{r, g, b, a});
+        return Float4(c.r, c.g, c.b, c.a);
+    }
+
     // cgltf hands back char* (UTF-8); the engine String is UTF-8 too, so this just
     // wraps the bytes in an owned String - no transcoding.
     inline String Utf8FromC(const char* s)
@@ -199,9 +207,9 @@ export namespace foundation::model::gltf
                 {
                     cgltf_pbr_metallic_roughness* pbr = &mat->pbr_metallic_roughness;
 
-                    material->baseColorFactor =
-                        Float4(pbr->base_color_factor[0], pbr->base_color_factor[1],
-                               pbr->base_color_factor[2], pbr->base_color_factor[3]);
+                    material->baseColorFactor = SrgbFactor(
+                        pbr->base_color_factor[0], pbr->base_color_factor[1],
+                        pbr->base_color_factor[2], pbr->base_color_factor[3]);
 
                     if (pbr->base_color_texture.texture)
                         material->baseColorTextureIndex = static_cast<i32>(
@@ -222,8 +230,8 @@ export namespace foundation::model::gltf
                 else if (mat->has_pbr_specular_glossiness)
                 {
                     const cgltf_pbr_specular_glossiness* sg = &mat->pbr_specular_glossiness;
-                    material->baseColorFactor = Float4(sg->diffuse_factor[0], sg->diffuse_factor[1],
-                                                       sg->diffuse_factor[2], sg->diffuse_factor[3]);
+                    material->baseColorFactor = SrgbFactor(sg->diffuse_factor[0], sg->diffuse_factor[1],
+                                                           sg->diffuse_factor[2], sg->diffuse_factor[3]);
                     if (sg->diffuse_texture.texture)
                         material->baseColorTextureIndex = static_cast<i32>(
                             cgltf_texture_index(m_data, sg->diffuse_texture.texture));
@@ -248,8 +256,13 @@ export namespace foundation::model::gltf
                 }
 
                 // Emissive.
-                material->emissiveFactor = Float3(mat->emissive_factor[0], mat->emissive_factor[1],
-                                                  mat->emissive_factor[2]);
+                const Float4 emissive = SrgbFactor(mat->emissive_factor[0], mat->emissive_factor[1],
+                                                   mat->emissive_factor[2], 1.0f);
+                material->emissiveFactor = Float3(emissive.x, emissive.y, emissive.z);
+                if (mat->has_emissive_strength)
+                {
+                    material->emissiveIntensity = mat->emissive_strength.emissive_strength;
+                }
 
                 if (mat->emissive_texture.texture)
                     material->emissiveTextureIndex = static_cast<i32>(

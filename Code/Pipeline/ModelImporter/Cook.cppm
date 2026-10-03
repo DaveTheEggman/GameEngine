@@ -167,7 +167,8 @@ export namespace pipeline
                 Format(u8"{}.{}", namePrefix, ImportedAssetName(m.name(), u8"mat", i)).AsView(),
                 m.baseColorFactor, m.metallicFactor, m.roughnessFactor);
             built->SetDefaultColor(u8"EmissiveColor", Float4{m.emissiveFactor.x, m.emissiveFactor.y,
-                                                             m.emissiveFactor.z, 1.0f});
+                                                             m.emissiveFactor.z,
+                                                             m.emissiveIntensity});
             built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
             built->SetDefaultFloat(u8"NormalScale", m.normalScale);
             built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);

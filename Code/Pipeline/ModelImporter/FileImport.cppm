@@ -977,7 +977,8 @@ export namespace pipeline
                     m.metallicFactor, m.roughnessFactor);
                 built->SetDefaultColor(
                     u8"EmissiveColor",
-                    Float4{m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z, 1.0f});
+                    Float4{m.emissiveFactor.x, m.emissiveFactor.y, m.emissiveFactor.z,
+                           m.emissiveIntensity}); // a ColorHdr: sRGB colour, intensity in w
                 built->SetDefaultFloat(u8"OcclusionStrength", m.occlusionStrength);
                 built->SetDefaultFloat(u8"NormalScale", m.normalScale);
                 built->SetDefaultFloat(u8"AlphaCutoff", m.alphaCutoff);

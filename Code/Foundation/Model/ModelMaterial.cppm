@@ -37,6 +37,8 @@ export namespace foundation::model
         void setName(StringView n) { m_name = String(n); }
 
         // -- Base color --
+        // Colour factors are AUTHORED sRGB, as every colour is (the material property they become
+        // decodes them for the GPU). A loader whose format stores them linear (glTF) encodes them.
         Float4 baseColorFactor{1, 1, 1, 1};
         i32 baseColorTextureIndex = -1;
 
@@ -59,7 +61,8 @@ export namespace foundation::model
         i32 occlusionTextureIndex = -1;
 
         // -- Emissive --
-        Float3 emissiveFactor{};
+        Float3 emissiveFactor{};       // sRGB, like baseColorFactor
+        f32 emissiveIntensity = 1.0f; // linear multiplier (glTF KHR_materials_emissive_strength)
         i32 emissiveTextureIndex = -1;
 
         // -- Alpha --

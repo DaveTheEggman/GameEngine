@@ -89,3 +89,38 @@ TEST_CASE("gltf: a matrix-only node lands in the TRS fields and agrees with the 
 
     std::remove(path);
 }
+
+TEST_CASE("gltf: colour factors (linear by the glTF spec) are read as authored sRGB colours")
+{
+    // baseColorFactor 0.2140 is linear for sRGB 0.5; the emissive is full red at strength 4.
+    constexpr const char* kMaterials = R"({
+  "asset": {"version": "2.0"},
+  "extensionsUsed": ["KHR_materials_emissive_strength"],
+  "materials": [{
+    "name": "grey",
+    "pbrMetallicRoughness": {"baseColorFactor": [0.2140, 0.2140, 1.0, 0.5]},
+    "emissiveFactor": [1.0, 0.2140, 0.0],
+    "extensions": {"KHR_materials_emissive_strength": {"emissiveStrength": 4.0}}
+  }]
+})";
+    const char* path = "scratch_gltf_colour_factors.gltf";
+    REQUIRE(WriteFile(StringView(reinterpret_cast<const utf8char*>(path)),
+                      Span<const byte>(reinterpret_cast<const byte*>(kMaterials),
+                                       std::strlen(kMaterials)))
+                .IsOk());
+
+    Model model;
+    gltf::GltfLoader loader;
+    REQUIRE(loader.load(StringView(reinterpret_cast<const utf8char*>(path)), model) ==
+            ModelLoadResult::Ok);
+    REQUIRE(model.materials().Size() == 1u);
+    const ModelMaterial& m = *model.materials()[0];
+    CHECK(m.baseColorFactor.x == doctest::Approx(0.5f).epsilon(0.002));
+    CHECK(m.baseColorFactor.z == doctest::Approx(1.0f));
+    CHECK(m.baseColorFactor.w == doctest::Approx(0.5f)); // alpha is coverage, as stored
+    CHECK(m.emissiveFactor.x == doctest::Approx(1.0f));
+    CHECK(m.emissiveFactor.y == doctest::Approx(0.5f).epsilon(0.002));
+    CHECK(m.emissiveIntensity == doctest::Approx(4.0f));
+
+    std::remove(path);
+}
