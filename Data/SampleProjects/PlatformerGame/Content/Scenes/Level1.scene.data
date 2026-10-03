@@ -692,9 +692,9 @@
 			<object name="settings">
 				<string name="skyTexture">00000000-0000-0000-0000-000000000000</string>
 				<object name="ambientColor">
-					<f32 name="r">0.1</f32>
-					<f32 name="g">0.12</f32>
-					<f32 name="b">0.16</f32>
+					<f32 name="r">0.3492</f32>
+					<f32 name="g">0.3811</f32>
+					<f32 name="b">0.4366</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<f32 name="ambientIntensity">0.3</f32>
@@ -703,21 +703,21 @@
 				<f32 name="skyBackgroundIntensity">0.5</f32>
 				<f32 name="skyRotation">0</f32>
 				<object name="skyHorizon">
-					<f32 name="r">0.52</f32>
-					<f32 name="g">0.6</f32>
-					<f32 name="b">0.7</f32>
+					<f32 name="r">0.7484</f32>
+					<f32 name="g">0.7977</f32>
+					<f32 name="b">0.8543</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<object name="skyZenith">
-					<f32 name="r">0.2</f32>
-					<f32 name="g">0.36</f32>
-					<f32 name="b">0.58</f32>
+					<f32 name="r">0.4845</f32>
+					<f32 name="g">0.6343</f32>
+					<f32 name="b">0.7858</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<object name="skyGround">
-					<f32 name="r">0.26</f32>
-					<f32 name="g">0.26</f32>
-					<f32 name="b">0.26</f32>
+					<f32 name="r">0.5469</f32>
+					<f32 name="g">0.5469</f32>
+					<f32 name="b">0.5469</f32>
 					<f32 name="a">1</f32>
 				</object>
 				<f32 name="sunIntensity">1</f32>
