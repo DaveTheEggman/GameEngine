@@ -400,6 +400,90 @@ namespace editor
         return found;
     }
 
+    Guid SceneEditContext::SettingsEditProfile(const TypeInfo* settingsType, const char* property)
+    {
+        scene::SceneSystem* system = FindSystemBySettingsType(settingsType);
+        const PropertyInfo* prop =
+            (system != nullptr) ? FindProperty(*settingsType, property) : nullptr;
+        if (prop == nullptr || system->SettingsProfileType() == nullptr ||
+            FindAttribute(*prop, u8"sceneOnly") != nullptr)
+        {
+            return Guid{};
+        }
+        return system->SettingsProfile();
+    }
+
+    void* SceneEditContext::SettingsEditTarget(const TypeInfo* settingsType, const Guid& profile)
+    {
+        scene::SceneSystem* system = FindSystemBySettingsType(settingsType);
+        if (system == nullptr)
+        {
+            return nullptr;
+        }
+        if (profile.IsNil())
+        {
+            return system->SettingsInstance();
+        }
+        // The profile the edit was made in, only while the block still uses it (an undo after
+        // the source moved on reaches it again once that move is undone first).
+        return system->SettingsProfile() == profile ? system->EffectiveSettingsInstance() : nullptr;
+    }
+
+    void SceneEditContext::NoteSettingsProfileEdited(const TypeInfo* settingsType,
+                                                     const Guid& profile)
+    {
+        if (!profile.IsNil() && OnSettingsProfileEdited)
+        {
+            OnSettingsProfileEdited(settingsType, profile);
+        }
+    }
+
+    namespace
+    {
+        // A settings block in the shape SetSceneSettingsBlockCommand reads: version-wrapped.
+        Array<byte> CaptureSettings(scene::SceneSystem& system, const TypeInfo& type)
+        {
+            MemoryStream buffer;
+            BinarySerializer writer(buffer, SerializeMode::Write);
+            foundation::core::BeginVersionedPayload(writer, type);
+            system.SerializeSettings(writer);
+            foundation::core::EndVersionedPayload(writer);
+            Array<byte> blob;
+            const Span<const byte> bytes = buffer.Bytes();
+            blob.Reserve(bytes.Size());
+            for (byte b : bytes)
+            {
+                blob.PushBack(b);
+            }
+            return blob;
+        }
+    }
+
+    bool SceneEditContext::MutateSceneSettings(const TypeInfo* settingsType,
+                                               const Function<void(scene::SceneSystem&)>& mutate)
+    {
+        scene::SceneSystem* system = FindSystemBySettingsType(settingsType);
+        if (system == nullptr || settingsType == nullptr)
+        {
+            return false;
+        }
+        const Array<byte> before = CaptureSettings(*system, *settingsType);
+        mutate(*system);
+        Array<byte> after = CaptureSettings(*system, *settingsType);
+        // Restore the block (a non-undoable read), then apply the mutated one as a command, which
+        // captures the block before: the whole mutation is one undo step.
+        {
+            MemoryStream buffer;
+            (void)buffer.Write(before.Data(), before.Size());
+            (void)buffer.Seek(0, SeekOrigin::Begin);
+            BinarySerializer reader(buffer, SerializeMode::Read);
+            foundation::core::BeginVersionedPayload(reader, *settingsType);
+            system->SerializeSettings(reader);
+            foundation::core::EndVersionedPayload(reader);
+        }
+        return ApplySceneSettingsBlock(settingsType, Move(after));
+    }
+
     void SceneEditContext::AddComponent(const Guid& entity, const TypeInfo* componentType)
     {
         (void)m_commands->Execute(UniquePtr<IEditorCommand>(

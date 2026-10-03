@@ -55,6 +55,7 @@ import editor.camera;
 import foundation.mcp; // McpServer (the MCP tool contribution)
 import :view_settings; // RegisterSceneViewSettingsType (per-scene grid pref)
 import :edit;
+import :settings_profiles; // QueueSettingsProfileEdit (a profile-mode settings edit)
 import :scene_page_interface; // ISceneEditorPage (published on the page)
 import :viewport_capture;     // ViewportCaptureRecorder (viewport_screenshot)
 import :pie_tools;            // RegisterPieTools (the contribution)
@@ -190,6 +191,20 @@ export namespace editor
                 m_editContext =
                     MakeUnique<SceneEditContext>(Allocator(), *m_scene, Commands());
                 m_editContext->SetResources(context.Resources());
+                // A settings edit that lands in a profile (the block's source is a profile) is
+                // written to the profile's asset by the save flow, like any live asset edit.
+                {
+                    EditorContext* profileContext = &context;
+                    SceneEditContext* profileEdit = m_editContext.Get();
+                    m_editContext->OnSettingsProfileEdited =
+                        [profileContext, profileEdit](const TypeInfo* type, const Guid& profile)
+                    {
+                        if (scene::SceneSystem* system = profileEdit->FindSystemBySettingsType(type))
+                        {
+                            QueueSettingsProfileEdit(*profileContext, *system, profile);
+                        }
+                    };
+                }
                 EditorContext* resolverContext = &context;
                 m_editContext->SetPrefabResolver(scene::PrefabPayloadResolver{
                     [resolverContext](const Guid& prefabId) -> UniquePtr<IStream>

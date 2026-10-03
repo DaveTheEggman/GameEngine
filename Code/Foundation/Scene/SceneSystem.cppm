@@ -94,6 +94,20 @@ export namespace foundation::scene
         [[nodiscard]] virtual StringView SettingsId() const noexcept { return {}; }
         virtual void SerializeSettings(ISerializer& /*ar*/) {}
 
+        // A settings block that can take its values from a shared asset (a render profile) says so,
+        // and answers which values are in effect and which asset gives them, so a tool edits what
+        // is in effect without naming the block's type.
+        //   SettingsProfileType():       the profile's product type (null = the block has none)
+        //   EffectiveSettingsInstance(): the values in effect (SettingsType()'s layout)
+        //   SettingsProfile():           the profile in use (nil = the block's own values)
+        //   UseSettingsProfile(id):      take the values from that profile (nil = the block's own)
+        //   CopySettingsProfileIntoScene(): the values in effect become the block's own, in use
+        [[nodiscard]] virtual const TypeInfo* SettingsProfileType() const noexcept { return nullptr; }
+        [[nodiscard]] virtual void* EffectiveSettingsInstance() noexcept { return SettingsInstance(); }
+        [[nodiscard]] virtual Guid SettingsProfile() noexcept { return Guid{}; }
+        virtual void UseSettingsProfile(const Guid& /*profile*/) {}
+        virtual void CopySettingsProfileIntoScene() {}
+
         // Bind every resource::Ref this system holds (settings blocks included) through the
         // manager - the post-load resolve pass. ComponentManagerBase overrides it for component
         // pools; plain systems with resource-bearing settings override it too. Default: nothing.

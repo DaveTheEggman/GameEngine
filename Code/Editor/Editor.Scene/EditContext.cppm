@@ -279,6 +279,32 @@ export namespace editor
         /// The scene system whose SettingsType() is `settingsType` (null if none).
         [[nodiscard]] scene::SceneSystem* FindSystemBySettingsType(const TypeInfo* settingsType);
 
+        // === A settings block whose source is a profile ===
+        // Its values in effect are the profile's, so an edit of a value field lands there (every
+        // scene sharing the profile sees it) and the page persists it to the profile's asset;
+        // the block's own fields ("sceneOnly": the source, the profile reference) stay the scene's.
+
+        /// The profile an edit of `property` lands in: nil when it lands in the scene's block.
+        [[nodiscard]] Guid SettingsEditProfile(const TypeInfo* settingsType, const char* property);
+        /// The values an edit for `profile` (from SettingsEditProfile) writes: the scene's block for
+        /// nil, the profile's values while the block still uses it, else null.
+        [[nodiscard]] void* SettingsEditTarget(const TypeInfo* settingsType, const Guid& profile);
+        /// The values `property` shows and edits now: SettingsEditTarget of SettingsEditProfile.
+        [[nodiscard]] void* SettingsValuesFor(const TypeInfo* settingsType, const char* property)
+        {
+            return SettingsEditTarget(settingsType, SettingsEditProfile(settingsType, property));
+        }
+        /// Called by the settings commands after they write a profile's values (nil = no-op).
+        void NoteSettingsProfileEdited(const TypeInfo* settingsType, const Guid& profile);
+        /// The page's persistence of a profile edit (an asset edit for the save flow).
+        Function<void(const TypeInfo* settingsType, const Guid& profile)> OnSettingsProfileEdited;
+
+        /// One undoable mutation of a settings block, whatever it touches (its source, a copy of a
+        /// profile's values into it): the live block mutated, captured, restored, then applied
+        /// through the block command, which keeps the block before. False when there is none.
+        bool MutateSceneSettings(const TypeInfo* settingsType,
+                                 const Function<void(scene::SceneSystem&)>& mutate);
+
         /// Add a default-constructed component (undoable; fails if already present).
         void AddComponent(const Guid& entity, const TypeInfo* componentType);
 
@@ -1187,15 +1213,20 @@ export namespace editor
         private:
             void* Resolve(const ReferenceOps*& ops)
             {
-                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
+                if (!m_routed)
+                {
+                    m_profile = m_ctx->SettingsEditProfile(m_settingsType, m_property);
+                    m_routed = true;
+                }
+                void* target = m_ctx->SettingsEditTarget(m_settingsType, m_profile);
                 const PropertyInfo* prop = FindProperty(*m_settingsType, m_property);
-                if (system == nullptr || prop == nullptr || prop->address == nullptr ||
+                if (target == nullptr || prop == nullptr || prop->address == nullptr ||
                     prop->type == nullptr || prop->type->reference == nullptr)
                 {
                     return nullptr;
                 }
                 ops = prop->type->reference;
-                return prop->address(Instance{system->SettingsInstance(), m_settingsType});
+                return prop->address(Instance{target, m_settingsType});
             }
             void Apply(const Guid& id)
             {
@@ -1211,6 +1242,7 @@ export namespace editor
                     // The system binds its references (this one among them) as a load does.
                     m_ctx->FindSystemBySettingsType(m_settingsType)->ResolveResources(*m_resources);
                 }
+                m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
             }
 
             SceneEditContext* m_ctx;
@@ -1218,6 +1250,8 @@ export namespace editor
             const char* m_property;
             Guid m_new;
             Guid m_old;
+            Guid m_profile; // where the edit lands (SettingsEditProfile), fixed at first apply
+            bool m_routed = false;
             bool m_hasOld = false;
             foundation::resource::ResourceManager* m_resources;
         };
@@ -1248,6 +1282,7 @@ export namespace editor
                 }
                 ref->SetId(m_new);
                 ref->Rebind(m_resources);
+                m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
                 return true;
             }
             void Undo() override
@@ -1256,6 +1291,7 @@ export namespace editor
                 {
                     ref->SetId(m_old);
                     ref->Rebind(m_resources);
+                    m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
                 }
             }
             [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting_ref"; }
@@ -1263,12 +1299,17 @@ export namespace editor
         private:
             [[nodiscard]] foundation::resource::Ref<T>* ResolveRef()
             {
-                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
-                if (system == nullptr)
+                if (!m_routed)
+                {
+                    m_profile = m_ctx->SettingsEditProfile(m_settingsType, m_property);
+                    m_routed = true;
+                }
+                void* target = m_ctx->SettingsEditTarget(m_settingsType, m_profile);
+                if (target == nullptr)
                 {
                     return nullptr;
                 }
-                const Instance settings{system->SettingsInstance(), m_settingsType};
+                const Instance settings{target, m_settingsType};
                 const PropertyInfo* prop = FindProperty(*m_settingsType, m_property);
                 void* address = (prop != nullptr && prop->address != nullptr)
                                     ? prop->address(settings)
@@ -1281,6 +1322,8 @@ export namespace editor
             const char* m_property;
             Guid m_new;
             Guid m_old;
+            Guid m_profile; // where the edit lands (SettingsEditProfile), fixed at first apply
+            bool m_routed = false;
             bool m_hasOld = false;
             foundation::resource::ResourceManager* m_resources;
         };
@@ -1581,7 +1624,9 @@ export namespace editor
                         m_old.PushBack(b);
                     }
                 }
-                return Apply(*system, m_new);
+                const bool applied = Apply(*system, m_new);
+                m_ctx->ResolveRestoredResources(); // the block's references (a profile) bind
+                return applied;
             }
             void Undo() override
             {
@@ -1589,6 +1634,7 @@ export namespace editor
                 if (system != nullptr)
                 {
                     (void)Apply(*system, m_old);
+                    m_ctx->ResolveRestoredResources();
                 }
             }
             [[nodiscard]] StringView TypeId() const override
@@ -1669,6 +1715,7 @@ export namespace editor
                         m_hasOld = true;
                     }
                     WriteEnumValue(address, *prop->type, m_newRaw);
+                    m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
                     return true;
                 }
 
@@ -1677,7 +1724,9 @@ export namespace editor
                     m_old = GetProperty(*prop, settings);
                     m_hasOld = true;
                 }
-                return SetProperty(*prop, settings, m_new).IsOk();
+                const bool set = SetProperty(*prop, settings, m_new).IsOk();
+                m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
+                return set;
             }
 
             void Undo() override
@@ -1700,6 +1749,7 @@ export namespace editor
                 {
                     (void)SetProperty(*prop, settings, m_old);
                 }
+                m_ctx->NoteSettingsProfileEdited(m_settingsType, m_profile);
             }
 
             [[nodiscard]] StringView TypeId() const override { return u8"set_scene_setting"; }
@@ -1707,7 +1757,7 @@ export namespace editor
             {
                 auto& prev = static_cast<SetSceneSettingCommand&>(previous);
                 if (prev.m_settingsType != m_settingsType || prev.m_raw != m_raw ||
-                    !CStrEq(prev.m_property, m_property))
+                    prev.m_profile != m_profile || !CStrEq(prev.m_property, m_property))
                 {
                     return false;
                 }
@@ -1729,13 +1779,18 @@ export namespace editor
 
             [[nodiscard]] Instance ResolveSettings(const PropertyInfo** outProp)
             {
-                scene::SceneSystem* system = m_ctx->FindSystemBySettingsType(m_settingsType);
-                if (system == nullptr)
+                if (!m_routed)
+                {
+                    m_profile = m_ctx->SettingsEditProfile(m_settingsType, m_property);
+                    m_routed = true;
+                }
+                void* target = m_ctx->SettingsEditTarget(m_settingsType, m_profile);
+                if (target == nullptr)
                 {
                     return {};
                 }
                 *outProp = FindProperty(*m_settingsType, m_property);
-                return Instance{system->SettingsInstance(), m_settingsType};
+                return Instance{target, m_settingsType};
             }
 
             SceneEditContext* m_ctx;
@@ -1745,6 +1800,8 @@ export namespace editor
             Variant m_old;
             i64 m_newRaw = 0;
             i64 m_oldRaw = 0;
+            Guid m_profile; // where the edit lands (SettingsEditProfile), fixed at first apply
+            bool m_routed = false;
             bool m_raw = false;
             bool m_hasOld = false;
         };

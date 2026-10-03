@@ -14,6 +14,7 @@ export import editor.camera;
 export import :view_settings;
 export import :camera_preview;
 export import :edit;
+export import :settings_profiles;
 export import :scene_page_interface;
 export import :actions;
 export import :entity_json;

@@ -672,6 +672,10 @@ export namespace engine::render
         {
             m_env.skyTexture.Bind(manager);
             m_env.profile.Bind(manager);
+            if (EnvironmentProfile* profile = m_env.profile.Get())
+            {
+                profile->values.skyTexture.Bind(manager); // a profile edit's new reference
+            }
         }
         void SerializeSettings(ISerializer& ar) override
         {
@@ -708,6 +712,30 @@ export namespace engine::render
         [[nodiscard]] const EnvironmentSettings& Effective() const noexcept
         {
             return const_cast<EnvironmentSystem*>(this)->Effective();
+        }
+        [[nodiscard]] const TypeInfo* SettingsProfileType() const noexcept override
+        {
+            return &EnvironmentProfile::StaticType();
+        }
+        [[nodiscard]] void* EffectiveSettingsInstance() noexcept override { return &Effective(); }
+        [[nodiscard]] Guid SettingsProfile() noexcept override
+        {
+            return (m_env.source == SettingsSource::Profile && m_env.profile.Get() != nullptr)
+                       ? m_env.profile.id
+                       : Guid{};
+        }
+        void UseSettingsProfile(const Guid& profile) override
+        {
+            m_env.source = profile.IsNil() ? SettingsSource::Scene : SettingsSource::Profile;
+            m_env.profile.SetId(profile); // bound by the next ResolveResources
+        }
+        void CopySettingsProfileIntoScene() override
+        {
+            const EnvironmentSettings values = Effective(); // a copy: Effective may be this block
+            const auto profile = m_env.profile;
+            m_env = values;
+            m_env.source = SettingsSource::Scene;
+            m_env.profile = profile; // kept, so the profile is a pick away
         }
 
     private:
@@ -877,6 +905,10 @@ export namespace engine::render
         {
             m_post.gradingLut.Bind(manager);
             m_post.profile.Bind(manager);
+            if (PostProcessProfile* profile = m_post.profile.Get())
+            {
+                profile->values.gradingLut.Bind(manager); // a profile edit's new reference
+            }
         }
 
         /// The values in effect (as EnvironmentSystem::Effective): the profile's while the source
@@ -895,6 +927,30 @@ export namespace engine::render
         [[nodiscard]] const PostProcessSettings& Effective() const noexcept
         {
             return const_cast<PostProcessSystem*>(this)->Effective();
+        }
+        [[nodiscard]] const TypeInfo* SettingsProfileType() const noexcept override
+        {
+            return &PostProcessProfile::StaticType();
+        }
+        [[nodiscard]] void* EffectiveSettingsInstance() noexcept override { return &Effective(); }
+        [[nodiscard]] Guid SettingsProfile() noexcept override
+        {
+            return (m_post.source == SettingsSource::Profile && m_post.profile.Get() != nullptr)
+                       ? m_post.profile.id
+                       : Guid{};
+        }
+        void UseSettingsProfile(const Guid& profile) override
+        {
+            m_post.source = profile.IsNil() ? SettingsSource::Scene : SettingsSource::Profile;
+            m_post.profile.SetId(profile); // bound by the next ResolveResources
+        }
+        void CopySettingsProfileIntoScene() override
+        {
+            const PostProcessSettings values = Effective(); // a copy: Effective may be this block
+            const auto profile = m_post.profile;
+            m_post = values;
+            m_post.source = SettingsSource::Scene;
+            m_post.profile = profile; // kept, so the profile is a pick away
         }
 
     private:

@@ -364,6 +364,9 @@ export namespace editor
         // system's settings instance and writing through SetSceneSettingProperty commands
         // (merged scrubs, one undo entry). Covers the kinds settings blocks use today.
         void BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop, StringView category);
+        // A block whose values can come from a profile: Make Profile, Copy Into Scene and Open
+        // Profile, between the block's own fields (the source, the profile) and its values.
+        void BuildSettingsProfileRows(const TypeInfo* type, StringView category);
 
         void BuildComponentSection(const Guid& id, scene::ComponentManagerBase& mgr);
 
@@ -529,12 +532,12 @@ export namespace editor
         template <typename T>
         [[nodiscard]] Guid SettingRefTarget(const TypeInfo* type, const char* propName)
         {
-            scene::SceneSystem* system = m_edit->FindSystemBySettingsType(type);
-            if (system == nullptr)
+            void* values = m_edit->SettingsValuesFor(type, propName);
+            if (values == nullptr)
             {
                 return Guid{};
             }
-            const Instance settings{system->SettingsInstance(), type};
+            const Instance settings{values, type};
             const PropertyInfo* p = FindProperty(*type, propName);
             void* address =
                 (p != nullptr && p->address != nullptr) ? p->address(settings) : nullptr;

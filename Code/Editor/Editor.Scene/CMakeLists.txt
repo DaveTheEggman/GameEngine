@@ -18,6 +18,7 @@ target_link_libraries(Editor.Scene
         Foundation::UI.Resource Engine::UI Foundation::Audio Foundation::Audio.Resource Engine::Audio
         Foundation::Geometry Foundation::Geometry.Resource Pipeline::Geometry
         Foundation::Materials Foundation::Materials.Resource Pipeline::Materials
+        Pipeline::Render # the render profile assets (SettingsProfileAsset)
         Foundation::UI Foundation::UI.Runtime Foundation::UI.Viewport Foundation::VG.Renderer
         Foundation::Script Foundation::Script.Resource Foundation::Script.Facades Engine::Script
         Foundation::Input Foundation::Input.Resource Engine::Input
@@ -46,11 +47,13 @@ target_sources(Editor.Scene
         AnimationGraphPageImpl.cpp
         AnimationClipPageImpl.cpp
         SkeletonPageImpl.cpp
+        SettingsProfilesImpl.cpp
     PUBLIC
         FILE_SET editorscene_modules TYPE CXX_MODULES FILES
             SceneViewSettings.cppm
             CameraPreview.cppm
             EditContext.cppm
+            SettingsProfiles.cppm
             SceneEditorPageInterface.cppm
             ViewportCaptureRecorder.cppm
             PieInstancePage.cppm

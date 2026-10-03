@@ -21,11 +21,35 @@ using namespace foundation::core;
 
 export namespace pipeline
 {
-    class EnvironmentProfileAsset final : public pipeline::Asset
+    // A profile asset: a settings block's values, reached without naming the block (the editor
+    // edits any profile through this, the reflected layout ValuesType() over Values()).
+    class SettingsProfileAsset : public pipeline::Asset
     {
-        RTTI_OBJECT(EnvironmentProfileAsset, pipeline::Asset)
+        RTTI_OBJECT(SettingsProfileAsset, pipeline::Asset)
+    public:
+        [[nodiscard]] virtual const TypeInfo* ValuesType() const noexcept = 0;
+        [[nodiscard]] virtual void* Values() noexcept = 0;
+        /// Take a settings block's values (ValuesType()'s layout); the block's own source and
+        /// profile reference are not a profile's.
+        virtual void SetValues(const void* values) = 0;
+    };
+
+    class EnvironmentProfileAsset final : public SettingsProfileAsset
+    {
+        RTTI_OBJECT(EnvironmentProfileAsset, SettingsProfileAsset)
     public:
         engine::render::EnvironmentSettings values;
+        [[nodiscard]] const TypeInfo* ValuesType() const noexcept override
+        {
+            return &TypeOf<engine::render::EnvironmentSettings>();
+        }
+        [[nodiscard]] void* Values() noexcept override { return &values; }
+        void SetValues(const void* from) override
+        {
+            values = *static_cast<const engine::render::EnvironmentSettings*>(from);
+            values.source = engine::render::SettingsSource::Scene;
+            values.profile = {};
+        }
 
         void Serialize(ISerializer& ar) override
         {
@@ -34,11 +58,22 @@ export namespace pipeline
         }
     };
 
-    class PostProcessProfileAsset final : public pipeline::Asset
+    class PostProcessProfileAsset final : public SettingsProfileAsset
     {
-        RTTI_OBJECT(PostProcessProfileAsset, pipeline::Asset)
+        RTTI_OBJECT(PostProcessProfileAsset, SettingsProfileAsset)
     public:
         engine::render::PostProcessSettings values;
+        [[nodiscard]] const TypeInfo* ValuesType() const noexcept override
+        {
+            return &TypeOf<engine::render::PostProcessSettings>();
+        }
+        [[nodiscard]] void* Values() noexcept override { return &values; }
+        void SetValues(const void* from) override
+        {
+            values = *static_cast<const engine::render::PostProcessSettings*>(from);
+            values.source = engine::render::SettingsSource::Scene;
+            values.profile = {};
+        }
 
         void Serialize(ISerializer& ar) override
         {
@@ -118,6 +153,7 @@ export namespace pipeline
     // Registers the asset types for content-DB construction + deserialization.
     inline void RegisterRenderProfileAssets()
     {
+        GlobalTypeRegistry().Register(SettingsProfileAsset::StaticType(), TypeDomain(u8"Pipeline"));
         GlobalTypeRegistry().Register(EnvironmentProfileAsset::StaticType(), TypeDomain(u8"Pipeline"));
         RegisterSerializable<EnvironmentProfileAsset>();
         GlobalTypeRegistry().Register(PostProcessProfileAsset::StaticType(), TypeDomain(u8"Pipeline"));
@@ -127,6 +163,7 @@ export namespace pipeline
     /// File > New's render creators (pipeline.registration composes every domain's).
     void RegisterRenderCreators(AssetCreatorRegistry& registry);
 
+    RTTI_DEFINE_OBJECT(SettingsProfileAsset, "rtti::pipeline::render")
     RTTI_DEFINE_OBJECT(EnvironmentProfileAsset, "rtti::pipeline::render")
     RTTI_DEFINE_OBJECT(PostProcessProfileAsset, "rtti::pipeline::render")
 }

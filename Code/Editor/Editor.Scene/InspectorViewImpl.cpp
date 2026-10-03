@@ -496,21 +496,26 @@ namespace editor
                 {
                     category = category.SubStr(0, category.Size() - suffix.Size());
                 }
+                bool profileRowsBuilt = system.SettingsProfileType() == nullptr;
                 for (const PropertyInfo& prop : Properties(*type))
                 {
                     if (IsNested(prop))
                     {
                         continue; // nested structures are recursed elsewhere, not a leaf row
                     }
+                    if (!profileRowsBuilt && FindAttribute(prop, u8"sceneOnly") == nullptr)
+                    {
+                        BuildSettingsProfileRows(type, category);
+                        profileRowsBuilt = true;
+                    }
                     const usize firstRow = m_grid->PropertyCount();
                     BuildSettingRow(type, prop, category);
                     ApplyPropertyPresentation(
                         type, prop, firstRow,
-                        [edit = m_edit, type]() -> Instance
+                        [edit = m_edit, type, propName = prop.name]() -> Instance
                         {
-                            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
-                            return (system != nullptr) ? Instance{system->SettingsInstance(), type}
-                                                       : Instance{};
+                            void* values = edit->SettingsValuesFor(type, propName);
+                            return (values != nullptr) ? Instance{values, type} : Instance{};
                         });
                 }
                 if (type == &TypeOf<engine::physics::PhysicsSceneSettings>())
@@ -658,15 +663,14 @@ namespace editor
         }
         auto target = [edit, type, propName]() -> Guid
         {
-            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+            void* values = edit->SettingsValuesFor(type, propName);
             const PropertyInfo* p = FindProperty(*type, propName);
-            if (system == nullptr || p == nullptr || p->address == nullptr ||
+            if (values == nullptr || p == nullptr || p->address == nullptr ||
                 p->type->reference == nullptr)
             {
                 return Guid{};
             }
-            const Guid* id =
-                p->type->reference->Id(p->address(Instance{system->SettingsInstance(), type}));
+            const Guid* id = p->type->reference->Id(p->address(Instance{values, type}));
             return id != nullptr ? *id : Guid{};
         };
         auto editor = MakeRef<ResourceRefEditor>(MemoryAllocator(), name, AssetNameFor(target()),
@@ -685,6 +689,76 @@ namespace editor
         AddEditor(raw, [raw]() { raw->Refresh(); });
     }
 
+    void SceneInspectorView::BuildSettingsProfileRows(const TypeInfo* type, StringView category)
+    {
+        SceneEditContext* edit = m_edit;
+        EditorContext* context = m_editor;
+        auto usesProfile = [edit, type]() -> Guid
+        {
+            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
+            return system != nullptr ? system->SettingsProfile() : Guid{};
+        };
+
+        // The profile in use, named: its values are the rows below, shared by every scene using it.
+        auto open = MakeRef<ui::toolkit::ButtonEditor>(
+            MemoryAllocator(), StringView(u8"Open Profile"),
+            Function<void()>{[context, usesProfile]()
+                             {
+                                 const Guid id = usesProfile();
+                                 if (!id.IsNil() && context->OpenAsset)
+                                 {
+                                     context->OpenAsset(id);
+                                 }
+                             }},
+            category);
+        open->SetTooltip(u8"The values below are this profile's: an edit changes every scene "
+                         u8"using it (written to the profile on save).");
+        AddEditor(open.Get(),
+                  [context, usesProfile, raw = open.Get()]()
+                  {
+                      const Guid id = usesProfile();
+                      raw->SetButtonEnabled(!id.IsNil());
+                      const String label = id.IsNil() ? String(u8"Values: this scene's")
+                                                      : Format(u8"Values: profile '{}'",
+                                                               context->AssetNameFor(id));
+                      raw->SetDisplayName(label.AsView());
+                  });
+
+        String profileName = Format(u8"{} {}", edit->Scene().Name(), category);
+        auto make = MakeRef<ui::toolkit::ButtonEditor>(
+            MemoryAllocator(), StringView(u8"Make Profile"),
+            Function<void()>{[context, edit, type, profileName]()
+                             {
+                                 foundation::content::Instance* made =
+                                     MakeSettingsProfile(*context, *edit, type, profileName.AsView());
+                                 if (made != nullptr)
+                                 {
+                                     context->Notify(NoticeKind::Success,
+                                                     Format(u8"Made profile '{}'; this scene uses it.",
+                                                            made->Name())
+                                                         .AsView());
+                                 }
+                             }},
+            category);
+        make->SetTooltip(u8"Saves these values as a new profile asset, and this scene uses it.");
+        AddEditor(make.Get(), [usesProfile, raw = make.Get()]()
+                  { raw->SetButtonEnabled(usesProfile().IsNil()); });
+
+        auto copy = MakeRef<ui::toolkit::ButtonEditor>(
+            MemoryAllocator(), StringView(u8"Copy Into Scene"),
+            Function<void()>{[edit, type]()
+                             {
+                                 (void)edit->MutateSceneSettings(
+                                     type, [](scene::SceneSystem& s)
+                                     { s.CopySettingsProfileIntoScene(); });
+                             }},
+            category);
+        copy->SetTooltip(u8"Copies the profile's values into this scene, which then uses its own "
+                         u8"(the profile is unchanged).");
+        AddEditor(copy.Get(), [usesProfile, raw = copy.Get()]()
+                  { raw->SetButtonEnabled(!usesProfile().IsNil()); });
+    }
+
     void SceneInspectorView::BuildSettingRow(const TypeInfo* type, const PropertyInfo& prop,
                                              StringView category)
     {
@@ -694,10 +768,12 @@ namespace editor
             (static_cast<u32>(prop.flags) & static_cast<u32>(PropertyFlags::ReadOnly)) != 0;
         const char* propName = prop.name;
 
-        auto getInstance = [edit, type]() -> Instance
+        // The values shown are the ones an edit writes: the profile's for a value field while the
+        // block's source is a profile, the scene's own otherwise (decided at each read).
+        auto getInstance = [edit, type, propName]() -> Instance
         {
-            scene::SceneSystem* system = edit->FindSystemBySettingsType(type);
-            return (system != nullptr) ? Instance{system->SettingsInstance(), type} : Instance{};
+            void* values = edit->SettingsValuesFor(type, propName);
+            return (values != nullptr) ? Instance{values, type} : Instance{};
         };
 
         // Resource references (the environment's sky texture): the browser-mirroring picker,

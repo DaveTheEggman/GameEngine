@@ -40,9 +40,11 @@ Unity's Volume edits its referenced profile, Clone makes a scene copy).
 ### 3. Editing
 
 - **Scene source**: as today.
-- **Profile source**: the scene inspector's section is headed with the profile's name and shows the
-  profile's values; an edit there edits the profile asset (undoable, the asset saved and cooked so
-  every scene using it updates), the same as editing it on its own page.
+- **Profile source**: the scene inspector's section names the profile its values come from (a
+  "Values: profile 'Dusk'" row whose button opens it) and shows the profile's values; an edit there
+  edits the loaded profile (undoable; every open scene using it sees it at once) and the scene's
+  save writes it to the profile asset and cooks it, as a terrain sculpt's live edit is written. The
+  block's own fields (`source`, `profile`, marked `sceneOnly`) stay the scene's.
 - **"Make profile"**: saves the block's current values as a new profile asset and switches the
   source to it. **"Copy into scene"**: copies the profile's values into the block and switches the
   source to Scene (to branch off).
