@@ -539,11 +539,11 @@ namespace foundation::render
                     [this, &graph, filtered, velocity, hdr, histPrevView,
                      rpc2](rhi::RenderPassEncoder& rp)
                     {
-                        rhi::BindGroup* bg = EnsureResolveBindGroup(
-                            graph.GetTextureView(filtered), histPrevView,
-                            graph.GetTextureView(velocity), graph.GetTextureView(hdr),
-                            graph.GetTextureGeneration(filtered) ^
-                                (graph.GetTextureGeneration(hdr) * 1099511628211ull));
+                        ResolveInputs inputs;
+                        inputs.Set(0, graph.GetTextureView(filtered), graph.GetTextureGeneration(filtered));
+                        inputs.Set(1, graph.GetTextureView(velocity), graph.GetTextureGeneration(velocity));
+                        inputs.Set(2, graph.GetTextureView(hdr), graph.GetTextureGeneration(hdr));
+                        rhi::BindGroup* bg = EnsureResolveBindGroup(histPrevView, inputs);
                         if (bg == nullptr)
                         {
                             return;
@@ -759,33 +759,26 @@ namespace foundation::render
         return bg;
     }
 
-    rhi::BindGroup* SsgiPass::EnsureResolveBindGroup(rhi::TextureView* gi,
-                                                     rhi::TextureView* histPrev,
-                                                     rhi::TextureView* velocity,
-                                                     rhi::TextureView* hdr, u64 generation)
+    rhi::BindGroup* SsgiPass::EnsureResolveBindGroup(rhi::TextureView* histPrev, const ResolveInputs& inputs)
     {
-        if (gi == nullptr || histPrev == nullptr || velocity == nullptr || hdr == nullptr)
+        if (histPrev == nullptr || !inputs.Complete())
         {
             return nullptr;
         }
-        if (ResolveEntry* e = m_resolveBindGroups.Find(histPrev))
+        rhi::BindGroup* stale = nullptr;
+        if (rhi::BindGroup* cached = m_resolveBindGroups.Find(histPrev, inputs, stale))
         {
-            if (e->gen == generation && e->gi == gi && e->velocity == velocity && e->hdr == hdr &&
-                e->bg != nullptr)
-            {
-                return e->bg;
-            }
-            if (e->bg != nullptr)
-            {
-                m_retired.PushBack(Retired{e->bg, kRetireFrames});
-                e->bg = nullptr;
-            }
+            return cached;
+        }
+        if (stale != nullptr)
+        {
+            m_retired.PushBack(Retired{stale, kRetireFrames}); // a frame in flight may still use it
         }
         rhi::BindGroupEntry ent[] = {
-            rhi::BindGroupEntry::TextureEntry(gi),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[0]),
             rhi::BindGroupEntry::TextureEntry(histPrev),
-            rhi::BindGroupEntry::TextureEntry(velocity),
-            rhi::BindGroupEntry::TextureEntry(hdr),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[1]),
+            rhi::BindGroupEntry::TextureEntry(inputs.views[2]),
             rhi::BindGroupEntry::SamplerEntry(m_sampler),
             rhi::BindGroupEntry::SamplerEntry(m_linearSampler),
         };
@@ -797,7 +790,7 @@ namespace foundation::render
         {
             return nullptr;
         }
-        m_resolveBindGroups.InsertOrAssign(histPrev, ResolveEntry{bg, gi, velocity, hdr, generation});
+        m_resolveBindGroups.Store(histPrev, inputs, bg);
         return bg;
     }
 
@@ -827,14 +820,7 @@ namespace foundation::render
             }
         }
         m_blurBindGroups.Clear();
-        for (auto& kv : m_resolveBindGroups)
-        {
-            if (kv.value.bg != nullptr)
-            {
-                m_device->DestroyBindGroup(kv.value.bg);
-            }
-        }
-        m_resolveBindGroups.Clear();
+        m_resolveBindGroups.Release([this](rhi::BindGroup* bg) { m_device->DestroyBindGroup(bg); });
         for (auto& r : m_retired)
         {
             m_device->DestroyBindGroup(r.bg);

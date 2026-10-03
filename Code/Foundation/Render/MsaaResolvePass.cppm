@@ -22,6 +22,7 @@ import foundation.rendergraph;
 import foundation.shaders;
 import foundation.shaders.system;
 import :data; // kGNormalFormat / kGVelocityFormat / kGMaterialFormat
+import :bind_group_cache;
 
 using namespace foundation::core;
 namespace rendergraph = foundation::rendergraph;
@@ -67,8 +68,9 @@ export namespace foundation::render
 
     private:
         rhi::RenderPipeline* MakePipeline(rhi::TextureFormat depthFormat);
-        rhi::BindGroup* EnsureBindGroup(rhi::TextureView* normal, rhi::TextureView* velocity,
-                                        rhi::TextureView* material, rhi::TextureView* depth, u64 gen);
+        // The multisampled inputs: normal, velocity, material, depth.
+        using BindInputs = BindGroupInputs<4>;
+        rhi::BindGroup* EnsureBindGroup(const BindInputs& inputs);
         void Shutdown();
 
         rhi::Device* m_device = nullptr;
@@ -79,13 +81,9 @@ export namespace foundation::render
         rhi::TextureFormat m_pipelineDepthFormat = rhi::TextureFormat::Undefined;
         u64 m_pipelineShaderVersion = 0;
 
-        // Bind-group cache keyed by the depth view + input generation (transients realloc per frame;
-        // invalidate by generation, never raw pointer). One entry per distinct depth view (per view).
-        struct Entry
-        {
-            rhi::BindGroup* bg = nullptr;
-            u64 gen = ~0ull;
-        };
-        HashMap<rhi::TextureView*, Entry> m_bindGroups;
+        // Bind groups keyed by the depth view, each kept only while all four inputs (views and
+        // their textures' generations) are the ones it was built from: transients are pooled per
+        // frame, and checking depth alone kept other frames' normal, velocity or material bound.
+        BindGroupCache<4> m_bindGroups;
     };
 }
