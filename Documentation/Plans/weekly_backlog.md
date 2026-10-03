@@ -10,26 +10,8 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
-## Queued 2026-10-03 (user)
-
-- **Shadow acne, and no shadow controls**: RESOLVED 2026-10-03 (branch shadow-controls). Not
-  acne: PaperKid's wall mottling was the roof's shadow under-resolved by cascades reaching 300 m.
-  A light now has strength, normal bias and depth-bias scale; a scene sets its shadow reach,
-  split and fade (PaperKid: 60 m). Spec: `Documentation/Specs/shadow-controls.md`.
-- **Stopping a game does not stop its music**: RESOLVED 2026-10-03 (branch run-audio). A game's
-  sound belongs to its run (a group above its scenes'): the Game tab's Stop ends it, its pause
-  freezes it, only the focused tab is heard (Preferences > Game audio for every tab), and a run's
-  bus volumes are its own. Spec: `Documentation/Specs/run-audio.md`.
-
 ## Queued 2026-10-02 (user, PaperKid)
 
-- **The DDS test's UBSAN report** (user 2026-10-02: "I keep forgetting to look at it"): every
-  ASAN lane prints `DdsTests.cpp:109: shift exponent 32 is too large for 32-bit type 'u32'`. It
-  is the test's own `BitWriter::Put`, not the DDS reader: `Put(0, 15 * 4)` (line 129, the BC7
-  block's 15 index fields) writes 60 bits of a `u32` value, and `(value >> i)` runs `i` past 31.
-  The bits written are right (the value is 0), but the shift is undefined. Fix: write the wide
-  zero field in pieces of at most 32 bits, or take no bit of `value` past bit 31, then drop the
-  line from the known-noise list in the verification lanes.
 - **`Entity.worldPosition()` is a frame old inside `onUpdate`**: the script facade reads the
   cached world matrix (`ScriptFacades.cppm`, `worldPosition`), and `Scene::Update` refreshes
   world matrices only after every script has run (`SceneImpl.cpp`, `UpdateTransforms`), while
@@ -55,16 +37,6 @@
   (0.97), the depth-disocclusion reject, and whether history sampling (Catmull-Rom) or a
   sharpening pass is wanted. Measure frame-to-frame edge change on a static scene before and
   after each change (the method used for the stale-history bug).
-- **TAA jitter in the player**: RESOLVED 2026-10-03 (eb89f063). Not frame rate and not the
-  display: TAA's bind group cache checked only its colour input, and the player's first frame
-  gets a different motion texture than every later one, so one of the two history textures kept
-  frame 0's motion vectors and every other frame's edges flickered (0.63% of pixels per frame,
-  now 0). `BindGroupCache` checks every input; MSAA resolve and the SSR and SSGI resolves moved
-  onto it too. The user confirmed the player now matches the editor; PaperKid is back on TAA.
-- **The player ignores `--no-gpu-validation`**: `graphics::ApplyValidationArguments`
-  (`Graphics.cppm`) says every executable that creates a device should run its arguments
-  through it; only `Tools.Editor/Main.cpp` does, so a Debug player always runs the Vulkan
-  layer and its frame times are not comparable with the editor's.
 - **`run::loadScene` misses scenes in a project-folder player**: run on a project folder,
   the player keeps authored scenes in its source database and hands DefaultApplication only
   the cooked one (`PlayerApplication.h`, `m_sceneDb` vs `SetContentDatabase(m_contentDb)`),
@@ -73,13 +45,6 @@
   PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
   give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
   log a failed load. Check what Sedulous's player does first.
-- **pie_screenshot hides a downscaled Game tab**: the Game tab draws the game at its chosen
-  resolution into the panel's fitted rectangle (`GamePageImpl.cpp` OnRenderWindow), and the
-  capture is resampled back up to that resolution (`ScreenshotCapture.cppm`, `m_outputWidth`).
-  With the tab on Full HD in a panel about half that size, the PaperKid HUD looked soft to the
-  user, and the screenshot showed a blurred 1920x1080 image that read as a font problem. Fix:
-  write the image at the size it was captured, or report the captured size and the scale beside
-  the written one, with a test and McpGuide. Scheduled for 2026-10-03.
 - **Post-process and environment as shared assets**: today each scene carries its own
   `postprocess` and `environment` settings blocks (`PostProcessSettings` / `EnvironmentSettings`,
   `Engine.Render/RenderComponents.cppm`), so a game with several levels sets its look in every
