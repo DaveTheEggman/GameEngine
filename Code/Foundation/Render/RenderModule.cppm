@@ -30,6 +30,7 @@ export import :ibl;
 export import :probes;
 export import :sky;
 export import :bloom;
+export import :bind_group_cache;
 export import :taa;
 export import :ao;
 export import :msaa_resolve;

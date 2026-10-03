@@ -46,6 +46,7 @@ target_sources(Render
             ReflectionProbeSystem.cppm
             SkyPass.cppm
             BloomPass.cppm
+            BindGroupCache.cppm
             TaaPass.cppm
             AoPass.cppm
             MsaaResolvePass.cppm
