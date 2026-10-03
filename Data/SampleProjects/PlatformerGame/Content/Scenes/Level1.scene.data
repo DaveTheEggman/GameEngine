@@ -356,7 +356,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">5052821885067367169</u64>
-					<u32 name="version">0</u32>
+					<u32 name="version">1</u32>
 				</array>
 				<u8 name="type">0</u8>
 				<object name="color">
@@ -372,6 +372,9 @@
 				<u8 name="shadowUpdate">0</u8>
 				<bool name="enabled">true</bool>
 				<bool name="castsShadows">true</bool>
+				<f32 name="shadowDepthBiasScale">1</f32>
+				<f32 name="shadowNormalBias">0.02</f32>
+				<f32 name="shadowStrength">1</f32>
 			</object>
 		</object>
 		<object>

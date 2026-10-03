@@ -267,6 +267,13 @@ export namespace engine::render
             ShadowUpdateMode::Realtime; // spot/point shadow caching
         bool enabled = true;
         bool castsShadows = false; // shadow caster
+        // The shadow's tuning (v1), shown while castsShadows: the depth-compare bias as a scale of the
+        // light type's default (1 = default; the sun's and a local light's depths are in different
+        // spaces), the normal offset in shadow texels (what keeps a wall the light grazes from
+        // shadowing itself), and how dark the shadow gets (1 = full, 0 = none).
+        f32 shadowDepthBiasScale = 1.0f;
+        f32 shadowNormalBias = foundation::render::ShadowBiasDefaults::kNormalBias;
+        f32 shadowStrength = 1.0f;
     };
 
     // A textured billboard on an entity - drawn at the entity's world position, sized in world units,
@@ -376,6 +383,9 @@ export namespace engine::render
         foundation::core::Serialize(ar, "shadowUpdate", shadowUpdate);
         foundation::core::Serialize(ar, "enabled", c.enabled);
         foundation::core::Serialize(ar, "castsShadows", c.castsShadows);
+        foundation::core::Serialize(ar, "shadowDepthBiasScale", c.shadowDepthBiasScale);
+        foundation::core::Serialize(ar, "shadowNormalBias", c.shadowNormalBias);
+        foundation::core::Serialize(ar, "shadowStrength", c.shadowStrength);
         c.type = static_cast<LightType>(type);
         c.shadowUpdate = static_cast<ShadowUpdateMode>(shadowUpdate);
     }

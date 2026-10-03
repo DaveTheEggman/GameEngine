@@ -841,6 +841,18 @@ TEST_CASE("scene-edit: render components carry the inspector attribute annotatio
     REQUIRE(range != nullptr);
     CHECK(range->value.TryGet<Float4>() != nullptr);
 
+    // The shadow controls show only while the light casts shadows.
+    for (const char* name : {"shadowStrength", "shadowNormalBias", "shadowDepthBiasScale"})
+    {
+        const PropertyInfo* control = FindProperty(light, name);
+        REQUIRE(control != nullptr);
+        CHECK(FindAttribute(*control, u8"range") != nullptr);
+        const foundation::core::Attribute* shadowVis = FindAttribute(*control, u8"visibleWhen");
+        REQUIRE(shadowVis != nullptr);
+        REQUIRE(ParsePropertyCondition(shadowVis->value.TryGet<String>()->AsView(), c));
+        CHECK(c.prop.AsView() == StringView(u8"castsShadows"));
+    }
+
     // Camera: the field of view shows for a perspective camera, the height for an orthographic.
     const TypeInfo& camera = TypeOf<engine::render::CameraComponent>();
     const PropertyInfo* fov = FindProperty(camera, "fovYRadians");

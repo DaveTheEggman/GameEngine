@@ -477,6 +477,7 @@ namespace engine::render
                 g.color = Float3{lightColor.r, lightColor.g, lightColor.b};
                 g.intensity = lc.intensity;
                 g.type = static_cast<f32>(static_cast<u32>(lc.type));
+                g.shadowStrength = lc.shadowStrength;
                 g.innerCos = Cos(lc.innerAngle);
                 g.outerCos = Cos(lc.outerAngle);
                 if (!haveShadow && lc.castsShadows && lc.type == LightType::Directional)
@@ -486,6 +487,9 @@ namespace engine::render
                     DirectionalShadow ds;
                     ds.direction = g.directionWS;
                     ds.valid = true;
+                    ds.normalBias = lc.shadowNormalBias;
+                    ds.depthBias = ShadowBiasDefaults::kDepthBias * lc.shadowDepthBiasScale;
+                    ds.strength = lc.shadowStrength;
                     out.SetDirectionalShadow(ds);
                 }
                 // Local (spot/point) shadow casters (5.3): assign shadowIndex = the caster's BASE atlas tile
@@ -508,6 +512,8 @@ namespace engine::render
                     c.range = lc.range;
                     c.outerAngle = lc.outerAngle;
                     c.isStatic = isStatic;
+                    c.normalBias = lc.shadowNormalBias;
+                    c.depthBias = ShadowBiasDefaults::kLocalDepthBias * lc.shadowDepthBiasScale;
                     out.AddLocalShadowCaster(c);
                     layerTiles += tilesNeeded;
                     flatEntries += tilesNeeded;

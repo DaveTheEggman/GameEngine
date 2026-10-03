@@ -142,6 +142,7 @@ namespace engine::render
             .Attribute("category", String(u8"Rendering"))
             // Script (Track A): LightComponent.of(entity) -> live color/intensity/range/enabled/etc.
             .Method<&foundation::script::ComponentOf<LightComponent>, LightComponent>("of")
+            .DataVersion(1) // v1: shadowDepthBiasScale, shadowNormalBias, shadowStrength
             .Property<&LightComponent::type>("type")
             .Property<&LightComponent::color>("color")
             .Property<&LightComponent::intensity>("intensity")
@@ -161,7 +162,24 @@ namespace engine::render
             .Property<&LightComponent::shadowUpdate>("shadowUpdate")
             .PropAttribute("visibleWhen", String(u8"castsShadows"))
             .Property<&LightComponent::enabled>("enabled")
-            .Property<&LightComponent::castsShadows>("castsShadows");
+            .Property<&LightComponent::castsShadows>("castsShadows")
+            .Property<&LightComponent::shadowStrength>("shadowStrength")
+            .PropAttribute("range", Float4{0.0f, 1.0f, 0.01f, 0.0f})
+            .PropAttribute("visibleWhen", String(u8"castsShadows"))
+            .PropAttribute("description", String(u8"How dark the shadow gets: 1 = full, 0 = none"))
+            .Property<&LightComponent::shadowNormalBias>("shadowNormalBias")
+            .PropAttribute("range", Float4{0.0f, 4.0f, 0.05f, 0.0f})
+            .PropAttribute("visibleWhen", String(u8"castsShadows"))
+            .PropAttribute("description",
+                           String(u8"Normal offset in shadow texels: raise it if a surface the light "
+                                  u8"grazes shadows itself (acne), lower it if a shadow parts from its "
+                                  u8"caster"))
+            .Property<&LightComponent::shadowDepthBiasScale>("shadowDepthBiasScale")
+            .PropAttribute("range", Float4{0.0f, 4.0f, 0.05f, 0.0f})
+            .PropAttribute("visibleWhen", String(u8"castsShadows"))
+            .PropAttribute("description",
+                           String(u8"Depth-compare bias, as a scale of the default for the light's "
+                                  u8"type (1 = default)"));
     }
 
     // The scene-bound render handle: SceneRender.of(scene).setMesh(entity, id) / setMaterial(...).

@@ -1,70 +1,59 @@
-# Shadow controls - sane biases, and the controls to tune them in the editor
-
-> STATUS: PROPOSED 2026-10-03 (user: "write it up"). Shared with Sedulous, which has the same
-> hard-coded values; both trees build it, after Sedulous's sync of 2026-10-03 is done
-> (`~/Dev/Beef/SedulousEngine/Documentation/RaptorSync.md`), so no code changes under it.
+# Shadow controls - the controls to tune a light's shadow, and what the mottling was
 
 ## The problem
 
-PaperKid's house walls show a blotchy, diagonal mottling: shadow acne. Found while tuning its
+PaperKid's house walls show a blotchy, chevron mottling under the roof. Found while tuning its
 look (2026-10-03): it is there with ambient occlusion off and gone with the sun's shadows off,
-on walls the sun meets at a shallow angle.
+on the walls the sun meets at a shallow angle (N.L ~ 0.17).
 
-- The sun's shadow biases are constants, not settings: `MeshRendererImpl.cpp:1005`
-  (`shadowNormalBias = 0.02f`, `shadowDepthBias = 0.0009f`). Sedulous has the same values
-  (`MeshRenderer.bf:1345`) and its terrain renderer its own copy (`TerrainRenderer.bf:30`).
-- The normal offset is scaled by the cascade's world texel size and `1 - NdotL`
-  (`forward.ps.hlsl:81`), so 0.02 pushes a surface out by 2% of a shadow texel: effectively no
-  offset, which is what lets a grazing wall shadow itself. Normal offsets are usually about one
-  to two texels.
-- A light offers only `castsShadows` and `shadowUpdate`; nothing a scene author can tune. The
-  only scene-side workaround is turning the sun, which moves the acne rather than removing it.
+- A light offers only `castsShadows` and `shadowUpdate`; nothing a scene author can tune. The sun's
+  biases are constants (`MeshRendererImpl.cpp`, `TerrainRenderer.cppm`; Sedulous's
+  `MeshRenderer.bf:1345` and `TerrainRenderer.bf:30` the same).
+- First read as shadow acne from the near-zero normal offset (0.02 texels). Measured, it is not:
+  a real-device probe of PaperKid's wall, sun and camera (Render.Backend.Tests,
+  ShadowControlProbeTests) reads clean across a sweep of offsets from 0.02 to 2 texels; the
+  casters' slope-scaled hardware bias carries acne. Raising the offset to 1 texel leaves the
+  mottling in the game unchanged.
+- What it is: the roof overhang's shadow, under-resolved. The cascades fit the camera's far plane
+  (PaperKid's 400 m, clamped to the 300 m shadow reach), so a near cascade's texel is large, and
+  the grazing sun stretches it about six times across the wall: the shadow edge breaks into
+  chevrons. With the camera's far plane at 60 m the same frame shows the roof's shadow as a clean
+  band (2026-10-03, look.py crops).
 
-## Proposal
+## Built (shadow-controls branch)
 
-### 1. Defaults that work untouched
+### 1. Shadow controls on the light
 
-- The normal offset in shadow texels, default about **1.0** (measured, not assumed: see Tests),
-  the depth bias re-checked against it. A scene that never touches the settings loses the acne.
-- One source for the values: the terrain renderer reads the same defaults (or the light's
-  values), never a copy of its own.
+On the light component (data version 1), shown only while `castsShadows`:
 
-### 2. Shadow controls on the light
+- `shadowStrength` (0 to 1): how dark the light's shadow gets, 1 = full. The forward and terrain
+  shaders lerp the shadow toward lit by it.
+- `shadowNormalBias`: the normal offset in shadow texels, default 0.02 (the old constant, kept: see
+  above). Local lights get it too, as world units per unit of distance from the light (their tile's
+  texel size), so it means the same thing for every light.
+- `shadowDepthBiasScale`: the depth-compare bias as a scale of the light type's default (1 =
+  default). A scale, not a value, because the sun's and a local light's depths are in different
+  spaces (0.0009 and 0.0015 NDC); Unreal's Shadow Bias is relative the same way.
 
-On the light component, shown only while `castsShadows` is on (`visibleWhen`, as the camera's
-perspective and orthographic fields are):
+One source for the defaults (`render::ShadowBiasDefaults`); the terrain renderer reads the light's
+values from the cascades instead of its own copy. The stored scenes with a light (PaperKid's six,
+Sky Hopper's three) are re-stamped at version 1 with the defaults.
 
-- `shadowDepthBias`: the depth bias, as today's constant, default the re-checked value.
-- `shadowNormalBias`: the normal offset in shadow texels, default 1.0.
-- `shadowStrength` (0 to 1): how dark the light's shadows get, 1 = full. An art-direction
-  control, and a way to soften a scene without changing its light.
+### 2. Next: per-scene cascade settings (what fixes the mottling)
 
-Each light's values reach the shadow sampling it owns: the sun's cascades through the view
-constants that carry today's constants; a local light's atlas entry through its per-light data
-(`depthBias` is already there, `forward.ps.hlsl:139`). The light's data version bumps; older
-scenes read the defaults.
-
-Unity, Unreal and Godot all put these three on the light.
-
-### 3. Later, if tuning shows the need: per-scene cascade settings
-
-Shadow distance, cascade split and resolution as a scene settings block. Not part of this unless
-tuning the biases shows a scene needs them.
+Tuning shows the need the spec anticipated: shadow distance (how far the cascades reach,
+independent of the camera's far plane), the cascade split, and resolution, as a scene settings
+block. PaperKid wants a short reach (its streets are tens of metres); Sky Hopper a longer one.
 
 ## Tests
 
-- The default normal offset removes the acne on a grazing wall: a render test of a wall at a
-  shallow angle to a directional light, sampling its lit face for false shadow, failing with
-  today's values and passing with the new defaults.
-- A light's bias and strength reach the sampling: a light with `shadowStrength` 0 casts no
-  darkening; 0.5 darkens half as much as 1.
-- Serialization: the new fields round-trip; a scene at the previous light data version reads
-  the defaults.
-- The inspector shows the three only while the light casts shadows (the reflection attributes).
-- PaperKid's look, before and after: the house walls' mottling gone at the defaults (measured
-  the way its tuning measures, `Tools/look.py`, plus a crop of the near wall).
+- Real device: a wall the sun grazes reads clean across the offset sweep and at the default; a
+  cube's shadow darkens fully at strength 1, half as much at 0.5, and the open plane is untouched.
+- Extraction hands each control to the shadow it casts (the sun's cascades, a local light's atlas
+  entry with its normal offset per distance, the per-light strength).
+- The controls round-trip with the scene at version 1; the inspector shows them only while the
+  light casts shadows.
 
 ## Not in scope
 
-Contact-hardening or ray-traced shadows; shadow filtering changes; the cascade settings unless
-step 3 is wanted.
+Contact-hardening or ray-traced shadows; shadow filtering changes.

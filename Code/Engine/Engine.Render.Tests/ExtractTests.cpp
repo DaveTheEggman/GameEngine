@@ -910,6 +910,75 @@ TEST_CASE("extract: effectively-inactive entities render NOTHING; toggling resto
     (void)sprites;
 }
 
+TEST_CASE("extract: a light's shadow controls reach the shadow it casts")
+{
+    scene::Scene scene(DefaultAllocator(), u8"shadows");
+    auto* lights = scene.AddSystem<LightComponentManager>();
+    LightComponent& sun = lights->Add(scene.CreateEntity(u8"sun"));
+    sun.castsShadows = true;
+    sun.shadowNormalBias = 1.5f;
+    sun.shadowDepthBiasScale = 2.0f;
+    sun.shadowStrength = 0.4f;
+    LightComponent& spot = lights->Add(scene.CreateEntity(u8"spot"));
+    spot.type = LightType::Spot;
+    spot.castsShadows = true;
+    spot.shadowNormalBias = 0.5f;
+    spot.shadowDepthBiasScale = 3.0f;
+    scene.UpdateTransforms();
+
+    ExtractedScene out{DefaultAllocator()};
+    ExtractLightsInto(scene, out);
+    const DirectionalShadow& ds = out.DirectionalShadowData();
+    REQUIRE(ds.valid);
+    CHECK(Near(ds.normalBias, 1.5f));
+    CHECK(Near(ds.depthBias, ShadowBiasDefaults::kDepthBias * 2.0f)); // a scale of the default
+    CHECK(Near(ds.strength, 0.4f));
+    REQUIRE(out.Lights().Size() == 2u);
+    CHECK(Near(out.Lights()[0].shadowStrength, 0.4f)); // the forward shader's per-light lerp
+    CHECK(Near(out.Lights()[1].shadowStrength, 1.0f)); // the default: a full shadow
+    REQUIRE(out.LocalShadowCasters().Size() == 1u);
+    CHECK(Near(out.LocalShadowCasters()[0].normalBias, 0.5f));
+    CHECK(Near(out.LocalShadowCasters()[0].depthBias, ShadowBiasDefaults::kLocalDepthBias * 3.0f));
+
+    // A built atlas entry carries them: the depth bias as is, the normal offset as world units per
+    // unit of distance (its texels times the tile's texel size at distance 1).
+    const GpuLocalShadow entry = BuildSpotShadow(out.LocalShadowCasters()[0], 0, 2048, 512);
+    CHECK(Near(entry.depthBias, ShadowBiasDefaults::kLocalDepthBias * 3.0f));
+    const f32 fov = Min(spot.outerAngle * 2.0f + 0.05f, 3.0f);
+    CHECK(Abs(entry.normalBiasPerDistance - 0.5f * 2.0f * Tan(fov * 0.5f) / 512.0f) < 1e-6f);
+}
+
+TEST_CASE("light: the shadow controls round-trip with the scene (v1)")
+{
+    scene::Scene a{DefaultAllocator()};
+    LightComponent& written = a.AddSystem<LightComponentManager>()->Add(a.CreateEntity(u8"sun"));
+    written.shadowNormalBias = 0.75f;
+    written.shadowDepthBiasScale = 1.5f;
+    written.shadowStrength = 0.25f;
+
+    MemoryStream stream;
+    {
+        BinarySerializer writer(stream, SerializeMode::Write);
+        SerializeScene(writer, a);
+        REQUIRE(writer.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    scene::Scene b{DefaultAllocator()};
+    LightComponentManager* lightsB = b.AddSystem<LightComponentManager>();
+    {
+        BinarySerializer reader(stream, SerializeMode::Read);
+        SerializeScene(reader, b);
+        REQUIRE(reader.IsOk());
+    }
+    const LightComponent* read = nullptr;
+    lightsB->ForEach([&](LightComponent& c, scene::EntityHandle) { read = &c; });
+    REQUIRE(read != nullptr);
+    CHECK(Near(read->shadowNormalBias, 0.75f));
+    CHECK(Near(read->shadowDepthBiasScale, 1.5f));
+    CHECK(Near(read->shadowStrength, 0.25f));
+    CHECK(TypeOf<LightComponent>().dataVersion == 1u);
+}
+
 TEST_CASE("camera: MakeCameraProjection builds a perspective or an orthographic matrix")
 {
     CameraComponent cam;
