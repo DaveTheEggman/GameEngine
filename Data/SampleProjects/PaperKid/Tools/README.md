@@ -11,7 +11,9 @@ scripts drive them; none of this is game content.
   delivery zone); writes `kit.json` (prefab name -> guid).
 - `block.py`: the five blocks (one generator, `town()`, sized by the ring road's distance from
   the middle; the `BLOCKS` table is the difficulty ramp) and the Start scene. `block.py Block3`
-  writes just that one. Bake a block's navigation after writing it (`navigation_bake`).
+  writes just that one. Bake a block's navigation after writing it (`navigation_bake`). The look
+  (`ENVIRONMENT`, `POST`) is written to two shared profiles, `Profiles/PaperKid Environment` and
+  `Profiles/PaperKid Post`, which every scene's settings name; `asset_cook` after changing it.
 - `scripts/*.as` + `render.py`: the game's scripts with `{{AssetName}}` placeholders;
   `render.py <Name>...` fills in the asset ids, writes `Sources/<Name>.as` and compile-checks it.
 - `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse) and the

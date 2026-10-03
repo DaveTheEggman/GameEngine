@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Block1 (the first level's town block) and Start (the title backdrop)."""
 import json, os, sys
+import xml.etree.ElementTree as ET
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from pkgen import Doc, mcp, yaw, pitch, settings
+from pkgen import Doc, mcp, yaw, pitch, settings, num
 
-ids = {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"] if a["type"] != "PrefabDocument"}
+ASSETS = mcp("asset_list", {})["assets"]
+ids = {a["name"]: a["guid"] for a in ASSETS if a["type"] != "PrefabDocument"}
 kit = json.load(open(os.path.join(HERE, "kit.json")))
 CUBE, PLANE = ids["Cube"], ids["Plane"]
 HOUSES = [kit["HouseRed"], kit["HouseBlue"], kit["HouseCream"]]
@@ -15,9 +17,10 @@ SUN_INTENSITY = 4.5
 
 # The look, as the user set it on Start (2026-10-02): GTAO, bloom, a fixed exposure. FXAA until
 # TAA's resolve is less jittery, and auto exposure off: it dimmed and brightened over the first
-# second or two of every scene (user, 2026-10-03; both in the engine backlog). Every scene gets
-# the same until scenes can share a post/environment asset. Colours are sRGB, as entered anywhere
-# (the sky's were tuned while colours were read raw, and are written as the values they decode from).
+# second or two of every scene (user, 2026-10-03; both in the engine backlog). The look lives in
+# two shared profiles (PaperKid Environment, PaperKid Post) that every scene's settings name, so
+# it is tuned once. Colours are sRGB, as entered anywhere (the sky's were tuned while colours were
+# read raw, and are written as the values they decode from).
 POST = dict(exposureEV=1.0, tonemapOperator=1, bloomEnabled=True, bloomThreshold=1.0, bloomKnee=0.6,
             bloomIntensity=0.05, aoMode=2, aoStrength=1.0, aoRadius=1.0, aoIntensity=1.0, ssrEnabled=False,
             ssrIntensity=1.0, aaMode=1, taaBlendFactor=0.97, taaVarianceGamma=1.25, fxaaSubpixel=0.75,
@@ -32,9 +35,37 @@ ENVIRONMENT = dict(ambientColor={"r": 0.349, "g": 0.381, "b": 0.437, "a": 1.0}, 
                    shadowDistance=60.0, shadowCascadeSplit=0.7, shadowFadeDistance=10.0)
 
 
+def profile(creator, asset_type, name, values):
+    """The shared profile asset `name`, made the first time and its fields rewritten each time
+    (through its envelope, as the editor reads it), so a scene's settings only name it."""
+    found = [a["guid"] for a in ASSETS if a["name"] == name and a["type"] == asset_type]
+    guid = found[0] if found else mcp("asset_create", {"creator": creator, "name": name})["guid"]
+    root = ET.fromstring(mcp("asset_data_read", {"guid": guid})["xml"])
+    payload = root.find("object[@name='payload']")
+    for key, value in values.items():
+        field = payload.find("*[@name='%s']" % key)
+        if field is None:
+            raise SystemExit("%s has no field %s" % (name, key))
+        if isinstance(value, dict):
+            for channel, v in value.items():
+                field.find("*[@name='%s']" % channel).text = num(float(v))
+        else:
+            field.text = num(value)
+    mcp("asset_data_write", {"guid": guid, "xml": ET.tostring(root, encoding="unicode")})
+    return guid
+
+
+_profiles = {}
+
+
 def look(doc):
-    doc.settings.append(settings("environment", **ENVIRONMENT))
-    doc.settings.append(settings("postprocess", **POST))
+    if not _profiles:
+        _profiles["environment"] = profile("Environment Profile", "EnvironmentProfileAsset",
+                                           "PaperKid Environment", ENVIRONMENT)
+        _profiles["postprocess"] = profile("Post Process Profile", "PostProcessProfileAsset",
+                                           "PaperKid Post", POST)
+    doc.settings.append(settings("environment", source=1, profile=_profiles["environment"]))
+    doc.settings.append(settings("postprocess", source=1, profile=_profiles["postprocess"]))
 
 
 def mesh(doc, name, guid, pos, scale, rgb, rot=(0, 0, 0, 1), parent=None):
