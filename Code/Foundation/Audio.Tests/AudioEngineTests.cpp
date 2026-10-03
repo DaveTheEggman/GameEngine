@@ -547,6 +547,116 @@ TEST_CASE("audio.engine: per-scene groups - pause halts the scene's voices in pl
     CHECK(engine.IsValidHandle(globalVoice));
 }
 
+TEST_CASE("audio.engine: a run's stop ends its music, one-shots and scenes' voices, nothing else")
+{
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings(/*voiceCount=*/8, /*streamVoiceCount=*/2));
+    RefPtr<AudioClip> music = MakeToneClip(2.0f);
+    RefPtr<AudioClip> shot = MakeToneClip(2.0f, 4000, 1);
+    RefPtr<AudioClip> source = MakeToneClip(2.0f, 16000, 1);
+    const u64 run = engine.CreateRunGroup();
+    const u64 other = engine.CreateRunGroup();
+    REQUIRE(run != 0u);
+    REQUIRE(other != run);
+    const u64 scene = engine.CreateSceneGroup(run);
+
+    const VoiceHandle runMusic = engine.PlayMusic(music, 0.0f, 1.0f, run);
+    AudioPlayParams shotParams;
+    shotParams.loop = true;
+    shotParams.runGroup = run;
+    const VoiceHandle runShot = engine.Play(shot, shotParams);
+    AudioPlayParams sceneParams;
+    sceneParams.loop = true;
+    sceneParams.sceneGroup = scene; // a scene of the run: the run is the scene's
+    const VoiceHandle sceneVoice = engine.Play(source, sceneParams);
+    const VoiceHandle otherMusic = engine.PlayMusic(music, 0.0f, 1.0f, other);
+    AudioPlayParams globalParams;
+    globalParams.loop = true;
+    const VoiceHandle editorVoice = engine.Play(MakeToneClip(2.0f, 12000, 1), globalParams);
+    REQUIRE(runMusic.IsValid());
+    REQUIRE(runShot.IsValid());
+    REQUIRE(sceneVoice.IsValid());
+    REQUIRE(otherMusic.IsValid());
+    REQUIRE(editorVoice.IsValid());
+    // Two runs' music slots are their own: the second run's music left the first's playing.
+    CHECK(engine.IsPlaying(runMusic));
+    CHECK(engine.MusicVoice(run) == runMusic);
+    CHECK(engine.MusicVoice(other) == otherMusic);
+
+    engine.StopRunGroup(run, 0.05f);
+    engine.Update(0.2f);
+    CHECK_FALSE(engine.IsValidHandle(runMusic));
+    CHECK_FALSE(engine.IsValidHandle(runShot));
+    CHECK_FALSE(engine.IsValidHandle(sceneVoice));
+    CHECK_FALSE(engine.MusicVoice(run).IsValid());
+    CHECK(engine.IsPlaying(otherMusic)); // another run plays on
+    CHECK(engine.IsPlaying(editorVoice)); // and the editor's own sounds
+
+    // Destroy frees at once (no fade), its scenes' voices included.
+    const VoiceHandle again = engine.Play(source, sceneParams);
+    REQUIRE(again.IsValid());
+    engine.DestroyRunGroup(run);
+    CHECK_FALSE(engine.IsValidHandle(again));
+    CHECK(engine.IsPlaying(otherMusic));
+}
+
+TEST_CASE("audio.engine: a paused run freezes its voices; a muted run keeps them advancing")
+{
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
+    RefPtr<AudioClip> clip = MakeToneClip(4.0f);
+    const u64 run = engine.CreateRunGroup();
+    AudioPlayParams params;
+    params.loop = true;
+    params.runGroup = run;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+    engine.Update(0.2f);
+
+    const auto cursor = [&]
+    {
+        VoiceStatus status;
+        REQUIRE(engine.GetVoiceStatus(voice, status));
+        return status.cursorSeconds;
+    };
+    engine.SetRunGroupPaused(run, true);
+    engine.Update(0.05f); // the declick fade lands
+    const f32 pausedAt = cursor();
+    for (int i = 0; i < 5; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK(engine.IsRunGroupPaused(run));
+    CHECK(cursor() == doctest::Approx(pausedAt).epsilon(0.01)); // frozen in place
+    engine.SetRunGroupPaused(run, false);
+
+    engine.SetRunGroupMuted(run, true);
+    CHECK(engine.IsRunGroupMuted(run));
+    const f32 mutedAt = cursor();
+    for (int i = 0; i < 5; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK(cursor() > mutedAt + 0.4f); // silent, but its timeline stays true
+    CHECK(engine.IsValidHandle(voice));
+}
+
+TEST_CASE("audio.engine: a run's bus gains are its own")
+{
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
+    const u64 run = engine.CreateRunGroup();
+    const u64 other = engine.CreateRunGroup();
+    engine.SetRunBusVolume(run, AudioBus::Music, 0.25f);
+    engine.SetRunBusMuted(run, AudioBus::Effects, true);
+    CHECK(engine.RunBusVolume(run, AudioBus::Music) == doctest::Approx(0.25f));
+    CHECK(engine.RunBusMuted(run, AudioBus::Effects));
+    // Neither the engine's buses (the editor's) nor another run's moved.
+    CHECK(engine.BusVolume(AudioBus::Music) == doctest::Approx(1.0f));
+    CHECK_FALSE(engine.BusMuted(AudioBus::Effects));
+    CHECK(engine.RunBusVolume(other, AudioBus::Music) == doctest::Approx(1.0f));
+    CHECK_FALSE(engine.RunBusMuted(other, AudioBus::Effects));
+    // A run that does not exist reads the neutral gain.
+    CHECK(engine.RunBusVolume(9999u, AudioBus::Music) == doctest::Approx(1.0f));
+}
+
 TEST_CASE("audio.engine: streamed clips play from an IAudioStreamSource through the "
           "stream voice pool (the pak-facing seam)")
 {

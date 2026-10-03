@@ -81,6 +81,10 @@ export namespace foundation::audio
         bool loop = false;  // OR-ed with the clip's loop intent
         u8 priority = 128;  // higher wins pool contention (Traktor stealing)
         u64 sceneGroup = 0; // per-scene pause/teardown group id (0 = global)
+        // The run a scene-less voice belongs to (a game script's one-shot): it routes through the
+        // run's groups, so the run's stop, pause, mute and bus gains reach it. Ignored when
+        // sceneGroup is set (the scene group knows its run). 0 = outside every run.
+        u64 runGroup = 0;
         bool startPaused = false;
         // Recent-play merging (shotgun pellets / particle bursts). PERSISTENT sources
         // (scene components) must opt OUT: distinct authored sources playing the same
@@ -353,15 +357,41 @@ export namespace foundation::audio
         // Music routes through the SAME graph as everything else (the Sedulous stream-
         // bypass is structurally impossible here); it carries no scene group, so it
         // survives scene swaps. PlayMusic fades the previous music voice out and the
-        // new one in over `crossFadeSeconds`.
+        // new one in over `crossFadeSeconds`. Each run has its own music slot (run 0 = the
+        // one outside every run), so two runs never cross-fade each other's music.
         VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
-                              f32 volume = 1.0f);
-        void StopMusic(f32 fadeSeconds = 1.0f);
-        [[nodiscard]] VoiceHandle MusicVoice() const;
+                              f32 volume = 1.0f, u64 runGroup = 0);
+        void StopMusic(f32 fadeSeconds = 1.0f, u64 runGroup = 0);
+        [[nodiscard]] VoiceHandle MusicVoice(u64 runGroup = 0) const;
+
+        // ---- run groups: everything one running game plays (a GameInstance: the player's, each
+        // play-in-editor Game tab's), one level above its scenes' groups. A run has its own
+        // child group under each bus, carrying the run's own bus gains (a game's volume sliders
+        // never touch the editor's or another run's buses), its music slot, and stop, pause,
+        // mute and volume for the whole run. ----
+        [[nodiscard]] u64 CreateRunGroup();
+        /// Immediately stops + frees every voice of the run and its scene groups, then drops it.
+        void DestroyRunGroup(u64 runGroup);
+        /// Fade-stops every voice of the run, its scenes' and its music included.
+        void StopRunGroup(u64 runGroup, f32 fadeSeconds = 0.1f);
+        /// Halts the run in place (its voices freeze with their cursors); resume fades back in.
+        void SetRunGroupPaused(u64 runGroup, bool paused);
+        [[nodiscard]] bool IsRunGroupPaused(u64 runGroup) const;
+        /// Silences the run while its voices keep advancing (an unfocused Game tab); muting and
+        /// unmuting ramp over a short cross-fade, advanced by Update.
+        void SetRunGroupMuted(u64 runGroup, bool muted);
+        [[nodiscard]] bool IsRunGroupMuted(u64 runGroup) const;
+        void SetRunGroupVolume(u64 runGroup, f32 volume);
+        /// The run's own gain for a bus (its Master gain scales every bus of the run).
+        void SetRunBusVolume(u64 runGroup, AudioBus bus, f32 volume);
+        [[nodiscard]] f32 RunBusVolume(u64 runGroup, AudioBus bus) const; // 1 when unknown
+        void SetRunBusMuted(u64 runGroup, AudioBus bus, bool muted);
+        [[nodiscard]] bool RunBusMuted(u64 runGroup, AudioBus bus) const;
 
         // ---- per-scene groups (open question 1: YES - a per-scene child group under
-        // each bus, so scene pause/stop-all falls out of the graph naturally) ----
-        [[nodiscard]] u64 CreateSceneGroup();
+        // each bus, so scene pause/stop-all falls out of the graph naturally). A scene of a run
+        // nests under the run's groups. ----
+        [[nodiscard]] u64 CreateSceneGroup(u64 runGroup = 0);
         /// Immediately stops + frees every voice in the group, then drops the group.
         void DestroySceneGroup(u64 sceneGroup);
         /// Fades the group's output and halts its voices in place; resume fades back in.
