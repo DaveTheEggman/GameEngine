@@ -89,8 +89,8 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
   name): `playOneShotPath` / `playOneShot3DPath` / `playCuePath` / `playMusicPath` by CONTENT PATH,
   `setNamedBusVolume` / `namedBusVolume` by bus name (a layout's custom buses too), `setBusMuted` /
   `busMuted` / `stopMusic`. Bad content warns once and no-ops. In a run, what a script plays goes
-  into the run (its Stop ends it) and the bus volumes and mutes are the run's own (a game's sliders
-  never move the editor's buses or another instance's); a layout's custom named buses stay global. Master/bus volumes persist via
+  into the run (its Stop ends it) and the bus volumes and mutes are the run's own, a layout's custom
+  named buses included (a game's sliders never move the editor's buses or another instance's). Master/bus volumes persist via
   `AudioUserSettings` (`<userdata>/<project>.user.settings.xml`).
 
 ## Deferred

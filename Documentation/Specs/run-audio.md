@@ -104,8 +104,10 @@ networked audio.
 
 - Audio engine: run groups (`CreateRunGroup`, `StopRunGroup`, `DestroyRunGroup`, pause, mute with a
   0.1 s ramp, volume, per-run bus gains and mutes, a music slot per run); scene groups nest under
-  their run; a scene-less voice can name its run. Custom named-bus voices route outside the run's
-  groups: they take the run's Master gain, volume and mute on the voice, and pause one by one.
+  their run; a scene-less voice can name its run. A layout's custom buses get the same children:
+  a run (and a scene) has a child group under each custom bus it plays on, so a named-bus voice
+  routes scene child -> run child -> bus and the run's gains, mute and pause reach it through the
+  graph; a run's gain for a named bus is its own (`SetRunNamedBusVolume`).
 - The run key: `Scene::Run` (set by the creating manager) and the script runtime binding's `run`
   (`CurrentRun`); a `GameInstance` gives both itself.
 - Audio subsystem: a run registry keyed by run (`RunGroupFor`, `EndRun` with a fade then free,
@@ -115,6 +117,3 @@ networked audio.
 - Hosts: the Game tab ends its run on Stop, keeps its run paused with the toolbar's pause and a
   debugger break, focuses its run on Play and when its viewport takes the keyboard; the app ends
   a released instance's run; Preferences > Game audio > "Hear every Game tab" (default off).
-- Not built: a layout's custom named buses stay global (a run's `setNamedBusVolume` on one moves
-  it for every run).
-

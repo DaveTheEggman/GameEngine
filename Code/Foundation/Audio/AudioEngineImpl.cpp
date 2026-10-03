@@ -183,6 +183,12 @@ namespace foundation::audio
         ma_sound_group group{};
         bool initialized = false;
         Array<BusEffectNode> effects;
+        // Runs' and scenes' child groups under this bus (made lazily, heap-held: ma_sound_group is
+        // address-stable), the same way the fixed buses have a child per run and per scene: a
+        // voice on this bus routes scene child -> run child -> this bus, so the run's and the
+        // scene's stop, pause, mute and gains reach it through the graph.
+        HashMap<u64, ma_sound_group*> runChildren;
+        HashMap<u64, ma_sound_group*> sceneChildren;
     };
 
     struct VoiceSlot
@@ -250,6 +256,38 @@ namespace foundation::audio
         bool muted = false;
         f32 muteFactor = 1.0f; // ramps toward 0 (muted) or 1 over kRunMuteFadeSeconds
         VoiceHandle musicVoice;
+        // The run's own gains for a layout's custom buses, by name (a layout rebuild keeps them).
+        struct NamedGain
+        {
+            String name;
+            f32 gain = 1.0f;
+            bool muted = false;
+        };
+        Array<NamedGain> namedGains;
+
+        [[nodiscard]] const NamedGain* FindNamed(StringView name) const
+        {
+            for (const NamedGain& entry : namedGains)
+            {
+                if (entry.name.AsView() == name)
+                {
+                    return &entry;
+                }
+            }
+            return nullptr;
+        }
+        [[nodiscard]] NamedGain& EnsureNamed(StringView name)
+        {
+            for (NamedGain& entry : namedGains)
+            {
+                if (entry.name.AsView() == name)
+                {
+                    return entry;
+                }
+            }
+            namedGains.PushBack(NamedGain{String(name), 1.0f, false});
+            return namedGains[namedGains.Size() - 1];
+        }
     };
 
     static constexpr f32 kRunMuteFadeSeconds = 0.1f;
@@ -731,6 +769,25 @@ namespace foundation::audio
         void DestroyCustomBus(CustomBusData* bus)
         {
             DetachVoicesFromCustomBus(*bus);
+            // Scene children first (they may hang under run children), then the runs'.
+            Array<u64> keys;
+            for (auto& entry : bus->sceneChildren)
+            {
+                keys.PushBack(entry.key);
+            }
+            for (u64 key : keys)
+            {
+                FreeChildGroup(bus->sceneChildren, key);
+            }
+            keys.Clear();
+            for (auto& entry : bus->runChildren)
+            {
+                keys.PushBack(entry.key);
+            }
+            for (u64 key : keys)
+            {
+                FreeChildGroup(bus->runChildren, key);
+            }
             ClearEffectChain(bus->effects);
             if (bus->initialized)
             {
@@ -893,6 +950,12 @@ namespace foundation::audio
                                  CustomBusParentNode(bus),
                                  Span<const AudioBusEffectDesc>(named->settings.effects.Data(),
                                                                 named->settings.effects.Size()));
+            }
+
+            // A re-parented bus changes each run's gain down its chain: re-apply them.
+            for (auto& entry : runGroups)
+            {
+                ApplyRunGains(entry.key, *entry.value);
             }
         }
 
@@ -1305,8 +1368,7 @@ namespace foundation::audio
             return bus * masterGain * run.volume * run.muteFactor;
         }
 
-        // What a custom-bus voice of the run takes on itself (it routes outside the run's groups):
-        // the run's Master gain, volume and mute ramp.
+        // The run-wide part of every gain the run carries: its Master gain, volume and mute ramp.
         [[nodiscard]] static f32 RunVoiceGain(const RunGroupData& run) noexcept
         {
             constexpr usize master = static_cast<usize>(AudioBus::Master);
@@ -1350,7 +1412,35 @@ namespace foundation::audio
             return busGroupInitialized[busIndex] ? &busGroups[busIndex] : nullptr;
         }
 
-        void ApplyRunGains(RunGroupData& run)
+        // A run's gain on its child under custom bus `index`: its own gains down the bus's chain
+        // (each custom ancestor's by name, then the fixed bus the chain roots in) under its Master
+        // gain, volume and mute ramp - what its children under the fixed buses carry.
+        [[nodiscard]] f32 RunCustomGain(const RunGroupData& run, i32 index) const
+        {
+            f32 gain = 1.0f;
+            AudioBus root = AudioBus::Master;
+            i32 cursor = index;
+            usize steps = 0;
+            while (cursor >= 0 && static_cast<usize>(cursor) < customBuses.Size() &&
+                   steps++ <= customBuses.Size())
+            {
+                const CustomBusData& bus = *customBuses[static_cast<usize>(cursor)];
+                if (const RunGroupData::NamedGain* named = run.FindNamed(bus.name.AsView()))
+                {
+                    gain *= named->muted ? 0.0f : named->gain;
+                }
+                root = bus.fixedParent;
+                cursor = bus.parentCustom;
+            }
+            const usize rootIndex = static_cast<usize>(root);
+            if (root != AudioBus::Master)
+            {
+                gain *= run.busMuted[rootIndex] ? 0.0f : run.busGain[rootIndex];
+            }
+            return gain * RunVoiceGain(run);
+        }
+
+        void ApplyRunGains(u64 runGroup, RunGroupData& run)
         {
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
@@ -1359,29 +1449,117 @@ namespace foundation::audio
                     ma_sound_group_set_volume(&run.group[bus], RunGroupGain(run, bus));
                 }
             }
-            // Custom-bus voices route outside the run's groups: they carry the run's gain.
-            for (VoiceSlot& slot : voices)
+            for (usize i = 0; i < customBuses.Size(); ++i)
             {
-                if (slot.state == VoiceState::Free || slot.customBusName.IsEmpty() ||
-                    FindRun(slot.runGroup) != &run)
+                if (ma_sound_group* const* child = customBuses[i]->runChildren.Find(runGroup))
                 {
-                    continue;
+                    ma_sound_group_set_volume(*child, RunCustomGain(run, static_cast<i32>(i)));
                 }
-                const AudioClip* clip = slot.clip.Get();
-                ma_sound_set_volume(slot.sound, slot.volume * (clip != nullptr ? clip->gain : 1.0f) *
-                                                    RunVoiceGain(run));
             }
         }
 
-        // The gain a voice's own volume is scaled by: the run's, for a custom-bus voice of a run.
-        [[nodiscard]] f32 VoiceRunGain(const VoiceSlot& slot) const
+        // ---- runs' and scenes' children under the custom buses ----
+
+        [[nodiscard]] ma_sound_group* MakeChildGroup(ma_sound_group* parent)
         {
-            if (slot.customBusName.IsEmpty())
+            if (parent == nullptr)
             {
-                return 1.0f;
+                return nullptr;
             }
-            const RunGroupData* run = FindRun(slot.runGroup);
-            return run != nullptr ? RunVoiceGain(*run) : 1.0f;
+            ma_sound_group* child = allocator->New<ma_sound_group>();
+            if (ma_sound_group_init(&engine, 0, parent, child) != MA_SUCCESS)
+            {
+                allocator->Delete(child);
+                return nullptr;
+            }
+            return child;
+        }
+
+        void FreeChildGroup(HashMap<u64, ma_sound_group*>& children, u64 key)
+        {
+            if (ma_sound_group** child = children.Find(key))
+            {
+                ma_sound_group_uninit(*child);
+                allocator->Delete(*child);
+                children.Remove(key);
+            }
+        }
+
+        [[nodiscard]] ma_sound_group* CustomRunChild(u64 runGroup, i32 index)
+        {
+            CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+            RunGroupData* run = FindRun(runGroup);
+            if (run == nullptr || !bus.initialized)
+            {
+                return bus.initialized ? &bus.group : nullptr;
+            }
+            if (ma_sound_group** found = bus.runChildren.Find(runGroup))
+            {
+                return *found;
+            }
+            ma_sound_group* child = MakeChildGroup(&bus.group);
+            if (child == nullptr)
+            {
+                return &bus.group;
+            }
+            ma_sound_group_set_volume(child, RunCustomGain(*run, index));
+            if (run->paused)
+            {
+                (void)ma_sound_group_stop(child);
+            }
+            bus.runChildren.InsertOrAssign(runGroup, child);
+            return child;
+        }
+
+        // The group a voice on custom bus `index` attaches to: its scene's child (under its run's
+        // child, or the bus outside a run), else its run's child, else the bus itself.
+        [[nodiscard]] ma_sound_group* CustomGroupFor(u64 sceneGroup, u64 runGroup, i32 index)
+        {
+            CustomBusData& bus = *customBuses[static_cast<usize>(index)];
+            if (!bus.initialized)
+            {
+                return nullptr;
+            }
+            ma_sound_group* runParent = CustomRunChild(runGroup, index);
+            if (sceneGroup == 0)
+            {
+                return runParent;
+            }
+            SceneGroupData** sceneData = sceneGroups.Find(sceneGroup);
+            if (sceneData == nullptr)
+            {
+                return runParent;
+            }
+            if (ma_sound_group** found = bus.sceneChildren.Find(sceneGroup))
+            {
+                return *found;
+            }
+            ma_sound_group* child = MakeChildGroup(runParent);
+            if (child == nullptr)
+            {
+                return runParent;
+            }
+            if ((*sceneData)->paused)
+            {
+                (void)ma_sound_group_stop(child);
+            }
+            bus.sceneChildren.InsertOrAssign(sceneGroup, child);
+            return child;
+        }
+
+        // Pause or resume a set of groups with the same declick a scene group's pause uses.
+        void SetGroupPaused(ma_sound_group* group, bool paused)
+        {
+            if (paused)
+            {
+                (void)ma_sound_stop_with_fade_in_milliseconds(group, FadeMilliseconds());
+            }
+            else
+            {
+                ma_sound_reset_stop_time_and_fade(group);
+                ma_sound_set_fade_in_milliseconds(group, 0.0f, 1.0f, FadeMilliseconds());
+                (void)ma_sound_group_start(group);
+            }
         }
 
         [[nodiscard]] ma_sound_group* GroupFor(u64 sceneGroup, u64 runGroup, AudioBus bus)
@@ -1439,6 +1617,10 @@ namespace foundation::audio
                     ReleaseSlot(slot);
                 }
             }
+            for (CustomBusData* bus : customBuses)
+            {
+                FreeChildGroup(bus->runChildren, runGroup);
+            }
             for (usize bus = 0; bus < static_cast<usize>(AudioBus::Count); ++bus)
             {
                 if ((*data)->initialized[bus])
@@ -1463,6 +1645,10 @@ namespace foundation::audio
                 {
                     ReleaseSlot(slot);
                 }
+            }
+            for (CustomBusData* bus : customBuses)
+            {
+                FreeChildGroup(bus->sceneChildren, sceneGroup);
             }
             DestroyReverbNode(*allocator, (*data)->reverb);
             DestroyReverbNode(*allocator, (*data)->sendReverb);
@@ -1523,7 +1709,7 @@ namespace foundation::audio
             {
                 run.muteFactor = (run.muteFactor < target) ? Min(run.muteFactor + rampStep, target)
                                                            : Max(run.muteFactor - rampStep, target);
-                impl.ApplyRunGains(run);
+                impl.ApplyRunGains(entry.key, run);
             }
         }
 
@@ -1690,7 +1876,7 @@ namespace foundation::audio
             if (customBusIndex >= 0 &&
                 impl.customBuses[static_cast<usize>(customBusIndex)]->initialized)
             {
-                group = &impl.customBuses[static_cast<usize>(customBusIndex)]->group;
+                group = impl.CustomGroupFor(params.sceneGroup, runGroup, customBusIndex);
             }
             else
             {
@@ -1792,7 +1978,7 @@ namespace foundation::audio
             }
         }
 
-        ma_sound_set_volume(slot.sound, params.volume * clipPtr->gain * impl.VoiceRunGain(slot));
+        ma_sound_set_volume(slot.sound, params.volume * clipPtr->gain);
         ma_sound_set_pitch(slot.sound, params.pitch);
         ma_sound_set_looping(slot.sound, slot.looping ? MA_TRUE : MA_FALSE);
         if (slot.looping && (clipPtr->loopStartFrame > 0 || clipPtr->loopEndFrame > 0))
@@ -1829,24 +2015,9 @@ namespace foundation::audio
             ma_sound_set_pan(slot.sound, params.pan);
         }
 
-        // A custom-bus voice bypasses the scene child groups, so a paused scene group
-        // must freeze it explicitly (fixed-bus voices inherit the halted group node).
-        bool sceneFrozen = false;
-        if (customBusIndex >= 0 && params.sceneGroup != 0)
-        {
-            if (SceneGroupData** sceneData = impl.sceneGroups.Find(params.sceneGroup))
-            {
-                sceneFrozen = (*sceneData)->paused;
-            }
-        }
-        if (customBusIndex >= 0)
-        {
-            if (const RunGroupData* run = impl.FindRun(runGroup))
-            {
-                sceneFrozen = sceneFrozen || run->paused;
-            }
-        }
-        if (!params.startPaused && !sceneFrozen)
+        // A paused scene or run halts its group nodes, custom-bus children included, so a voice
+        // started beneath one waits in place like every other voice there.
+        if (!params.startPaused)
         {
             (void)ma_sound_start(slot.sound);
         }
@@ -2122,8 +2293,7 @@ namespace foundation::audio
         {
             slot->volume = volume;
             const AudioClip* clip = slot->clip.Get();
-            ma_sound_set_volume(slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f) *
-                                                 m_impl->VoiceRunGain(*slot));
+            ma_sound_set_volume(slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
         }
     }
 
@@ -2372,23 +2542,12 @@ namespace foundation::audio
                 (void)ma_sound_group_start(group);
             }
         }
-        // Custom-bus voices route outside the run's groups: freeze/resume them one by one.
-        for (VoiceSlot& slot : impl.voices)
+        // Its children under the custom buses halt the same way.
+        for (CustomBusData* bus : impl.customBuses)
         {
-            if (slot.runGroup != runGroup || slot.customBusName.IsEmpty() ||
-                slot.state != VoiceState::Playing)
+            if (ma_sound_group** child = bus->runChildren.Find(runGroup))
             {
-                continue;
-            }
-            if (paused)
-            {
-                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, fadeMs);
-            }
-            else
-            {
-                ma_sound_reset_stop_time_and_fade(slot.sound);
-                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f, fadeMs);
-                (void)ma_sound_start(slot.sound);
+                impl.SetGroupPaused(*child, paused);
             }
         }
     }
@@ -2418,7 +2577,7 @@ namespace foundation::audio
         if (RunGroupData* run = m_impl->FindRun(runGroup))
         {
             run->volume = Max(volume, 0.0f);
-            m_impl->ApplyRunGains(*run);
+            m_impl->ApplyRunGains(runGroup, *run);
         }
     }
 
@@ -2430,7 +2589,7 @@ namespace foundation::audio
             return;
         }
         run->busGain[static_cast<usize>(bus)] = Max(volume, 0.0f);
-        m_impl->ApplyRunGains(*run);
+        m_impl->ApplyRunGains(runGroup, *run);
     }
 
     f32 AudioEngine::RunBusVolume(u64 runGroup, AudioBus bus) const
@@ -2451,7 +2610,7 @@ namespace foundation::audio
             return;
         }
         run->busMuted[static_cast<usize>(bus)] = muted;
-        m_impl->ApplyRunGains(*run);
+        m_impl->ApplyRunGains(runGroup, *run);
     }
 
     bool AudioEngine::RunBusMuted(u64 runGroup, AudioBus bus) const
@@ -2459,6 +2618,38 @@ namespace foundation::audio
         const RunGroupData* run = m_impl->FindRun(runGroup);
         return run != nullptr && static_cast<usize>(bus) < static_cast<usize>(AudioBus::Count) &&
                run->busMuted[static_cast<usize>(bus)];
+    }
+
+    void AudioEngine::SetRunNamedBusVolume(u64 runGroup, StringView name, f32 volume)
+    {
+        if (RunGroupData* run = m_impl->FindRun(runGroup))
+        {
+            run->EnsureNamed(name).gain = Max(volume, 0.0f);
+            m_impl->ApplyRunGains(runGroup, *run);
+        }
+    }
+
+    f32 AudioEngine::RunNamedBusVolume(u64 runGroup, StringView name) const
+    {
+        const RunGroupData* run = m_impl->FindRun(runGroup);
+        const RunGroupData::NamedGain* named = run != nullptr ? run->FindNamed(name) : nullptr;
+        return named != nullptr ? named->gain : 1.0f;
+    }
+
+    void AudioEngine::SetRunNamedBusMuted(u64 runGroup, StringView name, bool muted)
+    {
+        if (RunGroupData* run = m_impl->FindRun(runGroup))
+        {
+            run->EnsureNamed(name).muted = muted;
+            m_impl->ApplyRunGains(runGroup, *run);
+        }
+    }
+
+    bool AudioEngine::RunNamedBusMuted(u64 runGroup, StringView name) const
+    {
+        const RunGroupData* run = m_impl->FindRun(runGroup);
+        const RunGroupData::NamedGain* named = run != nullptr ? run->FindNamed(name) : nullptr;
+        return named != nullptr && named->muted;
     }
 
     void AudioEngine::DestroySceneGroup(u64 sceneGroup)
@@ -2498,25 +2689,13 @@ namespace foundation::audio
                 (void)ma_sound_group_start(group);
             }
         }
-        // Custom-bus voices route OUTSIDE the scene's child groups (the named tree is
-        // engine-global) - freeze/resume them individually. Their VoiceState stays
-        // Playing, mirroring the group behavior; user-paused voices are untouched.
-        for (VoiceSlot& slot : impl.voices)
+        // Its children under the custom buses halt the same way (a voice on a named bus routes
+        // through the scene's child of that bus).
+        for (CustomBusData* bus : impl.customBuses)
         {
-            if (slot.sceneGroup != sceneGroup || slot.customBusName.IsEmpty() ||
-                slot.state != VoiceState::Playing)
+            if (ma_sound_group** child = bus->sceneChildren.Find(sceneGroup))
             {
-                continue;
-            }
-            if (paused)
-            {
-                (void)ma_sound_stop_with_fade_in_milliseconds(slot.sound, impl.FadeMilliseconds());
-            }
-            else
-            {
-                ma_sound_reset_stop_time_and_fade(slot.sound);
-                ma_sound_set_fade_in_milliseconds(slot.sound, 0.0f, 1.0f, impl.FadeMilliseconds());
-                (void)ma_sound_start(slot.sound);
+                impl.SetGroupPaused(*child, paused);
             }
         }
     }

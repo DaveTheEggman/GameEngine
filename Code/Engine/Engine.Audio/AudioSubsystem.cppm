@@ -1410,6 +1410,10 @@ export namespace engine::audio
             {
                 setBusVolume(which, clamped);
             }
+            else if (const u64 run = CurrentRunGroup(); run != 0)
+            {
+                engine->SetRunNamedBusVolume(run, bus.AsView(), clamped);
+            }
             else
             {
                 engine->SetNamedBusVolume(bus.AsView(), clamped);
@@ -1426,6 +1430,10 @@ export namespace engine::audio
             if (BusFromName(bus.AsView(), which))
             {
                 return busVolume(which);
+            }
+            if (const u64 run = CurrentRunGroup(); run != 0)
+            {
+                return engine->RunNamedBusVolume(run, bus.AsView());
             }
             return engine->HasNamedBus(bus.AsView()) ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
         }
@@ -1448,6 +1456,10 @@ export namespace engine::audio
                     engine->SetBusMuted(which, muted);
                 }
             }
+            else if (const u64 run = CurrentRunGroup(); run != 0)
+            {
+                engine->SetRunNamedBusMuted(run, bus.AsView(), muted);
+            }
             else
             {
                 engine->SetNamedBusMuted(bus.AsView(), muted);
@@ -1465,6 +1477,10 @@ export namespace engine::audio
             {
                 const u64 run = CurrentRunGroup();
                 return run != 0 ? engine->RunBusMuted(run, which) : engine->BusMuted(which);
+            }
+            if (const u64 run = CurrentRunGroup(); run != 0)
+            {
+                return engine->RunNamedBusMuted(run, bus.AsView());
             }
             return engine->NamedBusMuted(bus.AsView());
         }

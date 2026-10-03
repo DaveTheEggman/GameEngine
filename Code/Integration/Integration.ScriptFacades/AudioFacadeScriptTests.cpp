@@ -79,7 +79,8 @@ namespace
 
     void DriveAudioFacade(RefPtr<foundation::script::IScriptManager> scripts,
                           foundation::core::StringView script,
-                          foundation::core::StringView bareScript, const IdScript& idScript)
+                          foundation::core::StringView bareScript, const IdScript& idScript,
+                          foundation::core::StringView namedScript)
     {
         REQUIRE(scripts.Get() != nullptr);
         RegisterCoreTypes(); // Guid and Float3, which the id forms take
@@ -205,6 +206,19 @@ namespace
             CHECK(subsystem.Engine()->RunBusVolume(run, AudioBus::Music) == doctest::Approx(0.5f));
             CHECK(subsystem.Engine()->BusVolume(AudioBus::Music) == doctest::Approx(1.0f));
             CHECK(inRun->GetGlobal(u8"MusicVolume").Get<f64>() == doctest::Approx(0.5));
+            // A layout's custom bus, by name, in the run: the run's own gain and mute for it.
+            AudioBusLayout layout;
+            AudioNamedBus drums;
+            drums.name = String(u8"drums");
+            layout.customBuses.PushBack(drums);
+            subsystem.Engine()->ApplyBusLayout(layout);
+            REQUIRE(inRun->Load(namedScript, u8"named").IsOk());
+            CHECK(subsystem.Engine()->RunNamedBusVolume(run, u8"drums") == doctest::Approx(0.4f));
+            CHECK(subsystem.Engine()->RunNamedBusMuted(run, u8"drums"));
+            CHECK(subsystem.Engine()->NamedBusVolume(u8"drums") == doctest::Approx(1.0f));
+            CHECK_FALSE(subsystem.Engine()->NamedBusMuted(u8"drums"));
+            CHECK(inRun->GetGlobal(u8"DrumsVolume").Get<f64>() == doctest::Approx(0.4));
+
             subsystem.EndRun(&runKey);
             for (int i = 0; i < 4; ++i)
             {
@@ -261,7 +275,14 @@ TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by 
                 u8"  MusicVolume = Audio::busVolume(AudioBus::Music);\n"
                 u8"}}\n",
                 beep, steps);
-        });
+        },
+        u8"double DrumsVolume;\n"
+        u8"void named() {\n"
+        u8"  Audio::setNamedBusVolume(\"drums\", 0.4f);\n"
+        u8"  Audio::setBusMuted(\"drums\", true);\n"
+        u8"  DrumsVolume = Audio::namedBusVolume(\"drums\");\n"
+        u8"}\n"
+        u8"void main() { named(); }\n");
 }
 #endif // OPTION_HAS_ANGELSCRIPT
 
@@ -291,7 +312,10 @@ TEST_CASE("audio-facade: the Luau Audio facade plays clips/cues/music by asset i
                              u8"Audio.setBusVolume(AudioBus.Music, 0.5)\n"
                              u8"MusicVolume = Audio.busVolume(AudioBus.Music)\n",
                              beep, steps);
-                     });
+                     },
+                     u8"Audio.setNamedBusVolume(\"drums\", 0.4)\n"
+                     u8"Audio.setBusMuted(\"drums\", true)\n"
+                     u8"DrumsVolume = Audio.namedBusVolume(\"drums\")\n");
 }
 #endif // OPTION_HAS_LUAU
 

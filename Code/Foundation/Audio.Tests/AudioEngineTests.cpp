@@ -1102,8 +1102,8 @@ TEST_CASE("audio.engine: custom-bus degenerates defuse - parent cycles land on M
     CHECK(engine.ActiveVoiceCount() == 3u);
 }
 
-TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they bypass "
-          "the scene child groups)")
+TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (through the "
+          "scene's child group under the custom bus)")
 {
     AudioEngine engine(DefaultAllocator(), HeadlessSettings());
     AudioBusLayout layout;
@@ -1122,15 +1122,20 @@ TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they b
     const VoiceHandle voice = engine.Play(clip, params);
     REQUIRE(voice.IsValid());
 
+    engine.Update(0.2f);
     engine.SetSceneGroupPaused(sceneGroup, true);
+    engine.Update(0.05f); // the declick lands
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    const f32 pausedAt = status.cursorSeconds;
     for (int i = 0; i < 5; ++i)
     {
         engine.Update(0.1f);
     }
     CHECK(engine.IsValidHandle(voice)); // held, not reaped
-    VoiceStatus status;
     REQUIRE(engine.GetVoiceStatus(voice, status));
     CHECK(status.busName.AsView() == StringView(u8"drums"));
+    CHECK(status.cursorSeconds == doctest::Approx(pausedAt).epsilon(0.01)); // frozen in place
 
     engine.SetSceneGroupPaused(sceneGroup, false);
     engine.Update(0.1f);
@@ -1138,6 +1143,89 @@ TEST_CASE("audio.engine: scene-group pause freezes custom-bus voices too (they b
 
     engine.DestroySceneGroup(sceneGroup);
     CHECK_FALSE(engine.IsValidHandle(voice));
+}
+
+TEST_CASE("audio.engine: a run reaches its custom-bus voices through the graph, with gains of "
+          "its own, and a layout rebuild keeps them playing")
+{
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
+    AudioBusLayout layout;
+    AudioNamedBus drums;
+    drums.name = String(u8"drums");
+    drums.parent = String(u8"Music");
+    layout.customBuses.PushBack(drums);
+    engine.ApplyBusLayout(layout);
+
+    const u64 run = engine.CreateRunGroup();
+    const u64 other = engine.CreateRunGroup();
+    const u64 scene = engine.CreateSceneGroup(run);
+    RefPtr<AudioClip> clip = MakeToneClip(4.0f);
+    AudioPlayParams params;
+    params.loop = true;
+    params.busName = String(u8"drums");
+    params.sceneGroup = scene; // scene child -> run child -> drums -> Music
+    const VoiceHandle voice = engine.Play(clip, params);
+    AudioPlayParams otherParams = params;
+    otherParams.sceneGroup = 0;
+    otherParams.runGroup = other;
+    const VoiceHandle otherVoice = engine.Play(MakeToneClip(4.0f, 4000, 1), otherParams);
+    REQUIRE(voice.IsValid());
+    REQUIRE(otherVoice.IsValid());
+    engine.Update(0.2f);
+
+    // The run's own gain for the named bus: neither the bus nor another run moves.
+    engine.SetRunNamedBusVolume(run, u8"drums", 0.3f);
+    engine.SetRunNamedBusMuted(other, u8"drums", true);
+    CHECK(engine.RunNamedBusVolume(run, u8"drums") == doctest::Approx(0.3f));
+    CHECK(engine.NamedBusVolume(u8"drums") == doctest::Approx(1.0f));
+    CHECK(engine.RunNamedBusVolume(other, u8"drums") == doctest::Approx(1.0f));
+    CHECK(engine.RunNamedBusMuted(other, u8"drums"));
+    CHECK_FALSE(engine.RunNamedBusMuted(run, u8"drums"));
+
+    // The run's pause halts its child under the custom bus: the voice's cursor freezes.
+    const auto cursor = [&](VoiceHandle handle)
+    {
+        VoiceStatus status;
+        REQUIRE(engine.GetVoiceStatus(handle, status));
+        return status.cursorSeconds;
+    };
+    engine.SetRunGroupPaused(run, true);
+    engine.Update(0.05f);
+    const f32 pausedAt = cursor(voice);
+    const f32 otherAt = cursor(otherVoice);
+    for (int i = 0; i < 4; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK(cursor(voice) == doctest::Approx(pausedAt).epsilon(0.01));
+    CHECK(cursor(otherVoice) > otherAt + 0.3f); // another run plays on
+    engine.SetRunGroupPaused(run, false);
+
+    // A rebuild that keeps the bus keeps the voice on it; one that drops it hands the voice back
+    // to its fixed bus, alive, and frees the run's and scene's children under it.
+    engine.ApplyBusLayout(layout);
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.busName.AsView() == StringView(u8"drums"));
+    engine.ApplyBusLayout(AudioBusLayout{});
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.busName.IsEmpty());
+    CHECK(engine.IsValidHandle(voice));
+    CHECK(engine.IsValidHandle(otherVoice));
+
+    // The run's stop still reaches it (now on its fixed bus); the other run is untouched.
+    engine.StopRunGroup(run, 0.05f);
+    engine.Update(0.2f);
+    CHECK_FALSE(engine.IsValidHandle(voice));
+    CHECK(engine.IsPlaying(otherVoice));
+
+    // And a run destroyed while it has children under a live custom bus frees them cleanly.
+    engine.ApplyBusLayout(layout);
+    const VoiceHandle again = engine.Play(clip, otherParams);
+    REQUIRE(again.IsValid());
+    engine.DestroyRunGroup(other);
+    CHECK_FALSE(engine.IsValidHandle(again));
+    CHECK_FALSE(engine.IsValidHandle(otherVoice));
 }
 
 TEST_CASE("audio.cue: weighted resolution - no-repeat, sequential, jitter, degenerate")

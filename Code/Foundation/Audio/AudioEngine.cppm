@@ -387,6 +387,14 @@ export namespace foundation::audio
         [[nodiscard]] f32 RunBusVolume(u64 runGroup, AudioBus bus) const; // 1 when unknown
         void SetRunBusMuted(u64 runGroup, AudioBus bus, bool muted);
         [[nodiscard]] bool RunBusMuted(u64 runGroup, AudioBus bus) const;
+        /// The run's own gain for a layout's custom bus, by name: a run has a child group under
+        /// each custom bus it plays on, as under the fixed buses, carrying this (times its gains
+        /// for the bus's ancestors) - other runs and the bus itself are untouched. Kept across a
+        /// layout rebuild; a name the layout lacks reads 1 and applies once the bus exists.
+        void SetRunNamedBusVolume(u64 runGroup, StringView name, f32 volume);
+        [[nodiscard]] f32 RunNamedBusVolume(u64 runGroup, StringView name) const;
+        void SetRunNamedBusMuted(u64 runGroup, StringView name, bool muted);
+        [[nodiscard]] bool RunNamedBusMuted(u64 runGroup, StringView name) const;
 
         // ---- per-scene groups (open question 1: YES - a per-scene child group under
         // each bus, so scene pause/stop-all falls out of the graph naturally). A scene of a run
