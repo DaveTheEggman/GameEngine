@@ -10,6 +10,15 @@
 > Created 2026-09-12 from the open sections of week-2026-09-05.md (which had absorbed
 > week-2026-08-29, week-2026-08-22 and the archived roadmap/backlog folders).
 
+## Queued 2026-10-03 (user)
+
+- **Stopping a game does not stop its music** (user: they close the editor to silence it; shared
+  with Sedulous): a game's script audio (music, one-shots) belongs to no scene or run, so Stop
+  leaves it playing, and multi-PIE mixes every instance into one output with all their
+  listeners on. Proposal: `Documentation/Specs/run-audio.md` (a run group above the scene
+  groups, the run's script binding carrying it, Stop and Pause acting on the run, only the
+  focused Game tab heard). To settle with the user, for both trees, before building.
+
 ## Queued 2026-10-02 (user, PaperKid)
 
 - **The DDS test's UBSAN report** (user 2026-10-02: "I keep forgetting to look at it"): every
