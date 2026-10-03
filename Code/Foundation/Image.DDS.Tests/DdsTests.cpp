@@ -102,11 +102,13 @@ namespace
     {
         u8 bytes[16] = {};
         u32 at = 0;
+        // `value` holds at most 32 bits; a wider field (the 60 index bits) writes zeros past them
+        // (shifting a u32 by 32 or more is undefined).
         void Put(u32 value, u32 bits)
         {
             for (u32 i = 0; i < bits; ++i, ++at)
             {
-                if ((value >> i) & 1u)
+                if (i < 32 && ((value >> i) & 1u))
                 {
                     bytes[at / 8] |= static_cast<u8>(1u << (at % 8));
                 }
