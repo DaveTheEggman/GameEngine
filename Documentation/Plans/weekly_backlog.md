@@ -28,6 +28,14 @@
   the root's local `position()`; Sky Hopper's `FollowCamera.as` reads `worldPosition()` too).
   Options: compute the world pose from the local chain on demand, mark world matrices dirty
   when a local changes, or a late-update hook for cameras. Check what Sedulous does first.
+- **TAA still looks jittery** (user 2026-10-03, "for later"): with the stale-history bug fixed the
+  player matches the editor, but the resolve itself leaves visible jitter on edges. Look at the
+  usual suspects in `TaaPass` and `taa` shader: the Halton sequence length (8) and jitter scale
+  (computed from the target's size, not the viewport's: `PipelineImpl.cpp`, `HaltonJitter(...,
+  v->Width(), v->Height())`), the YCoCg variance clip's gamma (1.25 in PaperKid) and blend factor
+  (0.97), the depth-disocclusion reject, and whether history sampling (Catmull-Rom) or a
+  sharpening pass is wanted. Measure frame-to-frame edge change on a static scene before and
+  after each change (the method used for the stale-history bug).
 - **TAA jitter in the player**: RESOLVED 2026-10-03 (eb89f063). Not frame rate and not the
   display: TAA's bind group cache checked only its colour input, and the player's first frame
   gets a different motion texture than every later one, so one of the two history textures kept
