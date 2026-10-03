@@ -98,6 +98,11 @@ export namespace foundation::script
         // wires things: the composition root owns the manager (DefaultApplication::Resources()) and
         // installs this. Null / returns null on a bare cook VM => the swap sets the id only (unbound).
         core::Function<foundation::resource::ResourceManager*()> resolveResources;
+
+        // The run this context's scripts belong to: the same opaque key the run's scenes carry
+        // (Scene::Run), so a run-scoped service (the Audio facade's music and one-shots) plays
+        // into the run's own group. Null = outside every run (an editor tool, a bare cook VM).
+        const void* run = nullptr;
     };
 
     // ---- the curated behavior facades (camelCase = the script-visible names, the
@@ -635,6 +640,17 @@ export namespace foundation::script
                 : nullptr;
         return (binding != nullptr && binding->resolveResources) ? binding->resolveResources()
                                                                  : nullptr;
+    }
+
+    /// The run the current script context belongs to (ScriptRuntimeBinding::run), or null.
+    [[nodiscard]] inline const void* CurrentRun()
+    {
+        IScriptContext* context = CurrentScriptContext();
+        auto* binding =
+            context != nullptr
+                ? static_cast<ScriptRuntimeBinding*>(context->GetService(kScriptRuntimeService))
+                : nullptr;
+        return binding != nullptr ? binding->run : nullptr;
     }
 
     /// Registers the behavior facade types (Entity/Log/Time/Random/Scene) with the

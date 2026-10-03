@@ -192,3 +192,17 @@ TEST_CASE("scene-manager: a running scene is stopped before it is destroyed")
     mgr.DestroyScene(stopped);
     CHECK(stops == 2);
 }
+
+TEST_CASE("scene-manager: created scenes carry the run key the manager was given")
+{
+    SceneManager loose{DefaultAllocator()};
+    CHECK(loose.CreateScene(u8"page")->Run() == nullptr); // no run: an editor page's scenes
+
+    int runIdentity = 0; // any address stands for the run
+    SceneManager owned{DefaultAllocator()};
+    owned.SetSceneRun(&runIdentity);
+    Scene* a = owned.CreateScene(u8"a");
+    Scene* b = owned.CreateScene(u8"b", /*activate*/ false); // the async-load path too
+    CHECK(a->Run() == &runIdentity);
+    CHECK(b->Run() == &runIdentity);
+}

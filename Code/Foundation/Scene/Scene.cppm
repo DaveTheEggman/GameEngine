@@ -468,6 +468,12 @@ export namespace foundation::scene
         /// Null clears the borrowed bus - the scene has no bus of its own. Set before the scene ticks.
         void SetEventBus(messaging::EventBus* bus) noexcept { m_eventBus = bus; }
 
+        // The run that owns this scene: an opaque key (a GameInstance sets itself) that run-scoped
+        // systems group the scene by - its audio nests under the run's, so the run's stop, pause
+        // and mute reach it. Null = outside every run (an editor page's scene, a test's).
+        [[nodiscard]] const void* Run() const noexcept { return m_run; }
+        void SetRun(const void* run) noexcept { m_run = run; }
+
         // ---- play / edit state ----
 
         [[nodiscard]] bool IsStarted() const noexcept { return m_started; }
@@ -596,6 +602,7 @@ export namespace foundation::scene
 
         // per-scene systems
         messaging::EventBus* m_eventBus = nullptr; // borrowed scope bus (injected by the run scope); null = none
+        const void* m_run = nullptr;                // the owning run's key (SetRun); null = none
         Array<UniquePtr<SceneSystem>> m_systems;                // ownership
         HashMap<TypeId, SceneSystem*> m_systemsByType; // lookup by type (id: DLL-safe)
         Array<SceneSystem*> m_sortedSystems;                    // non-owning, UpdateOrder-sorted

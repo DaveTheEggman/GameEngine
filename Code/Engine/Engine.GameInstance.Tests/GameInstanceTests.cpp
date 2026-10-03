@@ -126,6 +126,27 @@ TEST_CASE("game-instance: instance time scale defaults to 1 and is settable; fre
     CHECK(gi.Scenes().CurrentScene() == level);
 }
 
+TEST_CASE("game-instance: an instance is its scenes' and scripts' run")
+{
+    // Run-scoped systems (audio) group a run's scenes and its script calls by one key: the
+    // instance. Two instances are two runs.
+    engine::runtime::GameInstance a;
+    engine::runtime::GameInstance b;
+    scene::Scene* level = a.Scenes().CreateScene(u8"L1");
+    REQUIRE(level != nullptr);
+    CHECK(level->Run() == &a);
+    CHECK(a.RunHost().Binding().run == &a);
+    CHECK(b.RunHost().Binding().run == &b);
+
+    // A scene adopted into the run joins it.
+    scene::SceneManager elsewhere{DefaultAllocator()};
+    scene::Scene* adopted = elsewhere.CreateScene(u8"page");
+    CHECK(adopted->Run() == nullptr);
+    b.SetScene(adopted);
+    CHECK(adopted->Run() == &b);
+    b.SetScene(nullptr);
+}
+
 TEST_CASE("game-instance: each instance's input runtime reads ONLY its own source (per-instance "
           "isolation)")
 {

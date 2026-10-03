@@ -297,6 +297,10 @@ export namespace engine::runtime
             // Every scene this run creates BORROWS the run bus: set it on the group so
             // CreateScene injects it BEFORE the script systems bind (OnSceneCreate), not after.
             m_sceneManager.SetSceneEventBus(&m_runEvents);
+            // This instance IS the run: its scenes and its scripts carry it as their run key, so
+            // run-scoped systems (audio) group them by it.
+            m_sceneManager.SetSceneRun(this);
+            m_runHost.Binding().run = this;
         }
 
         void SetScene(scene::Scene* scene) noexcept
@@ -306,6 +310,7 @@ export namespace engine::runtime
             if (scene != nullptr)
             {
                 scene->SetEventBus(&m_runEvents); // adopt path shares THIS run's bus
+                scene->SetRun(this);
             }
         }
         [[nodiscard]] scene::Scene* GetScene() const noexcept { return m_scene; }

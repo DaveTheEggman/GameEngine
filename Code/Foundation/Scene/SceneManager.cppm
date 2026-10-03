@@ -58,6 +58,8 @@ export namespace foundation::scene
         /// its run bus here so `scene.events` and the run bus are one object. Applied before assembly, so
         /// the script systems bind to it. Null (default) leaves scenes with no bus.
         void SetSceneEventBus(messaging::EventBus* bus) noexcept { m_sceneEventBus = bus; }
+        // The run key every created scene carries (Scene::SetRun), set by the owning run.
+        void SetSceneRun(const void* run) noexcept { m_sceneRun = run; }
 
         /// The GROUP time scale - the `instance` term of dt = host x context x GROUP x scene. Default
         /// 1.0, so the editor / default manager applies no group scaling.
@@ -96,6 +98,7 @@ export namespace foundation::scene
             // page bus). Null = a scope-less scratch scene: Events() stays null, nothing
             // emits, script handles no-op safely.
             scene->SetEventBus(m_sceneEventBus);
+            scene->SetRun(m_sceneRun); // before assembly, so systems see their run at create
             // Scene assembly happens regardless of active, so LoadScene can populate an inactive scene
             // before it is activated.
             if (m_installer)
@@ -293,6 +296,7 @@ export namespace foundation::scene
         SceneInstaller m_installer;   // composition path (type-erased; owned, callable or empty)
         SceneUninstaller m_uninstaller; // teardown path (type-erased; owned, callable or empty)
         messaging::EventBus* m_sceneEventBus = nullptr; // borrowed scope bus for created scenes
+        const void* m_sceneRun = nullptr;               // the run key created scenes carry
         f32 m_timeScale = 1.0f;       // the group / instance term
         Scene* m_current = nullptr;   // the group's current scene
         IAllocator* m_allocator;
