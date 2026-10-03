@@ -1007,7 +1007,8 @@ export namespace engine::render
     // in EVERY view of that scene (incl. play-in-editor), CLEARED each frame, so a persistent overlay
     // (an aim path, a marker) must be re-issued every tick from a script's update. A value handle
     // carrying the scene ptr; each call resolves the RenderSubsystem via the per-context render
-    // service and appends to DebugScene(scene). Colors are 0..1 linear floats (alpha 1); world units.
+    // service and appends to DebugScene(scene). Colors are 0..1 sRGB floats, as entered everywhere
+    // (alpha 1); world units.
     // Methods are defined in RenderComponentsImpl.cpp (the impl unit can see :subsystem's
     // RenderSubsystem; this :components interface cannot).
     struct DebugDraw

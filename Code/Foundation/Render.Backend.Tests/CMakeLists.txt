@@ -11,7 +11,7 @@ add_executable(Render.Backend.Tests
     PickProbeTests.cpp
     WindProbeTests.cpp
     InstanceFadeProbeTests.cpp
-    ScaledViewProbeTests.cpp)
+    ScaledViewProbeTests.cpp ColorProbeTests.cpp)
 
 target_link_libraries(Render.Backend.Tests PRIVATE
     Foundation::Render Foundation::Materials.PipelineCache Foundation::RHI.TestSupport
