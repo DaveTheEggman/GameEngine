@@ -40,18 +40,24 @@ export namespace editor
         }
 
         /// Records the copy of `target` (in `targetState`, where it is left) when a request is
-        /// armed; a failure to record is the request's failure, logged by the capture.
+        /// armed; a failure to record is the request's failure, logged by the capture. The PNG is
+        /// what was drawn, never resampled; `renderWidth` x `renderHeight` names the resolution
+        /// the content plays at when the view drew it scaled (reported beside the written size).
         void Record(foundation::rhi::Device* device, foundation::rhi::CommandEncoder* encoder,
                     foundation::rhi::Texture* target, foundation::rhi::TextureFormat format,
                     u32 width, u32 height, foundation::rhi::ResourceState targetState, u32 originX = 0,
-                    u32 originY = 0, u32 outputWidth = 0, u32 outputHeight = 0)
+                    u32 originY = 0, u32 renderWidth = 0, u32 renderHeight = 0)
         {
             if (!m_screenshot.Armed() || device == nullptr || encoder == nullptr)
             {
                 return;
             }
+            const bool scaled = renderWidth > 0 && renderHeight > 0 &&
+                                (renderWidth != width || renderHeight != height);
+            m_state.renderWidth = scaled ? renderWidth : 0;
+            m_state.renderHeight = scaled ? renderHeight : 0;
             if (!m_screenshot.Record(*device, *encoder, target, format, width, height, targetState, originX,
-                                     originY, outputWidth, outputHeight))
+                                     originY))
             {
                 m_state.state = ViewportCaptureState::Failed; // logged by the capture
             }
@@ -69,6 +75,7 @@ export namespace editor
             foundation::image::Image written;
             const Status saved = m_screenshot.Complete(*device, allocator, written);
             m_state.state = saved.IsOk() ? ViewportCaptureState::Written : ViewportCaptureState::Failed;
+            // (renderWidth / renderHeight stay as Record set them)
             m_state.width = written.Width();
             m_state.height = written.Height();
         }

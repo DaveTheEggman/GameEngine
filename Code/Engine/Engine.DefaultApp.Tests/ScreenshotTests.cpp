@@ -289,18 +289,3 @@ TEST_CASE("screenshot: a cleared RGBA8 and BGRA8 target round-trips to a PNG on 
         webgpu->Destroy();
     }
 }
-
-TEST_CASE("screenshot: a resample keeps the ends and blends between")
-{
-    // Sedulous 8533be73: the resample a capture is written at the render size with.
-    const u8 source[8] = {0, 0, 0, 255, 255, 255, 255, 255}; // 2 x 1: black, white
-    Array<u8> wide(DefaultAllocator());
-    ScreenshotCapture::Resample(Span<const u8>{source, 8}, 2, 1, 4, 1, wide);
-    REQUIRE(wide.Size() == 16u);
-    CHECK(wide[0] == 0);   // the ends stay
-    CHECK(wide[12] == 255);
-    CHECK(wide[4] > 0);    // a ramp between
-    CHECK(wide[4] < wide[8]);
-    CHECK(wide[8] < 255);
-    CHECK(wide[3] == 255); // alpha too
-}

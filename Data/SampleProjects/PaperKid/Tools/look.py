@@ -10,10 +10,13 @@ from PIL import Image
 
 
 def stats(path, regions):
+    # Regions are in the game's 1280x720; the PNG is what the Game tab drew, which is smaller
+    # when the tab is (pie_screenshot reports the scale), so they scale to the image.
     im = Image.open(path).convert('L')
+    sx, sy = im.width / 1280.0, im.height / 720.0
     px = []
-    for box in regions:
-        px.extend(im.crop(box).getdata())
+    for (x0, y0, x1, y1) in regions:
+        px.extend(im.crop((round(x0 * sx), round(y0 * sy), round(x1 * sx), round(y1 * sy))).getdata())
     px.sort()
     n = len(px)
     return dict(mean=round(sum(px) / n, 1), median=px[n // 2],

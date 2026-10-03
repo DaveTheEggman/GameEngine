@@ -43,4 +43,7 @@ namespace editor
     // answers with, which a finished run carries too.
     void RegisterPieRunTool(foundation::mcp::McpServer& server, EditorContext& context);
     [[nodiscard]] foundation::json::JsonValue PieStateJson(const IPieInstancePage& pie);
+    // A written capture's size into a tool's answer: the PNG's (`width`, `height`, the pixels the
+    // tab drew) and the game's render resolution with the scale it was drawn at, when they differ.
+    void WriteCaptureSize(foundation::json::JsonValue& out, const ViewportCapture& capture);
 }

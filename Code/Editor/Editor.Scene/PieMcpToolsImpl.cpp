@@ -224,8 +224,7 @@ namespace editor
                     JsonValue out = JsonValue::MakeObject();
                     out.Set(u8"pie", JsonValue::MakeString(String(pie->PieId())));
                     out.Set(u8"path", JsonValue::MakeString(capture.path));
-                    out.Set(u8"width", JsonValue::MakeNumber(static_cast<f64>(capture.width)));
-                    out.Set(u8"height", JsonValue::MakeNumber(static_cast<f64>(capture.height)));
+                    WriteCaptureSize(out, capture);
                     return out;
                 }
                 if (ours && capture.state == ViewportCaptureState::Failed)
@@ -438,13 +437,15 @@ namespace editor
         server.RegisterTool(
             u8"pie_screenshot",
             u8"What one running PIE instance's Game tab renders, as a PNG: the game through its own "
-            u8"camera, with its UI and overlays, at the resolution the tab draws it at (the project's "
-            u8"render resolution by default, the tab's size for Fit to panel), without the letterbox "
-            u8"bars - the pixels pie_run's mouse positions are in. Brings the tab to front "
-            u8"(a hidden viewport never renders), waits for the next frame and the GPU, then "
-            u8"returns {pie, path, width, height}; read the file. `path` is where to write (an "
-            u8"existing directory; default: <user-data>/screenshots/<pie>-<pid>-<n>.png). Refused "
-            u8"for a stopped instance; gives up after ten seconds without a rendered frame.",
+            u8"camera, with its UI and overlays, without the letterbox bars, as the pixels the tab "
+            u8"drew. Brings the tab to front (a hidden viewport never renders), waits for the next "
+            u8"frame and the GPU, then returns {pie, path, width, height}; read the file. When the "
+            u8"tab is smaller than the game's render resolution it draws the game scaled down, and "
+            u8"the answer adds renderWidth, renderHeight and scale (width / renderWidth): the PNG is "
+            u8"that scaled image, so soft text there is the scale, and pie_run's mouse positions "
+            u8"(render-resolution pixels) are its pixels divided by scale. `path` is where to write "
+            u8"(an existing directory; default: <user-data>/screenshots/<pie>-<pid>-<n>.png). "
+            u8"Refused for a stopped instance; gives up after ten seconds without a rendered frame.",
             SchemaBuilder()
                 .Str(u8"pie", kPieArgument)
                 .Str(u8"path", u8"the PNG to write (default: a new file under <user-data>/screenshots)")
@@ -455,5 +456,19 @@ namespace editor
             { return Screenshot(*ctx, *serialPtr, call, args); });
 
         RegisterPieRunTool(server, context);
+    }
+
+    void WriteCaptureSize(foundation::json::JsonValue& out, const ViewportCapture& capture)
+    {
+        using foundation::json::JsonValue;
+        out.Set(u8"width", JsonValue::MakeNumber(static_cast<f64>(capture.width)));
+        out.Set(u8"height", JsonValue::MakeNumber(static_cast<f64>(capture.height)));
+        if (capture.renderWidth > 0 && capture.renderHeight > 0)
+        {
+            out.Set(u8"renderWidth", JsonValue::MakeNumber(static_cast<f64>(capture.renderWidth)));
+            out.Set(u8"renderHeight", JsonValue::MakeNumber(static_cast<f64>(capture.renderHeight)));
+            out.Set(u8"scale", JsonValue::MakeNumber(static_cast<f64>(capture.width) /
+                                                     static_cast<f64>(capture.renderWidth)));
+        }
     }
 }

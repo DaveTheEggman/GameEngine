@@ -157,13 +157,13 @@ export namespace engine::runtime
         /// Disarms; false when nothing was armed, the format cannot be captured, or the readback
         /// buffer could not be made - each logged, so a silent no-op never passes for a
         /// screenshot. `originX` / `originY` capture a sub-rectangle of that size from there (a
-        /// letterboxed game's image without its bars); `outputWidth` x `outputHeight` writes the
-        /// PNG resampled to that size (the game's render resolution, whatever size it was shown
-        /// at).
+        /// letterboxed game's image without its bars). The PNG is the captured pixels: a view drawn
+        /// smaller than its content's resolution is written at the size it was drawn (scaling it
+        /// back up only blurred it into something that looked like a font problem).
         bool Record(rhi::Device& device, rhi::CommandEncoder& encoder, rhi::Texture* backbuffer,
                     rhi::TextureFormat format, u32 width, u32 height,
                     rhi::ResourceState state = rhi::ResourceState::RenderTarget, u32 originX = 0,
-                    u32 originY = 0, u32 outputWidth = 0, u32 outputHeight = 0)
+                    u32 originY = 0)
         {
             if (!m_armed)
             {
@@ -210,8 +210,6 @@ export namespace engine::runtime
             encoder.TransitionTexture(backbuffer, rhi::ResourceState::CopySrc, state);
             m_width = width;
             m_height = height;
-            m_outputWidth = outputWidth;
-            m_outputHeight = outputHeight;
             m_bytesPerRow = bytesPerRow;
             m_format = format;
             m_recorded = true;
@@ -281,17 +279,8 @@ export namespace engine::runtime
             rgba.Resize(static_cast<usize>(m_width) * m_height * 4u);
             UnpackRows(mapped, m_bytesPerRow, m_width, m_height, m_format, Span<u8>{rgba.Data(), rgba.Size()});
             m_readback->Unmap();
-            u32 width = m_width;
-            u32 height = m_height;
-            if (m_outputWidth > 0 && m_outputHeight > 0 && (m_outputWidth != m_width || m_outputHeight != m_height))
-            {
-                Array<u8> resampled(allocator);
-                Resample(Span<const u8>{rgba.Data(), rgba.Size()}, m_width, m_height, m_outputWidth, m_outputHeight,
-                         resampled);
-                rgba = Move(resampled);
-                width = m_outputWidth;
-                height = m_outputHeight;
-            }
+            const u32 width = m_width;
+            const u32 height = m_height;
             outImage = image::Image(width, height, image::PixelFormat::RGBA8,
                                     Span<const u8>{rgba.Data(), rgba.Size()});
             const Status saved =
@@ -305,40 +294,6 @@ export namespace engine::runtime
                 LOG_INFO(u8"Screenshot", u8"wrote '{}' ({}x{})", m_path.AsView(), width, height);
             }
             return saved;
-        }
-
-        /// Bilinear, texel centres to texel centres, RGBA8 to RGBA8.
-        static void Resample(Span<const u8> source, u32 sourceWidth, u32 sourceHeight, u32 width, u32 height,
-                             Array<u8>& outPixels)
-        {
-            outPixels.Resize(static_cast<usize>(width) * height * 4u);
-            const f32 sx = static_cast<f32>(sourceWidth) / static_cast<f32>(width);
-            const f32 sy = static_cast<f32>(sourceHeight) / static_cast<f32>(height);
-            const auto at = [&source, sourceWidth](u32 x, u32 y, u32 c)
-            { return static_cast<f32>(source[(static_cast<usize>(y) * sourceWidth + x) * 4u + c]); };
-            for (u32 y = 0; y < height; ++y)
-            {
-                const f32 fy = Clamp((static_cast<f32>(y) + 0.5f) * sy - 0.5f, 0.0f,
-                                     static_cast<f32>(sourceHeight - 1));
-                const u32 y0 = static_cast<u32>(fy);
-                const u32 y1 = Min(y0 + 1u, sourceHeight - 1u);
-                const f32 ty = fy - static_cast<f32>(y0);
-                for (u32 x = 0; x < width; ++x)
-                {
-                    const f32 fx = Clamp((static_cast<f32>(x) + 0.5f) * sx - 0.5f, 0.0f,
-                                         static_cast<f32>(sourceWidth - 1));
-                    const u32 x0 = static_cast<u32>(fx);
-                    const u32 x1 = Min(x0 + 1u, sourceWidth - 1u);
-                    const f32 tx = fx - static_cast<f32>(x0);
-                    for (u32 c = 0; c < 4; ++c)
-                    {
-                        const f32 top = at(x0, y0, c) + (at(x1, y0, c) - at(x0, y0, c)) * tx;
-                        const f32 bottom = at(x0, y1, c) + (at(x1, y1, c) - at(x0, y1, c)) * tx;
-                        outPixels[(static_cast<usize>(y) * width + x) * 4u + c] =
-                            static_cast<u8>(Clamp(top + (bottom - top) * ty + 0.5f, 0.0f, 255.0f));
-                    }
-                }
-            }
         }
 
         /// Drops the readback buffer (device teardown).
@@ -367,7 +322,6 @@ export namespace engine::runtime
         rhi::Buffer* m_readback = nullptr;
         u64 m_readbackSize = 0;
         u32 m_width = 0, m_height = 0, m_bytesPerRow = 0;
-        u32 m_outputWidth = 0, m_outputHeight = 0; // the PNG's size when not the captured one
         rhi::TextureFormat m_format = rhi::TextureFormat::RGBA8Unorm;
     };
 }

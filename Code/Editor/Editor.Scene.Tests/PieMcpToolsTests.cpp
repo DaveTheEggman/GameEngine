@@ -374,6 +374,24 @@ TEST_CASE("pie-tools: a screenshot waits for its frame, and a stopped instance i
     REQUIRE(got.ok);
     CHECK(got.payload.Get(u8"pie").AsString() == StringView(u8"game-page"));
     CHECK(got.payload.Get(u8"width").AsNumber() == doctest::Approx(640.0));
+    CHECK_FALSE(got.payload.Has(u8"scale")); // drawn at its own resolution: nothing to add
+
+    // A tab smaller than the game's resolution drew it scaled: the PNG is what was drawn, and the
+    // answer says the resolution and the scale (an agent's mouse positions divide by it).
+    got = Pump(rig.server, u8"pie_screenshot", u8"{\"path\":\"small.png\"}");
+    CHECK_FALSE(got.finished);
+    rig.primary->capture.state = ViewportCaptureState::Written;
+    rig.primary->capture.width = 960;
+    rig.primary->capture.height = 540;
+    rig.primary->capture.renderWidth = 1920;
+    rig.primary->capture.renderHeight = 1080;
+    got = Pump(rig.server, u8"pie_screenshot", u8"{\"path\":\"small.png\"}");
+    REQUIRE(got.finished);
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"width").AsNumber() == doctest::Approx(960.0));
+    CHECK(got.payload.Get(u8"renderWidth").AsNumber() == doctest::Approx(1920.0));
+    CHECK(got.payload.Get(u8"renderHeight").AsNumber() == doctest::Approx(1080.0));
+    CHECK(got.payload.Get(u8"scale").AsNumber() == doctest::Approx(0.5));
 
     // A run that stops mid-capture is the capture's failure.
     got = Pump(rig.server, u8"pie_screenshot", u8"{\"path\":\"pie2.png\"}");

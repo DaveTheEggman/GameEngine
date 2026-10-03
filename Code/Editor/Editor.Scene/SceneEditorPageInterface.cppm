@@ -44,8 +44,12 @@ export namespace editor
     {
         ViewportCaptureState state = ViewportCaptureState::Idle;
         String path;
-        u32 width = 0;
+        u32 width = 0;  // the written PNG: the pixels the viewport drew
         u32 height = 0;
+        // The game's render resolution, when the view drew it scaled (a Game tab smaller than the
+        // resolution it plays at); 0 = the written size is the render size.
+        u32 renderWidth = 0;
+        u32 renderHeight = 0;
     };
 
     class ISceneEditorPage : public IPageService

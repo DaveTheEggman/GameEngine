@@ -519,9 +519,7 @@ namespace editor
                     if (capture.state == ViewportCaptureState::Written)
                     {
                         shot.Set(u8"path", JsonValue::MakeString(capture.path));
-                        shot.Set(u8"width", JsonValue::MakeNumber(static_cast<f64>(capture.width)));
-                        shot.Set(u8"height",
-                                 JsonValue::MakeNumber(static_cast<f64>(capture.height)));
+                        WriteCaptureSize(shot, capture);
                     }
                     else
                     {
@@ -780,7 +778,8 @@ namespace editor
                      u8"the timeline: entries {at, key, down} | {at, mouseButton, down} | {at, "
                      u8"mouseMove: [x, y]} | {at, wheel: [x, y]} | {at, gamepad, button, down} | "
                      u8"{at, gamepad, axis, value}; `at` is run seconds since the run starts, "
-                     u8"`down` defaults to true, `gamepad` to 0")
+                     u8"`down` defaults to true, `gamepad` to 0; mouseMove is in the game's "
+                     u8"render-resolution pixels (a scaled screenshot's divided by its scale)")
                 .Arr(u8"probes", u8"object",
                      u8"what to read: {entity, fields} (entity by guid, name or slash path; "
                      u8"fields default [\"worldPosition\"]) or {script: \"<game script "
