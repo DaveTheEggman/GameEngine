@@ -518,7 +518,8 @@ export namespace engine::render
     {
         // Flat ambient FILL: adds on top of the environment's image-based ambient in every sky
         // mode (intensity 0 = pure IBL); when IBL is unavailable it is the only ambient.
-        Color ambientColor = Color{0.10f, 0.12f, 0.16f, 1.0f};
+        // sRGB, like every colour (the default is the look it had when colours were read raw).
+        Color ambientColor = Color{0.349f, 0.381f, 0.437f, 1.0f};
         f32 ambientIntensity = 0.3f;
 
         SkyMode skyMode = SkyMode::Procedural;
@@ -537,10 +538,10 @@ export namespace engine::render
         // RenderSubsystem::SetSkyEquirect/SetSkyCubemap pixel paths remain for tools/samples.)
         foundation::resource::Ref<texture::Texture> skyTexture;
         // Procedural sky (Unity-default-like: a soft, hazy, low-saturation daytime blue rather than
-        // a punchy vivid one - dimmer horizon, desaturated zenith, near-neutral ground).
-        Color skyHorizon = Color{0.52f, 0.60f, 0.70f, 1.0f};
-        Color skyZenith = Color{0.20f, 0.36f, 0.58f, 1.0f}; // also the Color-mode color
-        Color skyGround = Color{0.26f, 0.26f, 0.26f, 1.0f};
+        // a punchy vivid one - dimmer horizon, desaturated zenith, near-neutral ground). sRGB.
+        Color skyHorizon = Color{0.748f, 0.798f, 0.854f, 1.0f};
+        Color skyZenith = Color{0.485f, 0.634f, 0.786f, 1.0f}; // also the Color-mode color
+        Color skyGround = Color{0.547f, 0.547f, 0.547f, 1.0f};
         f32 sunIntensity = 1.0f;
         f32 sunAngularSize = 0.5f; // sun disc size (degrees)
         f32 turbidity = 3.0f;      // Analytic (Preetham) haze (~2..10)

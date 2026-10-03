@@ -1284,3 +1284,19 @@ TEST_CASE("EnvironmentSystem keeps the scene's render clock from the scene's own
     engine::render::ExtractEnvironmentInto(bare, none);
     CHECK(!none.HasTime());
 }
+
+TEST_CASE("EnvironmentSettings: the default colours are sRGB and render as they always have")
+{
+    // The defaults were picked while colours were read raw; written in sRGB, they decode to the
+    // same linear values, so a new scene looks as it did.
+    const EnvironmentSettings e;
+    const auto decodesTo = [](Color c, f32 r, f32 g, f32 b)
+    {
+        const Color l = ToLinear(c);
+        return Abs(l.r - r) < 2e-3f && Abs(l.g - g) < 2e-3f && Abs(l.b - b) < 2e-3f;
+    };
+    CHECK(decodesTo(e.ambientColor, 0.10f, 0.12f, 0.16f));
+    CHECK(decodesTo(e.skyHorizon, 0.52f, 0.60f, 0.70f));
+    CHECK(decodesTo(e.skyZenith, 0.20f, 0.36f, 0.58f));
+    CHECK(decodesTo(e.skyGround, 0.26f, 0.26f, 0.26f));
+}

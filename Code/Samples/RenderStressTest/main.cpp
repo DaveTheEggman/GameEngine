@@ -104,7 +104,7 @@ namespace
             // A modest ambient so unlit-facing hemispheres aren't pure black.
             if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
             {
-                env->Environment().ambientColor = core::Color{0.10f, 0.12f, 0.16f, 1.0f};
+                env->Environment().ambientColor = core::Color{0.349f, 0.381f, 0.437f, 1.0f};
                 env->Environment().ambientIntensity = 0.30f;
             }
 
