@@ -456,11 +456,9 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    graphics::GraphicsDeviceDesc gdd;
-    gdd.backend = graphics::SelectBackendFromArguments(argc, argv);
     // Validation follows the build config (Debug ON, optimized OFF) unless the command line
     // says otherwise - a RelWithDebInfo editor is for measuring, not for the layer's overhead.
-    graphics::ApplyValidationArguments(argc, argv, gdd);
+    graphics::GraphicsDeviceDesc gdd = graphics::DeviceDescFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {

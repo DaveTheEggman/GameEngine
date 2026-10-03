@@ -77,9 +77,8 @@ extern "C" const char* BuildStamp();
                           reinterpret_cast<const char8_t*>(BuildStamp()));                 \
         auto shell =                                                                               \
             ::foundation::shell::CreateShell(::foundation::core::DefaultAllocator());                                             \
-        ::foundation::graphics::GraphicsDeviceDesc appGpuDesc{};                                \
-        appGpuDesc.backend =                                                                  \
-            ::foundation::graphics::SelectBackendFromArguments(argc, argv);                          \
+        ::foundation::graphics::GraphicsDeviceDesc appGpuDesc =                                 \
+            ::foundation::graphics::DeviceDescFromArguments(argc, argv);                             \
         auto appGpu = ::foundation::graphics::CreateGraphicsDevice(appGpuDesc);            \
         ::foundation::graphics::GraphicsDevice* appDevice =                                     \
             appGpu.HasValue() ? appGpu.Value().Get() : nullptr;                          \

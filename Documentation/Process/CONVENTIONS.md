@@ -17,8 +17,9 @@ violating them fails review even if the feature works.
   optimized, profiling instrumentation on, GPU validation OFF by default (the
   GraphicsDeviceDesc default follows BUILD_RELEASE; the editor took that default from
   2026-09-24 - before, it forced the Vulkan layer on in every config). Force either way
-  with `--gpu-validation` / `--no-gpu-validation` on any executable that runs its
-  arguments through `graphics::ApplyValidationArguments`.
+  with `--gpu-validation` / `--no-gpu-validation` on the editor, the player and every
+  sample: each builds its device desc with `graphics::DeviceDescFromArguments` (backend and
+  validation from the command line), and a new executable should too.
 - Point the compiler's temp directory at the DISK for big builds: `export
   TMPDIR=<repo>/build/tmp` (gitignored under build/). `/tmp` on the dev box is a 7.5 GB
   tmpfs shared with every session's scratch; a release rebuild filled it mid-compile and

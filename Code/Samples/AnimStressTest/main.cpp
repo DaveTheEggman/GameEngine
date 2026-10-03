@@ -701,8 +701,7 @@ namespace
 int main(int argc, char** argv)
 {
     auto shell = shell::CreateShell(AppRoot());
-    graphics::GraphicsDeviceDesc gpuDesc{};
-    gpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
+    graphics::GraphicsDeviceDesc gpuDesc = graphics::DeviceDescFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gpuDesc);
     graphics::GraphicsDevice* device = gpu.HasValue() ? gpu.Value().Get() : nullptr;
 

@@ -193,3 +193,18 @@ TEST_CASE("graphics: validation follows the build config, and the command line o
     CHECK_FALSE(desc.enableValidation);
 }
 
+
+TEST_CASE("graphics: an executable's device desc takes both its backend and its validation flags")
+{
+    // The one call every entry (the editor, the player, the samples) makes: the player ignored
+    // --no-gpu-validation while the editor honoured it, so their frame times did not compare.
+    const char* player[] = {"Engine.Player", "--webgpu", "--no-gpu-validation"};
+    const GraphicsDeviceDesc desc = DeviceDescFromArguments(3, const_cast<char**>(player));
+    CHECK(desc.backend == BackendType::WebGPU);
+    CHECK_FALSE(desc.enableValidation);
+
+    const char* plain[] = {"Engine.Player"};
+    const GraphicsDeviceDesc defaults = DeviceDescFromArguments(1, const_cast<char**>(plain));
+    CHECK(defaults.backend == BackendType::Vulkan);
+    CHECK(defaults.enableValidation == GraphicsDeviceDesc{}.enableValidation); // the config's
+}

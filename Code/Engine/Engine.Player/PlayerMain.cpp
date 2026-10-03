@@ -206,11 +206,12 @@ int engine::player::PlayerMain(int argc, char** argv,
         return 1;
     }
 
-    graphics::GraphicsDeviceDesc gdd;
     // Backend from the CLI (--vulkan default / --webgpu / --dx12), so the desktop player can drive the
     // SAME WebGPU backend the browser uses - with the DXC runtime compiler + shader hot-reload present,
     // which the web build lacks. Invaluable for debugging web-render issues without the wasm/export loop.
-    gdd.backend = graphics::SelectBackendFromArguments(argc, argv);
+    // Validation follows the build config unless --gpu-validation / --no-gpu-validation says
+    // otherwise, as in the editor, so their frame times compare.
+    graphics::GraphicsDeviceDesc gdd = graphics::DeviceDescFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {

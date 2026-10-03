@@ -137,6 +137,17 @@ export namespace foundation::graphics
         }
     }
 
+    /// The device desc a desktop executable's command line asks for: the backend
+    /// (SelectBackendFromArguments) and the validation layer (ApplyValidationArguments). The one
+    /// call every entry makes, so a flag one executable honours, every executable honours.
+    [[nodiscard]] inline GraphicsDeviceDesc DeviceDescFromArguments(int argc, char** argv)
+    {
+        GraphicsDeviceDesc desc;
+        desc.backend = SelectBackendFromArguments(argc, argv);
+        ApplyValidationArguments(argc, argv, desc);
+        return desc;
+    }
+
     struct RenderWindowDesc
     {
         rhi::TextureFormat format = rhi::TextureFormat::BGRA8UnormSrgb;

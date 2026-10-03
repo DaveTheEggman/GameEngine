@@ -3280,9 +3280,7 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    graphics::GraphicsDeviceDesc gdd;
-    gdd.backend = graphics::SelectBackendFromArguments(argc, argv);
-    gdd.enableValidation = true;
+    graphics::GraphicsDeviceDesc gdd = graphics::DeviceDescFromArguments(argc, argv);
     auto gpu = graphics::CreateGraphicsDevice(gdd);
     if (!gpu.HasValue())
     {

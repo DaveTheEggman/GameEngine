@@ -402,8 +402,7 @@ int main(int argc, char** argv)
     static core::ConsoleSink appConsoleSink;
     core::GlobalLogger().AddSink(&appConsoleSink);
     auto shell = shell::CreateShell(MemoryAllocator());
-    graphics::GraphicsDeviceDesc appGpuDesc{};
-    appGpuDesc.backend = graphics::SelectBackendFromArguments(argc, argv);
+    graphics::GraphicsDeviceDesc appGpuDesc = graphics::DeviceDescFromArguments(argc, argv);
     auto appGpu = graphics::CreateGraphicsDevice(appGpuDesc);
     graphics::GraphicsDevice* appDevice = appGpu.HasValue() ? appGpu.Value().Get() : nullptr;
     ScriptApp app;
