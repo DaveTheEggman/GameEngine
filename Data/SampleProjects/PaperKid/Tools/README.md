@@ -14,6 +14,10 @@ scripts drive them; none of this is game content.
   writes just that one. Bake a block's navigation after writing it (`navigation_bake`). The look
   (`ENVIRONMENT`, `POST`) is written to two shared profiles, `Profiles/PaperKid Environment` and
   `Profiles/PaperKid Post`, which every scene's settings name; `asset_cook` after changing it.
+- `fx.py`: the particle effects (Confetti, Sparkle, Dust, Puff) and the soft round sprite they
+  use, written through `asset_data_write` from the engine's own new effect; `kit.py` wraps each in
+  an `Fx*` prefab (the effect plus `Fx.as`, which removes it once the burst has played), and the
+  scripts spawn those where things happen. Run `fx.py` before `kit.py` in a fresh project.
 - `scripts/*.as` + `render.py`: the game's scripts with `{{AssetName}}` placeholders;
   `render.py <Name>...` fills in the asset ids, writes `Sources/<Name>.as` and compile-checks it.
 - `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse) and the

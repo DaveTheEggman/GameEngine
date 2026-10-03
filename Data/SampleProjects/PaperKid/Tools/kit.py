@@ -176,11 +176,22 @@ def target_ring():
     return d
 
 
+def fx(name, effect, lifetime):
+    """A one-shot burst the scripts spawn (fx.py makes the effects): its effect fires when it is
+    spawned, and Fx.as takes it away once the burst has played out."""
+    d = Doc(name)
+    r = d.entity(name)
+    d.add(r, "particle_effect", effect=ids[effect])
+    d.script(r, (ids["Fx"], {"lifetime": lifetime}))
+    return d
+
+
 pieces = [house("HouseRed", (0.78, 0.36, 0.3), (0.35, 0.18, 0.15)),
           house("HouseBlue", (0.42, 0.58, 0.78), (0.2, 0.26, 0.38)),
           house("HouseCream", (0.92, 0.85, 0.66), (0.42, 0.32, 0.22)),
           road(), kerb(), car(), car("CarOuter", -1, (0.82, 0.22, 0.18), (0.55, 0.12, 0.1)), pedestrian(), bin_(), hydrant(), traffic_cone(), paper(), delivery_zone(),
-          aim_dot(), target_ring()]
+          aim_dot(), target_ring(), fx("FxConfetti", "Confetti", 4.0), fx("FxSparkle", "Sparkle", 1.5),
+          fx("FxDust", "Dust", 1.5), fx("FxPuff", "Puff", 1.0)]
 out = {}
 for d in pieces:
     out[d.name] = d.write(prefabs.get(d.name), prefab=True, group="Prefabs")

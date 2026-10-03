@@ -12,14 +12,17 @@
 // leaves the steering and throttle weak for a moment; the Level takes the time penalty.
 //
 // The feel: the bike leans into its turns (harder the faster it goes) and wobbles while it
-// recovers from a crash; a throw and a crash each have their sound, pitched a little at random
-// so repeats do not sound the same. Near a subscriber, the throw is shown before it is made: a
+// recovers from a crash, which kicks up road dust; a throw and a crash each have their sound,
+// pitched a little at random so repeats do not sound the same. A cleared block bursts confetti
+// over the rider. Near a subscriber, the throw is shown before it is made: a
 // trail of glowing dots along the path a paper would take, drifting forward, and a ring spinning
 // on the porch the throw is pulled toward (the AimDot and TargetRing prefabs, spawned once and moved each frame).
 
 Guid kPaper = Guid("6aa57026-4f4a-44ae-835d-2d2905746210");
 Guid kAimDot = Guid("97e1822e-5d3c-49ed-8beb-27fbad532ec7");
 Guid kTargetRing = Guid("0eb2f2ec-c7ee-4f78-8dd4-c4d5df079828");
+Guid kFxDust = Guid("d0f11e50-c077-424e-a07d-9434c33b187e");
+Guid kFxConfetti = Guid("1658e429-7f52-4d69-b79a-b1a5cb5d5a86");
 
 const int kAimDots = 14;
 const float kAimStep = 0.09f; // flight seconds between dots
@@ -102,7 +105,15 @@ class Bike
         // Bounce back against the way the bike was going: off whatever it ran into.
         m_speed = (m_speed >= 0.0f) ? -knockback : knockback;
         Audio::playOneShot(kCrashSound, AudioBus::Effects, 1.0f, Random::range(0.9f, 1.1f));
+        // Road dust off the wheels (the bike's centre is 0.9 above them).
+        ScenePrefabs::of(self.scene).spawn(kFxDust, self.position() + Float3(0.0f, -0.8f, 0.0f));
         self.scene.events.emit("BikeCrashed", 1);
+    }
+
+    // The block is cleared: confetti bursts over the rider, and hangs in the slow motion after.
+    void onQuotaMet(int secondsLeft)
+    {
+        ScenePrefabs::of(self.scene).spawn(kFxConfetti, self.position() + Float3(0.0f, 1.6f, 0.0f));
     }
 
     void onUpdate(double dt)
