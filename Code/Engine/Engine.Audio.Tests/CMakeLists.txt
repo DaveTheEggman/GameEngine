@@ -1,10 +1,11 @@
 add_executable(Engine.Audio.Tests
     TestsMain.cpp
-    AudioSceneTests.cpp)
+    AudioSceneTests.cpp
+    RunAudioTests.cpp)
 
 target_link_libraries(Engine.Audio.Tests PRIVATE
     Engine::Audio Foundation::Audio.Resource Foundation::Scene Foundation::Scene.Resource
-    Foundation::Content Foundation::Resource Foundation::VFS
+    Foundation::Content Foundation::Resource Foundation::VFS Foundation::Runtime
     doctest::doctest)
 
 target_compile_definitions(Engine.Audio.Tests PRIVATE

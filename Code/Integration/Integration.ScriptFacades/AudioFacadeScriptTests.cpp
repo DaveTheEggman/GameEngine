@@ -20,6 +20,7 @@ import foundation.vfs;
 import foundation.content;
 import foundation.resource;
 import foundation.script;
+import foundation.script.facades; // ScriptRuntimeBinding (the run a context belongs to)
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
 #endif
@@ -178,6 +179,38 @@ namespace
             CHECK(subsystem.Engine()->ActiveVoiceCount() >= before + 4u);
             CHECK(subsystem.Engine()->BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
             CHECK(ids->GetGlobal(u8"MusicVolume").Get<f64>() == doctest::Approx(0.5));
+        }
+
+        // In a run (the context's runtime binding names one, as a GameInstance's run host does):
+        // the script's music goes into the run's own group and its bus volumes are the run's, so
+        // the run's Stop ends the music and its sliders never move the editor's buses.
+        {
+            utf8char beepText[37];
+            utf8char stepsText[37];
+            beep->Id().ToChars(beepText);
+            steps->Id().ToChars(stepsText);
+            int runKey = 0;
+            foundation::script::ScriptRuntimeBinding runtime;
+            runtime.run = &runKey;
+            subsystem.Engine()->SetBusVolume(AudioBus::Music, 1.0f);
+            RefPtr<foundation::script::IScriptContext> inRun = scripts->CreateContext();
+            inRun->SetService(foundation::script::kScriptRuntimeService, &runtime);
+            subsystem.ExposeToScript(*inRun, &manager);
+            const String byId = idScript(StringView(beepText), StringView(stepsText));
+            REQUIRE(inRun->Load(byId.AsView(), u8"main").IsOk());
+            const u64 run = subsystem.FindRunGroup(&runKey);
+            REQUIRE(run != 0u);
+            const VoiceHandle runMusic = subsystem.Engine()->MusicVoice(run);
+            CHECK(runMusic.IsValid());
+            CHECK(subsystem.Engine()->RunBusVolume(run, AudioBus::Music) == doctest::Approx(0.5f));
+            CHECK(subsystem.Engine()->BusVolume(AudioBus::Music) == doctest::Approx(1.0f));
+            CHECK(inRun->GetGlobal(u8"MusicVolume").Get<f64>() == doctest::Approx(0.5));
+            subsystem.EndRun(&runKey);
+            for (int i = 0; i < 4; ++i)
+            {
+                subsystem.Update(0.1f);
+            }
+            CHECK_FALSE(subsystem.Engine()->IsValidHandle(runMusic));
         }
 
         // No binding bound: playback calls report false, never a fault.

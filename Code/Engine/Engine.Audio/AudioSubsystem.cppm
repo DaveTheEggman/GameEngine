@@ -130,6 +130,9 @@ export namespace engine::audio
         /// headless engine directly).
         void SetEngine(AudioEngine* engine) noexcept { m_engine = engine; }
         [[nodiscard]] AudioEngine* Engine() const noexcept { return m_engine; }
+        /// How the scene finds its run's group when it starts (the subsystem wires it; without it
+        /// the scene plays outside every run).
+        void SetRunGroupResolver(Function<u64(const void*)> resolver) { m_runGroupFor = Move(resolver); }
         [[nodiscard]] u64 SceneGroup() const noexcept { return m_sceneGroup; }
         [[nodiscard]] scene::Scene* ScenePtr() const noexcept { return m_scene; }
         [[nodiscard]] bool Started() const noexcept { return m_started; }
@@ -144,7 +147,9 @@ export namespace engine::audio
             {
                 return;
             }
-            m_sceneGroup = m_engine->CreateSceneGroup();
+            // A scene of a run nests under the run's groups: the run's stop, pause and mute reach it.
+            const u64 run = (m_runGroupFor && m_scene->Run() != nullptr) ? m_runGroupFor(m_scene->Run()) : 0;
+            m_sceneGroup = m_engine->CreateSceneGroup(run);
 
             // Autoplay: world matrices are current before this fires (Scene::Start
             // guarantee) - positional voices start where they were authored.
@@ -520,6 +525,7 @@ export namespace engine::audio
         scene::Scene* m_scene = nullptr;
         AudioEngine* m_engine = nullptr;
         u64 m_sceneGroup = 0;
+        Function<u64(const void*)> m_runGroupFor; // run -> its group (the subsystem's registry)
         bool m_started = false;
         bool m_wasSimulating = true;
         Random m_cueRandom; // cue variant selection (per scene system)
@@ -636,6 +642,8 @@ export namespace engine::audio
         {
             AudioSceneSystem* system = scene.GetSystem<AudioSceneSystem>();
             system->SetEngine(m_engine.Get());
+            system->SetRunGroupResolver(Function<u64(const void*)>{
+                [this](const void* run) { return RunGroupFor(run); }});
             m_systems.PushBack(SceneEntry{&scene, system});
         }
         void OnDestroying(scene::Scene& scene) override
@@ -656,9 +664,10 @@ export namespace engine::audio
 
         // ---- engine-global one-shots ----
 
+        // `runGroup` (RunGroupFor) puts the voice in a run: the run's stop, pause and mute reach it.
         [[nodiscard]] VoiceHandle PlayOneShot(const RefPtr<AudioClip>& clip,
                                               AudioBus bus = AudioBus::Effects, f32 volume = 1.0f,
-                                              f32 pitch = 1.0f)
+                                              f32 pitch = 1.0f, u64 runGroup = 0)
         {
             if (m_engine.Get() == nullptr)
             {
@@ -668,6 +677,7 @@ export namespace engine::audio
             params.bus = bus;
             params.volume = volume;
             params.pitch = pitch;
+            params.runGroup = runGroup;
             return m_engine->Play(clip, params);
         }
 
@@ -687,10 +697,11 @@ export namespace engine::audio
         /// One cue TRIGGER as a one-shot: weighted variant + jitter through the same
         /// resolution the components use; no-repeat state tracked per cue product.
         [[nodiscard]] VoiceHandle PlayCueOneShot(const RefPtr<SoundCue>& cue,
-                                                 AudioBus bus = AudioBus::Effects)
+                                                 AudioBus bus = AudioBus::Effects, u64 runGroup = 0)
         {
             AudioPlayParams params;
             params.bus = bus;
+            params.runGroup = runGroup;
             return PlayCueResolved(cue, params);
         }
         [[nodiscard]] VoiceHandle PlayCueOneShot3D(const RefPtr<SoundCue>& cue, Float3 position,
@@ -724,29 +735,32 @@ export namespace engine::audio
         // (a cue handed to playOneShot behaves like the component's cue-wins rule).
 
         VoiceHandle PlayOneShotByPath(foundation::resource::ResourceManager& resources,
-                                      StringView path, AudioBus bus = AudioBus::Effects)
+                                      StringView path, AudioBus bus = AudioBus::Effects,
+                                      u64 runGroup = 0)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
             if (content.cue.Get() != nullptr)
             {
                 AudioPlayParams params;
                 params.bus = bus;
+                params.runGroup = runGroup;
                 return PlayCueResolved(content.cue, params);
             }
             if (content.clip.Get() == nullptr)
             {
                 return {};
             }
-            return PlayOneShot(content.clip, bus);
+            return PlayOneShot(content.clip, bus, 1.0f, 1.0f, runGroup);
         }
 
         VoiceHandle PlayOneShot3DByPath(foundation::resource::ResourceManager& resources,
-                                        StringView path, Float3 position)
+                                        StringView path, Float3 position, u64 runGroup = 0)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
+            AudioPlayParams params;
+            params.runGroup = runGroup;
             if (content.cue.Get() != nullptr)
             {
-                AudioPlayParams params;
                 params.spatial = true;
                 params.position = position;
                 return PlayCueResolved(content.cue, params);
@@ -755,20 +769,20 @@ export namespace engine::audio
             {
                 return {};
             }
-            return PlayOneShot3D(content.clip, position);
+            return PlayOneShot3D(content.clip, position, params);
         }
 
         VoiceHandle PlayCueByPath(foundation::resource::ResourceManager& resources, StringView path,
-                                  AudioBus bus = AudioBus::Effects)
+                                  AudioBus bus = AudioBus::Effects, u64 runGroup = 0)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
             if (content.cue.Get() != nullptr)
             {
-                return PlayCueOneShot(content.cue, bus);
+                return PlayCueOneShot(content.cue, bus, runGroup);
             }
             if (content.clip.Get() != nullptr)
             {
-                return PlayOneShot(content.clip, bus);
+                return PlayOneShot(content.clip, bus, 1.0f, 1.0f, runGroup);
             }
             return {};
         }
@@ -797,7 +811,7 @@ export namespace engine::audio
         }
 
         VoiceHandle PlayMusicByPath(foundation::resource::ResourceManager& resources, StringView path,
-                                    f32 crossFadeSeconds = 1.0f)
+                                    f32 crossFadeSeconds = 1.0f, u64 runGroup = 0)
         {
             const ResolvedPathContent content = ResolveContentPath(resources, path);
             RefPtr<AudioClip> clip = content.clip;
@@ -821,22 +835,109 @@ export namespace engine::audio
             {
                 return {};
             }
-            return PlayMusic(clip, crossFadeSeconds);
+            return PlayMusic(clip, crossFadeSeconds, 1.0f, runGroup);
         }
 
-        // ---- music (scene-less, survives scene swaps) ----
+        // ---- music (scene-less, survives scene swaps; one slot per run) ----
         VoiceHandle PlayMusic(const RefPtr<AudioClip>& clip, f32 crossFadeSeconds = 1.0f,
-                              f32 volume = 1.0f)
+                              f32 volume = 1.0f, u64 runGroup = 0)
         {
-            return m_engine.Get() != nullptr ? m_engine->PlayMusic(clip, crossFadeSeconds, volume)
-                                             : VoiceHandle{};
+            return m_engine.Get() != nullptr
+                       ? m_engine->PlayMusic(clip, crossFadeSeconds, volume, runGroup)
+                       : VoiceHandle{};
         }
-        void StopMusic(f32 fadeSeconds = 1.0f)
+        void StopMusic(f32 fadeSeconds = 1.0f, u64 runGroup = 0)
         {
             if (m_engine.Get() != nullptr)
             {
-                m_engine->StopMusic(fadeSeconds);
+                m_engine->StopMusic(fadeSeconds, runGroup);
             }
+        }
+
+        // ---- runs: what one running game plays (keyed by its run, Scene::Run / CurrentRun) ----
+        /// The run's group, made on first use (0 for no run or no engine). A new run starts muted
+        /// when another run holds the focus and only the focused run is heard.
+        [[nodiscard]] u64 RunGroupFor(const void* run)
+        {
+            if (run == nullptr || m_engine.Get() == nullptr)
+            {
+                return 0;
+            }
+            for (const RunEntry& entry : m_runs)
+            {
+                if (entry.run == run)
+                {
+                    return entry.group;
+                }
+            }
+            const u64 group = m_engine->CreateRunGroup();
+            m_runs.PushBack(RunEntry{run, group});
+            m_engine->SetRunGroupMuted(group, !IsRunAudible(run));
+            return group;
+        }
+        /// The run is over (its Stop, its instance released): everything it plays fades out over
+        /// `fadeSeconds`, then its group is freed. Other runs and the editor are untouched.
+        void EndRun(const void* run, f32 fadeSeconds = 0.1f)
+        {
+            for (usize i = 0; i < m_runs.Size(); ++i)
+            {
+                if (m_runs[i].run != run)
+                {
+                    continue;
+                }
+                if (m_engine.Get() != nullptr)
+                {
+                    m_engine->StopRunGroup(m_runs[i].group, fadeSeconds);
+                    m_endingRuns.PushBack(EndingRun{m_runs[i].group, fadeSeconds + 0.05f});
+                }
+                m_runs.RemoveAt(i);
+                break;
+            }
+            if (m_focusedRun == run)
+            {
+                m_focusedRun = nullptr;
+                ApplyRunAudibility();
+            }
+        }
+        /// The host's pause (the toolbar's, a debugger break): the run's music and one-shots freeze
+        /// with the game. A game's own pause menu (time scale 0) is the game's business.
+        void SetRunPaused(const void* run, bool paused)
+        {
+            if (const u64 group = FindRunGroup(run); group != 0)
+            {
+                m_engine->SetRunGroupPaused(group, paused);
+            }
+        }
+        /// The run the user is playing (the focused Game tab): with HearAllRuns off, only it is
+        /// heard; the others keep running muted. Null = no preference: every run is heard.
+        void SetFocusedRun(const void* run)
+        {
+            m_focusedRun = run;
+            ApplyRunAudibility();
+        }
+        [[nodiscard]] const void* FocusedRun() const noexcept { return m_focusedRun; }
+        /// The editor setting "Game audio: all instances" (default off: the focused one only).
+        void SetHearAllRuns(bool all)
+        {
+            m_hearAllRuns = all;
+            ApplyRunAudibility();
+        }
+        [[nodiscard]] bool HearAllRuns() const noexcept { return m_hearAllRuns; }
+        /// Whether `run` is heard (scenes outside every run always are).
+        [[nodiscard]] bool IsRunAudible(const void* run) const noexcept
+        {
+            return run == nullptr || m_hearAllRuns || m_focusedRun == nullptr || m_focusedRun == run;
+        }
+        [[nodiscard]] u64 FindRunGroup(const void* run) const noexcept
+        {
+            for (const RunEntry& entry : m_runs)
+            {
+                if (entry.run == run)
+                {
+                    return entry.group;
+                }
+            }
+            return 0;
         }
 
         void Stop(VoiceHandle handle)
@@ -894,6 +995,46 @@ export namespace engine::audio
             }
             }
             m_engine = nullptr;
+        }
+
+        struct RunEntry
+        {
+            const void* run = nullptr;
+            u64 group = 0;
+        };
+        struct EndingRun
+        {
+            u64 group = 0;
+            f32 secondsLeft = 0.0f; // freed once its voices' fades have landed
+        };
+
+        void ApplyRunAudibility()
+        {
+            if (m_engine.Get() == nullptr)
+            {
+                return;
+            }
+            for (const RunEntry& entry : m_runs)
+            {
+                m_engine->SetRunGroupMuted(entry.group, !IsRunAudible(entry.run));
+            }
+        }
+
+        // Ends the runs whose fade-out finished (Update).
+        void ReapEndedRuns(f32 deltaTime)
+        {
+            for (usize i = m_endingRuns.Size(); i-- > 0;)
+            {
+                m_endingRuns[i].secondsLeft -= deltaTime;
+                if (m_endingRuns[i].secondsLeft <= 0.0f)
+                {
+                    if (m_engine.Get() != nullptr)
+                    {
+                        m_engine->DestroyRunGroup(m_endingRuns[i].group);
+                    }
+                    m_endingRuns.RemoveAt(i);
+                }
+            }
         }
 
         struct SceneEntry
@@ -1026,6 +1167,10 @@ export namespace engine::audio
         Random m_cueRandom;
         HashMap<const SoundCue*, CueOneShotState> m_cueOneShotState;
         AudioScriptBinding m_scriptBinding;        // the bound script service payload
+        Array<RunEntry> m_runs;                    // live runs' groups
+        Array<EndingRun> m_endingRuns;             // ended runs fading out before their free
+        const void* m_focusedRun = nullptr;        // the heard run (null = every run)
+        bool m_hearAllRuns = false;                // the editor setting (default: focused only)
         HashMap<String, bool> m_warnedScriptPaths; // warn-once per content path
     };
     // The scripting facade (the Input facade's twin): statics on a foreign class
@@ -1052,6 +1197,17 @@ export namespace engine::audio
         {
             AudioScriptBinding* binding = ResolveBinding();
             return binding != nullptr ? binding->engine : nullptr;
+        }
+
+        // The calling script's run group (its run's, made on first use), or 0 outside a run: what
+        // a script plays goes into its own run, so the run's stop, pause and mute reach it, and
+        // its bus volumes are the run's.
+        [[nodiscard]] static u64 CurrentRunGroup()
+        {
+            AudioScriptBinding* binding = ResolveBinding();
+            return (binding != nullptr && binding->subsystem != nullptr)
+                       ? binding->subsystem->RunGroupFor(foundation::script::CurrentRun())
+                       : 0;
         }
 
         // Playback binding: subsystem + resource manager both required (the binding
@@ -1088,8 +1244,9 @@ export namespace engine::audio
                 return {};
             }
             RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
-            return resolved.Get() != nullptr ? subsystem->PlayOneShot(resolved, bus, volume, pitch)
-                                             : VoiceHandle{};
+            return resolved.Get() != nullptr
+                       ? subsystem->PlayOneShot(resolved, bus, volume, pitch, CurrentRunGroup())
+                       : VoiceHandle{};
         }
         static VoiceHandle playOneShot3D(Guid clip, Float3 position)
         {
@@ -1100,7 +1257,9 @@ export namespace engine::audio
                 return {};
             }
             RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
-            return resolved.Get() != nullptr ? subsystem->PlayOneShot3D(resolved, position)
+            AudioPlayParams params;
+            params.runGroup = CurrentRunGroup();
+            return resolved.Get() != nullptr ? subsystem->PlayOneShot3D(resolved, position, params)
                                              : VoiceHandle{};
         }
         static VoiceHandle playCue(Guid cue) { return playCue(cue, AudioBus::Effects); }
@@ -1113,8 +1272,9 @@ export namespace engine::audio
                 return {};
             }
             RefPtr<SoundCue> resolved = subsystem->CueById(*resources, cue);
-            return resolved.Get() != nullptr ? subsystem->PlayCueOneShot(resolved, bus)
-                                             : VoiceHandle{};
+            return resolved.Get() != nullptr
+                       ? subsystem->PlayCueOneShot(resolved, bus, CurrentRunGroup())
+                       : VoiceHandle{};
         }
         static VoiceHandle playCue3D(Guid cue, Float3 position)
         {
@@ -1125,7 +1285,9 @@ export namespace engine::audio
                 return {};
             }
             RefPtr<SoundCue> resolved = subsystem->CueById(*resources, cue);
-            return resolved.Get() != nullptr ? subsystem->PlayCueOneShot3D(resolved, position)
+            AudioPlayParams params;
+            params.runGroup = CurrentRunGroup();
+            return resolved.Get() != nullptr ? subsystem->PlayCueOneShot3D(resolved, position, params)
                                              : VoiceHandle{};
         }
         /// The music track, cross-faded from the last.
@@ -1144,22 +1306,38 @@ export namespace engine::audio
             }
             RefPtr<AudioClip> resolved = subsystem->ClipById(*resources, clip);
             return resolved.Get() != nullptr
-                       ? subsystem->PlayMusic(resolved, Max(crossFadeSeconds, 0.0f), volume)
+                       ? subsystem->PlayMusic(resolved, Max(crossFadeSeconds, 0.0f), volume,
+                                              CurrentRunGroup())
                        : VoiceHandle{};
         }
 
         // ---- the four buses by enum (Sedulous's); a layout's named buses by name below ----
+        // In a run the bus volumes are the run's own (a game's options sliders never move the
+        // editor's buses or another run's); outside one, the engine's.
         static void setBusVolume(AudioBus bus, f32 volume)
         {
             if (AudioEngine* engine = Resolve())
             {
-                engine->SetBusVolume(bus, Clamp(volume, 0.0f, 4.0f));
+                const f32 clamped = Clamp(volume, 0.0f, 4.0f);
+                if (const u64 run = CurrentRunGroup(); run != 0)
+                {
+                    engine->SetRunBusVolume(run, bus, clamped);
+                }
+                else
+                {
+                    engine->SetBusVolume(bus, clamped);
+                }
             }
         }
         [[nodiscard]] static f32 busVolume(AudioBus bus)
         {
             AudioEngine* engine = Resolve();
-            return engine != nullptr ? engine->BusVolume(bus) : 1.0f;
+            if (engine == nullptr)
+            {
+                return 1.0f;
+            }
+            const u64 run = CurrentRunGroup();
+            return run != 0 ? engine->RunBusVolume(run, bus) : engine->BusVolume(bus);
         }
 
         // ---- content-path playback, the path forms (returns whether a voice actually started) ----
@@ -1171,7 +1349,9 @@ export namespace engine::audio
             {
                 return false;
             }
-            return subsystem->PlayOneShotByPath(*resources, path.AsView()).IsValid();
+            return subsystem
+                ->PlayOneShotByPath(*resources, path.AsView(), AudioBus::Effects, CurrentRunGroup())
+                .IsValid();
         }
         static bool playOneShot3DPath(String path, f32 x, f32 y, f32 z)
         {
@@ -1181,7 +1361,8 @@ export namespace engine::audio
             {
                 return false;
             }
-            return subsystem->PlayOneShot3DByPath(*resources, path.AsView(), Float3{x, y, z})
+            return subsystem
+                ->PlayOneShot3DByPath(*resources, path.AsView(), Float3{x, y, z}, CurrentRunGroup())
                 .IsValid();
         }
         static bool playCuePath(String path)
@@ -1192,7 +1373,9 @@ export namespace engine::audio
             {
                 return false;
             }
-            return subsystem->PlayCueByPath(*resources, path.AsView()).IsValid();
+            return subsystem
+                ->PlayCueByPath(*resources, path.AsView(), AudioBus::Effects, CurrentRunGroup())
+                .IsValid();
         }
         static bool playMusicPath(String path, f32 fadeSeconds)
         {
@@ -1202,7 +1385,8 @@ export namespace engine::audio
             {
                 return false;
             }
-            return subsystem->PlayMusicByPath(*resources, path.AsView(), Max(fadeSeconds, 0.0f))
+            return subsystem
+                ->PlayMusicByPath(*resources, path.AsView(), Max(fadeSeconds, 0.0f), CurrentRunGroup())
                 .IsValid();
         }
 
@@ -1224,7 +1408,7 @@ export namespace engine::audio
             const f32 clamped = Clamp(volume, 0.0f, 4.0f);
             if (BusFromName(bus.AsView(), which))
             {
-                engine->SetBusVolume(which, clamped);
+                setBusVolume(which, clamped);
             }
             else
             {
@@ -1241,7 +1425,7 @@ export namespace engine::audio
             AudioBus which{};
             if (BusFromName(bus.AsView(), which))
             {
-                return engine->BusVolume(which);
+                return busVolume(which);
             }
             return engine->HasNamedBus(bus.AsView()) ? engine->NamedBusVolume(bus.AsView()) : 1.0f;
         }
@@ -1255,7 +1439,14 @@ export namespace engine::audio
             AudioBus which{};
             if (BusFromName(bus.AsView(), which))
             {
-                engine->SetBusMuted(which, muted);
+                if (const u64 run = CurrentRunGroup(); run != 0)
+                {
+                    engine->SetRunBusMuted(run, which, muted);
+                }
+                else
+                {
+                    engine->SetBusMuted(which, muted);
+                }
             }
             else
             {
@@ -1272,7 +1463,8 @@ export namespace engine::audio
             AudioBus which{};
             if (BusFromName(bus.AsView(), which))
             {
-                return engine->BusMuted(which);
+                const u64 run = CurrentRunGroup();
+                return run != 0 ? engine->RunBusMuted(run, which) : engine->BusMuted(which);
             }
             return engine->NamedBusMuted(bus.AsView());
         }
@@ -1280,7 +1472,7 @@ export namespace engine::audio
         {
             if (AudioEngine* engine = Resolve())
             {
-                engine->StopMusic(fadeSeconds);
+                engine->StopMusic(fadeSeconds, CurrentRunGroup());
             }
         }
     };

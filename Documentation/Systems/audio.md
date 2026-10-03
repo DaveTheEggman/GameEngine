@@ -75,6 +75,12 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
 - **Manager tick** (`ScenePhase::PostTransform`) resolves dirty refs, syncs position/forward/velocity,
   autoplays on simulation start, reaps finished one-shots; scene pause pauses that scene's voices
   (a per-scene group under the bus).
+- **Runs** - everything one running game plays (a `GameInstance`: the player's, each Game tab's) is
+  a run group above its scenes' groups, keyed by the run (`Scene::Run`, the script binding's
+  `CurrentRun`). A run has its own music slot and its own bus gains; the subsystem ends a run
+  (`EndRun`: a short fade, then freed), pauses it with the host (`SetRunPaused`), and hears only the
+  focused run (`SetFocusedRun`; `SetHearAllRuns` for every instance), muting the rest while they keep
+  running. Only heard runs' scenes feed the listeners.
 - **`Audio` facade** (registered via the reflection facade path; AngelScript + Luau), as Sedulous's:
   `playOneShot(clip[, bus, volume, pitch])` / `playOneShot3D(clip, position)` / `playCue(cue[, bus])`
   / `playCue3D(cue, position)` / `playMusic(clip[, crossFadeSeconds, volume])` by ASSET ID, each
@@ -82,7 +88,9 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
   `busVolume` by `AudioBus`. Ours beside them, named apart (a same-arity overload cannot share a
   name): `playOneShotPath` / `playOneShot3DPath` / `playCuePath` / `playMusicPath` by CONTENT PATH,
   `setNamedBusVolume` / `namedBusVolume` by bus name (a layout's custom buses too), `setBusMuted` /
-  `busMuted` / `stopMusic`. Bad content warns once and no-ops. Master/bus volumes persist via
+  `busMuted` / `stopMusic`. Bad content warns once and no-ops. In a run, what a script plays goes
+  into the run (its Stop ends it) and the bus volumes and mutes are the run's own (a game's sliders
+  never move the editor's buses or another instance's); a layout's custom named buses stay global. Master/bus volumes persist via
   `AudioUserSettings` (`<userdata>/<project>.user.settings.xml`).
 
 ## Deferred

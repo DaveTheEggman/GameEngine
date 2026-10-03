@@ -75,11 +75,15 @@ namespace engine::audio
         // engine's configured count - spatial voices attenuate against the CLOSEST
         // enabled listener (split-screen ears). No component anywhere = the first
         // started scene's camera stands in on slot 0. Unused slots disable.
+        ReapEndedRuns(deltaTime);
+
+        // Only heard runs' scenes feed the listeners: two Game tabs' cameras must not both be
+        // the ears (3D sound heard from one place).
         const u32 capacity = engine->ListenerCount();
         u32 used = 0;
         for (const SceneEntry& entry : Systems())
         {
-            if (!entry.system->Started() || used >= capacity)
+            if (!entry.system->Started() || used >= capacity || !IsRunAudible(entry.scene->Run()))
             {
                 continue;
             }
@@ -99,7 +103,7 @@ namespace engine::audio
         {
             for (const SceneEntry& entry : Systems())
             {
-                if (!entry.system->Started())
+                if (!entry.system->Started() || !IsRunAudible(entry.scene->Run()))
                 {
                     continue;
                 }
