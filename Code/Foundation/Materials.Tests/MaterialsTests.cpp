@@ -55,6 +55,60 @@ TEST_CASE("material builder: lays out uniforms + declares properties")
     CHECK(base[1] == doctest::Approx(0.0f));
 }
 
+TEST_CASE("material colours: authored sRGB, decoded to linear for the GPU; Float4 untouched")
+{
+    RefPtr<Material> mat = MaterialBuilder(u8"colours")
+                               .Shader(u8"forward")
+                               .Color(u8"Tint", Float4{0.5f, 0.25f, 1.0f, 0.5f})
+                               .ColorHdr(u8"Glow", Float4{0.5f, 0.0f, 1.0f, 3.0f})
+                               .Float4(u8"Params", Float4{0.5f, 0.5f, 0.5f, 0.5f})
+                               .Build();
+    REQUIRE(mat);
+    CHECK(mat->FindProperty(u8"Tint")->type == MaterialPropertyType::Color);
+    CHECK(mat->FindProperty(u8"Glow")->type == MaterialPropertyType::ColorHdr);
+    CHECK(mat->FindProperty(u8"Tint")->IsColor());
+    CHECK_FALSE(mat->FindProperty(u8"Params")->IsColor());
+
+    // The authored bytes keep the colour as entered...
+    const Span<const u8> authored = mat->DefaultUniformData();
+    Float4 tint;
+    MemCopy(&tint, authored.Data() + mat->FindProperty(u8"Tint")->offset, sizeof(tint));
+    CHECK(tint.x == doctest::Approx(0.5f));
+
+    // ...and the GPU's are linear: a Color decoded (alpha as is), a ColorHdr decoded and scaled
+    // by its intensity (w = 1), a plain Float4 copied.
+    Array<u8> gpu;
+    gpu.Resize(authored.Size());
+    EncodeUniformsForGpu(*mat, authored, gpu.Data());
+    const auto at = [&](StringView n)
+    {
+        Float4 v;
+        MemCopy(&v, gpu.Data() + mat->FindProperty(n)->offset, sizeof(v));
+        return v;
+    };
+    CHECK(at(u8"Tint").x == doctest::Approx(SrgbToLinear(0.5f)));
+    CHECK(at(u8"Tint").y == doctest::Approx(SrgbToLinear(0.25f)));
+    CHECK(at(u8"Tint").z == doctest::Approx(1.0f));
+    CHECK(at(u8"Tint").w == doctest::Approx(0.5f));
+    CHECK(at(u8"Glow").x == doctest::Approx(SrgbToLinear(0.5f) * 3.0f));
+    CHECK(at(u8"Glow").z == doctest::Approx(3.0f));
+    CHECK(at(u8"Glow").w == doctest::Approx(1.0f));
+    CHECK(at(u8"Params").x == doctest::Approx(0.5f));
+    CHECK(at(u8"Params").w == doctest::Approx(0.5f));
+}
+
+TEST_CASE("material templates: the builtin shaders' colours are colour properties")
+{
+    RefPtr<Material> pbr = BuiltinMaterialTemplate(u8"forward");
+    REQUIRE(pbr);
+    CHECK(pbr->FindProperty(u8"BaseColor")->type == MaterialPropertyType::Color);
+    CHECK(pbr->FindProperty(u8"EmissiveColor")->type == MaterialPropertyType::ColorHdr);
+    RefPtr<Material> unlit = BuiltinMaterialTemplate(u8"unlit");
+    REQUIRE(unlit);
+    CHECK(unlit->FindProperty(u8"BaseColor")->type == MaterialPropertyType::Color);
+    CHECK_FALSE(BuiltinMaterialTemplate(u8"my_custom_shader"));
+}
+
 TEST_CASE("material system: infers bind-group layout from properties + builds instance bind group")
 {
     rhi::null::NullDevice device{DefaultAllocator()};

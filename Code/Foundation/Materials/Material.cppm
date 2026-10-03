@@ -208,4 +208,32 @@ export namespace foundation::materials
 
     RTTI_DEFINE_OBJECT(Material, "rtti::materials")
 
+    // The uniform bytes a shader receives: the authored bytes as they are, except each colour
+    // property, which is authored sRGB and decoded to linear here (a ColorHdr's rgb also scaled by
+    // its intensity, its w set to 1). The one place a material's colours meet the GPU, like the
+    // hardware decode of an sRGB texture. `gpu` holds at least `authored.Size()` bytes.
+    inline void EncodeUniformsForGpu(const Material& material, Span<const u8> authored, u8* gpu)
+    {
+        if (authored.Size() > 0)
+        {
+            MemCopy(gpu, authored.Data(), authored.Size());
+        }
+        for (const MaterialPropertyDef& d : material.Properties())
+        {
+            if (!d.IsColor() || static_cast<usize>(d.offset) + sizeof(Float4) > authored.Size())
+            {
+                continue;
+            }
+            Float4 c;
+            MemCopy(&c, authored.Data() + d.offset, sizeof(c));
+            const Color linear = ToLinear(Color{c.x, c.y, c.z, c.w});
+            Float4 out{linear.r, linear.g, linear.b, linear.a};
+            if (d.type == MaterialPropertyType::ColorHdr)
+            {
+                out = Float4{linear.r * c.w, linear.g * c.w, linear.b * c.w, 1.0f};
+            }
+            MemCopy(gpu + d.offset, &out, sizeof(out));
+        }
+    }
+
 } // namespace foundation::materials

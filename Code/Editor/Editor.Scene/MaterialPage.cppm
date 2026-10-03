@@ -70,6 +70,40 @@ export namespace editor
     namespace render = foundation::render;
     namespace materials = foundation::materials;
 
+    // The row a material property gets on the page, by its declared type: a colour picker only
+    // for a declared colour (which shows the sRGB value as entered), a picker plus an intensity
+    // for a colour that may pass white, and plain numbers for any other Float4. Pure, so the
+    // choice is testable without a live host.
+    enum class MaterialPropertyRow : u8
+    {
+        None, // not shown (samplers, ints, matrices until a preset needs them)
+        Number,
+        Numbers4,
+        Color,
+        ColorWithIntensity,
+        Texture,
+    };
+
+    [[nodiscard]] inline MaterialPropertyRow MaterialPropertyRowFor(materials::MaterialPropertyType type)
+    {
+        switch (type)
+        {
+        case materials::MaterialPropertyType::Float:
+            return MaterialPropertyRow::Number;
+        case materials::MaterialPropertyType::Float4:
+            return MaterialPropertyRow::Numbers4;
+        case materials::MaterialPropertyType::Color:
+            return MaterialPropertyRow::Color;
+        case materials::MaterialPropertyType::ColorHdr:
+            return MaterialPropertyRow::ColorWithIntensity;
+        case materials::MaterialPropertyType::Texture2D:
+        case materials::MaterialPropertyType::TextureCube:
+            return MaterialPropertyRow::Texture;
+        default:
+            return MaterialPropertyRow::None;
+        }
+    }
+
     class MaterialEditorPage final : public app::UIEditorPage
     {
     public:

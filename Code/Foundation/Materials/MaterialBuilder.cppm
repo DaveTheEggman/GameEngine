@@ -120,9 +120,21 @@ export namespace foundation::materials
             m_material->SetDefaultFloat4(name, v);
             return *this;
         }
+        // An authored colour (sRGB rgba); the GPU sees it linear.
         MaterialBuilder& Color(StringView name, core::Float4 v = core::Float4{1, 1, 1, 1})
         {
-            return Float4(name, v);
+            AddUniform(name, MaterialPropertyType::Color, 16, true);
+            m_material->AllocateDefaultUniformData();
+            m_material->SetDefaultFloat4(name, v);
+            return *this;
+        }
+        // An authored colour with an intensity: sRGB rgb, linear intensity in w.
+        MaterialBuilder& ColorHdr(StringView name, core::Float4 colorAndIntensity)
+        {
+            AddUniform(name, MaterialPropertyType::ColorHdr, 16, true);
+            m_material->AllocateDefaultUniformData();
+            m_material->SetDefaultFloat4(name, colorAndIntensity);
+            return *this;
         }
 
         // --- resource properties (become bind-group entries) ---
@@ -202,7 +214,8 @@ export namespace foundation::materials
             // selects the WIND vertex variant (MeshRenderer::MaterialWantsWind).
             .Float(u8"WindStrength", 0.0f)
             .Float(u8"WindSpeed", 0.0f)
-            .Color(u8"EmissiveColor", Float4{0, 0, 0, 1}) // black = none (rgb x EmissiveMap)
+            // Black = none; rgb x EmissiveMap, times the intensity in w (glow above white).
+            .ColorHdr(u8"EmissiveColor", Float4{0, 0, 0, 1})
             .Float(u8"OcclusionStrength", 1.0f)
             .Float(u8"NormalScale", 1.0f)
             .Float(u8"AlphaCutoff", 0.5f)
@@ -229,6 +242,22 @@ export namespace foundation::materials
             .Texture(u8"AlbedoMap")
             .Sampler(u8"MainSampler")
             .Build();
+    }
+
+    // The builtin template a builtin shader's materials are made from (CreatePBR for "forward",
+    // CreateUnlit for "unlit"), or null for a custom shader: what a stored material's property
+    // table is checked against.
+    [[nodiscard]] inline RefPtr<Material> BuiltinMaterialTemplate(StringView shaderName)
+    {
+        if (shaderName == u8"forward")
+        {
+            return CreatePBR(u8"__template", Float4{1, 1, 1, 1}, 0.0f, 0.5f, shaderName);
+        }
+        if (shaderName == u8"unlit")
+        {
+            return CreateUnlit(u8"__template", Float4{1, 1, 1, 1}, shaderName);
+        }
+        return RefPtr<Material>{};
     }
 
 } // namespace foundation::materials

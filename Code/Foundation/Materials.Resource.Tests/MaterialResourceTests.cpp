@@ -200,6 +200,42 @@ TEST_CASE("material: a forward source missing the forward properties is STALE (r
     CHECK(ForwardMaterialSourceIsComplete(unlit));
 }
 
+TEST_CASE("material source: a stored Float4 colour reads as the template's colour type")
+{
+    // A material stored before colour properties existed: its colours are Float4.
+    RefPtr<Material> pbr = CreatePBR(u8"old");
+    MaterialSource src;
+    MaterialSource::FromMaterial(*pbr, Guid{}, src);
+    src.shaderName = String(u8"forward");
+    usize baseColor = 0, emissive = 0, metallic = 0;
+    for (usize i = 0; i < src.propertyNames.Size(); ++i)
+    {
+        if (src.propertyNames[i] == u8"BaseColor") baseColor = i;
+        if (src.propertyNames[i] == u8"EmissiveColor") emissive = i;
+        if (src.propertyNames[i] == u8"Metallic") metallic = i;
+        if (src.propertyTypes[i] == static_cast<u8>(MaterialPropertyType::Color) ||
+            src.propertyTypes[i] == static_cast<u8>(MaterialPropertyType::ColorHdr))
+        {
+            src.propertyTypes[i] = static_cast<u8>(MaterialPropertyType::Float4);
+        }
+    }
+
+    src.AdoptTemplateColorTypes();
+    CHECK(src.propertyTypes[baseColor] == static_cast<u8>(MaterialPropertyType::Color));
+    CHECK(src.propertyTypes[emissive] == static_cast<u8>(MaterialPropertyType::ColorHdr));
+    CHECK(src.propertyTypes[metallic] == static_cast<u8>(MaterialPropertyType::Float));
+    src.AdoptTemplateColorTypes(); // idempotent
+    CHECK(src.propertyTypes[baseColor] == static_cast<u8>(MaterialPropertyType::Color));
+
+    // A custom shader's Float4 stays a Float4: nothing says it is a colour.
+    MaterialSource custom;
+    MaterialSource::FromMaterial(*pbr, Guid{}, custom);
+    custom.shaderName = String(u8"my_custom_shader");
+    custom.propertyTypes[baseColor] = static_cast<u8>(MaterialPropertyType::Float4);
+    custom.AdoptTemplateColorTypes();
+    CHECK(custom.propertyTypes[baseColor] == static_cast<u8>(MaterialPropertyType::Float4));
+}
+
 TEST_CASE("material source: sampler address modes round-trip")
 {
     using namespace foundation::materials;

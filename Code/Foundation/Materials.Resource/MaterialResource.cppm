@@ -93,6 +93,37 @@ export namespace foundation::materials
             foundation::core::Serialize(ar, "textureIds", textureIds);
             foundation::core::Serialize(ar, "samplerU", samplerU);
             foundation::core::Serialize(ar, "samplerV", samplerV);
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                AdoptTemplateColorTypes();
+            }
+        }
+
+        // A material stored before materials had colour properties declared its colours as
+        // Float4. A Float4 that the builtin template of this material's shader declares as a
+        // colour takes the template's colour type, so its value is treated as the sRGB colour it
+        // was entered as (and the editor shows a colour picker for it). Idempotent; a custom
+        // shader's properties are left as they are.
+        void AdoptTemplateColorTypes()
+        {
+            RefPtr<Material> templ = BuiltinMaterialTemplate(shaderName.AsView());
+            if (!templ)
+            {
+                return;
+            }
+            const usize count = Min(propertyNames.Size(), propertyTypes.Size());
+            for (usize i = 0; i < count; ++i)
+            {
+                if (propertyTypes[i] != static_cast<u8>(MaterialPropertyType::Float4))
+                {
+                    continue;
+                }
+                const MaterialPropertyDef* def = templ->FindProperty(propertyNames[i].AsView());
+                if (def != nullptr && def->IsColor())
+                {
+                    propertyTypes[i] = static_cast<u8>(def->type);
+                }
+            }
         }
 
         // Captures a built Material's declared layout + defaults into an authorable source

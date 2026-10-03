@@ -436,7 +436,7 @@ export namespace foundation::materials
             {
                 if (void* ptr = buffer->Map())
                 {
-                    MemCopy(ptr, data.Data(), data.Size());
+                    EncodeUniformsForGpu(*material, data, static_cast<u8*>(ptr));
                     buffer->Unmap();
                 }
             }

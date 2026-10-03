@@ -38,6 +38,12 @@ export namespace foundation::materials
         Texture2D,
         TextureCube,
         Sampler,
+        // A colour as authored: sRGB, as a picker and a hex code show it (rgba, 16 bytes). The
+        // GPU receives it decoded to linear (alpha as is), so a shader reads a linear float4.
+        Color,
+        // A colour that may be brighter than white: an sRGB colour in rgb and a linear intensity
+        // in a (16 bytes). The GPU receives linear rgb times the intensity, and a = 1.
+        ColorHdr,
     };
 
     // One declared property: its name, kind, and (for uniforms) its byte offset/size
@@ -61,6 +67,10 @@ export namespace foundation::materials
             return type == MaterialPropertyType::Sampler;
         }
         [[nodiscard]] bool IsUniform() const noexcept { return !IsTexture() && !IsSampler(); }
+        [[nodiscard]] bool IsColor() const noexcept
+        {
+            return type == MaterialPropertyType::Color || type == MaterialPropertyType::ColorHdr;
+        }
 
         // Packed size of a uniform property kind (0 for textures/samplers).
         [[nodiscard]] static u32 SizeOf(MaterialPropertyType t) noexcept
@@ -78,6 +88,8 @@ export namespace foundation::materials
                 return 12;
             case MaterialPropertyType::Float4:
             case MaterialPropertyType::Int4:
+            case MaterialPropertyType::Color:
+            case MaterialPropertyType::ColorHdr:
                 return 16;
             case MaterialPropertyType::Matrix4x4:
                 return 64;

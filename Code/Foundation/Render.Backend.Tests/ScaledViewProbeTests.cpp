@@ -76,7 +76,8 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
         RefPtr<geometry::StaticMesh> planeMesh = geometry::Primitives::Plane(DefaultAllocator(), 24.0f, 24.0f);
         RefPtr<materials::Material> cubeMat = materials::CreatePBR(u8"probe.cube", Float4{1, 1, 1, 1}, 0.0f, 0.6f);
         RefPtr<materials::Material> planeMat =
-            materials::CreatePBR(u8"probe.plane", Float4{0.18f, 0.18f, 0.18f, 1}, 0.0f, 0.8f);
+            // 18% grey (linear 0.18), written as the sRGB colour it is entered as.
+            materials::CreatePBR(u8"probe.plane", Float4{0.461f, 0.461f, 0.461f, 1}, 0.0f, 0.8f);
         ExtractedScene scene{DefaultAllocator()};
         scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
         MeshRenderData* cube = scene.Add<MeshRenderData>();

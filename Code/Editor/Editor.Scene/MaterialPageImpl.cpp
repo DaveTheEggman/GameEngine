@@ -543,12 +543,13 @@ namespace editor
                                return reinterpret_cast<u8&>(s.cullMode);
                            });
 
-        // --- Properties: the source's uniform table (Float / Float4-as-color today) ---
+        // --- Properties: the source's uniform table (Float, Float4, Color, ColorHdr) ---
         for (usize i = 0; i < src.propertyNames.Size(); ++i)
         {
             const auto type = static_cast<materials::MaterialPropertyType>(src.propertyTypes[i]);
+            const MaterialPropertyRow row = MaterialPropertyRowFor(type);
             const String name = src.propertyNames[i]; // copy: the grid outlives rebuilds of src arrays
-            if (type == materials::MaterialPropertyType::Float)
+            if (row == MaterialPropertyRow::Number)
             {
                 auto value = [self, name]() -> f64
                 {
@@ -591,34 +592,68 @@ namespace editor
                               [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 }
             }
-            else if (type == materials::MaterialPropertyType::Float4)
+            else if (row == MaterialPropertyRow::Numbers4 || row == MaterialPropertyRow::Color ||
+                     row == MaterialPropertyRow::ColorWithIntensity)
             {
-                auto value = [self, name]() -> Color
+                auto read = [self, name]() -> Float4
                 {
                     Float4 v{1, 1, 1, 1};
                     self->ReadUniform(name.AsView(), &v, sizeof(v));
-                    return Color{v.x, v.y, v.z, v.w};
+                    return v;
+                };
+                auto write = [self, name](Float4 v)
+                {
+                    self->ApplyEdit(name.AsView(),
+                                    Function<void(materials::MaterialSource&)>{
+                                        [self, name, v](materials::MaterialSource&)
+                                        { self->WriteUniform(name.AsView(), &v, sizeof(v)); }});
+                };
+                if (row == MaterialPropertyRow::Numbers4)
+                {
+                    // Plain numbers: only a declared colour property gets a colour picker.
+                    auto editor = MakeRef<ui::toolkit::Float4Editor>(
+                        Allocator(), name.AsView(), read(), -100000.0f, 100000.0f, 0.01f,
+                        Function<void(Float4)>{[write](Float4 v) { write(v); }},
+                        StringView(u8"Properties"));
+                    editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                    AddEditor(editor.Get(), [read, raw = editor.Get()]() { raw->SetValue(read()); });
+                    continue;
+                }
+                // The colour as entered (sRGB, what the picker shows). A ColorHdr keeps its
+                // intensity in w, edited on its own row, so the picker's alpha is not it.
+                const bool hdr = row == MaterialPropertyRow::ColorWithIntensity;
+                auto colorOf = [read, hdr]() -> Color
+                {
+                    const Float4 v = read();
+                    return Color{v.x, v.y, v.z, hdr ? 1.0f : v.w};
                 };
                 auto editor = MakeRef<ui::toolkit::ColorEditor>(
-                    Allocator(), name.AsView(), value(),
-                    Function<void(Color)>{[self, name](Color c)
-                                          {
-                                              self->ApplyEdit(
-                                                  name.AsView(),
-                                                  Function<void(materials::MaterialSource&)>{
-                                                      [self, name, c](materials::MaterialSource&)
-                                                      {
-                                                          const Float4 v{c.r, c.g, c.b, c.a};
-                                                          self->WriteUniform(name.AsView(), &v,
-                                                                             sizeof(v));
-                                                      }});
-                                          }},
+                    Allocator(), name.AsView(), colorOf(),
+                    Function<void(Color)>{[read, write, hdr](Color c)
+                                          { write(Float4{c.r, c.g, c.b, hdr ? read().w : c.a}); }},
                     StringView(u8"Properties"));
                 editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
-                AddEditor(editor.Get(), [value, raw = editor.Get()]() { raw->SetValue(value()); });
+                AddEditor(editor.Get(), [colorOf, raw = editor.Get()]() { raw->SetValue(colorOf()); });
+                if (hdr)
+                {
+                    String intensityName = name;
+                    intensityName += u8"Intensity";
+                    auto intensity = MakeRef<ui::toolkit::FloatEditor>(
+                        Allocator(), intensityName.AsView(), static_cast<f64>(read().w), 0.0, 1e6,
+                        0.05, 3,
+                        Function<void(f64)>{[read, write](f64 i)
+                                            {
+                                                Float4 v = read();
+                                                v.w = static_cast<f32>(i);
+                                                write(v);
+                                            }},
+                        StringView(u8"Properties"));
+                    intensity->SetDisplayName(PrettifyPropertyName(intensityName.AsView()).AsView());
+                    AddEditor(intensity.Get(), [read, raw = intensity.Get()]()
+                              { raw->SetValue(static_cast<f64>(read().w)); });
+                }
             }
-            else if (type == materials::MaterialPropertyType::Texture2D ||
-                     type == materials::MaterialPropertyType::TextureCube)
+            else if (row == MaterialPropertyRow::Texture)
             {
                 AddTextureRow(name);
             }
