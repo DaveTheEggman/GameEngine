@@ -28,13 +28,12 @@
   the root's local `position()`; Sky Hopper's `FollowCamera.as` reads `worldPosition()` too).
   Options: compute the world pose from the local chain on demand, mark world matrices dirty
   when a local changes, or a late-update hook for cameras. Check what Sedulous does first.
-- **TAA jitter in the player**: PaperKid's Start scene (aaMode TAA, auto exposure, bloom) is
-  visibly jittery in the player and not, or far less, in the editor's Game tab (user,
-  2026-10-02, Debug player from the project folder). Unexplained yet. Rule out first: the
-  player runs the Vulkan validation layer regardless of `--no-gpu-validation` (next item), so
-  its frame rate differs from the editor's; the time scale is 0 behind the title menu, so
-  check the jitter sequence and history reprojection when gameplay time is frozen but frames
-  still render; and compare the jitter offsets the two hosts feed for the same render size.
+- **TAA jitter in the player**: RESOLVED 2026-10-03 (eb89f063). Not frame rate and not the
+  display: TAA's bind group cache checked only its colour input, and the player's first frame
+  gets a different motion texture than every later one, so one of the two history textures kept
+  frame 0's motion vectors and every other frame's edges flickered (0.63% of pixels per frame,
+  now 0). `BindGroupCache` checks every input; MSAA resolve and the SSR and SSGI resolves moved
+  onto it too. The user confirmed the player now matches the editor; PaperKid is back on TAA.
 - **The player ignores `--no-gpu-validation`**: `graphics::ApplyValidationArguments`
   (`Graphics.cppm`) says every executable that creates a device should run its arguments
   through it; only `Tools.Editor/Main.cpp` does, so a Debug player always runs the Vulkan
