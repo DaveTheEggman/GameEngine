@@ -38,7 +38,7 @@ export namespace foundation::model
 
         // -- Base color --
         // Colour factors are AUTHORED sRGB, as every colour is (the material property they become
-        // decodes them for the GPU). A loader whose format stores them linear (glTF) encodes them.
+        // decodes them for the GPU). A loader whose format stores them linear (glTF, FBX) encodes them.
         Float4 baseColorFactor{1, 1, 1, 1};
         i32 baseColorTextureIndex = -1;
 

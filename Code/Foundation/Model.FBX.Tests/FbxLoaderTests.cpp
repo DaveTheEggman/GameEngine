@@ -40,6 +40,8 @@ f 1//1 2//1 3//1
 f 1//1 3//1 4//1
 )";
     constexpr const char* kRedMtl = "newmtl red\nKd 1 0 0\n";
+    // Linear 0.2140 is sRGB 0.5: a DCC's scene-linear colour, read as the authored sRGB colour.
+    constexpr const char* kGreyMtl = "newmtl red\nKd 0.2140 0.2140 0.2140\n";
 }
 
 TEST_CASE("fbx.weld: colliding hashes never merge different vertices")
@@ -97,6 +99,22 @@ TEST_CASE("fbx.obj: the .mtl sidecar is read, so usemtl carries its colour")
     CHECK(red->baseColorFactor.y == doctest::Approx(0.0f));
     CHECK(red->baseColorFactor.z == doctest::Approx(0.0f));
     std::remove("scratch_fbx_material.obj");
+    std::remove("welded.mtl");
+}
+
+TEST_CASE("fbx.obj: a material colour (scene-linear in the file) reads as authored sRGB")
+{
+    WriteText("scratch_fbx_grey.obj", kQuadObj);
+    WriteText("welded.mtl", kGreyMtl);
+    Model model;
+    fbx::FbxLoader loader;
+    REQUIRE(loader.load(StringView(reinterpret_cast<const utf8char*>("scratch_fbx_grey.obj")),
+                        model) == ModelLoadResult::Ok);
+    REQUIRE(model.materials().Size() >= 1u);
+    const ModelMaterial* grey = model.materials()[0];
+    CHECK(grey->baseColorFactor.x == doctest::Approx(0.5f).epsilon(0.002));
+    CHECK(grey->baseColorFactor.y == doctest::Approx(0.5f).epsilon(0.002));
+    std::remove("scratch_fbx_grey.obj");
     std::remove("welded.mtl");
 }
 

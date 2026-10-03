@@ -88,6 +88,16 @@ export namespace foundation::model::fbx
             return String{};
         return String(StringView(reinterpret_cast<const utf8char*>(s)));
     }
+    // FBX (and OBJ) colours are the DCC's scene-linear values (Blender writes its linear base
+    // colour; a model exported as both FBX and glTF carries the same numbers in each). The
+    // engine's authored colours are sRGB, so they are encoded as they are read, like glTF's.
+    inline Float4 SrgbColor(f64 r, f64 g, f64 b, f64 a)
+    {
+        const Color c = ToSrgb(Color{static_cast<f32>(r), static_cast<f32>(g), static_cast<f32>(b),
+                                     static_cast<f32>(a)});
+        return Float4(c.r, c.g, c.b, c.a);
+    }
+
     inline String Utf8FromUfbx(const ufbx_string& s)
     {
         return String(StringView(reinterpret_cast<const utf8char*>(s.data), s.length));
@@ -253,9 +263,7 @@ export namespace foundation::model::fbx
                     if (mat->pbr.base_color.has_value)
                     {
                         auto c = mat->pbr.base_color.value_vec4;
-                        material->baseColorFactor =
-                            Float4(static_cast<f32>(c.x), static_cast<f32>(c.y),
-                                   static_cast<f32>(c.z), static_cast<f32>(c.w));
+                        material->baseColorFactor = SrgbColor(c.x, c.y, c.z, c.w);
                     }
                     if (mat->pbr.base_color.texture)
                     {
@@ -304,9 +312,10 @@ export namespace foundation::model::fbx
                         f32 factor = mat->pbr.emission_factor.has_value
                                          ? static_cast<f32>(mat->pbr.emission_factor.value_real)
                                          : 1.0f;
-                        material->emissiveFactor =
-                            Float3(static_cast<f32>(e.x) * factor, static_cast<f32>(e.y) * factor,
-                                   static_cast<f32>(e.z) * factor);
+                        // The colour as sRGB, the factor as its intensity (it may pass 1).
+                        const Float4 emissive = SrgbColor(e.x, e.y, e.z, 1.0);
+                        material->emissiveFactor = Float3(emissive.x, emissive.y, emissive.z);
+                        material->emissiveIntensity = factor;
                     }
                     if (mat->pbr.emission_color.texture)
                         material->emissiveTextureIndex =
@@ -322,8 +331,7 @@ export namespace foundation::model::fbx
                                          ? static_cast<f32>(mat->fbx.diffuse_factor.value_real)
                                          : 1.0f;
                         material->baseColorFactor =
-                            Float4(static_cast<f32>(c.x) * factor, static_cast<f32>(c.y) * factor,
-                                   static_cast<f32>(c.z) * factor, 1.0f);
+                            SrgbColor(c.x * factor, c.y * factor, c.z * factor, 1.0);
                     }
                     if (mat->fbx.diffuse_color.texture)
                     {
@@ -347,9 +355,10 @@ export namespace foundation::model::fbx
                         f32 factor = mat->fbx.emission_factor.has_value
                                          ? static_cast<f32>(mat->fbx.emission_factor.value_real)
                                          : 1.0f;
-                        material->emissiveFactor =
-                            Float3(static_cast<f32>(e.x) * factor, static_cast<f32>(e.y) * factor,
-                                   static_cast<f32>(e.z) * factor);
+                        // The colour as sRGB, the factor as its intensity (it may pass 1).
+                        const Float4 emissive = SrgbColor(e.x, e.y, e.z, 1.0);
+                        material->emissiveFactor = Float3(emissive.x, emissive.y, emissive.z);
+                        material->emissiveIntensity = factor;
                     }
                     if (mat->fbx.emission_color.texture)
                         material->emissiveTextureIndex =
