@@ -46,6 +46,8 @@ import modelimporter;
 import foundation.physics;
 import foundation.physics.resource;
 import physics.pipeline;
+import render.pipeline;
+import engine.render; // the render profiles' cooked records and products
 import foundation.navigation.resource;
 import navigation.pipeline;
 import foundation.ui.resource;
@@ -125,6 +127,8 @@ namespace pipeline
         foundation::image::RegisterImageResource();
         RegisterPhysicsAssets();
         foundation::physics::RegisterPhysicsResource();
+        RegisterRenderProfileAssets();
+        engine::render::RegisterRenderProfileResources();
         RegisterNavigationZoneAsset();
         foundation::navigation::RegisterNavigationResource();
         RegisterUIAssets();
@@ -176,6 +180,8 @@ namespace pipeline
         AddBuilder<ModelManifestAssetBuilder>(registry);
         AddBuilder<CollisionShapeAssetBuilder>(registry);
         AddBuilder<PhysicalMaterialAssetBuilder>(registry);
+        AddBuilder<EnvironmentProfileAssetBuilder>(registry);
+        AddBuilder<PostProcessProfileAssetBuilder>(registry);
         AddBuilder<NavigationZoneAssetBuilder>(registry);
         AddBuilder<UIDocumentAssetBuilder>(registry);
         AddBuilder<UIThemeAssetBuilder>(registry);
@@ -217,6 +223,7 @@ namespace pipeline
         RegisterGeometryCreators(registry);
         RegisterMaterialCreators(registry);
         RegisterPhysicsCreators(registry);
+        RegisterRenderCreators(registry);
         RegisterAudioCreators(registry);
         RegisterUICreators(registry);
         RegisterHeightfieldCreators(registry);
