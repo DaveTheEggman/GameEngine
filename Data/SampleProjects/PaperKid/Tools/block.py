@@ -28,7 +28,8 @@ ENVIRONMENT = dict(ambientColor={"r": 0.349, "g": 0.381, "b": 0.437, "a": 1.0}, 
                    skyHorizon={"r": 0.626, "g": 0.767, "b": 0.978, "a": 1.0},
                    skyZenith={"r": 0.313, "g": 0.537, "b": 0.931, "a": 1.0},
                    skyGround={"r": 0.547, "g": 0.547, "b": 0.547, "a": 1.0}, sunIntensity=1.0, sunAngularSize=0.5,
-                   turbidity=3.0, iblDiffuseIntensity=0.35, iblSpecularIntensity=1.0)
+                   turbidity=3.0, iblDiffuseIntensity=0.35, iblSpecularIntensity=1.0,
+                   shadowDistance=60.0, shadowCascadeSplit=0.7, shadowFadeDistance=10.0)
 
 
 def look(doc):
