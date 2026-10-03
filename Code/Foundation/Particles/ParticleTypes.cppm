@@ -124,7 +124,8 @@ export namespace foundation::particles
 
     // ---- Curves (ParticleCurve.bf) -----------------------------------------------------------
     // Fixed 8-key curves sampled by normalized lifetime. Float/Float2 are cubic Hermite;
-    // Color is linear (it doubles as the color gradient). IsActive() gates the *OverLifetime
+    // Color interpolates linearly between keys (it doubles as the color gradient); its values
+    // are authored sRGB, decoded to linear only when the particle is drawn. IsActive() gates the *OverLifetime
     // behaviors (an empty curve is a no-op).
 
     inline constexpr i32 kMaxCurveKeys = 8;

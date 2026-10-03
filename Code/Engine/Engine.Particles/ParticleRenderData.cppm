@@ -25,12 +25,21 @@ namespace rhi = foundation::rhi;
 
 export namespace engine::particles
 {
+    // A particle's colour as simulated (authored sRGB: the effect's colours, curves and trail
+    // colour, interpolated as entered) decoded to linear for the renderer. Applied where the
+    // colour leaves the simulation: billboards, trails, mesh tints and particle lights.
+    [[nodiscard]] inline Float4 ParticleColorToLinear(Float4 c) noexcept
+    {
+        const Color l = ToLinear(Color{c.x, c.y, c.z, c.w});
+        return Float4{l.r, l.g, l.b, l.a};
+    }
+
     // One packed billboard instance (80 bytes = 5x float4, matches the ParticleRenderer VS inputs).
     struct ParticleBillboardInstance
     {
         Float4 positionSize; // xyz world center, w width
         Float4 sizeRotMode;  // x height, y rotation (radians), z orientation mode, w unused
-        Float4 color;        // rgba (linear, premultiply/scale done in sim)
+        Float4 color;        // rgba, linear (decoded from the simulated sRGB colour)
         Float4 uvRect;       // xy uv min, zw uv size (flipbook)
         Float4 velocity;     // xyz world velocity, w stretch scale (0 = plain billboard)
     };

@@ -339,7 +339,8 @@ export namespace engine::particles
                 o.positionSize = Float4{p.x, p.y, p.z, sz.x};
                 o.sizeRotMode =
                     Float4{sz.y, (rots != nullptr) ? (*rots)[i] : 0.0f, modeF, softDist};
-                o.color = (cols != nullptr) ? (*cols)[i] : Float4{1.0f, 1.0f, 1.0f, 1.0f};
+                o.color = (cols != nullptr) ? ParticleColorToLinear((*cols)[i])
+                                            : Float4{1.0f, 1.0f, 1.0f, 1.0f};
                 const f32 lifeRatio = (ages != nullptr && lifes != nullptr && (*lifes)[i] > 0.0f)
                                           ? ((*ages)[i] / (*lifes)[i])
                                           : 0.0f;
@@ -550,7 +551,8 @@ export namespace engine::particles
                                    ? TransformPoint((*pos)[i], m_emitterWorld)
                                    : (*pos)[i];
                 g.range = c.lightRange;
-                const Float4 cv = (cols != nullptr) ? (*cols)[i] : Float4{1.0f, 1.0f, 1.0f, 1.0f};
+                const Float4 cv = (cols != nullptr) ? ParticleColorToLinear((*cols)[i])
+                                                    : Float4{1.0f, 1.0f, 1.0f, 1.0f};
                 g.color = Float3{cv.x, cv.y, cv.z};
                 g.intensity = c.lightIntensity * cv.w; // fade with the particle's alpha
                 g.directionWS = Float3{0.0f, -1.0f, 0.0f};
@@ -649,8 +651,10 @@ export namespace engine::particles
                     const f32 w1 = Lerp(t.widthStart, t.widthEnd, f1) * 0.5f;
                     const f32 a0 = Clamp(1.0f - (now - p0.recordTime) * invLife, 0.0f, 1.0f);
                     const f32 a1 = Clamp(1.0f - (now - p1.recordTime) * invLife, 0.0f, 1.0f);
-                    const Float4 c0{p0.color.x, p0.color.y, p0.color.z, p0.color.w * a0};
-                    const Float4 c1{p1.color.x, p1.color.y, p1.color.z, p1.color.w * a1};
+                    const Float4 l0c = ParticleColorToLinear(p0.color);
+                    const Float4 l1c = ParticleColorToLinear(p1.color);
+                    const Float4 c0{l0c.x, l0c.y, l0c.z, l0c.w * a0};
+                    const Float4 c1{l1c.x, l1c.y, l1c.z, l1c.w * a1};
 
                     const Float3 l0 = pos0 + side * w0, r0 = pos0 - side * w0;
                     const Float3 l1 = pos1 + side * w1, r1 = pos1 - side * w1;
@@ -712,7 +716,8 @@ export namespace engine::particles
                 xf[i] = localXform ? (t.ToMatrix() * m_emitterWorld)
                                    : t.ToMatrix(); // local particle -> world via emitter
                 const Float3 wp = localXform ? TransformPoint(p, m_emitterWorld) : p;
-                const Float4 cv = (cols != nullptr) ? (*cols)[i] : Float4{1.0f, 1.0f, 1.0f, 1.0f};
+                const Float4 cv = (cols != nullptr) ? ParticleColorToLinear((*cols)[i])
+                                                    : Float4{1.0f, 1.0f, 1.0f, 1.0f};
                 tint[i] = Color{cv.x, cv.y, cv.z, cv.w};
                 bmin = Float3{Min(bmin.x, wp.x), Min(bmin.y, wp.y), Min(bmin.z, wp.z)};
                 bmax = Float3{Max(bmax.x, wp.x), Max(bmax.y, wp.y), Max(bmax.z, wp.z)};

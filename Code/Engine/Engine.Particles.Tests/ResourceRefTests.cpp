@@ -22,6 +22,7 @@ import engine.particles;
 import engine.render; // CameraComponentManager (the primary camera the manager reads)
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.render; // ExtractedScene (what the manager extracts into)
 
 using namespace foundation::core;
 using namespace engine::particles;
@@ -269,4 +270,48 @@ TEST_CASE("particles: a spawned one-shot bursts where its entity is")
     {
         CHECK(Length((*live->Streams().Positions())[i] - Float3{12.0f, 3.0f, -40.0f}) < 0.1f);
     }
+}
+
+TEST_CASE("particles: the simulated (sRGB) colour reaches billboards and lights decoded to linear")
+{
+    // An effect's colours are authored sRGB like every colour; they are simulated as entered and
+    // decoded where they leave the simulation for the renderer.
+    particles::RegisterParticleEffectResource();
+    scene::Scene sceneObj{DefaultAllocator()};
+    auto* manager = sceneObj.AddSystem<engine::particles::ParticleEffectComponentManager>();
+
+    RefPtr<particles::ParticleEffectResource> res =
+        MakeRef<particles::ParticleEffectResource>(DefaultAllocator());
+    particles::ParticleSystem& sys = res->Effect().AddSystem(8);
+    sys.AddInitializer<particles::LifetimeInitializer>().lifetime = particles::RangeFloat{5.0f, 5.0f};
+    sys.AddInitializer<particles::ColorInitializer>().color =
+        particles::RangeColor::Constant(Float4{0.5f, 0.25f, 1.0f, 1.0f});
+    sys.renderMode = particles::ParticleRenderMode::Light; // a light per particle, and its glow
+    sys.emitter.mode = particles::EmissionMode::Burst;
+    sys.emitter.burstCount = 2;
+
+    const scene::EntityHandle e = sceneObj.CreateEntity(u8"Glow");
+    engine::particles::ParticleEffectComponent& c = manager->Add(e);
+    c.effectAsset = res.Get();
+    sceneObj.Update(0.016f);
+    REQUIRE(c.instance.Get() != nullptr);
+
+    foundation::render::ExtractedScene snapshot{DefaultAllocator()};
+    manager->ExtractRenderData(snapshot);
+    REQUIRE(snapshot.Lights().Size() == 2u);
+    CHECK(snapshot.Lights()[0].color.x == doctest::Approx(SrgbToLinear(0.5f)));
+    CHECK(snapshot.Lights()[0].color.y == doctest::Approx(SrgbToLinear(0.25f)));
+    CHECK(snapshot.Lights()[0].color.z == doctest::Approx(1.0f));
+
+    REQUIRE(snapshot.Items().Size() == 1u); // the billboard batch
+    const auto* batch =
+        static_cast<const engine::particles::ParticleBillboardRenderData*>(snapshot.Items()[0]);
+    REQUIRE(batch->count == 2u);
+    CHECK(batch->instances[0].color.x == doctest::Approx(SrgbToLinear(0.5f)));
+    CHECK(batch->instances[0].color.w == doctest::Approx(1.0f)); // alpha is not decoded
+
+    // The helper the four upload points share.
+    const Float4 l = ParticleColorToLinear(Float4{0.5f, 0.0f, 1.0f, 0.25f});
+    CHECK(l.x == doctest::Approx(SrgbToLinear(0.5f)));
+    CHECK(l.w == doctest::Approx(0.25f));
 }
