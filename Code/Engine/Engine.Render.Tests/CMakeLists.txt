@@ -3,7 +3,8 @@
 add_executable(Engine.Render.Tests
     ResourceRefTests.cpp
     TestsMain.cpp
-    ExtractTests.cpp)
+    ExtractTests.cpp
+    RenderProfileTests.cpp)
 
 target_link_libraries(Engine.Render.Tests PRIVATE
     Engine::Render Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Scene.Resource

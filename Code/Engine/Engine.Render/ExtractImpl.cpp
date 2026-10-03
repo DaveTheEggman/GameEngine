@@ -526,7 +526,7 @@ namespace engine::render
     {
         if (auto* env = scene.GetSystem<EnvironmentSystem>())
         {
-            const EnvironmentSettings& e = env->Environment();
+            const EnvironmentSettings& e = env->Effective(); // the scene's values, or its profile's
             out.SetTime(env->TimeSeconds(), env->PrevTimeSeconds()); // the scene clock (WIND)
             // The environment's colours are authored sRGB, like every colour; the sky and
             // ambient snapshots carry them decoded.

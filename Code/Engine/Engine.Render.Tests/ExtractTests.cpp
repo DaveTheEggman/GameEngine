@@ -1279,11 +1279,11 @@ TEST_CASE("EnvironmentSettings: the IBL lighting dimmers serialize with the scen
     CHECK(envB->Environment().iblSpecularIntensity == doctest::Approx(0.8f));
 }
 
-TEST_CASE("EnvironmentSettings: the shadow reach serializes (v5), and a v4 scene reads its defaults")
+TEST_CASE("EnvironmentSettings: the shadow reach serializes, and a v4 scene reads its defaults")
 {
     engine::render::RegisterRenderComponentReflection();
     const TypeInfo& type = TypeOf<engine::render::EnvironmentSettings>();
-    CHECK(type.dataVersion == 5u);
+    CHECK(type.dataVersion >= 5u); // v5 added the reach
 
     // Round trip at v5.
     engine::render::EnvironmentSystem written;
@@ -1312,11 +1312,11 @@ TEST_CASE("EnvironmentSettings: the shadow reach serializes (v5), and a v4 scene
     CHECK(read.Environment().shadowCascadeSplit == doctest::Approx(0.8f));
     CHECK(read.Environment().shadowFadeDistance == doctest::Approx(12.0f));
 
-    // A v4 payload, as the stored scenes hold it: the chain stamped 4 and no reach fields (the
-    // v5 layout appends three f32s, so a v4 payload is the v5 one without its last 12 bytes).
-    MemoryStream v5;
+    // A v4 payload, as the stored scenes held it: the chain stamped 4 and the value fields
+    // without the reach.
+    MemoryStream v4;
     {
-        BinarySerializer ar(v5, SerializeMode::Write);
+        BinarySerializer ar(v4, SerializeMode::Write);
         const SerializedDataVersion chain[] = {{type.id, 4u}};
         u32 n = 1;
         ar.Key("dataVersions");
@@ -1328,13 +1328,10 @@ TEST_CASE("EnvironmentSettings: the shadow reach serializes (v5), and a v4 scene
         ar.Scalar(&entry.version, ScalarKind::UInt32);
         ar.EndArray();
         ar.PushVersionScope(chain, 1);
-        written.SerializeSettings(ar);
+        engine::render::SerializeEnvironmentValues(ar, written.Environment(), /*shadowReach*/ false);
         ar.PopVersionScope();
         REQUIRE(ar.IsOk());
     }
-    const Span<const byte> bytes = v5.Bytes();
-    MemoryStream v4;
-    (void)v4.Write(bytes.Data(), bytes.Size() - 3 * sizeof(f32));
     (void)v4.Seek(0, SeekOrigin::Begin);
     engine::render::EnvironmentSystem legacy;
     legacy.Environment().shadowDistance = 1.0f; // overwritten only if the reader reads the field

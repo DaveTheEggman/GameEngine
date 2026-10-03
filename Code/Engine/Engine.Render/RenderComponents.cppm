@@ -12,6 +12,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include "Core/Reflection/Reflect.h" // RTTI_OBJECT (the profile products)
 
 export module engine.render:components;
 
@@ -520,6 +521,17 @@ export namespace engine::render
 
     // SkyMode is defined in the snapshot layer (foundation.render :data) and reused here.
 
+    // Where a scene settings block's values come from: the scene's own (stored in the scene), or a
+    // shared profile asset the block references. Values live in one place, chosen by this.
+    enum class SettingsSource : u8
+    {
+        Scene,
+        Profile,
+    };
+
+    class EnvironmentProfile; // a shared Environment Profile asset's product (below)
+    class PostProcessProfile; // a shared Post Process Profile asset's product (below)
+
     // The scene's environment - ONE per scene (not a component). Drives both the IBL ambient and the
     // (upcoming) visible sky. A plain SceneSystem injected by the RenderSubsystem; extraction reads it
     // into the snapshot. When IBL is active these sky settings drive shading; `ambientColor ×
@@ -570,6 +582,54 @@ export namespace engine::render
         f32 shadowDistance = 300.0f;
         f32 shadowCascadeSplit = 0.5f;
         f32 shadowFadeDistance = 40.0f;
+
+        // Where the values come from (v6): the scene's own above, or `profile`'s (an Environment
+        // Profile asset) while the source is Profile. Scene-only: a profile carries no source.
+        SettingsSource source = SettingsSource::Scene;
+        foundation::resource::Ref<EnvironmentProfile> profile;
+    };
+
+    // The environment's value fields, in one order for the scene block and the profile records (a
+    // field added to the block reaches its profile). `shadowReach` = the v5 fields are present
+    // (a scene block read at version 4 has none).
+    inline void SerializeEnvironmentValues(ISerializer& ar, EnvironmentSettings& e, bool shadowReach)
+    {
+        foundation::core::Serialize(ar, "skyTexture", e.skyTexture);
+        foundation::core::Serialize(ar, "ambientColor", e.ambientColor);
+        foundation::core::Serialize(ar, "ambientIntensity", e.ambientIntensity);
+        u32 mode = static_cast<u32>(e.skyMode);
+        foundation::core::Serialize(ar, "skyMode", mode);
+        if (ar.Mode() == SerializeMode::Read)
+        {
+            e.skyMode = static_cast<SkyMode>(mode);
+        }
+        foundation::core::Serialize(ar, "skyIntensity", e.skyIntensity);
+        foundation::core::Serialize(ar, "skyBackgroundIntensity", e.skyBackgroundIntensity);
+        foundation::core::Serialize(ar, "skyRotation", e.skyRotation);
+        foundation::core::Serialize(ar, "skyHorizon", e.skyHorizon);
+        foundation::core::Serialize(ar, "skyZenith", e.skyZenith);
+        foundation::core::Serialize(ar, "skyGround", e.skyGround);
+        foundation::core::Serialize(ar, "sunIntensity", e.sunIntensity);
+        foundation::core::Serialize(ar, "sunAngularSize", e.sunAngularSize);
+        foundation::core::Serialize(ar, "turbidity", e.turbidity);
+        foundation::core::Serialize(ar, "iblDiffuseIntensity", e.iblDiffuseIntensity);
+        foundation::core::Serialize(ar, "iblSpecularIntensity", e.iblSpecularIntensity);
+        if (shadowReach)
+        {
+            foundation::core::Serialize(ar, "shadowDistance", e.shadowDistance);
+            foundation::core::Serialize(ar, "shadowCascadeSplit", e.shadowCascadeSplit);
+            foundation::core::Serialize(ar, "shadowFadeDistance", e.shadowFadeDistance);
+        }
+    }
+
+    // A shared Environment Profile: the values a scene's environment takes while its source is
+    // Profile (the loaded asset; a script's change to it is in memory, seen by every scene of the
+    // run sharing it).
+    class EnvironmentProfile final : public Object
+    {
+        RTTI_OBJECT(EnvironmentProfile, Object)
+    public:
+        EnvironmentSettings values; // source / profile unused here
     };
 
     class EnvironmentSystem final : public scene::SceneSystem
@@ -611,37 +671,43 @@ export namespace engine::render
         void ResolveResources(foundation::resource::ResourceManager& manager) override
         {
             m_env.skyTexture.Bind(manager);
+            m_env.profile.Bind(manager);
         }
         void SerializeSettings(ISerializer& ar) override
         {
-            foundation::core::Serialize(ar, "skyTexture", m_env.skyTexture);
-            foundation::core::Serialize(ar, "ambientColor", m_env.ambientColor);
-            foundation::core::Serialize(ar, "ambientIntensity", m_env.ambientIntensity);
-            u32 mode = static_cast<u32>(m_env.skyMode);
-            foundation::core::Serialize(ar, "skyMode", mode);
-            if (ar.Mode() == SerializeMode::Read)
+            // v5 added the shadow reach, v6 the source (the legacy reader takes v4 and v5 payloads,
+            // which read the defaults for what they lack).
+            const bool write = ar.Mode() == SerializeMode::Write;
+            SerializeEnvironmentValues(ar, m_env, write || ar.Version() >= 5);
+            if (write || ar.Version() >= 6)
             {
-                m_env.skyMode = static_cast<SkyMode>(mode);
+                u32 source = static_cast<u32>(m_env.source);
+                foundation::core::Serialize(ar, "source", source);
+                if (!write)
+                {
+                    m_env.source = static_cast<SettingsSource>(source);
+                }
+                foundation::core::Serialize(ar, "profile", m_env.profile);
             }
-            foundation::core::Serialize(ar, "skyIntensity", m_env.skyIntensity);
-            foundation::core::Serialize(ar, "skyBackgroundIntensity",
-                                      m_env.skyBackgroundIntensity);
-            foundation::core::Serialize(ar, "skyRotation", m_env.skyRotation);
-            foundation::core::Serialize(ar, "skyHorizon", m_env.skyHorizon);
-            foundation::core::Serialize(ar, "skyZenith", m_env.skyZenith);
-            foundation::core::Serialize(ar, "skyGround", m_env.skyGround);
-            foundation::core::Serialize(ar, "sunIntensity", m_env.sunIntensity);
-            foundation::core::Serialize(ar, "sunAngularSize", m_env.sunAngularSize);
-            foundation::core::Serialize(ar, "turbidity", m_env.turbidity);
-            foundation::core::Serialize(ar, "iblDiffuseIntensity", m_env.iblDiffuseIntensity);
-            foundation::core::Serialize(ar, "iblSpecularIntensity", m_env.iblSpecularIntensity);
-            // v5 (the legacy reader takes a v4 payload, which has no shadow reach: the defaults).
-            if (ar.Mode() == SerializeMode::Write || ar.Version() >= 5)
+        }
+
+        /// The values in effect: the profile's while the source is Profile and it is loaded, the
+        /// scene's own otherwise (what the renderer, the scene's script handle and the inspector
+        /// read). Environment() is always the scene's own block (its source, its stored values).
+        [[nodiscard]] EnvironmentSettings& Effective() noexcept
+        {
+            if (m_env.source == SettingsSource::Profile)
             {
-                foundation::core::Serialize(ar, "shadowDistance", m_env.shadowDistance);
-                foundation::core::Serialize(ar, "shadowCascadeSplit", m_env.shadowCascadeSplit);
-                foundation::core::Serialize(ar, "shadowFadeDistance", m_env.shadowFadeDistance);
+                if (EnvironmentProfile* profile = m_env.profile.Get())
+                {
+                    return profile->values;
+                }
             }
+            return m_env;
+        }
+        [[nodiscard]] const EnvironmentSettings& Effective() const noexcept
+        {
+            return const_cast<EnvironmentSystem*>(this)->Effective();
         }
 
     private:
@@ -717,7 +783,63 @@ export namespace engine::render
         f32 taaBlendFactor = 0.97f;   // history weight   (aaMode == TAA)
         f32 taaVarianceGamma = 1.25f; // variance-clip box half-width (aaMode == TAA)
         f32 fxaaSubpixel = 0.75f;     // subpixel aliasing removal    (aaMode == FXAA)
+
+        // Where the values come from (v4): the scene's own above, or `profile`'s (a Post Process
+        // Profile asset) while the source is Profile. Scene-only: a profile carries no source.
+        SettingsSource source = SettingsSource::Scene;
+        foundation::resource::Ref<PostProcessProfile> profile;
     };
+
+    // The post settings' value fields, in one order for the scene block and the profile records.
+    inline void SerializePostValues(ISerializer& ar, PostProcessSettings& p)
+    {
+        const auto enumField = [&ar]<typename E>(const char* key, E& value)
+        {
+            u32 raw = static_cast<u32>(value);
+            foundation::core::Serialize(ar, key, raw);
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                value = static_cast<E>(raw);
+            }
+        };
+        foundation::core::Serialize(ar, "exposureEV", p.exposureEV);
+        enumField("tonemapOperator", p.tonemapOperator);
+        foundation::core::Serialize(ar, "bloomEnabled", p.bloomEnabled);
+        foundation::core::Serialize(ar, "bloomThreshold", p.bloomThreshold);
+        foundation::core::Serialize(ar, "bloomKnee", p.bloomKnee);
+        foundation::core::Serialize(ar, "bloomIntensity", p.bloomIntensity);
+        enumField("aoMode", p.aoMode);
+        foundation::core::Serialize(ar, "aoStrength", p.aoStrength);
+        foundation::core::Serialize(ar, "aoRadius", p.aoRadius);
+        foundation::core::Serialize(ar, "aoIntensity", p.aoIntensity);
+        foundation::core::Serialize(ar, "ssrEnabled", p.ssrEnabled);
+        foundation::core::Serialize(ar, "ssrIntensity", p.ssrIntensity);
+        enumField("aaMode", p.aaMode);
+        foundation::core::Serialize(ar, "taaBlendFactor", p.taaBlendFactor);
+        foundation::core::Serialize(ar, "taaVarianceGamma", p.taaVarianceGamma);
+        foundation::core::Serialize(ar, "fxaaSubpixel", p.fxaaSubpixel);
+        foundation::core::Serialize(ar, "autoExposure", p.autoExposure);
+        foundation::core::Serialize(ar, "autoExposureKey", p.autoExposureKey);
+        foundation::core::Serialize(ar, "autoExposureSpeed", p.autoExposureSpeed);
+        foundation::core::Serialize(ar, "autoExposureMinEV", p.autoExposureMinEV);
+        foundation::core::Serialize(ar, "autoExposureMaxEV", p.autoExposureMaxEV);
+        foundation::core::Serialize(ar, "gradingLut", p.gradingLut);
+        foundation::core::Serialize(ar, "gradingIntensity", p.gradingIntensity);
+        foundation::core::Serialize(ar, "ssgiEnabled", p.ssgiEnabled);
+        foundation::core::Serialize(ar, "ssgiIntensity", p.ssgiIntensity);
+    }
+
+    // A shared Post Process Profile: the values a scene's post settings take while its source is
+    // Profile.
+    class PostProcessProfile final : public Object
+    {
+        RTTI_OBJECT(PostProcessProfile, Object)
+    public:
+        PostProcessSettings values; // source / profile unused here
+    };
+
+    RTTI_DEFINE_OBJECT(EnvironmentProfile, "rtti::engine::render")
+    RTTI_DEFINE_OBJECT(PostProcessProfile, "rtti::engine::render")
 
     class PostProcessSystem final : public scene::SceneSystem
     {
@@ -736,50 +858,46 @@ export namespace engine::render
         [[nodiscard]] StringView SettingsId() const noexcept override { return u8"postprocess"; }
         void SerializeSettings(ISerializer& ar) override
         {
-            foundation::core::Serialize(ar, "exposureEV", m_post.exposureEV);
-            SerializeEnum(ar, "tonemapOperator", m_post.tonemapOperator);
-            foundation::core::Serialize(ar, "bloomEnabled", m_post.bloomEnabled);
-            foundation::core::Serialize(ar, "bloomThreshold", m_post.bloomThreshold);
-            foundation::core::Serialize(ar, "bloomKnee", m_post.bloomKnee);
-            foundation::core::Serialize(ar, "bloomIntensity", m_post.bloomIntensity);
-            SerializeEnum(ar, "aoMode", m_post.aoMode);
-            foundation::core::Serialize(ar, "aoStrength", m_post.aoStrength);
-            foundation::core::Serialize(ar, "aoRadius", m_post.aoRadius);
-            foundation::core::Serialize(ar, "aoIntensity", m_post.aoIntensity);
-            foundation::core::Serialize(ar, "ssrEnabled", m_post.ssrEnabled);
-            foundation::core::Serialize(ar, "ssrIntensity", m_post.ssrIntensity);
-            SerializeEnum(ar, "aaMode", m_post.aaMode);
-            foundation::core::Serialize(ar, "taaBlendFactor", m_post.taaBlendFactor);
-            foundation::core::Serialize(ar, "taaVarianceGamma", m_post.taaVarianceGamma);
-            foundation::core::Serialize(ar, "fxaaSubpixel", m_post.fxaaSubpixel);
-            foundation::core::Serialize(ar, "autoExposure", m_post.autoExposure);
-            foundation::core::Serialize(ar, "autoExposureKey", m_post.autoExposureKey);
-            foundation::core::Serialize(ar, "autoExposureSpeed", m_post.autoExposureSpeed);
-            foundation::core::Serialize(ar, "autoExposureMinEV", m_post.autoExposureMinEV);
-            foundation::core::Serialize(ar, "autoExposureMaxEV", m_post.autoExposureMaxEV);
-            foundation::core::Serialize(ar, "gradingLut", m_post.gradingLut);
-            foundation::core::Serialize(ar, "gradingIntensity", m_post.gradingIntensity);
-            foundation::core::Serialize(ar, "ssgiEnabled", m_post.ssgiEnabled);
-            foundation::core::Serialize(ar, "ssgiIntensity", m_post.ssgiIntensity);
+            SerializePostValues(ar, m_post);
+            // v4 added the source (the legacy reader takes a v3 payload: source Scene).
+            const bool write = ar.Mode() == SerializeMode::Write;
+            if (write || ar.Version() >= 4)
+            {
+                u32 source = static_cast<u32>(m_post.source);
+                foundation::core::Serialize(ar, "source", source);
+                if (!write)
+                {
+                    m_post.source = static_cast<SettingsSource>(source);
+                }
+                foundation::core::Serialize(ar, "profile", m_post.profile);
+            }
         }
 
         void ResolveResources(foundation::resource::ResourceManager& manager) override
         {
             m_post.gradingLut.Bind(manager);
+            m_post.profile.Bind(manager);
+        }
+
+        /// The values in effect (as EnvironmentSystem::Effective): the profile's while the source
+        /// is Profile and it is loaded, the scene's own otherwise.
+        [[nodiscard]] PostProcessSettings& Effective() noexcept
+        {
+            if (m_post.source == SettingsSource::Profile)
+            {
+                if (PostProcessProfile* profile = m_post.profile.Get())
+                {
+                    return profile->values;
+                }
+            }
+            return m_post;
+        }
+        [[nodiscard]] const PostProcessSettings& Effective() const noexcept
+        {
+            return const_cast<PostProcessSystem*>(this)->Effective();
         }
 
     private:
-        // u32-round-trip an enum field (mirrors EnvironmentSystem's skyMode handling).
-        template <typename E>
-        static void SerializeEnum(ISerializer& ar, const char* key, E& value)
-        {
-            u32 raw = static_cast<u32>(value);
-            foundation::core::Serialize(ar, key, raw);
-            if (ar.Mode() == SerializeMode::Read)
-            {
-                value = static_cast<E>(raw);
-            }
-        }
         PostProcessSettings m_post;
     };
 
@@ -905,7 +1023,7 @@ export namespace engine::render
                 return nullptr;
             }
             EnvironmentSystem* system = ctx->scene->GetSystem<EnvironmentSystem>();
-            return system != nullptr ? &system->Environment() : nullptr;
+            return system != nullptr ? &system->Effective() : nullptr; // the values in effect
         }
         [[nodiscard]] inline void* ResolvePostProcessSettings(const Variant& value)
         {
@@ -915,7 +1033,7 @@ export namespace engine::render
                 return nullptr;
             }
             PostProcessSystem* system = ctx->scene->GetSystem<PostProcessSystem>();
-            return system != nullptr ? &system->Post() : nullptr;
+            return system != nullptr ? &system->Effective() : nullptr; // the values in effect
         }
     }
 

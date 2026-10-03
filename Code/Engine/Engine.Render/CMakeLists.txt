@@ -16,6 +16,7 @@ target_sources(Engine.Render
     PUBLIC
         FILE_SET render_subsystem_modules TYPE CXX_MODULES FILES
             RenderComponents.cppm
+            RenderProfiles.cppm
             SceneRenderer.cppm
             Extract.cppm
             RenderSubsystem.cppm

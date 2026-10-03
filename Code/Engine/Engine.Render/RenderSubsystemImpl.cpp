@@ -481,7 +481,7 @@ namespace engine::render
         }
         else if (const PostProcessSystem* pp = scene.GetSystem<PostProcessSystem>())
         {
-            settings.post = ResolveScenePost(pp->Post());
+            settings.post = ResolveScenePost(pp->Effective()); // the scene's, or its profile's
         }
         // Editor viewport "show flags": ephemeral per-view overrides that strip effects for editing
         // clarity, layered ON TOP of the resolved post - never written back to the scene.
@@ -1074,7 +1074,8 @@ namespace engine::render
             &foundation::materials::kMaterialsResourceModule,
             &foundation::texture::kTextureResourceModule,
             &foundation::image::kImageResourceModule,
-            &foundation::shaders::kShadersResourceModule};
+            &foundation::shaders::kShadersResourceModule,
+            &kRenderProfileResourceModule};
         static const engine::DomainModule kModule{
             .id = u8"render",
             .installScene = &AddRenderSceneManagers,

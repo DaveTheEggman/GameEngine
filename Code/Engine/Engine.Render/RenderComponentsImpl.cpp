@@ -419,6 +419,12 @@ namespace engine::render
         builder.Value("Cubemap", SkyMode::Cubemap);
     }
 
+    REFLECT_ENUM(SettingsSource, "rtti::engine::render")
+    {
+        builder.Value("Scene", SettingsSource::Scene);
+        builder.Value("Profile", SettingsSource::Profile);
+    }
+
     REFLECT_VALUE(EnvironmentSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Environment"))
@@ -426,8 +432,17 @@ namespace engine::render
             // Script (Track A): EnvironmentSettings.of(scene) -> the scene's LIVE environment (edit
             // ambient/sky/fog fields). A scene-scoped re-resolving handle (the settings are one-per-scene).
             .Method<&EnvironmentSettingsOf, EnvironmentSettings>("of")
-            .DataVersion(5) // v5: shadow reach (v4: IBL lighting dimmers)
-            .ReadsDataVersionsFrom(4) // a v4 scene reads the reach's defaults (remove after re-saves)
+            .DataVersion(6) // v6: source + profile (v5: shadow reach; v4: IBL lighting dimmers)
+            .ReadsDataVersionsFrom(4) // v4/v5 scenes read the defaults for what they lack
+            .Property<&EnvironmentSettings::source>("source")
+            .PropAttribute("sceneOnly", true)
+            .PropAttribute("description",
+                           String(u8"Where the values come from: this scene's own, or a shared "
+                                  u8"Environment Profile asset"))
+            .Property<&EnvironmentSettings::profile>("profile")
+            .PropAttribute("sceneOnly", true)
+            .PropAttribute("visibleWhen", String(u8"source=1"))
+            .PropAttribute("description", String(u8"The shared Environment Profile whose values this scene uses"))
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
             .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
@@ -545,10 +560,21 @@ namespace engine::render
     REFLECT_VALUE(PostProcessSettings, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Post Processing"))
-            .Attribute("category", String(u8"Rendering")).DataVersion(3) // v3: SSGI (v2: auto-exposure + grading)
+            .Attribute("category", String(u8"Rendering"))
+            .DataVersion(4) // v4: source + profile (v3: SSGI; v2: auto-exposure + grading)
+            .ReadsDataVersionsFrom(3) // a v3 scene reads source Scene
             // Script (Track A): PostProcessSettings.of(scene) -> the scene's LIVE post settings (edit
             // exposure/tonemap/bloom/AA). A scene-scoped re-resolving handle.
             .Method<&PostProcessSettingsOf, PostProcessSettings>("of")
+            .Property<&PostProcessSettings::source>("source")
+            .PropAttribute("sceneOnly", true)
+            .PropAttribute("description",
+                           String(u8"Where the values come from: this scene's own, or a shared "
+                                  u8"Post Process Profile asset"))
+            .Property<&PostProcessSettings::profile>("profile")
+            .PropAttribute("sceneOnly", true)
+            .PropAttribute("visibleWhen", String(u8"source=1"))
+            .PropAttribute("description", String(u8"The shared Post Process Profile whose values this scene uses"))
             .Property<&PostProcessSettings::exposureEV>("exposureEV")
             .PropAttribute("range", Float4{-8.0f, 8.0f, 0.05f, 0.0f})
             .PropAttribute("displayName", String(u8"Exposure (EV)"))
@@ -640,6 +666,7 @@ namespace engine::render
             RttiRegisterEnum_ShadowUpdateMode();
             RttiRegisterEnum_ProbeUpdateMode();
             RttiRegisterEnum_SkyMode();
+            RttiRegisterEnum_SettingsSource();
             RttiRegisterValue_EnvironmentSettings();
             RttiRegisterEnum_TonemapOperator();
             RttiRegisterEnum_AaMode();
