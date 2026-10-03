@@ -13,7 +13,11 @@ import :math;
 export namespace foundation::core
 {
     // =======================================================================
-    // Color - linear RGBA, float components (typically 0..1).
+    // Color - RGBA, float components (typically 0..1). An AUTHORED colour (a component's
+    // colour, a material's colour property, a UI colour) is sRGB: the value a colour picker and
+    // a hex code show, the same encoding as an sRGB image. The renderer decodes it to linear
+    // (ToLinear below) where it hands the colour to the GPU, as the hardware decodes an sRGB
+    // texture on sample; render data and shading carry linear values.
     // =======================================================================
     struct ENGINE_EXPORT_DATA Color
     {
@@ -170,6 +174,19 @@ export namespace foundation::core
     [[nodiscard]] inline f32 LinearToSrgb(f32 c) noexcept
     {
         return (c <= 0.0031308f) ? (c * 12.92f) : (1.055f * Pow(c, 1.0f / 2.4f) - 0.055f);
+    }
+
+    // An authored (sRGB) Color -> linear, for render data; alpha is coverage and stays as it is.
+    // Components above 1 decode along the same curve, so an over-bright value stays over-bright.
+    [[nodiscard]] inline Color ToLinear(Color c) noexcept
+    {
+        return Color{SrgbToLinear(c.r), SrgbToLinear(c.g), SrgbToLinear(c.b), c.a};
+    }
+
+    // Linear -> sRGB, the inverse: for colour values that arrive linear (a glTF factor).
+    [[nodiscard]] inline Color ToSrgb(Color c) noexcept
+    {
+        return Color{LinearToSrgb(c.r), LinearToSrgb(c.g), LinearToSrgb(c.b), c.a};
     }
 
     // Color32 (sRGB-authored) -> linear float Color (RGB through the sRGB EOTF;

@@ -484,6 +484,24 @@ TEST_CASE("color32: packed byte color and conversions")
     CHECK(exact);
 }
 
+TEST_CASE("color: an authored (sRGB) colour decodes to linear for the renderer")
+{
+    // sRGB mid grey (#808080's float) is linear 0.2140; white and black are fixed points.
+    const Color grey = ToLinear(Color{0.5f, 0.5f, 0.5f, 0.5f});
+    CHECK(grey.r == doctest::Approx(0.2140f).epsilon(0.001));
+    CHECK(grey.g == doctest::Approx(0.2140f).epsilon(0.001));
+    CHECK(grey.a == doctest::Approx(0.5f)); // alpha is coverage, not decoded
+    CHECK(NearlyEqual(ToLinear(Color::White), Color::White, 1.0e-5f));
+    CHECK(NearlyEqual(ToLinear(Color::Black), Color::Black));
+
+    // ToSrgb inverts it, so a linear value (a glTF factor) can become an authored one.
+    const Color linear{0.05f, 0.3f, 0.9f, 1.0f};
+    CHECK(NearlyEqual(ToLinear(ToSrgb(linear)), linear, 1.0e-5f));
+
+    // Over-bright stays over-bright (monotonic past 1).
+    CHECK(ToLinear(Color{2.0f, 0.0f, 0.0f, 1.0f}).r > 1.0f);
+}
+
 // --- Math: easing functions (ported from Sedulous.Core.Mathematics.Easings) ---
 
 TEST_CASE("math: easing endpoints + known values")
