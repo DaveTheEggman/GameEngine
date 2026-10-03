@@ -900,18 +900,14 @@ namespace
                 {
                     ImGui::TextDisabled("(shadows off - isolates skinning throughput)");
                 }
-                float shadowDist = render->ShadowDistance();
-                if (ImGui::SliderFloat("Distance", &shadowDist, 50.0f, 1000.0f, "%.0f"))
+                // The sun's shadow reach is the scene's (its environment settings).
+                if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
                 {
-                    render->SetShadowDistance(shadowDist);
+                    ImGui::SliderFloat("Distance", &env->Environment().shadowDistance, 50.0f, 1000.0f, "%.0f");
+                    ImGui::SliderFloat("Far fade", &env->Environment().shadowFadeDistance, 2.0f, 150.0f, "%.0f");
+                    ImGui::TextDisabled("shadows fade out over the last %.0f units",
+                                        static_cast<double>(env->Environment().shadowFadeDistance));
                 }
-                float shadowFade = render->ShadowFarFade();
-                if (ImGui::SliderFloat("Far fade", &shadowFade, 2.0f, 150.0f, "%.0f"))
-                {
-                    render->SetShadowFarFade(shadowFade);
-                }
-                ImGui::TextDisabled("shadows fade out over the last %.0f units",
-                                    static_cast<double>(shadowFade));
             }
             ImGui::Separator();
             if (ImGui::Button("+ batch (Space)"))

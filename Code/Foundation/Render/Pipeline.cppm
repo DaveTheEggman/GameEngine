@@ -143,8 +143,6 @@ export namespace foundation::render
             true; // false = no temporal effect consumes velocity -> skip the per-instance prev-world lookup
         bool fillInstanceCache =
             false; // camera depth prepass: build the FULL instance data + cache the per-group range so the forward reuses it (build once, not twice)
-        f32 shadowFarFade =
-            40.0f; // CSM far-fade width in world units (SampleCSM dissolves shadows over the last cascade's far edge)
         u8 debugSemantic =
             0; // editor semantic debug view (ViewDebugSemantic): forward outputs the term, not the lit result
         f32 timeSeconds = 0.0f;     // the frame's time (RenderFrame::SetTime): the WIND sway phase
@@ -398,7 +396,6 @@ export namespace foundation::render
         // Whether any temporal effect (TAA / SSR-temporal) consumes motion vectors this frame. When false,
         // the forward resolve skips the per-instance prev-world lookup (velocity written as 0). Set per frame.
         void SetMotionNeeded(bool needed) noexcept { m_motionNeeded = needed; }
-        void SetShadowFarFade(f32 v) noexcept { m_shadowFarFade = v; }
         // The frame clock (this frame's + last frame's seconds): the WIND sway phase. Set per frame.
         void SetTime(f32 seconds, f32 prevSeconds) noexcept
         {
@@ -497,7 +494,6 @@ export namespace foundation::render
         rhi::TextureFormat m_depthFormat =
             rhi::TextureFormat::Depth32Float; // depth texture is a graph transient
         bool m_motionNeeded = true;  // per-frame: does any temporal effect read velocity this frame
-        f32 m_shadowFarFade = 40.0f; // CSM far-fade width (world units)
         f32 m_timeSeconds = 0.0f;     // the WIND sway clock (this frame)
         f32 m_prevTimeSeconds = 0.0f; // ...and last frame's
         Array<ResolvedDraw> m_resolved;      // reused resolve buffer (drained each pass)
@@ -690,11 +686,6 @@ export namespace foundation::render
         // Last frame's view-frustum cull totals, summed over active views (0/0 when culling was off). Read
         // before Begin() rewinds the view pool (e.g. from the sample's OnUpdate) to see the previous frame.
         void CullStats(u32& culled, u32& total) const noexcept;
-        // Directional-shadow reach (world units, clamped to the camera far plane) + the far-fade width (also
-        // world units - a fixed-thickness soft edge, distance-independent). Larger distance covers more ground
-        // but spreads cascade texel density; the fade dissolves the coverage boundary so it doesn't pop along
-        // a diagonal on a tilted camera.
-        void SetShadowParams(f32 distance, f32 farFade) noexcept;
         // Append a per-pass GPU timing report + the per-pass CPU record cost (call only after device idle).
         void ReadGpuProfile(String& out);
 
@@ -799,8 +790,6 @@ export namespace foundation::render
         f32 m_fxaaSubpixel = 0.75f;
         bool m_instanceSharing = true; // share prepass->forward instance data (A/B toggle)
         bool m_viewCulling = true;     // view-frustum cull camera draw lists (ON since 2026-09-24)
-        f32 m_shadowDistance = 300.0f; // directional-shadow reach (clamped to camera farZ)
-        f32 m_shadowFarFade = 40.0f;   // far-fade width in world units
         AoMode m_aoMode = AoMode::Off;
         i32 m_aoDebug = 0;
         f32 m_aoStrength = 0.6f;

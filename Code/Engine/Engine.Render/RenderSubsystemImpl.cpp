@@ -299,7 +299,6 @@ namespace engine::render
         m_frame->SetTime(m_timeSeconds); // the WIND sway clock (prev = last frame's)
         m_frame->SetBloom(m_bloomEnabled ? m_bloomIntensity : 0.0f, m_bloomThreshold, m_bloomKnee);
         m_frame->SetTaa(m_taaEnabled, m_taaBlend, m_taaGamma, m_taaMotionScale);
-        m_frame->SetShadowParams(m_shadowDistance, m_shadowFarFade);
         // DEBUG harness: ENV_AO_DEBUG forces the AO debug channel to screen (0=off, 1=AO,
         // 2/3/4=N.xyz, 5=viewZ, 6=depth) so SSAO reconstruction can be compared across backends.
         {

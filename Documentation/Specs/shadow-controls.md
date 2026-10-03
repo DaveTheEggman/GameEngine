@@ -39,11 +39,22 @@ One source for the defaults (`render::ShadowBiasDefaults`); the terrain renderer
 values from the cascades instead of its own copy. The stored scenes with a light (PaperKid's six,
 Sky Hopper's three) are re-stamped at version 1 with the defaults.
 
-### 2. Next: per-scene cascade settings (what fixes the mottling)
+### 2. Per-scene shadow reach (what fixes the mottling)
 
-Tuning shows the need the spec anticipated: shadow distance (how far the cascades reach,
-independent of the camera's far plane), the cascade split, and resolution, as a scene settings
-block. PaperKid wants a short reach (its streets are tens of metres); Sky Hopper a longer one.
+The scene's environment settings (data version 5; a v4 scene reads the defaults) gain:
+
+- `shadowDistance` (default 300): how far from the camera the sun's cascades reach, clamped to the
+  camera's far plane but independent of it.
+- `shadowCascadeSplit` (default 0.5): how the splits blend, 0 = even, 1 = most of the map near
+  the camera.
+- `shadowFadeDistance` (default 40): the width shadows fade out over at the reach.
+
+They ride the snapshot (`SceneShadowSettings`) to the view's cascades, so two scenes drawn in one
+frame (the editor) keep their own; the render subsystem's global shadow distance and far-fade
+setters are gone. Resolution stays global: every view's cascades share one array.
+
+PaperKid sets 60 / 0.7 / 10: the roof's shadow on a wall resolves into a band (2026-10-03). Sky
+Hopper keeps the defaults.
 
 ## Tests
 
@@ -53,6 +64,8 @@ block. PaperKid wants a short reach (its streets are tens of metres); Sky Hopper
   entry with its normal offset per distance, the per-light strength).
 - The controls round-trip with the scene at version 1; the inspector shows them only while the
   light casts shadows.
+- The reach round-trips at environment v5 and a v4 payload reads its defaults; extraction carries
+  it to the snapshot; a shorter reach (and a split nearer 1) gives the near cascade smaller texels.
 
 ## Not in scope
 

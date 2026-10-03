@@ -587,7 +587,7 @@ export namespace engine::terrain
                                             static_cast<f32>(ctx.cascadeLayerBase),
                                             ctx.cascades.normalBias, ctx.cascades.depthBias};
                     ubo.shadowLight.x = ctx.cascades.strength;
-                    ubo.shadowParams.x = ctx.shadowFarFade;
+                    ubo.shadowParams.x = ctx.cascades.farFade;
                 }
                 const bool hasWeights = data->weightView != nullptr && data->indexView != nullptr &&
                                         data->paletteArrayView != nullptr && data->paletteCount > 0;

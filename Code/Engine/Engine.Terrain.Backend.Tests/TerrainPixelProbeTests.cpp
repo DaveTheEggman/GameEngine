@@ -517,7 +517,6 @@ namespace
             }
             RenderFrame frame(DefaultAllocator(), device, registry, /*framesInFlight*/ 2, /*clusters*/ nullptr,
                               /*tonemap*/ nullptr, shadows.Get());
-            frame.SetShadowParams(800.0f, 20.0f); // shadow distance, far-fade width
 
             RefPtr<hf::Heightfield> ridge = MakeRidge();
             Array<tmodel::TerrainChunk> chunks;
@@ -546,6 +545,7 @@ namespace
             ds.direction = travel;
             ds.valid = true;
             scene.SetDirectionalShadow(ds);
+            scene.SetShadowSettings(SceneShadowSettings{800.0f, 0.5f, 20.0f}); // reach, split, fade
 
             engine::terrain::TerrainRenderData* rd = scene.Add<engine::terrain::TerrainRenderData>();
             REQUIRE(rd != nullptr);

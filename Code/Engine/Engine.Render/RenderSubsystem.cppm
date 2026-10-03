@@ -270,14 +270,6 @@ export namespace engine::render
         void SetTaaMotionScale(f32 v) noexcept { m_taaMotionScale = v; }
         [[nodiscard]] f32 TaaMotionScale() const noexcept { return m_taaMotionScale; }
 
-        // Directional (CSM) shadow reach + far-fade. Both in world units: distance is the reach (clamped to
-        // camera farZ); farFade is the fixed WIDTH of the soft edge over which shadows dissolve to fully-lit
-        // at the boundary (kills the diagonal coverage-boundary pop on a tilted, rotating camera).
-        void SetShadowDistance(f32 v) noexcept { m_shadowDistance = v; }
-        [[nodiscard]] f32 ShadowDistance() const noexcept { return m_shadowDistance; }
-        void SetShadowFarFade(f32 v) noexcept { m_shadowFarFade = v; }
-        [[nodiscard]] f32 ShadowFarFade() const noexcept { return m_shadowFarFade; }
-
         // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
         // are valid - intended for an on-demand dump (the P-key), not per-frame use.
         void BuildGpuProfileReport(String& out);
@@ -403,8 +395,6 @@ export namespace engine::render
         f32 m_taaBlend = 0.97f;        // history weight (stability)
         f32 m_taaGamma = 1.25f;        // variance-clip box half-width
         f32 m_taaMotionScale = 32.0f;  // history drop-off with motion
-        f32 m_shadowDistance = 300.0f; // directional-shadow reach (world units)
-        f32 m_shadowFarFade = 40.0f;   // far-fade width (world units)
         f32 m_bloomIntensity = 0.05f;  // 0 = bloom off
         f32 m_bloomThreshold = 1.0f;
         f32 m_bloomKnee = 0.6f;

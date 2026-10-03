@@ -705,15 +705,11 @@ namespace
                 {
                     render->SetBloomEnabled(bloomOn);
                 }
-                float shadowDist = render->ShadowDistance();
-                if (ImGui::SliderFloat("Shadow dist", &shadowDist, 50.0f, 1000.0f, "%.0f"))
+                // The sun's shadow reach is the scene's (its environment settings).
+                if (auto* env = m_scene->GetSystem<engine::render::EnvironmentSystem>())
                 {
-                    render->SetShadowDistance(shadowDist);
-                }
-                float shadowFade = render->ShadowFarFade();
-                if (ImGui::SliderFloat("Shadow fade", &shadowFade, 2.0f, 150.0f, "%.0f"))
-                {
-                    render->SetShadowFarFade(shadowFade);
+                    ImGui::SliderFloat("Shadow dist", &env->Environment().shadowDistance, 50.0f, 1000.0f, "%.0f");
+                    ImGui::SliderFloat("Shadow fade", &env->Environment().shadowFadeDistance, 2.0f, 150.0f, "%.0f");
                 }
             }
             ImGui::Separator();

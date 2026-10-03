@@ -1003,7 +1003,7 @@ namespace foundation::render
             // the receiver's compare bias. Defaults: ShadowBiasDefaults.
             vd.shadowNormalBias = ctx.cascades.normalBias;
             vd.shadowDepthBias = ctx.cascades.depthBias;
-            vd.shadowParams.x = ctx.shadowFarFade; // CSM far-fade band (runtime-tunable)
+            vd.shadowParams.x = ctx.cascades.farFade; // the scene's fade width at the reach
         }
         // y = shadow-map sample uv.y sign. The shadow map rasterizes the same as the main color
         // target, so on Y-flip targets (WebGPU, positive viewport) uv.y = +ndc.y*0.5+0.5; on

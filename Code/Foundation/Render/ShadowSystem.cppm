@@ -42,9 +42,11 @@ export namespace foundation::render
     // Fit CSM cascades to the camera frustum. Practical split (lambda blend of log + uniform), a bounding
     // SPHERE fit per cascade (stable under camera rotation) with radius snapping, plus light-space TEXEL
     // snapping - the anti-shimmer fix Sedulous lacks (the survey flagged it). `lightDir` is the direction
-    // light travels; the light camera looks along it. Cascades cover [near, shadowDistance].
+    // light travels; the light camera looks along it. Cascades cover [near, shadowDistance]; `lambda`
+    // blends the splits (0 = uniform, 1 = logarithmic: more of the map near the camera).
     [[nodiscard]] inline ShadowCascades ComputeCascades(const ViewCamera& cam, Float3 lightDir,
-                                                        f32 shadowDistance, u32 resolution)
+                                                        f32 shadowDistance, u32 resolution,
+                                                        f32 lambda = 0.5f)
     {
         ShadowCascades out;
         out.valid = true;
@@ -56,7 +58,6 @@ export namespace foundation::render
         // into fractions of THAT range (camFar), not of the shorter shadow range (farZ).
         const f32 camFar = Max(farZ, cam.farZ);
 
-        constexpr f32 lambda = 0.5f; // practical split: 0 = uniform, 1 = logarithmic
         f32 splits[N + 1];
         splits[0] = nearZ;
         for (u32 i = 1; i <= N; ++i)

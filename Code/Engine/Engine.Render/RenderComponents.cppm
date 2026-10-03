@@ -563,6 +563,13 @@ export namespace engine::render
         // down to calm the cast without touching the sky or its reflections.
         f32 iblDiffuseIntensity = 1.0f;
         f32 iblSpecularIntensity = 1.0f;
+        // The sun's shadow reach (v5): how far from the camera its cascades cover (clamped to the
+        // camera's far plane, but independent of it: a street-scale scene keeps its near shadows
+        // sharp with a short reach while the camera sees far), how the cascade splits blend (0 =
+        // even, 1 = more of the map near the camera) and the width it fades out over at the reach.
+        f32 shadowDistance = 300.0f;
+        f32 shadowCascadeSplit = 0.5f;
+        f32 shadowFadeDistance = 40.0f;
     };
 
     class EnvironmentSystem final : public scene::SceneSystem
@@ -628,6 +635,13 @@ export namespace engine::render
             foundation::core::Serialize(ar, "turbidity", m_env.turbidity);
             foundation::core::Serialize(ar, "iblDiffuseIntensity", m_env.iblDiffuseIntensity);
             foundation::core::Serialize(ar, "iblSpecularIntensity", m_env.iblSpecularIntensity);
+            // v5 (the legacy reader takes a v4 payload, which has no shadow reach: the defaults).
+            if (ar.Mode() == SerializeMode::Write || ar.Version() >= 5)
+            {
+                foundation::core::Serialize(ar, "shadowDistance", m_env.shadowDistance);
+                foundation::core::Serialize(ar, "shadowCascadeSplit", m_env.shadowCascadeSplit);
+                foundation::core::Serialize(ar, "shadowFadeDistance", m_env.shadowFadeDistance);
+            }
         }
 
     private:

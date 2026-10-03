@@ -411,6 +411,17 @@ export namespace foundation::render
         static constexpr f32 kLocalDepthBias = 0.0015f; // spot / point (atlas)
     };
 
+    // A scene's directional-shadow reach (its environment settings): how far from the camera the
+    // cascades cover (clamped to the camera's far plane: a reach independent of how far the camera
+    // sees, so a near cascade's texels stay small), how the splits blend (0 = uniform, 1 =
+    // logarithmic) and the width of the soft edge the shadow fades over at the reach.
+    struct SceneShadowSettings
+    {
+        f32 distance = 300.0f;
+        f32 cascadeSplit = 0.5f;
+        f32 fadeDistance = 40.0f;
+    };
+
     struct DirectionalShadow
     {
         Float3 direction = Float3{0, -1, 0};
@@ -432,7 +443,9 @@ export namespace foundation::render
         f32 splitFar[kCount] = {0.0f, 0.0f, 0.0f, 0.0f}; // view-space far depth of each cascade
         f32 texelWorldSize[kCount] = {0.0f, 0.0f, 0.0f,
                                       0.0f}; // world units per texel (normal-offset bias)
-        // The caster light's own values (DirectionalShadow), carried to every renderer that samples.
+        // The caster light's own values (DirectionalShadow), carried to every renderer that samples,
+        // and the scene's fade width at the reach (SceneShadowSettings::fadeDistance).
+        f32 farFade = 40.0f;
         f32 normalBias = ShadowBiasDefaults::kNormalBias; // texels
         f32 depthBias = ShadowBiasDefaults::kDepthBias;
         f32 strength = 1.0f;
@@ -804,6 +817,11 @@ export namespace foundation::render
         // The active directional shadow caster. Set during light extraction.
         void SetDirectionalShadow(const DirectionalShadow& s) noexcept { m_shadow = s; }
         [[nodiscard]] const DirectionalShadow& DirectionalShadowData() const noexcept;
+        void SetShadowSettings(const SceneShadowSettings& s) noexcept { m_shadowSettings = s; }
+        [[nodiscard]] const SceneShadowSettings& ShadowSettings() const noexcept
+        {
+            return m_shadowSettings;
+        }
 
         // The world position of the FIRST view that renders this snapshot, set by the render
         // subsystem before the scene's providers extract (a producer that thins by distance -
@@ -851,6 +869,7 @@ export namespace foundation::render
         Float3 m_ambient = Float3{0.03f, 0.03f, 0.03f}; // default dim ambient
         SkySnapshot m_sky;                              // sky/IBL environment for this frame
         DirectionalShadow m_shadow;                     // active directional shadow caster
+        SceneShadowSettings m_shadowSettings;           // the scene's cascade reach
         Float3 m_viewOrigin = Float3{0.0f, 0.0f, 0.0f}; // first view's camera position (see above)
         bool m_hasViewOrigin = false;
         f32 m_timeSeconds = 0.0f;     // the scene clock (see SetTime)

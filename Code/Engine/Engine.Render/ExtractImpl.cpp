@@ -536,6 +536,8 @@ namespace engine::render
                 return Float3{l.r, l.g, l.b};
             };
             out.SetAmbient(linear3(e.ambientColor) * e.ambientIntensity);
+            out.SetShadowSettings(SceneShadowSettings{e.shadowDistance, e.shadowCascadeSplit,
+                                                      e.shadowFadeDistance});
             SkySnapshot s{};
             s.mode = e.skyMode;
             s.intensity = e.skyIntensity;

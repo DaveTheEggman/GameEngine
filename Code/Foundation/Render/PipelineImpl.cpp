@@ -386,7 +386,6 @@ namespace foundation::render
             view.Settings()
                 .post
                 .needsMotion; // per-view: skip prev-world when no temporal effect reads velocity
-        ctx.shadowFarFade = m_shadowFarFade;
         ctx.debugSemantic = static_cast<u8>(view.Settings().debug.semantic);
 
         // RESOLVE (single-threaded): sorted draw list -> ResolvedDraws (PSO build, mesh upload,
@@ -576,7 +575,6 @@ namespace foundation::render
         // the per-instance prev-world lookup (a full-scene hashmap rebuild/frame at stress scale).
         m_pass.SetMotionNeeded(m_taaEnabled ||
                                (m_ssr != nullptr && m_ssrEnabled && m_ssrParams.temporal));
-        m_pass.SetShadowFarFade(m_shadowFarFade);
         m_pass.SetTime(m_timeSeconds, m_prevTimeSeconds);
         if (m_pick != nullptr)
         {
@@ -660,12 +658,6 @@ namespace foundation::render
             culled += m_views.At(i)->CulledCount();
             total += m_views.At(i)->SceneItemCount();
         }
-    }
-
-    void RenderFrame::SetShadowParams(f32 distance, f32 farFade) noexcept
-    {
-        m_shadowDistance = distance;
-        m_shadowFarFade = farFade;
     }
 
     void RenderFrame::ReadGpuProfile(String& out)
@@ -1520,9 +1512,13 @@ namespace foundation::render
                 // this affordable (casters only touch the one cascade they fall in), and SampleCSM
                 // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
                 // reach covers more ground but spreads cascade texel density (softer near shadows).
-                const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
+                // The scene's reach (its environment settings), clamped to the camera's far plane.
+                const SceneShadowSettings& reach = sctx->scene->ShadowSettings();
+                const f32 shadowDistance = Min(v->Camera().farZ, Max(reach.distance, 1.0f));
                 ShadowCascades cascades =
-                    ComputeCascades(v->Camera(), viewLightDir, shadowDistance, shadowRes);
+                    ComputeCascades(v->Camera(), viewLightDir, shadowDistance, shadowRes,
+                                    Clamp(reach.cascadeSplit, 0.0f, 1.0f));
+                cascades.farFade = reach.fadeDistance;
                 // The caster light's own biases and strength ride with its cascades.
                 const DirectionalShadow& caster = sctx->scene->DirectionalShadowData();
                 cascades.normalBias = caster.normalBias;

@@ -426,8 +426,8 @@ namespace engine::render
             // Script (Track A): EnvironmentSettings.of(scene) -> the scene's LIVE environment (edit
             // ambient/sky/fog fields). A scene-scoped re-resolving handle (the settings are one-per-scene).
             .Method<&EnvironmentSettingsOf, EnvironmentSettings>("of")
-            .DataVersion(
-                4) // v4: IBL lighting dimmers (v3: skyBackgroundIntensity backdrop dimmer)
+            .DataVersion(5) // v5: shadow reach (v4: IBL lighting dimmers)
+            .ReadsDataVersionsFrom(4) // a v4 scene reads the reach's defaults (remove after re-saves)
             .Property<&EnvironmentSettings::ambientColor>("ambientColor")
             .Property<&EnvironmentSettings::ambientIntensity>("ambientIntensity")
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
@@ -485,7 +485,22 @@ namespace engine::render
             .PropAttribute("range", Float4{0.0f, 2.0f, 0.01f, 0.0f})
             .PropAttribute("description",
                            String(u8"Sky reflection strength on surfaces (probes keep their own "
-                                  u8"intensity)"));
+                                  u8"intensity)"))
+            .Property<&EnvironmentSettings::shadowDistance>("shadowDistance")
+            .PropAttribute("range", Float4{5.0f, 1000.0f, 1.0f, 0.0f})
+            .PropAttribute("description",
+                           String(u8"How far from the camera the sun's shadows reach. Shorter keeps "
+                                  u8"near shadows sharp (a roof's shadow on a wall); longer covers "
+                                  u8"more ground"))
+            .Property<&EnvironmentSettings::shadowCascadeSplit>("shadowCascadeSplit")
+            .PropAttribute("range", Float4{0.0f, 1.0f, 0.01f, 0.0f})
+            .PropAttribute("description",
+                           String(u8"How the shadow map is shared out over the reach: 0 = evenly, "
+                                  u8"1 = most of it near the camera"))
+            .Property<&EnvironmentSettings::shadowFadeDistance>("shadowFadeDistance")
+            .PropAttribute("range", Float4{0.0f, 200.0f, 1.0f, 0.0f})
+            .PropAttribute("description",
+                           String(u8"The width shadows fade out over at the reach"));
     }
 
     REFLECT_VALUE(ReflectionProbeComponent, "rtti::engine::render")

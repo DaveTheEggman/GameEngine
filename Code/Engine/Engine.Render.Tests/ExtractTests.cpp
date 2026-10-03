@@ -1279,6 +1279,103 @@ TEST_CASE("EnvironmentSettings: the IBL lighting dimmers serialize with the scen
     CHECK(envB->Environment().iblSpecularIntensity == doctest::Approx(0.8f));
 }
 
+TEST_CASE("EnvironmentSettings: the shadow reach serializes (v5), and a v4 scene reads its defaults")
+{
+    engine::render::RegisterRenderComponentReflection();
+    const TypeInfo& type = TypeOf<engine::render::EnvironmentSettings>();
+    CHECK(type.dataVersion == 5u);
+
+    // Round trip at v5.
+    engine::render::EnvironmentSystem written;
+    written.Environment().shadowDistance = 70.0f;
+    written.Environment().shadowCascadeSplit = 0.8f;
+    written.Environment().shadowFadeDistance = 12.0f;
+    written.Environment().iblSpecularIntensity = 0.6f;
+    MemoryStream stream;
+    {
+        BinarySerializer ar(stream, SerializeMode::Write);
+        BeginVersionedPayload(ar, type);
+        written.SerializeSettings(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    (void)stream.Seek(0, SeekOrigin::Begin);
+    engine::render::EnvironmentSystem read;
+    {
+        BinarySerializer ar(stream, SerializeMode::Read);
+        BeginVersionedPayload(ar, type);
+        read.SerializeSettings(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(read.Environment().shadowDistance == doctest::Approx(70.0f));
+    CHECK(read.Environment().shadowCascadeSplit == doctest::Approx(0.8f));
+    CHECK(read.Environment().shadowFadeDistance == doctest::Approx(12.0f));
+
+    // A v4 payload, as the stored scenes hold it: the chain stamped 4 and no reach fields (the
+    // v5 layout appends three f32s, so a v4 payload is the v5 one without its last 12 bytes).
+    MemoryStream v5;
+    {
+        BinarySerializer ar(v5, SerializeMode::Write);
+        const SerializedDataVersion chain[] = {{type.id, 4u}};
+        u32 n = 1;
+        ar.Key("dataVersions");
+        ar.BeginArray(n);
+        SerializedDataVersion entry = chain[0];
+        ar.Key("type");
+        ar.Scalar(&entry.typeId, ScalarKind::UInt64);
+        ar.Key("version");
+        ar.Scalar(&entry.version, ScalarKind::UInt32);
+        ar.EndArray();
+        ar.PushVersionScope(chain, 1);
+        written.SerializeSettings(ar);
+        ar.PopVersionScope();
+        REQUIRE(ar.IsOk());
+    }
+    const Span<const byte> bytes = v5.Bytes();
+    MemoryStream v4;
+    (void)v4.Write(bytes.Data(), bytes.Size() - 3 * sizeof(f32));
+    (void)v4.Seek(0, SeekOrigin::Begin);
+    engine::render::EnvironmentSystem legacy;
+    legacy.Environment().shadowDistance = 1.0f; // overwritten only if the reader reads the field
+    {
+        BinarySerializer ar(v4, SerializeMode::Read);
+        BeginVersionedPayload(ar, type);
+        legacy.SerializeSettings(ar);
+        EndVersionedPayload(ar);
+        REQUIRE(ar.IsOk());
+    }
+    CHECK(legacy.Environment().shadowDistance == doctest::Approx(1.0f)); // not read: v4 has none
+    CHECK(legacy.Environment().iblSpecularIntensity == doctest::Approx(0.6f)); // the v4 fields read
+}
+
+TEST_CASE("extract: the scene's shadow reach rides the snapshot")
+{
+    foundation::scene::Scene scene(DefaultAllocator(), u8"reach");
+    auto* env = scene.AddSystem<engine::render::EnvironmentSystem>();
+    env->Environment().shadowDistance = 60.0f;
+    env->Environment().shadowCascadeSplit = 0.7f;
+    env->Environment().shadowFadeDistance = 8.0f;
+    ExtractedScene out{DefaultAllocator()};
+    ExtractEnvironmentInto(scene, out);
+    CHECK(out.ShadowSettings().distance == doctest::Approx(60.0f));
+    CHECK(out.ShadowSettings().cascadeSplit == doctest::Approx(0.7f));
+    CHECK(out.ShadowSettings().fadeDistance == doctest::Approx(8.0f));
+
+    // A shorter reach gives the near cascade smaller texels: what sharpens a roof's shadow.
+    ViewCamera cam;
+    cam.view = Float4x4::LookAtRH(Float3{0, 2, 0}, Float3{0, 2, -10}, Float3{0, 1, 0});
+    cam.projection = Float4x4::PerspectiveFovRH(1.0472f, 16.0f / 9.0f, 0.1f, 400.0f);
+    cam.farZ = 400.0f;
+    const Float3 sun = Normalized(Float3{-0.17f, -0.87f, -0.47f});
+    const ShadowCascades wide = ComputeCascades(cam, sun, 300.0f, 1024);
+    const ShadowCascades near = ComputeCascades(cam, sun, 60.0f, 1024);
+    CHECK(near.texelWorldSize[0] < wide.texelWorldSize[0] * 0.5f);
+    // ...and a split nearer 1 gives the camera's surroundings more of the map.
+    const ShadowCascades logarithmic = ComputeCascades(cam, sun, 60.0f, 1024, 1.0f);
+    CHECK(logarithmic.texelWorldSize[0] < near.texelWorldSize[0]);
+}
+
 TEST_CASE("render: RequestPick keys on the viewport, answers nothing without a key, cancels")
 {
     rhi::null::NullDevice device{DefaultAllocator()};
