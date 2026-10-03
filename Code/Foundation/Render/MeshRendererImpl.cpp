@@ -998,12 +998,11 @@ namespace foundation::render
             vd.shadowCascadeCount = static_cast<f32>(ShadowCascades::kCount);
             vd.cascadeLayerBase =
                 static_cast<f32>(ctx.cascadeLayerBase); // this view's first array layer
-            // Normal-offset is in TEXELS (scaled by the cascade's world texel size in the shader).
-            // Keep it tiny (Sedulous uses 0.02) - at large values it shifts the receiver enough to eat
-            // the light-facing side of a contact shadow, worse the bigger the cascade's texelWorld grows.
-            // Acne is carried by the hardware depth bias (ShadowConfigFor: 50 / 1.5), not this.
-            vd.shadowNormalBias = 0.02f;
-            vd.shadowDepthBias = 0.0009f;
+            // The caster light's own biases (its LightComponent, through DirectionalShadow): the
+            // normal offset in TEXELS (scaled by the cascade's world texel size in the shader), and
+            // the receiver's compare bias. Defaults: ShadowBiasDefaults.
+            vd.shadowNormalBias = ctx.cascades.normalBias;
+            vd.shadowDepthBias = ctx.cascades.depthBias;
             vd.shadowParams.x = ctx.shadowFarFade; // CSM far-fade band (runtime-tunable)
         }
         // y = shadow-map sample uv.y sign. The shadow map rasterizes the same as the main color

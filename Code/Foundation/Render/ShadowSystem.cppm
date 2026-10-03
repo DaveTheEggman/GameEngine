@@ -168,6 +168,18 @@ export namespace foundation::render
         const f32 scale = static_cast<f32>(tileRes) / static_cast<f32>(atlasRes);
         s.atlasScaleBias = Float4{scale, scale, static_cast<f32>(tileIndex % cols) * scale,
                                   static_cast<f32>(tileIndex / cols) * scale};
+        // One tile texel at distance 1 from the light spans 2 tan(fov / 2) / tileRes world units.
+        s.normalBiasPerDistance =
+            (tileRes > 0) ? 2.0f * Tan(fov * 0.5f) / static_cast<f32>(tileRes) : 0.0f;
+        return s;
+    }
+
+    // The caster light's own biases on a built entry (the texel-to-world scale MakeLocalShadow put
+    // in normalBiasPerDistance, times the light's texels).
+    [[nodiscard]] inline GpuLocalShadow WithLightBiases(GpuLocalShadow s, const LocalShadowCaster& c)
+    {
+        s.normalBiasPerDistance *= c.normalBias;
+        s.depthBias = c.depthBias;
         return s;
     }
 
@@ -180,7 +192,7 @@ export namespace foundation::render
             (Abs(dir.y) > 0.95f) ? Float3{0.0f, 0.0f, 1.0f} : Float3{0.0f, 1.0f, 0.0f};
         const f32 fov = Min(c.outerAngle * 2.0f + 0.05f, 3.0f); // pad the cone a touch; keep < pi
         const Float4x4 view = Float4x4::LookAtRH(c.positionWS, c.positionWS + dir, up);
-        return MakeLocalShadow(view, c.range, fov, tileIndex, atlasRes, tileRes);
+        return WithLightBiases(MakeLocalShadow(view, c.range, fov, tileIndex, atlasRes, tileRes), c);
     }
 
     // One cube face of a point light's shadow (face 0=+X,1=-X,2=+Y,3=-Y,4=+Z,5=-Z), a 90deg perspective
@@ -200,7 +212,8 @@ export namespace foundation::render
         // fov slightly WIDER than 90deg: the shader selects faces at the exact 45deg boundary, so a 90deg
         // frustum would put boundary fragments at the tile EDGE and the PCF taps would fall off it / into
         // the neighbour tile - a visible seam line. The pad (~100deg) pulls boundary uv inward off the edge.
-        return MakeLocalShadow(view, c.range, 1.745f /*~100deg*/, tileIndex, atlasRes, tileRes);
+        return WithLightBiases(
+            MakeLocalShadow(view, c.range, 1.745f /*~100deg*/, tileIndex, atlasRes, tileRes), c);
     }
 
     class ShadowSystem

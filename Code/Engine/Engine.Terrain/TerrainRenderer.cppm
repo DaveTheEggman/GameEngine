@@ -585,7 +585,8 @@ export namespace engine::terrain
                                ctx.cascades.texelWorldSize[2], ctx.cascades.texelWorldSize[3]};
                     ubo.shadowMeta = Float4{static_cast<f32>(kCascadeCount),
                                             static_cast<f32>(ctx.cascadeLayerBase),
-                                            kShadowNormalBias, kShadowDepthBias};
+                                            ctx.cascades.normalBias, ctx.cascades.depthBias};
+                    ubo.shadowLight.x = ctx.cascades.strength;
                     ubo.shadowParams.x = ctx.shadowFarFade;
                 }
                 const bool hasWeights = data->weightView != nullptr && data->indexView != nullptr &&
@@ -906,8 +907,6 @@ export namespace engine::terrain
     private:
         static constexpr u32 kMaxTerrains = 8;
         static constexpr u32 kCascadeCount = 4; // matches render::ShadowCascades::kCount
-        static constexpr f32 kShadowNormalBias = 0.02f; // in texels (scaled by texelWorld in the PS)
-        static constexpr f32 kShadowDepthBias = 0.0009f;
         static constexpr u64 kViewSlotSize = 768;  // 8 mat4 + 6 float4, padded to dynamic alignment
         static constexpr u64 kChunkSlotSize = 256; // 6 float2, padded to dynamic alignment
 
@@ -928,6 +927,7 @@ export namespace engine::terrain
             Float4 shadowParams; // x = far-fade width, y = uv.y sign, z = heightBlendContrast, w = height maps bound
             Float4 splatParams; // x = palette count, y = weights bound, z = base tile, w = base bound
             Float4 splatParams2; // x = mask maps bound, yzw spare
+            Float4 shadowLight;  // x = the caster light's shadow strength (1 = full), yzw spare
         };
 
         struct LodMesh

@@ -387,19 +387,37 @@ export namespace foundation::render
         f32 innerCos = 1.0f;
         f32 outerCos = 1.0f; // spot cone cosines
         // shadowIndex: -1 = this light casts no shadow; else an index into the shadow data (a single
-        // directional shadow map, so any >= 0 selects it). pad1 reserved (cascade count).
+        // directional shadow map, so any >= 0 selects it).
         f32 shadowIndex = -1.0f;
-        f32 pad1 = 0.0f;
+        // How dark the light's shadow gets: 1 = full, 0 = none (the shader lerps toward lit).
+        f32 shadowStrength = 1.0f;
     };
     static_assert(sizeof(GpuLight) == 64);
 
     // The active directional shadow caster for a scene (the extraction OUTPUT): just the light direction
     // + whether one exists. The cascade matrices are derived later (in RenderFrame, where the camera
     // frustum is available) since CSM fitting needs the camera. valid == false => no shadow this frame.
+    // The shadow biases a light starts with, in one place (the light component and every renderer
+    // read these). The normal offset is in shadow TEXELS: the shader pushes a receiver along its
+    // normal by this many texels of its cascade (or atlas tile), more as the surface turns from the
+    // light. It stays small: the casters' slope-scaled hardware bias carries acne (a wall the sun
+    // grazes at N.L 0.17 reads clean at 0.02, Render.Backend.Tests' shadow control probe), and a
+    // large offset parts a shadow from its caster. The depth bias is the receiver's compare bias in
+    // NDC depth (toward the light, per depth.hlsli).
+    struct ShadowBiasDefaults
+    {
+        static constexpr f32 kNormalBias = 0.02f;
+        static constexpr f32 kDepthBias = 0.0009f;      // directional (cascades)
+        static constexpr f32 kLocalDepthBias = 0.0015f; // spot / point (atlas)
+    };
+
     struct DirectionalShadow
     {
         Float3 direction = Float3{0, -1, 0};
         bool valid = false;
+        f32 normalBias = ShadowBiasDefaults::kNormalBias; // texels
+        f32 depthBias = ShadowBiasDefaults::kDepthBias;
+        f32 strength = 1.0f;
     };
 
     // Cascaded shadow map data for the directional caster, computed per-frame from the
@@ -414,6 +432,10 @@ export namespace foundation::render
         f32 splitFar[kCount] = {0.0f, 0.0f, 0.0f, 0.0f}; // view-space far depth of each cascade
         f32 texelWorldSize[kCount] = {0.0f, 0.0f, 0.0f,
                                       0.0f}; // world units per texel (normal-offset bias)
+        // The caster light's own values (DirectionalShadow), carried to every renderer that samples.
+        f32 normalBias = ShadowBiasDefaults::kNormalBias; // texels
+        f32 depthBias = ShadowBiasDefaults::kDepthBias;
+        f32 strength = 1.0f;
         bool valid = false;
     };
 
@@ -426,10 +448,13 @@ export namespace foundation::render
     {
         Float4x4 viewProj = Float4x4::Identity();   // world -> light clip (perspective)
         Float4 atlasScaleBias = Float4{1, 1, 0, 0}; // xy = uv scale, zw = uv offset (tile in atlas)
-        f32 depthBias = 0.0015f;                    // constant depth-compare bias (NDC units; the shader
-                                                    // applies it toward the light per depth.hlsli)
+        f32 depthBias = ShadowBiasDefaults::kLocalDepthBias; // depth-compare bias (NDC units; the
+                                                             // shader applies it toward the light)
         f32 atlasSelect = 0.0f; // atlas array layer: 0 = realtime, 1 = static (5.4)
-        f32 pad1 = 0.0f, pad2 = 0.0f;
+        // The light's normal offset as world units per unit of distance from the light: its texels
+        // times the tile's texel size at distance 1 (the shader multiplies by the distance).
+        f32 normalBiasPerDistance = 0.0f;
+        f32 pad2 = 0.0f;
     };
     static_assert(sizeof(GpuLocalShadow) == 96);
 
@@ -445,6 +470,8 @@ export namespace foundation::render
         f32 range = 10.0f;     // perspective far plane
         f32 outerAngle = 0.6f; // spot cone half-angle (radians); fov = 2 * outerAngle
         bool isStatic = false; // Static update mode -> cached static atlas layer (5.4)
+        f32 normalBias = ShadowBiasDefaults::kNormalBias; // texels of its atlas tile
+        f32 depthBias = ShadowBiasDefaults::kLocalDepthBias;
     };
 
     // Atlas tile budget for local (spot/point) shadows per frame. A spot consumes 1 tile, a point 6

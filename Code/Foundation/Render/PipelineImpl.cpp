@@ -1521,8 +1521,13 @@ namespace foundation::render
                 // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
                 // reach covers more ground but spreads cascade texel density (softer near shadows).
                 const f32 shadowDistance = Min(v->Camera().farZ, m_shadowDistance);
-                const ShadowCascades cascades =
+                ShadowCascades cascades =
                     ComputeCascades(v->Camera(), viewLightDir, shadowDistance, shadowRes);
+                // The caster light's own biases and strength ride with its cascades.
+                const DirectionalShadow& caster = sctx->scene->DirectionalShadowData();
+                cascades.normalBias = caster.normalBias;
+                cascades.depthBias = caster.depthBias;
+                cascades.strength = caster.strength;
                 const u32 layerBase = static_cast<u32>(i) * cascadeCount;
                 RendererRegistry* reg = m_registry;
                 for (u32 c = 0; c < cascadeCount; ++c)
