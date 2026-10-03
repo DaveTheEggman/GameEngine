@@ -8,7 +8,7 @@
 			<string name="name">Linux64 Desktop</string>
 			<string name="platform">Linux64</string>
 			<string name="templateId"/>
-			<string name="playerName"/>
+			<string name="playerName">Raptor SkyHopper</string>
 			<string name="outputSubdir">Linux64</string>
 			<array name="additionalFiles" count="1">
 				<string>CREDITS.md</string>
@@ -30,7 +30,7 @@
 			<string name="name">Steam Deck</string>
 			<string name="platform">Linux64</string>
 			<string name="templateId">gameengine-steamdeck-release-0.1.0</string>
-			<string name="playerName"/>
+			<string name="playerName">Raptor SkyHopper</string>
 			<string name="outputSubdir">SteamDeck</string>
 			<array name="additionalFiles" count="1">
 				<string>CREDITS.md</string>
