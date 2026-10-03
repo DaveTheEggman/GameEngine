@@ -12,13 +12,14 @@ HOUSES = [kit["HouseRed"], kit["HouseBlue"], kit["HouseCream"]]
 SUN_ROT = (-0.4935577, 0.15065993, 0.08726525, 0.85210747)
 
 
-# The look, as the user set it on Start (2026-10-02): GTAO, TAA, auto exposure, bloom (TAA is back
-# since the engine stopped binding stale history inputs in the player, 2026-10-03). Every scene
-# gets the same until scenes can share a post/environment asset.
+# The look, as the user set it on Start (2026-10-02): GTAO, bloom, a fixed exposure. FXAA until
+# TAA's resolve is less jittery, and auto exposure off: it dimmed and brightened over the first
+# second or two of every scene (user, 2026-10-03; both in the engine backlog). Every scene gets
+# the same until scenes can share a post/environment asset.
 POST = dict(exposureEV=0.0, tonemapOperator=1, bloomEnabled=True, bloomThreshold=1.0, bloomKnee=0.6,
             bloomIntensity=0.05, aoMode=1, aoStrength=0.6, aoRadius=0.5, aoIntensity=1.0, ssrEnabled=False,
-            ssrIntensity=1.0, aaMode=2, taaBlendFactor=0.97, taaVarianceGamma=1.25, fxaaSubpixel=0.75,
-            autoExposure=True, autoExposureKey=0.25, autoExposureSpeed=2.0, autoExposureMinEV=-4.0,
+            ssrIntensity=1.0, aaMode=1, taaBlendFactor=0.97, taaVarianceGamma=1.25, fxaaSubpixel=0.75,
+            autoExposure=False, autoExposureKey=0.25, autoExposureSpeed=2.0, autoExposureMinEV=-4.0,
             autoExposureMaxEV=4.0, gradingIntensity=1.0, ssgiEnabled=False, ssgiIntensity=1.0)
 ENVIRONMENT = dict(ambientColor={"r": 0.1, "g": 0.12, "b": 0.16, "a": 1.0}, ambientIntensity=0.3, skyMode=0,
                    skyIntensity=1.0, skyBackgroundIntensity=0.5, skyRotation=0.0,
