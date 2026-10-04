@@ -173,15 +173,15 @@
 			<f32 name="z">0.014552124</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.056865282</f32>
+			<f32 name="x">0.14521307</f32>
 			<f32 name="y">0</f32>
 			<f32 name="z">0</f32>
-			<f32 name="w">0.99838185</f32>
+			<f32 name="w">0.98940045</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">1</f32>
-			<f32 name="y">1</f32>
-			<f32 name="z">1</f32>
+			<f32 name="y">0.99999994</f32>
+			<f32 name="z">0.99999994</f32>
 		</object>
 		<string name="id">9db36787-0338-4db6-a097-2fe90f9093af</string>
 		<string name="name">head</string>
@@ -189,18 +189,18 @@
 		<string name="parent">5550097d-5c4d-479a-804f-271963a23cb5</string>
 		<object name="position">
 			<f32 name="x">0</f32>
-			<f32 name="y">0.4272002</f32>
-			<f32 name="z">-1.4901161e-08</f32>
+			<f32 name="y">0.43046486</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">-0.17842482</f32>
+			<f32 name="x">-0.26501325</f32>
 			<f32 name="y">0</f32>
 			<f32 name="z">0</f32>
-			<f32 name="w">0.98395354</f32>
+			<f32 name="w">0.9642448</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">1</f32>
-			<f32 name="y">0.99999994</f32>
+			<f32 name="y">1</f32>
 			<f32 name="z">1</f32>
 		</object>
 		<string name="id">e1252a95-5d98-4a00-9df2-d550331a79a1</string>
@@ -209,18 +209,18 @@
 		<string name="parent">5550097d-5c4d-479a-804f-271963a23cb5</string>
 		<object name="position">
 			<f32 name="x">-0.21</f32>
-			<f32 name="y">0.35463467</f32>
-			<f32 name="z">0.005852036</f32>
+			<f32 name="y">0.36867118</f32>
+			<f32 name="z">0.013473846</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.85088444</f32>
-			<f32 name="y">-0.3747513</f32>
-			<f32 name="z">-0.25970283</f32>
-			<f32 name="w">0.2609819</f32>
+			<f32 name="x">0.83975214</f32>
+			<f32 name="y">-0.44765016</f32>
+			<f32 name="z">-0.25463426</f32>
+			<f32 name="w">0.17200918</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.99999994</f32>
-			<f32 name="y">0.99999994</f32>
+			<f32 name="y">0.99999976</f32>
 			<f32 name="z">0.9999999</f32>
 		</object>
 		<string name="id">3d6d624c-301a-4eb3-93fb-a272473499e4</string>
@@ -228,20 +228,20 @@
 		<u8 name="active">1</u8>
 		<string name="parent">e1252a95-5d98-4a00-9df2-d550331a79a1</string>
 		<object name="position">
-			<f32 name="x">-1.1920929e-07</f32>
+			<f32 name="x">2.9802322e-08</f32>
 			<f32 name="y">0.27000004</f32>
-			<f32 name="z">9.313226e-09</f32>
+			<f32 name="z">2.2351742e-08</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">-0.25164032</f32>
-			<f32 name="y">0.60922205</f32>
-			<f32 name="z">-0.31576273</f32>
-			<f32 name="w">0.6825097</f32>
+			<f32 name="x">-0.3052793</f32>
+			<f32 name="y">0.6822711</f32>
+			<f32 name="z">-0.5007195</f32>
+			<f32 name="w">0.43656698</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1</f32>
-			<f32 name="y">0.9999999</f32>
-			<f32 name="z">1</f32>
+			<f32 name="x">0.9999999</f32>
+			<f32 name="y">0.9999998</f32>
+			<f32 name="z">0.99999994</f32>
 		</object>
 		<string name="id">e808c920-48c0-4320-b925-5a6d3cfa9042</string>
 		<string name="name">upperarm_R</string>
@@ -249,18 +249,18 @@
 		<string name="parent">5550097d-5c4d-479a-804f-271963a23cb5</string>
 		<object name="position">
 			<f32 name="x">0.21</f32>
-			<f32 name="y">0.35463467</f32>
-			<f32 name="z">0.005852036</f32>
+			<f32 name="y">0.36867118</f32>
+			<f32 name="z">0.013473846</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.85088444</f32>
-			<f32 name="y">0.3747513</f32>
-			<f32 name="z">0.25970283</f32>
-			<f32 name="w">0.2609819</f32>
+			<f32 name="x">0.83975214</f32>
+			<f32 name="y">0.44765016</f32>
+			<f32 name="z">0.25463426</f32>
+			<f32 name="w">0.17200918</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.99999994</f32>
-			<f32 name="y">0.99999994</f32>
+			<f32 name="y">0.99999976</f32>
 			<f32 name="z">0.9999999</f32>
 		</object>
 		<string name="id">d675703d-69d7-4fc7-8e99-aebee4267072</string>
@@ -268,20 +268,20 @@
 		<u8 name="active">1</u8>
 		<string name="parent">e808c920-48c0-4320-b925-5a6d3cfa9042</string>
 		<object name="position">
-			<f32 name="x">1.1920929e-07</f32>
+			<f32 name="x">-2.9802322e-08</f32>
 			<f32 name="y">0.27000004</f32>
-			<f32 name="z">9.313226e-09</f32>
+			<f32 name="z">2.2351742e-08</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">-0.25164032</f32>
-			<f32 name="y">-0.60922205</f32>
-			<f32 name="z">0.31576273</f32>
-			<f32 name="w">0.6825097</f32>
+			<f32 name="x">-0.3052793</f32>
+			<f32 name="y">-0.6822711</f32>
+			<f32 name="z">0.5007195</f32>
+			<f32 name="w">0.43656698</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1</f32>
-			<f32 name="y">0.9999999</f32>
-			<f32 name="z">1</f32>
+			<f32 name="x">0.9999999</f32>
+			<f32 name="y">0.9999998</f32>
+			<f32 name="z">0.99999994</f32>
 		</object>
 		<string name="id">f0d676b7-affa-4bcc-a8a4-ea9512f6fcea</string>
 		<string name="name">thigh_L</string>

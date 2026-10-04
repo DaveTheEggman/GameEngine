@@ -153,9 +153,11 @@ STEM_TOP = P(0, 0.38, 0.93)
 GRIP_X = 0.29
 GRIP = lambda side: P(side * GRIP_X, 0.34, 0.95)
 HIP = lambda side: P(side * 0.10, -0.15, 0.93)
-SHOULDER = lambda side: P(side * 0.21, 0.02, 1.33)
-NECK = P(0, 0.04, 1.40)
-HEAD = P(0, 0.07, 1.57)
+# The upper body leans forward over the bars, as a kid on a small bike rides: about 30 degrees
+# from upright, hips to neck.
+SHOULDER = lambda side: P(side * 0.21, 0.09, 1.31)
+NECK = P(0, 0.11, 1.37)
+HEAD = P(0, 0.16, 1.54)
 THIGH, SHIN = 0.40, 0.42      # hip to knee, knee to ankle
 UPPER_ARM, FOREARM = 0.27, 0.28
 ANKLE_LIFT = 0.06             # the ankle above the pedal's axle
@@ -222,7 +224,9 @@ def build_kid(pose):
     box("Pelvis", (0.30, 0.22, 0.16), P(0, -0.13, 0.95), "Shorts", "hips", bevel=0.04)
     # The torso leans forward to the bars: a chunky shirt block along hips -> neck.
     chest = (P(0, -0.11, 1.0) + NECK) / 2
-    lean = math.degrees(math.atan2((NECK - P(0, -0.11, 1.0)).y, (NECK - P(0, -0.11, 1.0)).z))
+    # Tipped forward along the spine: a positive turn about X takes the top toward -Y, forward.
+    spine = NECK - P(0, -0.11, 1.0)
+    lean = math.degrees(math.atan2(-spine.y, spine.z))
     box("Shirt", (0.36, 0.22, 0.42), chest, "Shirt", "spine", bevel=0.06, tilt=lean)
     tube("Neck", NECK - Vector((0, 0, 0.03)), NECK + Vector((0, 0, 0.06)), 0.055, "Skin", "head")
     # A big head (the kit's chibi proportion), eyes, the cap with its bill forward.
