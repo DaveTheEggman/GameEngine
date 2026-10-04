@@ -70,6 +70,28 @@ export namespace foundation::core
         return Status{};
     }
 
+    // Writes a byte buffer to a file so that a reader (or the next run, after a crash) sees the old
+    // contents or the new ones, never a torn mix: the bytes go to `<path>.tmp` beside the target,
+    // which is then renamed over it (a rename on one volume replaces the target atomically). A
+    // failed write leaves the target as it was.
+    [[nodiscard]] inline Status WriteFileAtomic(StringView path, Span<const byte> data,
+                                                IAllocator& allocator = DefaultAllocator())
+    {
+        String temporary(path, allocator);
+        temporary.Append(u8".tmp");
+        if (const Status written = WriteFile(temporary.AsView(), data); !written.IsOk())
+        {
+            (void)FileDelete(temporary.AsView());
+            return written;
+        }
+        if (!FileMove(temporary.AsView(), path))
+        {
+            (void)FileDelete(temporary.AsView());
+            return Status{ErrorCode::Internal};
+        }
+        return Status{};
+    }
+
     // Removes a directory AND everything under it. `RemoveDirectory` is the raw backend
     // primitive (rmdir - EMPTY directories only; it silently fails on a populated one,
     // which is how test scratch dirs quietly accumulated stale state). This is the

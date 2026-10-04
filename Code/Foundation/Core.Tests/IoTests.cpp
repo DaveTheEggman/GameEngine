@@ -387,6 +387,31 @@ TEST_CASE("io: ReadFile / WriteFile round-trip")
     CHECK(ReadFile(u8"scratch_fs_missing.tmp").Error() == ErrorCode::NotFound);
 }
 
+TEST_CASE("io: WriteFileAtomic replaces a file whole and leaves no temporary behind")
+{
+    const StringView path = u8"scratch_fs_atomic.bin";
+    const byte first[] = {byte{1}, byte{2}, byte{3}, byte{4}, byte{5}};
+    const byte second[] = {byte{9}, byte{8}};
+
+    // A new file, then a shorter one over it: the second write is the whole file, not a prefix
+    // over the first's tail.
+    REQUIRE(WriteFileAtomic(path, Span<const byte>{first, ArrayCount(first)}).IsOk());
+    REQUIRE(WriteFileAtomic(path, Span<const byte>{second, ArrayCount(second)}).IsOk());
+    Result<Array<byte>> result = ReadFile(path);
+    REQUIRE(result.HasValue());
+    REQUIRE(result.Value().Size() == ArrayCount(second));
+    CHECK(result.Value()[0] == byte{9});
+    CHECK(result.Value()[1] == byte{8});
+    CHECK_FALSE(FileExists(u8"scratch_fs_atomic.bin.tmp"));
+
+    // A write that cannot happen (its directory does not exist) fails and touches nothing.
+    CHECK_FALSE(WriteFileAtomic(u8"scratch_fs_no_such_dir/save.bin",
+                                Span<const byte>{first, ArrayCount(first)})
+                    .IsOk());
+    CHECK_FALSE(FileExists(u8"scratch_fs_no_such_dir/save.bin.tmp"));
+    CHECK(FileDelete(path));
+}
+
 TEST_CASE("io: directory create / exists / remove")
 {
     const StringView dir = u8"scratch_fs_test_dir";
