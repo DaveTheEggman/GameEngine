@@ -52,7 +52,7 @@
 			<string name="name">Web</string>
 			<string name="platform">Web</string>
 			<string name="templateId">gameengine-web-release-0.1.0</string>
-			<string name="playerName">SkyHopper</string>
+			<string name="playerName">index</string>
 			<string name="outputSubdir">Web</string>
 			<array name="additionalFiles" count="1">
 				<string>CREDITS.md</string>
