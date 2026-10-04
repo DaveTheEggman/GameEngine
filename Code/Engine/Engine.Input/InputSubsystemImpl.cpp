@@ -35,6 +35,12 @@ namespace engine::input
         builder.Method<&Input::pushSet>("pushSet");
         builder.Method<&Input::popSet>("popSet");
         builder.Method<&Input::enableSet>("enableSet");
+        // Rumble, by arity: gamepad 0, or a pad by index; stopRumble stops every pad.
+        builder.Method<static_cast<void (*)(f32, f32, f32)>(&Input::rumble)>("rumble",
+                                                                            {"low", "high", "seconds"});
+        builder.Method<static_cast<void (*)(i32, f32, f32, f32)>(&Input::rumble)>(
+            "rumble", {"gamepad", "low", "high", "seconds"});
+        builder.Method<&Input::stopRumble>("stopRumble");
         // Some backends only materialize CONSTRUCTIBLE types as foreign classes.
         builder.Constructor();
     }

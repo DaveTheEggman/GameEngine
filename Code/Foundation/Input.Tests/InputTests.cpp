@@ -964,3 +964,52 @@ TEST_CASE("input reflection: every input code reflects its cases")
               TypeOf<shell::GamepadButton>(), static_cast<i64>(shell::GamepadButton::South)))) ==
           u8"South");
 }
+
+TEST_CASE("input.runtime: a rumble waits for the next update and reaches its pad through that frame's devices")
+{
+    ActionRuntime runtime;
+    runtime.SetMap(MakeGameplayMap());
+    FakeGamepad pad0;
+    FakeGamepad pad1;
+    pad1.index = 1;
+    FakeDevices devices;
+    devices.pads.PushBack(&pad0);
+    devices.pads.PushBack(&pad1);
+
+    // Asked between frames: nothing reaches a pad until the update that has the devices.
+    runtime.Rumble(1, 0.8f, 0.4f, 0.25f);
+    CHECK(pad1.rumbleCalls == 0);
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(pad1.rumbleCalls == 1);
+    CHECK(pad1.rumbleLow == doctest::Approx(0.8f));
+    CHECK(pad1.rumbleHigh == doctest::Approx(0.4f));
+    CHECK(pad1.rumbleMs == 250u);
+    CHECK(pad0.rumbleCalls == 0); // only the pad asked for
+
+    // Applied once: the next update asks nothing more.
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(pad1.rumbleCalls == 1);
+
+    // A later request for the same pad replaces the waiting one; the motors clamp to 0..1.
+    runtime.Rumble(0, 0.2f, 0.2f, 1.0f);
+    runtime.Rumble(0, 2.0f, -1.0f, 0.1f);
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(pad0.rumbleCalls == 1);
+    CHECK(pad0.rumbleLow == doctest::Approx(1.0f));
+    CHECK(pad0.rumbleHigh == doctest::Approx(0.0f));
+    CHECK(pad0.rumbleMs == 100u);
+
+    // A pad that is not there is skipped; StopRumble stops every pad and drops what was waiting.
+    runtime.Rumble(5, 1.0f, 1.0f, 1.0f);
+    runtime.Rumble(0, 1.0f, 1.0f, 1.0f);
+    runtime.StopRumble();
+    runtime.Update(devices, 1.0f / 60.0f);
+    CHECK(pad0.rumbleLow == doctest::Approx(0.0f));
+    CHECK(pad0.rumbleMs == 0u);
+    CHECK(pad1.rumbleLow == doctest::Approx(0.0f));
+
+    // The run's end has no update to wait for: the helper stops every pad of its source at once.
+    pad0.rumbleLow = 0.5f;
+    StopRumble(devices);
+    CHECK(pad0.rumbleLow == doctest::Approx(0.0f));
+}

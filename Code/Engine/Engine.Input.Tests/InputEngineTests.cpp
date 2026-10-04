@@ -108,6 +108,48 @@ TEST_CASE("input: the Input facade resolves PER-CONTEXT services (AngelScript)")
 }
 #endif // OPTION_HAS_ANGELSCRIPT
 
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("input: a script rumbles its own context's pad, and stops it")
+{
+    RefPtr<foundation::script::IScriptManager> manager =
+        foundation::script::angelscript::CreateScriptManager(DefaultAllocator());
+    engine::input::RegisterInputScriptFacade();
+    foundation::script::RegisterReflectedTypes(*manager);
+
+    ActionRuntime runtimeA;
+    ActionRuntime runtimeB;
+    FakeGamepad padA;
+    FakeGamepad padB;
+    FakeDevices devicesA;
+    FakeDevices devicesB;
+    devicesA.pads.PushBack(&padA);
+    devicesB.pads.PushBack(&padB);
+    RefPtr<foundation::script::IScriptContext> ctxA = manager->CreateContext();
+    RefPtr<foundation::script::IScriptContext> ctxNone = manager->CreateContext();
+    ctxA->SetService(foundation::input::kInputScriptService, &runtimeA);
+
+    REQUIRE(ctxA->Load(u8"void main() { Input::rumble(0.6f, 0.3f, 0.2f); }\n", u8"main").IsOk());
+    runtimeA.Update(devicesA, 1.0f / 60.0f);
+    runtimeB.Update(devicesB, 1.0f / 60.0f);
+    CHECK(padA.rumbleLow == doctest::Approx(0.6f));
+    CHECK(padA.rumbleHigh == doctest::Approx(0.3f));
+    CHECK(padA.rumbleMs == 200u);
+    CHECK(padB.rumbleCalls == 0); // another run's pad is not touched
+
+    // By pad index, then stopped.
+    REQUIRE(ctxA->Load(u8"void main() { Input::rumble(0, 1.0f, 0.0f, 0.5f); }\n", u8"main").IsOk());
+    runtimeA.Update(devicesA, 1.0f / 60.0f);
+    CHECK(padA.rumbleLow == doctest::Approx(1.0f));
+    REQUIRE(ctxA->Load(u8"void main() { Input::stopRumble(); }\n", u8"main").IsOk());
+    runtimeA.Update(devicesA, 1.0f / 60.0f);
+    CHECK(padA.rumbleLow == doctest::Approx(0.0f));
+    CHECK(padA.rumbleMs == 0u);
+
+    // No input service: a no-op, never a fault.
+    REQUIRE(ctxNone->Load(u8"void main() { Input::rumble(1.0f, 1.0f, 1.0f); }\n", u8"main").IsOk());
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
 #ifdef OPTION_HAS_LUAU
 TEST_CASE("input: the Input facade resolves PER-CONTEXT services (Luau)")
 {

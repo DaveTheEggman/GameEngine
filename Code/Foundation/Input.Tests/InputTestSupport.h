@@ -85,7 +85,18 @@ namespace
         {
             return axes[static_cast<u32>(a) % 6];
         }
-        void SetRumble(f32, f32, u32) override {}
+        // The last rumble asked of the pad, and how many times one was.
+        f32 rumbleLow = 0.0f;
+        f32 rumbleHigh = 0.0f;
+        u32 rumbleMs = 0;
+        i32 rumbleCalls = 0;
+        void SetRumble(f32 low, f32 high, u32 durationMs) override
+        {
+            rumbleLow = low;
+            rumbleHigh = high;
+            rumbleMs = durationMs;
+            ++rumbleCalls;
+        }
     };
 
     class FakeTouch final : public shell::ITouch

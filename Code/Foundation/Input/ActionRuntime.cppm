@@ -116,6 +116,18 @@ export namespace foundation::input
         bool gamepadSticks = false;
     };
 
+    /// Stops every pad of `devices` rumbling (a run's end: no pad is left buzzing after it).
+    inline void StopRumble(IInputSourceProvider& devices)
+    {
+        for (i32 i = 0; i < devices.GamepadCount(); ++i)
+        {
+            if (shell::IGamepad* pad = devices.Gamepad(i))
+            {
+                pad->SetRumble(0.0f, 0.0f, 0);
+            }
+        }
+    }
+
     [[nodiscard]] inline bool CaptureBinding(IInputSourceProvider& devices,
                                              const CaptureFilter& filter, Binding& out)
     {
@@ -346,8 +358,42 @@ export namespace foundation::input
                 }
             }
             m_latchHeldOnce = false;
+            ApplyRumble(devices);
         }
         [[nodiscard]] u64 Frame() const noexcept { return m_frame; }
+
+        // ---- rumble ----
+        // A request waits for the next Update and reaches the pad through that frame's devices:
+        // a runtime holds no device between frames, and each run's runtime reaches only its own
+        // source (an editor Game tab's pad, the player's window).
+
+        /// Runs pad `gamepad`'s two motors for `seconds`: `low` the heavy, low-frequency one and
+        /// `high` the light, high-frequency one, each 0 to 1. Zeros stop it. A later request for
+        /// the same pad replaces this one.
+        void Rumble(i32 gamepad, f32 low, f32 high, f32 seconds)
+        {
+            if (gamepad < 0)
+            {
+                return;
+            }
+            const RumbleRequest request{gamepad, Clamp(low, 0.0f, 1.0f), Clamp(high, 0.0f, 1.0f),
+                                        static_cast<u32>(Max(seconds, 0.0f) * 1000.0f + 0.5f)};
+            for (RumbleRequest& pending : m_rumble)
+            {
+                if (pending.gamepad == gamepad)
+                {
+                    pending = request;
+                    return;
+                }
+            }
+            m_rumble.PushBack(request);
+        }
+        /// Stops every pad's rumble at the next Update, and drops any request still waiting.
+        void StopRumble()
+        {
+            m_rumble.Clear();
+            m_stopRumble = true;
+        }
 
         /// Every action's name, value and held state on one line, "Move=(0,1) Jump=(1,0) down":
         /// what a trace of the input path prints.
@@ -995,5 +1041,31 @@ export namespace foundation::input
         f32 m_timeScale = 1.0f;
         ConsumptionMask m_consumed;
         bool m_latchHeldOnce = false; // set by exclusive push/pop, consumed next Update
+
+        struct RumbleRequest
+        {
+            i32 gamepad = 0;
+            f32 low = 0.0f;
+            f32 high = 0.0f;
+            u32 durationMs = 0;
+        };
+        Array<RumbleRequest> m_rumble; // waiting for the next Update's devices
+        bool m_stopRumble = false;     // StopRumble: every pad, at the next Update
+        void ApplyRumble(IInputSourceProvider& devices)
+        {
+            if (m_stopRumble)
+            {
+                foundation::input::StopRumble(devices);
+                m_stopRumble = false;
+            }
+            for (const RumbleRequest& request : m_rumble)
+            {
+                if (shell::IGamepad* pad = devices.Gamepad(request.gamepad))
+                {
+                    pad->SetRumble(request.low, request.high, request.durationMs);
+                }
+            }
+            m_rumble.Clear();
+        }
     };
 }

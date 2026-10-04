@@ -209,6 +209,26 @@ export namespace engine::input
                 rt->PopExclusiveSet();
             }
         }
+        /// Runs gamepad 0's motors for `seconds`: `low` the heavy, low-frequency motor and `high`
+        /// the light, high-frequency one, each 0 to 1 (a crash 0.8, 0.4, 0.25; a footstep 0, 0.2,
+        /// 0.05). It reaches the calling run's own pad (an editor Game tab's, the player's).
+        static void rumble(f32 low, f32 high, f32 seconds) { rumble(0, low, high, seconds); }
+        /// The same, for pad `gamepad` (0 first).
+        static void rumble(i32 gamepad, f32 low, f32 high, f32 seconds)
+        {
+            if (ActionRuntime* rt = Resolve())
+            {
+                rt->Rumble(gamepad, low, high, seconds);
+            }
+        }
+        /// Stops every pad's rumble (a run's end stops it too).
+        static void stopRumble()
+        {
+            if (ActionRuntime* rt = Resolve())
+            {
+                rt->StopRumble();
+            }
+        }
         static void enableSet(String name, bool enabled)
         {
             if (ActionRuntime* rt = Resolve())

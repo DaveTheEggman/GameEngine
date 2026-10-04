@@ -74,9 +74,16 @@ construction.
 - **`InputMapPage`** - tree of sets -> actions -> bindings (add/remove/reorder, undoable), with a
   per-row **Listen** capture (must-have / must-not-have capability filters so an axis rebind ignores
   keys) and inline validation (duplicate bindings within a set, kind mismatches, empty actions).
-- **`Input` facade** (per-context service resolution; exercised on Wren): `Input.action("jump").down`
-  / `.pressed` / `.value` / `.vector`, `Input.pushSet(...)` / `Input.popSet()`. (Wren statics on a
-  foreign class, since the Wren backend cannot inject host globals.)
+- **`Input` facade** (per-context service resolution: each script reaches its own run's
+  `ActionRuntime`; AngelScript `Input::`, Luau `Input.`): `isDown` / `wasPressed` / `wasReleased` /
+  `value` / `valueX` / `valueY` / `value2D` by action name, `pushSet` / `popSet` / `enableSet`.
+  **Rumble**: `rumble(low, high, seconds)` runs gamepad 0's motors (`low` the heavy, low-frequency
+  one, `high` the light, high-frequency one, each 0 to 1), `rumble(gamepad, low, high, seconds)` a
+  pad by index, `stopRumble()` every pad. A request waits for the runtime's next update and reaches
+  the pad through that frame's devices, so a runtime holds no device and each run (an editor Game
+  tab, the player) rumbles only its own; a later request for the same pad replaces it. A run's end
+  stops its pads (`GameInstance::StopScript`). Rumble is not gated on the Game tab's focus, as in
+  Sedulous: asking an unfocused pad to stop has to work.
 
 ## Touch + portability
 

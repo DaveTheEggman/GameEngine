@@ -171,6 +171,11 @@ namespace engine::runtime
         m_runHost.SetGameScriptHold(false);
         m_runHost.SetExternalErrorSink(nullptr);
         StopNetworking(); // networking belongs to the run - the endpoint drops with it
+        // So does any rumble the game started: no pad is left buzzing after its run.
+        if (m_inputSource != nullptr)
+        {
+            input::StopRumble(*m_inputSource);
+        }
         // The run host tears down when nothing else pins it - driven by the scene-stop observer
         // (ScriptSubsystem::MaybeTeardownRunHost). A bare instance (no scenes) keeps it until destruction.
     }
