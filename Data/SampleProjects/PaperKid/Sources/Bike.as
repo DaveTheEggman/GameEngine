@@ -28,10 +28,12 @@ const int kAimDots = 14;
 const float kAimStep = 0.09f; // flight seconds between dots
 Guid kThrowSound = Guid("607bb198-5a73-47ba-8fe5-794aa1d1b51c");
 // The kid's clips (Models/KidBike, from Tools/blender/kid_bike.py). Ride turns the wheels twice and
-// the pedals once a second, 4.4 m of road, so it plays at the bike's speed over that; Throw is the
-// same second with the arm's throw in its first half, so Ride picks up where it ends.
+// the pedals once a second, 4.4 m of road, so it plays at the bike's speed over that; each throw is
+// the same second with that arm's throw in its first half, so Ride picks up where it ends. He throws
+// with the hand on the side the paper goes.
 Guid kRideClip = Guid("1665cf6f-0df9-41eb-ad47-29a3eb080937");
-Guid kThrowClip = Guid("7ae55a23-0d7a-4443-a05e-5eeb6c64584f");
+Guid kThrowLeftClip = Guid("2ae5fb65-f74f-46ed-af06-ddc1b2901b75");
+Guid kThrowRightClip = Guid("644becf9-ccd7-4cea-9409-cf4262aac508");
 const float kRideMetres = 4.4f;
 Guid kCrashSound = Guid("a677830b-3ddd-40af-8849-54aa97fc91b2");
 
@@ -207,8 +209,20 @@ class Bike
         {
             return;
         }
+        // Which side of the bike the paper goes: the porch it is aimed at, else the aim. The bike's
+        // +X is the kid's left (it turns by m_heading about +Y, which takes +X to (cos, 0, -sin)).
+        // Straight ahead, he throws right-handed.
+        float toX = m_aimX;
+        float toZ = m_aimZ;
+        if (m_hasTarget)
+        {
+            Float3 at = self.worldPosition();
+            toX = m_target.x - at.x;
+            toZ = m_target.z - at.z;
+        }
+        float across = toX * Math::Cos(m_heading) - toZ * Math::Sin(m_heading);
         SceneAnimation anim = SceneAnimation::of(self.scene);
-        anim.setClip(m_kid, kThrowClip);
+        anim.setClip(m_kid, (across > 0.05f) ? kThrowLeftClip : kThrowRightClip);
         anim.play(m_kid);
         m_throwing = 1.0f;
     }
