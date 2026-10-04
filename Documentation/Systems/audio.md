@@ -88,7 +88,12 @@ per-voice reverb sends route through a splitter to a wet-only second per-scene F
   `busVolume` by `AudioBus`. Ours beside them, named apart (a same-arity overload cannot share a
   name): `playOneShotPath` / `playOneShot3DPath` / `playCuePath` / `playMusicPath` by CONTENT PATH,
   `setNamedBusVolume` / `namedBusVolume` by bus name (a layout's custom buses too), `setBusMuted` /
-  `busMuted` / `stopMusic`. Bad content warns once and no-ops. In a run, what a script plays goes
+  `busMuted` / `stopMusic`, and control of a PLAYING voice (what a play returned, or the run's
+  `musicVoice()`): `setVoicePitch(voice, pitch[, seconds])` (the playback rate, tempo and pitch
+  together: a game's hurry-up music), `setVoiceVolume(voice, volume[, seconds])`, both eased over
+  `seconds` by the engine (smoothstep, held while paused), `stopVoice(voice[, fadeSeconds])`,
+  `setVoicePaused`, `isVoicePlaying`; a `VoiceHandle` is constructible, so a script keeps one in a
+  variable or member. Stale handles are inert. Bad content warns once and no-ops. In a run, what a script plays goes
   into the run (its Stop ends it) and the bus volumes and mutes are the run's own, a layout's custom
   named buses included (a game's sliders never move the editor's buses or another instance's). Master/bus volumes persist via
   `AudioUserSettings` (`<userdata>/<project>.user.settings.xml`).

@@ -2,6 +2,7 @@
 // Copyright (c) 2026-Present Robert Campbell
 
 // Audio script FACADE end-to-end: a script drives Audio.playOneShot/playCue/playMusic by asset id
+// (and controls a playing voice: the music's pitch and volume, a one-shot stopped early)
 // and the four buses by AudioBus (Sedulous's facade), and the *Path forms by content path, through
 // the resource seam. Cross-layer (scripting x audio), so it lives in Integration, not
 // in Engine.Audio.Tests (which stays backend-neutral). Driven on both surviving backends (AngelScript
@@ -180,6 +181,21 @@ namespace
             CHECK(subsystem.Engine()->ActiveVoiceCount() >= before + 4u);
             CHECK(subsystem.Engine()->BusVolume(AudioBus::Music) == doctest::Approx(0.5f));
             CHECK(ids->GetGlobal(u8"MusicVolume").Get<f64>() == doctest::Approx(0.5));
+            // A playing voice from script: the music sped up at once and its volume easing down,
+            // a one-shot stopped early (fading, so no longer playing).
+            CHECK(ids->GetGlobal(u8"MusicHeld").Get<bool>());
+            CHECK(ids->GetGlobal(u8"ShotPlaying").Get<bool>());
+            CHECK(ids->GetGlobal(u8"ShotStopped").Get<bool>());
+            VoiceStatus controlled;
+            REQUIRE(subsystem.Engine()->GetVoiceStatus(subsystem.Engine()->MusicVoice(), controlled));
+            CHECK(controlled.pitch == doctest::Approx(1.25f));
+            CHECK(controlled.volume == doctest::Approx(0.55f)); // the ease starts where it was
+            for (int i = 0; i < 6; ++i)
+            {
+                subsystem.Engine()->Update(0.1f);
+            }
+            REQUIRE(subsystem.Engine()->GetVoiceStatus(subsystem.Engine()->MusicVoice(), controlled));
+            CHECK(controlled.volume == doctest::Approx(0.3f));
         }
 
         // In a run (the context's runtime binding names one, as a GameInstance's run host does):
@@ -261,7 +277,7 @@ TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by 
         {
             return Format(
                 u8"bool Played; bool Spatial; bool Cue; bool Cue3D; bool Music; bool WrongType;\n"
-                u8"double MusicVolume;\n"
+                u8"double MusicVolume; bool MusicHeld; bool ShotPlaying; bool ShotStopped;\n"
                 u8"void main() {{\n"
                 u8"  Guid clip = Guid(\"{}\");\n"
                 u8"  Guid cue = Guid(\"{}\");\n"
@@ -273,6 +289,14 @@ TEST_CASE("audio-facade: the AngelScript Audio facade plays clips/cues/music by 
                 u8"  WrongType = Audio::playOneShot(cue).isValid();\n"
                 u8"  Audio::setBusVolume(AudioBus::Music, 0.5f);\n"
                 u8"  MusicVolume = Audio::busVolume(AudioBus::Music);\n"
+                u8"  VoiceHandle music = Audio::musicVoice();\n"
+                u8"  MusicHeld = music.isValid();\n"
+                u8"  Audio::setVoicePitch(music, 1.25f);\n"
+                u8"  Audio::setVoiceVolume(music, 0.3f, 0.5f);\n"
+                u8"  VoiceHandle shot = Audio::playOneShot(clip);\n"
+                u8"  ShotPlaying = Audio::isVoicePlaying(shot);\n"
+                u8"  Audio::stopVoice(shot, 0.2f);\n"
+                u8"  ShotStopped = !Audio::isVoicePlaying(shot);\n"
                 u8"}}\n",
                 beep, steps);
         },
@@ -310,7 +334,15 @@ TEST_CASE("audio-facade: the Luau Audio facade plays clips/cues/music by asset i
                              u8"Music = Audio.playMusic(clip, 0.1, 0.55):isValid()\n"
                              u8"WrongType = Audio.playOneShot(cue):isValid()\n"
                              u8"Audio.setBusVolume(AudioBus.Music, 0.5)\n"
-                             u8"MusicVolume = Audio.busVolume(AudioBus.Music)\n",
+                             u8"MusicVolume = Audio.busVolume(AudioBus.Music)\n"
+                             u8"local music = Audio.musicVoice()\n"
+                             u8"MusicHeld = music:isValid()\n"
+                             u8"Audio.setVoicePitch(music, 1.25)\n"
+                             u8"Audio.setVoiceVolume(music, 0.3, 0.5)\n"
+                             u8"local shot = Audio.playOneShot(clip)\n"
+                             u8"ShotPlaying = Audio.isVoicePlaying(shot)\n"
+                             u8"Audio.stopVoice(shot, 0.2)\n"
+                             u8"ShotStopped = not Audio.isVoicePlaying(shot)\n",
                              beep, steps);
                      },
                      u8"Audio.setNamedBusVolume(\"drums\", 0.4)\n"

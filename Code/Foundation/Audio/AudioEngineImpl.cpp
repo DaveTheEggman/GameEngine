@@ -191,6 +191,37 @@ namespace foundation::audio
         HashMap<u64, ma_sound_group*> sceneChildren;
     };
 
+    // A value eased from `from` to `to` over `duration` seconds (inactive = settled).
+    struct VoiceRamp
+    {
+        f32 from = 0.0f;
+        f32 to = 0.0f;
+        f32 elapsed = 0.0f;
+        f32 duration = 0.0f;
+        bool active = false;
+
+        void Start(f32 current, f32 target, f32 seconds)
+        {
+            from = current;
+            to = target;
+            elapsed = 0.0f;
+            duration = seconds;
+            active = true;
+        }
+        // Advance by dt; the value now (eased in and out, so a speed-up has no corner).
+        [[nodiscard]] f32 Advance(f32 dt)
+        {
+            elapsed += dt;
+            if (elapsed >= duration)
+            {
+                active = false;
+                return to;
+            }
+            const f32 t = elapsed / duration;
+            return from + (to - from) * (t * t * (3.0f - 2.0f * t));
+        }
+    };
+
     struct VoiceSlot
     {
         // Arena-backed (Impl::soundArena): the ma_sound must survive its slot on a
@@ -208,6 +239,8 @@ namespace foundation::audio
         Float3 position{0.0f, 0.0f, 0.0f};
         f32 volume = 1.0f;
         f32 pitch = 1.0f;
+        VoiceRamp volumeRamp; // SetVoiceVolume over seconds
+        VoiceRamp pitchRamp;  // SetVoicePitch over seconds
         AudioBus bus = AudioBus::Effects;
         u64 sceneGroup = 0;
         u64 runGroup = 0; // the run this voice belongs to (its own, or its scene group's)
@@ -1756,6 +1789,21 @@ namespace foundation::audio
             {
                 impl.UpdateVoiceLowpass(slot);
             }
+            // Eased volume and pitch: held while the voice is paused, so a pause keeps its place.
+            if (slot.state == VoiceState::Playing || slot.state == VoiceState::Stopping)
+            {
+                if (slot.volumeRamp.active)
+                {
+                    slot.volume = slot.volumeRamp.Advance(deltaTime);
+                    const AudioClip* clip = slot.clip.Get();
+                    ma_sound_set_volume(slot.sound, slot.volume * (clip != nullptr ? clip->gain : 1.0f));
+                }
+                if (slot.pitchRamp.active)
+                {
+                    slot.pitch = slot.pitchRamp.Advance(deltaTime);
+                    ma_sound_set_pitch(slot.sound, slot.pitch);
+                }
+            }
             if (slot.state == VoiceState::Stopping)
             {
                 if (ma_sound_is_playing(slot.sound) == MA_FALSE)
@@ -1909,6 +1957,8 @@ namespace foundation::audio
         slot.position = params.position;
         slot.volume = params.volume;
         slot.pitch = params.pitch;
+        slot.volumeRamp = {};
+        slot.pitchRamp = {};
         slot.bus = params.bus;
         slot.customBusName = customBusIndex >= 0 ? String(params.busName.AsView()) : String{};
         slot.sceneGroup = params.sceneGroup;
@@ -2034,6 +2084,11 @@ namespace foundation::audio
 
     void AudioEngine::Stop(VoiceHandle handle)
     {
+        Stop(handle, 0.0f);
+    }
+
+    void AudioEngine::Stop(VoiceHandle handle, f32 fadeSeconds)
+    {
         VoiceSlot* slot = m_impl->Resolve(handle);
         if (slot == nullptr)
         {
@@ -2046,7 +2101,9 @@ namespace foundation::audio
         }
         if (slot->state != VoiceState::Stopping)
         {
-            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, m_impl->FadeMilliseconds());
+            const u64 fadeMs = Max(static_cast<u64>(Max(fadeSeconds, 0.0f) * 1000.0f + 0.5f),
+                                   m_impl->FadeMilliseconds());
+            (void)ma_sound_stop_with_fade_in_milliseconds(slot->sound, fadeMs);
             slot->state = VoiceState::Stopping;
         }
     }
@@ -2287,20 +2344,34 @@ namespace foundation::audio
         (void)ma_node_set_output_bus_volume(slot->splitterNode, 1, slot->reverbSend);
     }
 
-    void AudioEngine::SetVoiceVolume(VoiceHandle handle, f32 volume)
+    void AudioEngine::SetVoiceVolume(VoiceHandle handle, f32 volume, f32 seconds)
     {
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
+            volume = Max(volume, 0.0f);
+            if (seconds > 0.0f)
+            {
+                slot->volumeRamp.Start(slot->volume, volume, seconds);
+                return;
+            }
+            slot->volumeRamp = {};
             slot->volume = volume;
             const AudioClip* clip = slot->clip.Get();
             ma_sound_set_volume(slot->sound, volume * (clip != nullptr ? clip->gain : 1.0f));
         }
     }
 
-    void AudioEngine::SetVoicePitch(VoiceHandle handle, f32 pitch)
+    void AudioEngine::SetVoicePitch(VoiceHandle handle, f32 pitch, f32 seconds)
     {
         if (VoiceSlot* slot = m_impl->Resolve(handle))
         {
+            pitch = Max(pitch, 0.01f); // a rate of 0 would stall the voice for good
+            if (seconds > 0.0f)
+            {
+                slot->pitchRamp.Start(slot->pitch, pitch, seconds);
+                return;
+            }
+            slot->pitchRamp = {};
             slot->pitch = pitch;
             ma_sound_set_pitch(slot->sound, pitch);
         }

@@ -144,6 +144,9 @@ namespace engine::audio
         builder.Property<&VoiceHandle::slot>("slot");
         builder.Property<&VoiceHandle::generation>("generation");
         builder.Method<&VoiceHandle::IsValid>("isValid");
+        // Constructible (an invalid voice), so a script can hold one in a variable or a member
+        // and control it later (AngelScript refuses a variable of a type it cannot construct).
+        builder.Constructor();
     }
 
     REFLECT_ENUM(AudioAttenuationModel, "rtti::engine::audio")
@@ -242,6 +245,21 @@ namespace engine::audio
         builder.Method<&Audio::setBusMuted>("setBusMuted");
         builder.Method<&Audio::busMuted>("busMuted");
         builder.Method<&Audio::stopMusic>("stopMusic");
+        // A playing voice: the run's music, or what a play returned.
+        builder.Method<&Audio::musicVoice>("musicVoice");
+        builder.Method<&Audio::isVoicePlaying>("isVoicePlaying", {"voice"});
+        builder.Method<static_cast<void (*)(VoiceHandle)>(&Audio::stopVoice)>("stopVoice", {"voice"});
+        builder.Method<static_cast<void (*)(VoiceHandle, f32)>(&Audio::stopVoice)>(
+            "stopVoice", {"voice", "fadeSeconds"});
+        builder.Method<&Audio::setVoicePaused>("setVoicePaused", {"voice", "paused"});
+        builder.Method<static_cast<void (*)(VoiceHandle, f32)>(&Audio::setVoiceVolume)>(
+            "setVoiceVolume", {"voice", "volume"});
+        builder.Method<static_cast<void (*)(VoiceHandle, f32, f32)>(&Audio::setVoiceVolume)>(
+            "setVoiceVolume", {"voice", "volume", "seconds"});
+        builder.Method<static_cast<void (*)(VoiceHandle, f32)>(&Audio::setVoicePitch)>(
+            "setVoicePitch", {"voice", "pitch"});
+        builder.Method<static_cast<void (*)(VoiceHandle, f32, f32)>(&Audio::setVoicePitch)>(
+            "setVoicePitch", {"voice", "pitch", "seconds"});
         // Content-path playback: path = the editor's source-DB content path.
         builder.Method<&Audio::playOneShotPath>("playOneShotPath");
         builder.Method<&Audio::playOneShot3DPath>("playOneShot3DPath");

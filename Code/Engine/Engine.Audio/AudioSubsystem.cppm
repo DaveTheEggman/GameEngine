@@ -1491,6 +1491,53 @@ export namespace engine::audio
                 engine->StopMusic(fadeSeconds, CurrentRunGroup());
             }
         }
+
+        // ---- a playing voice: what a play returned, or the run's music (ours beside Sedulous's) ----
+        // A game changes a sound while it plays: speeds the music up as the clock runs down
+        // (setVoicePitch: the playback rate, tempo and pitch together), ducks or fades it, stops
+        // a one-shot early. A stale or invalid handle is inert, as in the engine.
+        /// The calling run's music voice (invalid when no music plays).
+        [[nodiscard]] static VoiceHandle musicVoice()
+        {
+            AudioEngine* engine = Resolve();
+            return engine != nullptr ? engine->MusicVoice(CurrentRunGroup()) : VoiceHandle{};
+        }
+        [[nodiscard]] static bool isVoicePlaying(VoiceHandle voice)
+        {
+            AudioEngine* engine = Resolve();
+            return engine != nullptr && engine->IsPlaying(voice);
+        }
+        static void stopVoice(VoiceHandle voice) { stopVoice(voice, 0.0f); }
+        static void stopVoice(VoiceHandle voice, f32 fadeSeconds)
+        {
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->Stop(voice, fadeSeconds);
+            }
+        }
+        static void setVoicePaused(VoiceHandle voice, bool paused)
+        {
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->SetPaused(voice, paused);
+            }
+        }
+        static void setVoiceVolume(VoiceHandle voice, f32 volume) { setVoiceVolume(voice, volume, 0.0f); }
+        static void setVoiceVolume(VoiceHandle voice, f32 volume, f32 seconds)
+        {
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->SetVoiceVolume(voice, volume, seconds);
+            }
+        }
+        static void setVoicePitch(VoiceHandle voice, f32 pitch) { setVoicePitch(voice, pitch, 0.0f); }
+        static void setVoicePitch(VoiceHandle voice, f32 pitch, f32 seconds)
+        {
+            if (AudioEngine* engine = Resolve())
+            {
+                engine->SetVoicePitch(voice, pitch, seconds);
+            }
+        }
     };
 
     void RegisterAudioScriptFacade();

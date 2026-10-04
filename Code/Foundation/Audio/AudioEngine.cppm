@@ -283,6 +283,8 @@ export namespace foundation::audio
                                        const AudioPlayParams& params = {});
         /// Fade out (~stopFadeSeconds) then reap. Safe on stale handles.
         void Stop(VoiceHandle handle);
+        /// The same, fading out over `fadeSeconds` (at least the click-free stopFadeSeconds).
+        void Stop(VoiceHandle handle, f32 fadeSeconds);
         void StopAll();
         /// Pause fades out but keeps the cursor; resume fades back in.
         void SetPaused(VoiceHandle handle, bool paused);
@@ -290,8 +292,10 @@ export namespace foundation::audio
         [[nodiscard]] bool IsValidHandle(VoiceHandle handle) const;
         [[nodiscard]] bool GetVoiceStatus(VoiceHandle handle, VoiceStatus& out) const;
 
-        void SetVoiceVolume(VoiceHandle handle, f32 volume);
-        void SetVoicePitch(VoiceHandle handle, f32 pitch);
+        /// Volume and pitch (the playback rate: 1.2 plays 20% faster and higher) at once, or eased
+        /// there over `seconds` (Update advances it; a later set retargets from where it is).
+        void SetVoiceVolume(VoiceHandle handle, f32 volume, f32 seconds = 0.0f);
+        void SetVoicePitch(VoiceHandle handle, f32 pitch, f32 seconds = 0.0f);
         void SetVoicePan(VoiceHandle handle, f32 pan);
         void SetVoiceLooping(VoiceHandle handle, bool loop);
         /// Per-frame 3D sync: position + velocity (velocity drives doppler).

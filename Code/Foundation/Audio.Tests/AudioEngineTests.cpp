@@ -458,6 +458,62 @@ TEST_CASE("audio.engine: voice parameter setters land (volume/pitch/pan/position
     CHECK_FALSE(engine.IsValidHandle(voice)); // un-looped voice runs out and reaps
 }
 
+TEST_CASE("audio.engine: pitch and volume ease over a duration, hold while paused, and a timed "
+          "stop fades out over its time")
+{
+    AudioEngine engine(DefaultAllocator(), HeadlessSettings());
+    RefPtr<AudioClip> clip = MakeToneClip(0.5f);
+    AudioPlayParams params;
+    params.loop = true;
+    const VoiceHandle voice = engine.Play(clip, params);
+    REQUIRE(voice.IsValid());
+
+    // Eased: unchanged at once, part of the way at half time, there at the end.
+    engine.SetVoicePitch(voice, 2.0f, 1.0f);
+    engine.SetVoiceVolume(voice, 0.2f, 1.0f);
+    VoiceStatus status;
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(1.0f));
+    engine.Update(0.25f); // (Update takes at most 0.25 s a step: its hitch clamp)
+    engine.Update(0.25f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(1.5f)); // the ease is symmetric: half way at half time
+    CHECK(status.volume == doctest::Approx(0.6f));
+
+    // Paused, the ease holds its place; resumed, it finishes.
+    engine.SetPaused(voice, true);
+    engine.Update(0.25f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(1.5f));
+    engine.SetPaused(voice, false);
+    engine.Update(0.25f);
+    engine.Update(0.25f);
+    engine.Update(0.1f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(2.0f));
+    CHECK(status.volume == doctest::Approx(0.2f));
+
+    // A plain set lands at once and ends any ease; a rate of 0 is held off (it would stall).
+    engine.SetVoicePitch(voice, 0.5f, 1.0f);
+    engine.SetVoicePitch(voice, 0.0f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(0.01f));
+    engine.Update(0.25f);
+    REQUIRE(engine.GetVoiceStatus(voice, status));
+    CHECK(status.pitch == doctest::Approx(0.01f));
+
+    // A timed stop: fading (no longer playing) for its time, then reaped.
+    engine.Stop(voice, 0.5f);
+    CHECK_FALSE(engine.IsPlaying(voice));
+    engine.Update(0.2f);
+    CHECK(engine.IsValidHandle(voice));
+    for (int i = 0; i < 6; ++i)
+    {
+        engine.Update(0.1f);
+    }
+    CHECK_FALSE(engine.IsValidHandle(voice));
+}
+
 TEST_CASE("audio.engine: spatializing a stereo clip downmixes with a one-time warning "
           "(runtime mono-guard) and still plays")
 {
