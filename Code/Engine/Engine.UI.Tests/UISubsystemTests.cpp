@@ -14,6 +14,7 @@ import foundation.scene;
 import engine.scene;
 import foundation.ui;
 import foundation.ui.resource;
+import foundation.ui.gamekit; // UIScreen + ScreenStack (the run screens test)
 import engine.ui;
 import foundation.script; // IScriptDelegate (the Ui host onClick test)
 import foundation.render.api;
@@ -2090,4 +2091,102 @@ TEST_CASE("ui.subsystem: an ImageView's source names a texture asset, drawn by e
     ctx.Shutdown();
     FileDelete(u8"scratch_ui_texture_images/minimap.rasset");
     RemoveDirectory(u8"scratch_ui_texture_images");
+}
+
+namespace
+{
+    // A menu screen of two buttons named for its run, as a game's title screen.
+    RefPtr<foundation::ui::gamekit::UIScreen> MenuFor(UISubsystem& ui, StringView prefix)
+    {
+        RefPtr<UIDocument> document = MakeDocument(
+            Format(u8"<Flex direction=\"vertical\" spacing=\"4\">"
+                   u8"<Button id=\"{}-top\" text=\"Top\" width=\"200\" height=\"36\"/>"
+                   u8"<Button id=\"{}-bottom\" text=\"Bottom\" width=\"200\" height=\"36\"/>"
+                   u8"</Flex>",
+                   prefix, prefix)
+                .AsView());
+        RefPtr<View> tree = ui.InstantiateScreenOverlay(*document);
+        RefPtr<foundation::ui::gamekit::UIScreen> screen =
+            MakeRef<foundation::ui::gamekit::UIScreen>(DefaultAllocator());
+        screen->AddView(tree.Get());
+        return screen;
+    }
+}
+
+TEST_CASE("ui.subsystem: with run screens on, each run has its own screens and keys reach the bound run's")
+{
+    // Two Game tabs in one editor run two games: each run's menus sit on its own screen tier, and
+    // the keys reach the menu of the run whose scene the input is bound to, not the other's.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm{DefaultAllocator()};
+    scenes->RegisterManager(&sm);
+    {
+        const scene::SceneModule uiModule{u8"ui", &AddUISceneManagers, nullptr};
+        const scene::SceneModule* modules[] = {&uiModule};
+        scenes->SetComposition(scene::SceneComposition::Build(modules));
+    }
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+
+    // Off (the player): every run shares the one screen tier.
+    int runA = 0;
+    int runB = 0;
+    CHECK(&ui->ScreensFor(&runA) == &ui->Screens());
+    CHECK(ui->RunScreenCount() == 0u);
+
+    ui->SetRunScreens(true);
+    foundation::ui::gamekit::ScreenStack& stackA = ui->ScreensFor(&runA);
+    foundation::ui::gamekit::ScreenStack& stackB = ui->ScreensFor(&runB);
+    CHECK(&stackA != &stackB);
+    CHECK(&stackA != &ui->Screens());
+    CHECK(&ui->ScreensFor(&runA) == &stackA); // the same run, the same tier
+    CHECK(&ui->ScreensFor(nullptr) == &ui->Screens());
+    CHECK(ui->RunScreenCount() == 2u);
+    CHECK(ui->ScreenRootFor(&runA) != ui->ScreenRootFor(&runB));
+
+    scene::Scene* sceneA = sm.CreateScene(u8"a");
+    scene::Scene* sceneB = sm.CreateScene(u8"b");
+    sceneA->SetRun(&runA);
+    sceneB->SetRun(&runB);
+    (void)stackA.Push(MenuFor(*ui, u8"a"));
+    (void)stackB.Push(MenuFor(*ui, u8"b"));
+    RootView* runRoots[2] = {ui->ScreenRootFor(&runA), ui->ScreenRootFor(&runB)};
+    for (RootView* root : runRoots)
+    {
+        root->ViewportSize = Float2{800.0f, 600.0f};
+        ui->Context().UpdateRootView(root);
+    }
+    CHECK(ui->ScreenRootFor(&runA)->FindByName<Button>(u8"a-top") != nullptr);
+    CHECK(ui->ScreenRootFor(&runA)->FindByName<Button>(u8"b-top") == nullptr);
+
+    // Input bound to run B's scene (its Game tab has the keyboard): Down lands on B's menu.
+    NavFakeDevices devices;
+    input->SetSourceProvider(&devices, sceneB);
+    FocusManager* focus = ui->Context().GetFocusManager();
+    focus->ClearFocus(); // a push focuses its screen; start from nothing focused
+    devices.PressKey(foundation::shell::KeyCode::Down);
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"b-top");
+
+    // Bound to run A's: the keys move to A's menu.
+    focus->ClearFocus();
+    input->SetSourceProvider(&devices, sceneA);
+    devices.PressKey(foundation::shell::KeyCode::Down);
+    ctx.BeginFrame(1.0f / 60.0f);
+    REQUIRE(focus->FocusedView() != nullptr);
+    CHECK(focus->FocusedView()->Name.AsView() == u8"a-top");
+
+    // A run's end takes its tier and its screens; the other run's stay.
+    focus->ClearFocus();
+    ui->EndRunScreens(&runA);
+    CHECK(ui->RunScreenCount() == 1u);
+    CHECK(&ui->ScreensFor(&runB) == &stackB);
+    CHECK(stackB.Count() == 1u);
+
+    devices.events.Clear();
+    input->SetSourceProvider(nullptr);
+    ctx.Shutdown();
 }

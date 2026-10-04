@@ -401,14 +401,39 @@ export namespace engine::ui
         /// its text stays crisp at any window size. The pointer then arrives in render space, as
         /// the game's does. Nought on either axis goes back to the target's own size.
         void SetScreenResolution(u32 width, u32 height, FitMode fit);
-        [[nodiscard]] bool HasScreenResolution() const noexcept { return m_screenResolution.x > 0.0f && m_screenResolution.y > 0.0f; }
+        [[nodiscard]] bool HasScreenResolution() const noexcept { return m_screen.HasResolution(); }
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
-        [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screenRoot.Get(); }
+        [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screen.root.Get(); }
         /// The screen-tier ScreenStack: push/pop/replace of UIScreens over the screen
         /// root. Tier-owned so its lifetime matches the root. Backs the `ui` script facade's screen
         /// management (engine.ui.script installs a service pointing at this + ScreenRoot()).
-        [[nodiscard]] foundation::ui::gamekit::ScreenStack& Screens() noexcept { return m_screenStack; }
+        [[nodiscard]] foundation::ui::gamekit::ScreenStack& Screens() noexcept { return m_screen.stack; }
+
+        // ---- a screen tier per run (the editor's Game tabs) ----
+        // The player runs one game, so its runs share the one screen tier. The editor runs a
+        // game per Game tab inside one application: with run screens on, each run (a run key,
+        // as Scene::Run and the script context's run carry) gets its own screen root and stack,
+        // a tab draws its own run's (SetRenderRun) at its own resolution, and input goes to the
+        // run of the scene the input subsystem is bound to. The global overlay layer stays on
+        // the shared tier, drawn above every run's.
+        /// On: each run its own screen tier (the editor sets it once, as it sets the input's
+        /// unbound-scene policy). Off (the default): every run uses the shared tier.
+        void SetRunScreens(bool enabled) noexcept { m_runScreens = enabled; }
+        [[nodiscard]] bool RunScreens() const noexcept { return m_runScreens; }
+        /// `run`'s screen stack (made on first use), or the shared tier's (run screens off, no run).
+        [[nodiscard]] foundation::ui::gamekit::ScreenStack& ScreensFor(const void* run);
+        /// `run`'s screen root, made on first use (the shared tier's as ScreensFor).
+        [[nodiscard]] RootView* ScreenRootFor(const void* run) { return ScreensFor(run).Root(); }
+        /// The screen resolution of `run`'s tier (SetScreenResolution for the shared one).
+        void SetScreenResolution(const void* run, u32 width, u32 height, FitMode fit);
+        /// The run whose screen tier the next screen-overlay draw shows (null = the shared tier),
+        /// set by a host around its RenderOverlays for that run's view.
+        void SetRenderRun(const void* run) noexcept { m_renderRun = run; }
+        /// The run ended: its screen tier and every screen on it go.
+        void EndRunScreens(const void* run);
+        /// The runs that have a screen tier of their own (introspection, tests).
+        [[nodiscard]] usize RunScreenCount() const noexcept { return m_runTiers.Size(); }
         /// The scene tier's root for `scene` (canvases above a shared billboard layer);
         /// null if the scene is unknown.
         [[nodiscard]] RootView* SceneRoot(scene::Scene& scene) noexcept
@@ -425,7 +450,7 @@ export namespace engine::ui
         /// Instantiates `document` and attaches it topmost. Null if the markup fails.
         RefPtr<View> PushScreenOverlay(const UIDocument& document)
         {
-            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr)
+            if (document.markup.IsEmpty() || m_screen.overlay.Get() == nullptr)
             {
                 return {};
             }
@@ -433,7 +458,7 @@ export namespace engine::ui
                                                              document.markup.AsView(), &m_context);
             if (view.Get() != nullptr)
             {
-                m_overlayLayer->AddView(view.Get());
+                m_screen.overlay->AddView(view.Get());
             }
             return view;
         }
@@ -442,7 +467,7 @@ export namespace engine::ui
         /// Null if the markup fails.
         [[nodiscard]] RefPtr<View> InstantiateScreenOverlay(const UIDocument& document)
         {
-            if (document.markup.IsEmpty() || m_overlayLayer.Get() == nullptr)
+            if (document.markup.IsEmpty() || m_screen.overlay.Get() == nullptr)
             {
                 return {};
             }
@@ -452,21 +477,21 @@ export namespace engine::ui
         /// Attaches an already-built view topmost (code-built overlays).
         void PushScreenOverlay(RefPtr<View> view)
         {
-            if (view.Get() != nullptr && m_overlayLayer.Get() != nullptr)
+            if (view.Get() != nullptr && m_screen.overlay.Get() != nullptr)
             {
-                m_overlayLayer->AddView(view.Get());
+                m_screen.overlay->AddView(view.Get());
             }
         }
         void RemoveScreenOverlay(View* view)
         {
-            if (view != nullptr && m_overlayLayer.Get() != nullptr)
+            if (view != nullptr && m_screen.overlay.Get() != nullptr)
             {
-                m_overlayLayer->RemoveView(view);
+                m_screen.overlay->RemoveView(view);
             }
         }
         [[nodiscard]] usize ScreenOverlayCount() const noexcept
         {
-            return m_overlayLayer.Get() != nullptr ? m_overlayLayer->ChildCount() : 0;
+            return m_screen.overlay.Get() != nullptr ? m_screen.overlay->ChildCount() : 0;
         }
         /// True while the global overlay layer should intercept input: it holds at least
         /// one HIT-TESTABLE child. Modal menus qualify; passive badges/watermarks pushed
@@ -474,13 +499,13 @@ export namespace engine::ui
         /// shielding scene HUDs from the pointer. (PumpInput applies this every frame.)
         [[nodiscard]] bool OverlayLayerWantsInput() const noexcept
         {
-            if (m_overlayLayer.Get() == nullptr)
+            if (m_screen.overlay.Get() == nullptr)
             {
                 return false;
             }
-            for (usize i = 0; i < m_overlayLayer->ChildCount(); ++i)
+            for (usize i = 0; i < m_screen.overlay->ChildCount(); ++i)
             {
-                const View* child = m_overlayLayer->GetChildAt(i);
+                const View* child = m_screen.overlay->GetChildAt(i);
                 if (child != nullptr && child->IsHitTestVisible &&
                     child->Visibility == VisibilityValue::Visible)
                 {
@@ -622,14 +647,39 @@ export namespace engine::ui
         bool LandFocus();
         // The cooked-font service over the default font and the extra ones, or the TTF fallback
         // when no default is bound.
+        // A screen tier: the scene-less root, the screens pushed on it, and the game resolution it
+        // lays out at. The shared one also holds the global overlay layer.
+        struct ScreenTier
+        {
+            const void* run = nullptr; // null = the shared tier
+            RefPtr<RootView> root;
+            foundation::ui::gamekit::ScreenStack stack; // push/pop over root
+            RefPtr<ViewGroup> overlay;                  // the shared tier only: ABOVE everything
+            // The game's render resolution and how it fits its target, when it has one: the
+            // tier lays out at that size and draws fitted where the game's image is.
+            Float2 resolution{0.0f, 0.0f};
+            FitMode fitMode = FitMode::Letterbox;
+            Float2 targetSize{0.0f, 0.0f}; // the target the tier last drew into
+            [[nodiscard]] bool HasResolution() const noexcept { return resolution.x > 0.0f && resolution.y > 0.0f; }
+        };
         void RebuildFontService();
-        // The screen resolution fitted into the last target the screen tier drew into.
-        [[nodiscard]] ContentFit ScreenFit() const noexcept;
-        // A render-space point in the screen tier's layout units: offset by the part of the
+        // `run`'s own tier, or null (none made yet).
+        [[nodiscard]] ScreenTier* FindRunTier(const void* run) noexcept;
+        // The tier input reaches this frame: the run of the scene the input is bound to, when run
+        // screens are on and that run has a tier; the shared tier otherwise.
+        [[nodiscard]] ScreenTier& InputTier() noexcept;
+        // The tier whose root is `root`, or null.
+        [[nodiscard]] ScreenTier* TierOfRoot(const RootView* root) noexcept;
+        static void ApplyResolution(ScreenTier& tier, u32 width, u32 height, FitMode fit);
+        void DrawTier(ScreenTier& tier, rhi::RenderPassEncoder& encoder,
+                      const render::ScreenOverlayView& view, bool stencil);
+        // The screen resolution fitted into the last target the tier drew into.
+        [[nodiscard]] static ContentFit ScreenFit(const ScreenTier& tier) noexcept;
+        // A render-space point in the tier's layout units: offset by the part of the
         // resolution a crop leaves out, and nothing else.
-        [[nodiscard]] Float2 ScreenLayoutPoint(Float2 point) const noexcept;
-        // The same point in the pixels the screen tier's input takes (layout units times its scale).
-        [[nodiscard]] Float2 ScreenPointerPoint(Float2 point) const noexcept;
+        [[nodiscard]] static Float2 ScreenLayoutPoint(const ScreenTier& tier, Float2 point) noexcept;
+        // The same point in the pixels the tier's input takes (layout units times its scale).
+        [[nodiscard]] static Float2 ScreenPointerPoint(const ScreenTier& tier, Float2 point) noexcept;
         // RenderTexture canvas roots are STANDALONE context roots owned by their
         // component - this registry (strong refs, mark-sweep like the canvas hosts) is
         // how a vanished component (despawn/removal; managers have no destroy hook)
@@ -657,14 +707,10 @@ export namespace engine::ui
         foundation::vfs::IFileSystem* m_dataFileSystem; // borrowed (the application's data mount)
         UIContext m_context{m_allocator};
         UiInputBridge m_bridge{&m_context}; // key/text event mapping + IME sync
-        RefPtr<RootView> m_screenRoot;
-        // The game's render resolution and how it fits its target, when it has one: the screen
-        // tier lays out at that size and draws fitted where the game's image is.
-        Float2 m_screenResolution{0.0f, 0.0f};
-        FitMode m_screenFitMode = FitMode::Letterbox;
-        Float2 m_screenTargetSize{0.0f, 0.0f}; // the target the screen tier last drew into
-        foundation::ui::gamekit::ScreenStack m_screenStack; // push/pop over m_screenRoot (attached in init)
-        RefPtr<ViewGroup> m_overlayLayer; // scene-LESS screen tier, ABOVE everything
+        ScreenTier m_screen;                     // the shared tier (root attached in init)
+        Array<UniquePtr<ScreenTier>> m_runTiers; // a tier per run, with run screens on
+        bool m_runScreens = false;
+        const void* m_renderRun = nullptr;       // the run the next screen-overlay draw shows
         RefPtr<StyleSheet> m_theme;
         UniquePtr<foundation::fonts::TrueTypeFontService> m_fonts;
         UniquePtr<foundation::fonts::ResourceFontService>

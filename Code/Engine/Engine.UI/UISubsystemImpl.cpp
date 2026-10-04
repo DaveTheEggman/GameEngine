@@ -726,13 +726,13 @@ namespace engine::ui
         // layer (each scene's canvases + billboards live in that scene's own root). It
         // only hit-tests while it HOLDS overlays - an empty full-screen layer must never
         // swallow the clicks meant for the scene canvases below it.
-        m_screenRoot = MakeRef<RootView>(m_allocator);
-        m_context.AddRootView(m_screenRoot.Get());
-        m_screenStack.Attach(m_screenRoot.Get()); // the `ui` facade's push/pop operate on this root
+        m_screen.root = MakeRef<RootView>(m_allocator);
+        m_context.AddRootView(m_screen.root.Get());
+        m_screen.stack.Attach(m_screen.root.Get()); // the `ui` facade's push/pop operate on this root
         auto overlay = MakeRef<FrameLayout>(m_allocator);
         overlay->IsHitTestVisible = false;
-        m_overlayLayer = overlay;
-        m_screenRoot->AddView(m_overlayLayer.Get());
+        m_screen.overlay = overlay;
+        m_screen.root->AddView(m_screen.overlay.Get());
     }
 
     void UISubsystem::OnReady()
@@ -793,12 +793,18 @@ namespace engine::ui
             m_context.RemoveRootView(entry.root.Get());
         }
         m_textureCanvasRoots.Clear();
-        m_overlayLayer = nullptr;
-        if (m_screenRoot.Get() != nullptr)
+        for (UniquePtr<ScreenTier>& tier : m_runTiers)
         {
-            m_context.RemoveRootView(m_screenRoot.Get());
+            tier->stack.Clear();
+            m_context.RemoveRootView(tier->root.Get());
         }
-        m_screenRoot = nullptr;
+        m_runTiers.Clear();
+        m_screen.overlay = nullptr;
+        if (m_screen.root.Get() != nullptr)
+        {
+            m_context.RemoveRootView(m_screen.root.Get());
+        }
+        m_screen.root = nullptr;
         m_render = nullptr;
         m_theme = nullptr;
     }
@@ -1131,7 +1137,7 @@ namespace engine::ui
 
     bool UISubsystem::LandFocus()
     {
-        if (m_screenStack.FocusDefault(FocusSource::Keyboard))
+        if (InputTier().stack.FocusDefault(FocusSource::Keyboard))
         {
             return true;
         }
@@ -1147,10 +1153,12 @@ namespace engine::ui
         // passive badge/watermark (pushed with IsHitTestVisible = false) must not turn
         // the full-window layer into a click shield over every scene HUD.
         const bool overlayActive = OverlayLayerWantsInput();
-        if (m_overlayLayer.Get() != nullptr)
+        if (m_screen.overlay.Get() != nullptr)
         {
-            m_overlayLayer->IsHitTestVisible = overlayActive;
+            m_screen.overlay->IsHitTestVisible = overlayActive;
         }
+        // The screen tier this frame's input reaches: the bound run's (its Game tab), or the shared.
+        ScreenTier& tier = InputTier();
         // The SAME facades the action layer evaluates: window coords in the player,
         // content coords in the Game tab (the InputSurface transform) - transparently.
         if (m_input == nullptr)
@@ -1200,17 +1208,17 @@ namespace engine::ui
             RootView* target = nullptr;
             if (overlayActive)
             {
-                target = m_screenRoot.Get();
+                target = m_screen.root.Get(); // the global overlays live on the shared tier
             }
             if (target == nullptr && mouse != nullptr)
             {
                 const Float2 point{mouse->X(), mouse->Y()};
-                if (m_screenRoot.Get() != nullptr)
+                if (tier.root.Get() != nullptr)
                 {
-                    View* hit = m_screenRoot->HitTest(ScreenLayoutPoint(point));
-                    if (hit != nullptr && hit != m_screenRoot.Get())
+                    View* hit = tier.root->HitTest(ScreenLayoutPoint(tier, point));
+                    if (hit != nullptr && hit != tier.root.Get())
                     {
-                        target = m_screenRoot.Get();
+                        target = tier.root.Get();
                     }
                 }
                 for (usize i = 0; target == nullptr && i < m_sceneUIs.Size(); ++i)
@@ -1346,7 +1354,7 @@ namespace engine::ui
             if (GetEnvironmentVariable(u8"ENV_UI_RAY_DEBUG").HasValue())
             {
                 const char* kind = "none";
-                if (target == m_screenRoot.Get())
+                if (target == tier.root.Get() || target == m_screen.root.Get())
                 {
                     kind = overlayActive ? "screen(modal)" : "screen(hit)";
                 }
@@ -1368,7 +1376,7 @@ namespace engine::ui
             }
             if (target == nullptr)
             {
-                target = m_screenRoot.Get();
+                target = tier.root.Get();
             }
             if (target != nullptr)
             {
@@ -1399,9 +1407,10 @@ namespace engine::ui
             f32 x = panelPointer ? panelPointerPx.x : mouse->X();
             f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
             // The screen tier drawn fitted takes its pointer in its own pixels.
-            if (!panelPointer && m_context.ActiveInputRoot() == m_screenRoot.Get())
+            const ScreenTier* activeTier = TierOfRoot(m_context.ActiveInputRoot());
+            if (!panelPointer && activeTier != nullptr)
             {
-                const Float2 screen = ScreenPointerPoint(Float2{x, y});
+                const Float2 screen = ScreenPointerPoint(*activeTier, Float2{x, y});
                 x = screen.x;
                 y = screen.y;
             }
@@ -1475,7 +1484,7 @@ namespace engine::ui
         // deliberately NOT a consumption class - gameplay pad actions keep working
         // (menus that want exclusivity push an input SET, the existing mechanism). ----
         foundation::shell::IGamepad* pad = devices.Gamepad(0);
-        if (pad != nullptr && pad->Connected() && m_screenRoot.Get() != nullptr)
+        if (pad != nullptr && pad->Connected() && tier.root.Get() != nullptr)
         {
             const f32 stickX = pad->Axis(foundation::shell::GamepadAxis::LeftX);
             const f32 stickY = pad->Axis(foundation::shell::GamepadAxis::LeftY);
@@ -1595,10 +1604,15 @@ namespace engine::ui
         if (mouse != nullptr)
         {
             const Float2 point{mouse->X(), mouse->Y()};
-            if (m_screenRoot.Get() != nullptr)
+            if (tier.root.Get() != nullptr)
             {
-                View* hit = m_screenRoot->HitTest(ScreenLayoutPoint(point));
-                pointer = hit != nullptr && hit != m_screenRoot.Get();
+                View* hit = tier.root->HitTest(ScreenLayoutPoint(tier, point));
+                pointer = hit != nullptr && hit != tier.root.Get();
+            }
+            if (!pointer && overlayActive && &tier != &m_screen)
+            {
+                View* hit = m_screen.root->HitTest(ScreenLayoutPoint(m_screen, point));
+                pointer = hit != nullptr && hit != m_screen.root.Get();
             }
             for (usize i = 0; !pointer && i < m_sceneUIs.Size(); ++i)
             {
@@ -1667,7 +1681,7 @@ namespace engine::ui
                     : StringView(u8" | hovered none");
         if (mouse != nullptr)
         {
-            const Float2 layout = ScreenLayoutPoint(Float2{mouse->X(), mouse->Y()});
+            const Float2 layout = ScreenLayoutPoint(InputTier(), Float2{mouse->X(), mouse->Y()});
             line += Format(u8" | pointer ({},{}) layout ({},{})", mouse->X(), mouse->Y(), layout.x, layout.y).AsView();
         }
         LOG_INFO(u8"UI", u8"{}", line.AsView());
@@ -1810,66 +1824,190 @@ namespace engine::ui
         {
             return;
         }
-        if (m_screenRoot.Get() == nullptr || view.width == 0 || view.height == 0)
+        if (m_screen.root.Get() == nullptr || view.width == 0 || view.height == 0)
         {
             return;
         }
         const bool stencil = view.depthStencilFormat != rhi::TextureFormat::Undefined &&
                              view.depthStencilFormat == m_render->canvasStencilFormat;
-        m_screenTargetSize = Float2{static_cast<f32>(view.width), static_cast<f32>(view.height)};
-        if (HasScreenResolution())
+        // A run's own screens (its Game tab), then the shared tier's global overlays above them.
+        if (ScreenTier* runTier = m_runScreens ? FindRunTier(m_renderRun) : nullptr)
+        {
+            DrawTier(*runTier, encoder, view, stencil);
+        }
+        DrawTier(m_screen, encoder, view, stencil);
+    }
+
+    void UISubsystem::DrawTier(ScreenTier& tier, rhi::RenderPassEncoder& encoder,
+                               const render::ScreenOverlayView& view, bool stencil)
+    {
+        tier.targetSize = Float2{static_cast<f32>(view.width), static_cast<f32>(view.height)};
+        if (tier.HasResolution())
         {
             // Laid out at the screen resolution, drawn crisp at the target's resolution into the
             // rectangle the game's image was fitted to.
-            const ContentFit fit = ScreenFit();
+            const ContentFit fit = ScreenFit(tier);
             const Rectangle dst = fit.DstRect();
             const f32 scale = fit.Scale().y; // layout units per target pixel, down the height
-            m_screenRoot->DpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
-            DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, static_cast<i32>(dst.x),
+            tier.root->DpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
+            DrawRootInPass(*tier.root, encoder, view.targetFormat, static_cast<i32>(dst.x),
                            static_cast<i32>(dst.y), static_cast<u32>(Max(dst.width, 1.0f)),
                            static_cast<u32>(Max(dst.height, 1.0f)), static_cast<i32>(view.frameIndex), stencil);
             return;
         }
-        DrawRootInPass(*m_screenRoot, encoder, view.targetFormat, 0, 0, view.width, view.height,
+        DrawRootInPass(*tier.root, encoder, view.targetFormat, 0, 0, view.width, view.height,
                        static_cast<i32>(view.frameIndex), stencil);
+    }
+
+    void UISubsystem::ApplyResolution(ScreenTier& tier, u32 width, u32 height, FitMode fit)
+    {
+        tier.resolution = (width > 0 && height > 0)
+                              ? Float2{static_cast<f32>(width), static_cast<f32>(height)}
+                              : Float2{0.0f, 0.0f};
+        tier.fitMode = fit;
+        if (!tier.HasResolution() && tier.root.Get() != nullptr)
+        {
+            tier.root->DpiScale = 1.0f;
+        }
     }
 
     void UISubsystem::SetScreenResolution(u32 width, u32 height, FitMode fit)
     {
-        m_screenResolution = (width > 0 && height > 0)
-                             ? Float2{static_cast<f32>(width), static_cast<f32>(height)}
-                             : Float2{0.0f, 0.0f};
-        m_screenFitMode = fit;
-        if (!HasScreenResolution() && m_screenRoot.Get() != nullptr)
+        ApplyResolution(m_screen, width, height, fit);
+    }
+
+    void UISubsystem::SetScreenResolution(const void* run, u32 width, u32 height, FitMode fit)
+    {
+        if (m_runScreens && run != nullptr)
         {
-            m_screenRoot->DpiScale = 1.0f;
+            (void)ScreensFor(run); // made on first use, so a tab can size its tier before a push
+            if (ScreenTier* tier = FindRunTier(run))
+            {
+                ApplyResolution(*tier, width, height, fit);
+                return;
+            }
+        }
+        ApplyResolution(m_screen, width, height, fit);
+    }
+
+    UISubsystem::ScreenTier* UISubsystem::FindRunTier(const void* run) noexcept
+    {
+        if (run == nullptr)
+        {
+            return nullptr;
+        }
+        for (UniquePtr<ScreenTier>& tier : m_runTiers)
+        {
+            if (tier->run == run)
+            {
+                return tier.Get();
+            }
+        }
+        return nullptr;
+    }
+
+    foundation::ui::gamekit::ScreenStack& UISubsystem::ScreensFor(const void* run)
+    {
+        if (!m_runScreens || run == nullptr)
+        {
+            return m_screen.stack;
+        }
+        if (ScreenTier* found = FindRunTier(run))
+        {
+            return found->stack;
+        }
+        UniquePtr<ScreenTier> tier = MakeUnique<ScreenTier>(m_allocator);
+        tier->run = run;
+        tier->root = MakeRef<RootView>(m_allocator);
+        m_context.AddRootView(tier->root.Get());
+        tier->stack.Attach(tier->root.Get());
+        ScreenTier& made = *tier;
+        m_runTiers.PushBack(Move(tier));
+        return made.stack;
+    }
+
+    void UISubsystem::EndRunScreens(const void* run)
+    {
+        for (usize i = 0; i < m_runTiers.Size(); ++i)
+        {
+            if (m_runTiers[i]->run == run)
+            {
+                m_runTiers[i]->stack.Clear();
+                m_context.RemoveRootView(m_runTiers[i]->root.Get());
+                m_runTiers.RemoveAt(i);
+                break;
+            }
+        }
+        if (m_renderRun == run)
+        {
+            m_renderRun = nullptr;
         }
     }
 
-    ContentFit UISubsystem::ScreenFit() const noexcept
+    UISubsystem::ScreenTier& UISubsystem::InputTier() noexcept
     {
-        return ContentFit{Rectangle{0.0f, 0.0f, m_screenTargetSize.x, m_screenTargetSize.y}, m_screenResolution,
-                          m_screenFitMode};
+        const void* bound = (m_runScreens && m_input != nullptr) ? m_input->BoundSceneKey() : nullptr;
+        if (bound != nullptr)
+        {
+            for (const SceneUI& ui : m_sceneUIs)
+            {
+                if (static_cast<const void*>(ui.scene) == bound)
+                {
+                    if (ScreenTier* tier = FindRunTier(ui.scene->Run()))
+                    {
+                        return *tier;
+                    }
+                    break;
+                }
+            }
+        }
+        return m_screen;
     }
 
-    Float2 UISubsystem::ScreenLayoutPoint(Float2 point) const noexcept
+    UISubsystem::ScreenTier* UISubsystem::TierOfRoot(const RootView* root) noexcept
     {
-        if (!HasScreenResolution())
+        if (root == nullptr)
+        {
+            return nullptr;
+        }
+        if (root == m_screen.root.Get())
+        {
+            return &m_screen;
+        }
+        for (UniquePtr<ScreenTier>& tier : m_runTiers)
+        {
+            if (tier->root.Get() == root)
+            {
+                return tier.Get();
+            }
+        }
+        return nullptr;
+    }
+
+    ContentFit UISubsystem::ScreenFit(const ScreenTier& tier) noexcept
+    {
+        return ContentFit{Rectangle{0.0f, 0.0f, tier.targetSize.x, tier.targetSize.y}, tier.resolution,
+                          tier.fitMode};
+    }
+
+    Float2 UISubsystem::ScreenLayoutPoint(const ScreenTier& tier, Float2 point) noexcept
+    {
+        if (!tier.HasResolution())
         {
             return point;
         }
-        const Rectangle source = ScreenFit().SrcRect();
+        const Rectangle source = ScreenFit(tier).SrcRect();
         return Float2{point.x - source.x, point.y - source.y};
     }
 
-    Float2 UISubsystem::ScreenPointerPoint(Float2 point) const noexcept
+    Float2 UISubsystem::ScreenPointerPoint(const ScreenTier& tier, Float2 point) noexcept
     {
-        if (!HasScreenResolution())
+        if (!tier.HasResolution())
         {
             return point;
         }
-        const Float2 layout = ScreenLayoutPoint(point);
-        const f32 scale = ScreenFit().Scale().y;
+        const Float2 layout = ScreenLayoutPoint(tier, point);
+        const f32 scale = ScreenFit(tier).Scale().y;
         const f32 dpi = scale > 0.0f ? 1.0f / scale : 1.0f;
         return Float2{layout.x * dpi, layout.y * dpi};
     }

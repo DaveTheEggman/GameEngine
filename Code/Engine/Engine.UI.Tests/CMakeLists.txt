@@ -2,7 +2,7 @@
 # Backend-neutral: the UI script-facade acceptance test moved to Integration::ScriptFacades.
 add_executable(Engine.UI.Tests TestsMain.cpp UISubsystemTests.cpp)
 target_link_libraries(Engine.UI.Tests PRIVATE Foundation::VFS
-    Engine::UI Foundation::UI.Resource Foundation::UI Foundation::Scene
+    Engine::UI Foundation::UI.Resource Foundation::UI Foundation::UI.Gamekit Foundation::Scene
     Engine::Scene Foundation::Runtime Foundation::Input Engine::Input
     Foundation::Resource Foundation::Render Engine::Render Foundation::Shell
     Foundation::Shell.Null Foundation::RHI Foundation::RHI.Null
