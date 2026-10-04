@@ -34,8 +34,8 @@ WHICH="${1:-all}"
 # Release is the product default for templates (ships stripped Release).
 LINUX_BUILD="build/clang-release"
 LINUX_BIN="Bin/Release/Linux64-Clang"
-WEB_BUILD="build/wasm-shipping"        # emscripten, Release (no output suffix -> Emscripten-Clang)
-WEB_BIN="Bin/Release/Emscripten-Clang"
+WEB_BUILD="build/wasm-shipping"        # the wasm-shipping preset: emscripten, Release, shipping
+WEB_BIN="Bin/Release/Emscripten-Clang-Shipping" # the preset's output suffix (-Shipping)
 
 # The native exporter packages EVERY platform's bundle (it runs on the host, pointing at the
 # target's Bin dir - including the wasm one, which it synthesizes into a "Web" template).
@@ -89,9 +89,8 @@ build_web() {
         return 0
     fi
     if [[ ! -f "$WEB_BUILD/CMakeCache.txt" ]]; then
-        echo "!! $WEB_BUILD is not configured. Configure it once with the emscripten toolchain, e.g.:" >&2
-        echo "     source ~/emsdk/emsdk_env.sh && emcmake cmake -S . -B $WEB_BUILD -G Ninja -DCMAKE_BUILD_TYPE=Release" >&2
-        return 1
+        echo ">> configuring $WEB_BUILD (the wasm-shipping preset)"
+        cmake --preset wasm-shipping
     fi
     cmake --build "$WEB_BUILD" --target Engine.Player -j"$JOBS"
     # Packaged by the NATIVE exporter (built in the Linux step) -> a "Web" template.
