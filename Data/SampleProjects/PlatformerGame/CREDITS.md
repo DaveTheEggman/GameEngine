@@ -1,6 +1,6 @@
 # Sky Hopper - Credits
 
-Made with the Raptor engine. Third-party assets, with thanks:
+Made with GameEngine. Third-party assets, with thanks:
 
 ## Music
 
