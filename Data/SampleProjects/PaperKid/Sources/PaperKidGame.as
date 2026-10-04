@@ -89,8 +89,8 @@ class Game
         m_blockMusic.insertLast(Guid("b527f7ce-531f-4326-8911-c0e27dcce5e5"));
         m_blockMusic.insertLast(Guid("b6341552-e562-4792-8321-87dbcb6e8485"));
         m_blockMusic.insertLast(Guid("7591a26d-3270-47ac-92c3-1d3dd1089081"));
-        // The default scene is the title's backdrop, frozen behind the menu.
-        run::setTimeScale(0.0f);
+        // The default scene is the title's backdrop: the street goes about its day behind the menu.
+        run::setTimeScale(1.0f);
         showTitle();
     }
 
@@ -317,7 +317,7 @@ class Game
     {
         click();
         run::loadScene(kStart);
-        run::setTimeScale(0.0f);
+        run::setTimeScale(1.0f); // the title's street moves (an ended block stopped the clock)
         showTitle();
     }
 

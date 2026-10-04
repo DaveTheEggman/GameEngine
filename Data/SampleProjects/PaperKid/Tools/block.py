@@ -241,15 +241,61 @@ BLOCKS = [
 ]
 
 
+def town_model(name):
+    """A Blender model's prefab (Models/Town/<name>Model)."""
+    return next(a["guid"] for a in ASSETS if a["type"] == "PrefabDocument"
+                and a.get("group", "") == "Models/Town/%sModel" % name)
+
+
+def town_clip(name, clip):
+    """A Blender model's clip by name (the dog, the cat and the pedestrian each have a Walk)."""
+    return next(a["guid"] for a in ASSETS if a["type"] == "AnimationClipAsset"
+                and a.get("group", "") == "Models/Town/%sModel" % name and a["name"] == clip)
+
+
 def start():
+    """The title backdrop: a street with life on it behind the menu. Cars cross both lanes, people
+    the near pavement (Stroller.as), and a dog and a cat potter about the lawn either side of the
+    menu (Pet.as)."""
     d = Doc("Start")
-    world(d, 60)
-    for x in (-16, -8, 0, 8, 16):
+    world(d, 80)
+    for x in range(-24, 25, 8):
         d.instance(kit["Road"], (x, 0, 4), yaw(90))
-    for i, x in enumerate((-10, 0, 10)):
-        d.instance(HOUSES[i], (x, 0, -4), yaw(0))
+    for i, x in enumerate((-20, -10, 0, 10, 20)):
+        d.instance(HOUSES[i % 3], (x, 0, -4), yaw(0))
     d.instance(kit["Bin"], (4, 0, 0.6))
     d.instance(kit["Hydrant"], (-5, 0, 0.6))
+    # The near pavement, kerbed off from the road, for the walkers.
+    for x in range(-24, 25, 8):
+        d.instance(kit["Kerb"], (x, 0, 8.2), yaw(90))
+    mesh(d, "Pavement", CUBE, (0, 0.03, 9.7), (64, 0.06, 2.8), (0.62, 0.61, 0.58))
+
+    def stroller(name, model, z, way, speed, pause, walk=None, reach=32.0):
+        e = d.entity(name, (0, 0, z))
+        props = {"xFrom": -reach * way, "xTo": reach * way, "speed": speed, "pause": pause}
+        if walk:
+            props["walkClip"] = ("asset", town_clip(model, "Walk"))
+        d.script(e, (ids["Stroller"], props))
+        d.instance(town_model(model), parent=e)
+
+    # Traffic keeps to the right: toward +X in the near lane, back in the far one.
+    stroller("CarNear", "Car", 6.0, 1, 7.0, 5.0)
+    stroller("CarNear2", "CarOuter", 6.0, 1, 5.5, 9.0)
+    stroller("CarFar", "Car", 2.0, -1, 6.5, 6.0)
+    # Walkers just past the edges of the view, so they are seldom long out of it.
+    stroller("WalkerLeft", "Pedestrian", 9.2, -1, 1.3, 3.0, walk=True, reach=17.0)
+    stroller("WalkerRight", "Pedestrian", 10.3, 1, 1.5, 5.0, walk=True, reach=17.0)
+
+    def pet(name, model, lawn, speed, metres, own):
+        e = d.entity(name, ((lawn[0] + lawn[1]) / 2, 0, (lawn[2] + lawn[3]) / 2))
+        clips = {slot: ("asset", town_clip(model, clip)) for slot, clip in (
+            ("walkClip", "Walk"), ("idleClip", "Idle"), ("sitClip", "Sit"), ("lieClip", "LieDown"), ("ownClip", own))}
+        d.script(e, (ids["Pet"], dict(xMin=lawn[0], xMax=lawn[1], zMin=lawn[2], zMax=lawn[3], speed=speed,
+                                      walkMetres=metres, **clips)))
+        d.instance(town_model(model), parent=e)
+
+    pet("Dog", "Dog", (-7.5, -4.0, 12.5, 15.0), 0.8, 0.55, "Sniff")
+    pet("Cat", "Cat", (4.0, 7.0, 13.0, 15.0), 0.45, 0.32, "Groom")
     cam = d.entity("Camera", (0, 5, 22), pitch(-12))
     d.add(cam, "camera", farZ=300.0)
     return d

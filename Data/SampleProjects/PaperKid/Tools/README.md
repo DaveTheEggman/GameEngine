@@ -20,6 +20,8 @@ scripts drive them; none of this is game content.
   scripts spawn those where things happen. Run `fx.py` before `kit.py` in a fresh project.
 - `scripts/*.as` + `render.py`: the game's scripts with `{{AssetName}}` placeholders;
   `render.py <Name>...` fills in the asset ids, writes `Sources/<Name>.as` and compile-checks it.
+  A name several assets answer to (each model's Walk clip) is refused: such an asset is a
+  behaviour property, set where the prefab or scene is built.
 - `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse) and the
   throw guides' glowing unlit material, written through `asset_data_write`; `kit.py` puts them
   on the delivery zone's pieces and the AimDot and TargetRing prefabs.
@@ -32,6 +34,11 @@ scripts drive them; none of this is game content.
 - `blender/pedestrian.py`: the pedestrian, rigged with a Walk clip (two 0.65 m steps a second),
   imported as `Models/Town/PedestrianModel`; `Pedestrian.as` turns the figure toward where it walks
   and plays Walk at its pace.
+- `blender/animals.py`: the dog and the cat, from one four-legged builder and their proportions,
+  each with Walk, Idle, Sit, LieDown and its own clip (Sniff, Groom), every clip starting and ending
+  in the same standing pose; imported as `Models/Town/DogModel` and `Models/Town/CatModel`. On the
+  title backdrop `Pet.as` walks each about its lawn and picks what it does at each spot, and
+  `Stroller.as` sends the cars and the walkers across (`block.py`'s `start()`).
 - `blender/kid_bike.py`: the kid on his bike, modelled, rigged and animated in Blender (the
   Ride and Throw clips) and written as `KidBike.glb`; run it with Blender in the background
   (`blender --background --factory-startup --python blender/kid_bike.py -- <out dir> [preview]`),
