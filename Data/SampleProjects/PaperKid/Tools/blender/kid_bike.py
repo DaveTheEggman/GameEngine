@@ -2,7 +2,8 @@
 
     blender --background --factory-startup --python kid_bike.py -- <out dir> [preview]
 
-Writes <out dir>/KidBike.glb (one skinned mesh, its armature, and the clips Ride and Throw) and,
+Writes <out dir>/KidBike.glb (one skinned mesh, its armature, and the clips Ride, ThrowLeft and
+ThrowRight) and,
 with `preview`, PNG renders to check by eye. Nothing here is hand-placed: rerun after a change.
 
 The model sits where the old primitives did: its origin is the ground under the middle of the bike,
@@ -16,8 +17,9 @@ the engine plays ordinary bone tracks.
 
 - Ride: one second, the crank once round and the wheels twice (4.4 m of road at speed 1: Bike.as
   scales the clip by the bike's speed), the legs pedalling and a slight bob.
-- Throw: the same second, the right arm winding back over the shoulder and flinging forward in
-  its first half, back on the grip by the end, so Ride picks up where it ends.
+- ThrowLeft, ThrowRight: the same second, that arm winding back over the shoulder and flinging
+  forward and out to its own side in its first half, back on the grip by the end, so Ride picks up
+  where it ends. Bike.as throws with the hand on the side the paper goes.
 """
 import bpy, bmesh, math, os, sys
 from mathutils import Vector, Matrix
@@ -30,7 +32,8 @@ LOOP = 24  # frames in one second
 
 
 def P(x, fwd, up):
-    """A point by (right, forward, up): Blender's forward is -Y (glTF exports it as +Z)."""
+    """A point by (x, forward, up): Blender's forward is -Y (glTF exports it as +Z). The kid faces
+    -Y, so +X is his LEFT: a side of +1 is his left hand and leg, -1 his right."""
     return Vector((x, -fwd, up))
 
 
@@ -109,7 +112,8 @@ def disc(name, centre, radius, width, mat, bone, segments=16):
                 segments)
 
 
-def ball(name, centre, radius, mat, bone, scale=(1, 1, 1), segments=(12, 8), cut_below=None):
+def ball(name, centre, radius, mat, bone, scale=(1, 1, 1), segments=(16, 10), cut_below=None):
+    """A sphere (or a dome), shaded smooth: the round parts are the ones whose facets show."""
     bm = bmesh.new()
     bmesh.ops.create_uvsphere(bm, u_segments=segments[0], v_segments=segments[1], radius=radius)
     if cut_below is not None:  # a dome: drop the lower part
@@ -117,7 +121,10 @@ def ball(name, centre, radius, mat, bone, scale=(1, 1, 1), segments=(12, 8), cut
         bmesh.ops.delete(bm, geom=doomed, context="VERTS")
     place(bm, Matrix.Diagonal((scale[0], scale[1], scale[2], 1.0)))
     place(bm, Matrix.Translation(centre))
-    return finish(name, bm, mat, bone)
+    ob = finish(name, bm, mat, bone)
+    for poly in ob.data.polygons:
+        poly.use_smooth = True
+    return ob
 
 
 def ring(name, centre, major, minor, mat, bone, major_segments=20, minor_segments=6):
@@ -207,7 +214,7 @@ def build_bike():
     # The drive: the chainring on the crank's bone, the arms and pedals on theirs.
     disc("Chainring", CRANK + Vector((0.07, 0, 0)), 0.085, 0.015, "Metal", "crank", 14)
     for side in (-1, 1):
-        bone = "pedal_" + ("R" if side > 0 else "L")
+        bone = "pedal_" + ("L" if side > 0 else "R")
         pedal = pedal_point(side, 0.0)
         tube("CrankArm" + bone, CRANK + Vector((side * 0.06, 0, 0)), pedal - Vector((side * 0.02, 0, 0)), 0.014,
              "Metal", "crank", 6)
@@ -216,7 +223,7 @@ def build_bike():
 
 def limb(name, a, b, radius, mat, bone, radius2=None):
     tube(name, a, b, radius, mat, bone, 8, radius2)
-    ball(name + "Joint", b, radius2 if radius2 else radius, mat, bone, segments=(8, 6))
+    ball(name + "Joint", b, radius2 if radius2 else radius, mat, bone, segments=(10, 8))
 
 
 def build_kid(pose):
@@ -230,23 +237,23 @@ def build_kid(pose):
     box("Shirt", (0.36, 0.22, 0.42), chest, "Shirt", "spine", bevel=0.06, tilt=lean)
     tube("Neck", NECK - Vector((0, 0, 0.03)), NECK + Vector((0, 0, 0.06)), 0.055, "Skin", "head")
     # A big head (the kit's chibi proportion), eyes, the cap with its bill forward.
-    ball("Head", HEAD, 0.20, "Skin", "head", scale=(1.0, 0.95, 1.0), segments=(16, 10))
+    ball("Head", HEAD, 0.20, "Skin", "head", scale=(1.0, 0.95, 1.0), segments=(32, 18))
     for side in (-1, 1):
-        ball("Eye", HEAD + P(side * 0.07, 0.175, 0.01), 0.026, "Eye", "head", segments=(8, 6))
-        ball("Ear", HEAD + P(side * 0.195, 0.0, -0.01), 0.05, "Skin", "head", scale=(0.5, 1, 1), segments=(8, 6))
-    ball("Cap", HEAD + Vector((0, 0, 0.03)), 0.212, "Cap", "head", scale=(1.0, 1.0, 0.85), segments=(16, 10),
+        ball("Eye", HEAD + P(side * 0.07, 0.175, 0.01), 0.026, "Eye", "head", segments=(12, 8))
+        ball("Ear", HEAD + P(side * 0.195, 0.0, -0.01), 0.05, "Skin", "head", scale=(0.5, 1, 1), segments=(14, 10))
+    ball("Cap", HEAD + Vector((0, 0, 0.03)), 0.212, "Cap", "head", scale=(1.0, 1.0, 0.85), segments=(32, 18),
          cut_below=0.15)
     box("CapBill", (0.24, 0.17, 0.025), HEAD + P(0, 0.19, 0.075), "Cap", "head", bevel=0.01, tilt=-8)
-    ball("Hair", HEAD + P(0, -0.12, -0.02), 0.13, "Hair", "head", scale=(1.2, 0.6, 0.9), segments=(10, 6))
+    ball("Hair", HEAD + P(0, -0.12, -0.02), 0.13, "Hair", "head", scale=(1.2, 0.6, 0.9), segments=(24, 12))
     for side in (-1, 1):
-        s = "R" if side > 0 else "L"
+        s = "L" if side > 0 else "R"
         sh, el, ha = pose["shoulder" + s], pose["elbow" + s], pose["hand" + s]
-        ball("Shoulder" + s, sh, 0.075, "Shirt", "upperarm_" + s, segments=(10, 6))
+        ball("Shoulder" + s, sh, 0.075, "Shirt", "upperarm_" + s, segments=(14, 10))
         sleeve_end = sh + (el - sh) * 0.45
         tube("Sleeve" + s, sh, sleeve_end, 0.07, "Shirt", "upperarm_" + s, 8, 0.065)
         limb("UpperArm" + s, sleeve_end, el, 0.045, "Skin", "upperarm_" + s)
         limb("Forearm" + s, el, ha, 0.042, "Skin", "forearm_" + s, 0.038)
-        ball("Hand" + s, ha, 0.05, "Skin", "forearm_" + s, segments=(8, 6))
+        ball("Hand" + s, ha, 0.05, "Skin", "forearm_" + s, segments=(12, 8))
         hp, kn, an, toe = pose["hip" + s], pose["knee" + s], pose["ankle" + s], pose["toe" + s]
         tube("ShortsLeg" + s, hp, hp + (kn - hp) * 0.55, 0.085, "Shorts", "thigh_" + s, 8, 0.075)
         limb("Thigh" + s, hp + (kn - hp) * 0.5, kn, 0.062, "Skin", "thigh_" + s)
@@ -272,7 +279,7 @@ def two_bone(root, target, l1, l2, bend):
 def rest_pose():
     pose = {}
     for side in (-1, 1):
-        s = "R" if side > 0 else "L"
+        s = "L" if side > 0 else "R"
         pedal = pedal_point(side, 0.0)  # cranks level at rest, the right pedal forward
         ankle = pedal + Vector((0, 0, ANKLE_LIFT))
         hip = HIP(side)
@@ -310,7 +317,7 @@ def build_armature(pose):
     bone("wheel_rear", REAR_AXLE, REAR_AXLE + up, "bike")
     bone("crank", CRANK, CRANK + up, "bike")
     for side in (-1, 1):
-        s = "R" if side > 0 else "L"
+        s = "L" if side > 0 else "R"
         p = pedal_point(side, 0.0)
         bone("pedal_" + s, p, p + up, "crank")
         # Not deforming: where the foot goes (on its pedal) and where the hand goes (the grip).
@@ -326,7 +333,7 @@ def build_armature(pose):
     bone("spine", P(0, -0.11, 1.0), NECK, "hips")
     bone("head", NECK, NECK + Vector((0, 0, 0.3)), "spine")
     for side in (-1, 1):
-        s = "R" if side > 0 else "L"
+        s = "L" if side > 0 else "R"
         bone("upperarm_" + s, pose["shoulder" + s], pose["elbow" + s], "spine")
         bone("forearm_" + s, pose["elbow" + s], pose["hand" + s], "upperarm_" + s).use_connect = True
         bone("thigh_" + s, pose["hip" + s], pose["knee" + s], "hips")
@@ -335,7 +342,7 @@ def build_armature(pose):
     bpy.ops.object.mode_set(mode="POSE")
     pb = rig.pose.bones
     for side in (-1, 1):
-        s = "R" if side > 0 else "L"
+        s = "L" if side > 0 else "R"
         ik = pb["shin_" + s].constraints.new("IK")
         ik.target, ik.subtarget = rig, "ik_foot_" + s
         ik.pole_target, ik.pole_subtarget = rig, "pole_knee_" + s
@@ -380,9 +387,9 @@ def bone_space(offset):
     return Vector((offset.x, offset.z, -offset.y))
 
 
-def key_drive(rig, throw):
-    """Keys on the driving bones only (crank, wheels, pedals, the right hand's target); IK does the
-    rest, and baking turns the result into plain keys on every bone."""
+def key_drive(rig, throw_side):
+    """Keys on the driving bones only (crank, wheels, pedals, and for a throw the throwing hand's
+    target); IK does the rest, and baking turns the result into plain keys on every bone."""
     pb = rig.pose.bones
     for f in range(1, LOOP + 2):
         t = (f - 1) / LOOP
@@ -398,25 +405,27 @@ def key_drive(rig, throw):
         # A slight bob of the body with each push (twice a turn).
         pb["hips"].location = bone_space(P(0, 0, 0.012 * math.sin(2 * crank)))
         pb["hips"].keyframe_insert("location", frame=f)
-    if throw:
-        hand = pb["ik_hand_R"]
-        # Where the right hand goes, from its grip: up behind the shoulder, cocked, flung forward
-        # and out past the bars (the paper leaves here), following through, back on the grip.
+    if throw_side:
+        hand = pb["ik_hand_" + throw_side]
+        out = 1.0 if throw_side == "L" else -1.0  # his left is +X
+        # Where the throwing hand goes, from its grip: up behind the shoulder, cocked, flung forward
+        # and out to its own side past the bars (the paper leaves here), following through, back on
+        # the grip. Written for the left hand; the right is its mirror image.
         frames = {1: P(0, 0, 0), 4: P(0.01, -0.39, 0.60), 7: P(0.05, -0.46, 0.66), 9: P(0.26, 0.11, 0.50),
                   11: P(0.16, 0.06, 0.15), 14: P(0, 0, 0), 25: P(0, 0, 0)}
         for f, off in frames.items():
-            hand.location = bone_space(off)
+            hand.location = bone_space(Vector((off.x * out, off.y, off.z)))
             hand.keyframe_insert("location", frame=f)
     for fc in rig.animation_data.action.fcurves if hasattr(rig.animation_data.action, "fcurves") else []:
         for kp in fc.keyframe_points:
             kp.interpolation = "LINEAR"
 
 
-def bake(rig, name, throw):
+def bake(rig, name, throw_side=None):
     rig.animation_data_create()
     drive = bpy.data.actions.new(name + "Drive")
     rig.animation_data.action = drive
-    key_drive(rig, throw)
+    key_drive(rig, throw_side)
     bpy.context.view_layer.objects.active = rig
     bpy.ops.object.mode_set(mode="POSE")
     bpy.ops.pose.select_all(action="SELECT")
@@ -482,11 +491,14 @@ def preview(rig, body, actions):
     shoot("preview-front34", P(-2.6, 3.0, 1.9))
     shoot("preview-side", P(-4.0, 0.0, 1.1))
     shoot("preview-back34", P(2.4, -3.2, 2.0))
-    ride, throw = actions
+    ride, throw_left, throw_right = actions
     for f in (1, 7, 13, 19):
         shoot("preview-ride-%02d" % f, P(-4.0, 0.0, 1.1), ride, f)
-    for f in (1, 4, 7, 9, 11, 14):
-        shoot("preview-throw-%02d" % f, P(4.0, 0.6, 1.3), throw, f)
+    # Each throw seen from the front, the throwing side nearer the camera.
+    for f in (4, 7, 9, 11):
+        shoot("preview-throwleft-%02d" % f, P(2.6, 3.0, 1.7), throw_left, f)
+        shoot("preview-throwright-%02d" % f, P(-2.6, 3.0, 1.7), throw_right, f)
+    shoot("preview-head-back", P(1.2, -1.6, 2.1))
 
 
 # ---------------------------------------------------------------- main
@@ -501,11 +513,12 @@ def main():
     build_kid(pose)
     rig = build_armature(pose)
     body = skin(rig)
-    ride = bake(rig, "Ride", throw=False)
-    throw = bake(rig, "Throw", throw=True)
-    strip_helpers(rig, (ride, throw))
+    ride = bake(rig, "Ride")
+    throw_left = bake(rig, "ThrowLeft", "L")
+    throw_right = bake(rig, "ThrowRight", "R")
+    strip_helpers(rig, (ride, throw_left, throw_right))
     if PREVIEW:
-        preview(rig, body, (ride, throw))
+        preview(rig, body, (ride, throw_left, throw_right))
     # Export: the rig and its mesh, every action as a clip, at rest otherwise.
     rig.animation_data.action = None
     for track in list(rig.animation_data.nla_tracks):

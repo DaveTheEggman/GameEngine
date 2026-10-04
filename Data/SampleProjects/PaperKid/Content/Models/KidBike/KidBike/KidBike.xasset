@@ -77,9 +77,9 @@
 			<string name="name">pedal_L</string>
 			<i32 name="parent">2</i32>
 			<object name="t">
-				<f32 name="x">-0.15</f32>
+				<f32 name="x">0.15</f32>
 				<f32 name="y">0</f32>
-				<f32 name="z">-0.16</f32>
+				<f32 name="z">0.16</f32>
 			</object>
 			<object name="r">
 				<f32 name="x">0</f32>
@@ -96,9 +96,9 @@
 			<string name="name">pedal_R</string>
 			<i32 name="parent">2</i32>
 			<object name="t">
-				<f32 name="x">0.15</f32>
+				<f32 name="x">-0.15</f32>
 				<f32 name="y">0</f32>
-				<f32 name="z">0.16</f32>
+				<f32 name="z">-0.16</f32>
 			</object>
 			<object name="r">
 				<f32 name="x">0</f32>
@@ -153,44 +153,6 @@
 			<string name="name">forearm_L</string>
 			<i32 name="parent">5</i32>
 			<object name="t">
-				<f32 name="x">7.4505806e-08</f32>
-				<f32 name="y">0.24499989</f32>
-				<f32 name="z">-7.450581e-09</f32>
-			</object>
-			<object name="r">
-				<f32 name="x">-0.26080602</f32>
-				<f32 name="y">0.5735494</f32>
-				<f32 name="z">-0.32440937</f32>
-				<f32 name="w">0.7055352</f32>
-			</object>
-			<object name="s">
-				<f32 name="x">0.9999999</f32>
-				<f32 name="y">0.9999998</f32>
-				<f32 name="z">0.99999994</f32>
-			</object>
-			<i32 name="mesh">-1</i32>
-			<string name="name">upperarm_L</string>
-			<i32 name="parent">8</i32>
-			<object name="t">
-				<f32 name="x">-0.21</f32>
-				<f32 name="y">0.36867118</f32>
-				<f32 name="z">0.013473846</f32>
-			</object>
-			<object name="r">
-				<f32 name="x">0.8428175</f32>
-				<f32 name="y">-0.39018953</f32>
-				<f32 name="z">-0.22194913</f32>
-				<f32 name="w">0.2968998</f32>
-			</object>
-			<object name="s">
-				<f32 name="x">1.0000001</f32>
-				<f32 name="y">1.0000001</f32>
-				<f32 name="z">1</f32>
-			</object>
-			<i32 name="mesh">-1</i32>
-			<string name="name">forearm_R</string>
-			<i32 name="parent">7</i32>
-			<object name="t">
 				<f32 name="x">-7.4505806e-08</f32>
 				<f32 name="y">0.24499989</f32>
 				<f32 name="z">-7.450581e-09</f32>
@@ -207,7 +169,7 @@
 				<f32 name="z">0.99999994</f32>
 			</object>
 			<i32 name="mesh">-1</i32>
-			<string name="name">upperarm_R</string>
+			<string name="name">upperarm_L</string>
 			<i32 name="parent">8</i32>
 			<object name="t">
 				<f32 name="x">0.21</f32>
@@ -218,6 +180,44 @@
 				<f32 name="x">0.8428175</f32>
 				<f32 name="y">0.39018953</f32>
 				<f32 name="z">0.22194913</f32>
+				<f32 name="w">0.2968998</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1.0000001</f32>
+				<f32 name="y">1.0000001</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">-1</i32>
+			<string name="name">forearm_R</string>
+			<i32 name="parent">7</i32>
+			<object name="t">
+				<f32 name="x">7.4505806e-08</f32>
+				<f32 name="y">0.24499989</f32>
+				<f32 name="z">-7.450581e-09</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">-0.26080602</f32>
+				<f32 name="y">0.5735494</f32>
+				<f32 name="z">-0.32440937</f32>
+				<f32 name="w">0.7055352</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">0.9999999</f32>
+				<f32 name="y">0.9999998</f32>
+				<f32 name="z">0.99999994</f32>
+			</object>
+			<i32 name="mesh">-1</i32>
+			<string name="name">upperarm_R</string>
+			<i32 name="parent">8</i32>
+			<object name="t">
+				<f32 name="x">-0.21</f32>
+				<f32 name="y">0.36867118</f32>
+				<f32 name="z">0.013473846</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0.8428175</f32>
+				<f32 name="y">-0.39018953</f32>
+				<f32 name="z">-0.22194913</f32>
 				<f32 name="w">0.2968998</f32>
 			</object>
 			<object name="s">
@@ -248,63 +248,6 @@
 			<string name="name">foot_L</string>
 			<i32 name="parent">10</i32>
 			<object name="t">
-				<f32 name="x">1.8626451e-09</f32>
-				<f32 name="y">0.41999996</f32>
-				<f32 name="z">2.7474016e-08</f32>
-			</object>
-			<object name="r">
-				<f32 name="x">-0.8623298</f32>
-				<f32 name="y">0.023849247</f32>
-				<f32 name="z">-0.003340181</f32>
-				<f32 name="w">0.50577414</f32>
-			</object>
-			<object name="s">
-				<f32 name="x">0.99999994</f32>
-				<f32 name="y">0.99999994</f32>
-				<f32 name="z">0.9999998</f32>
-			</object>
-			<i32 name="mesh">-1</i32>
-			<string name="name">shin_L</string>
-			<i32 name="parent">11</i32>
-			<object name="t">
-				<f32 name="x">-1.1175871e-08</f32>
-				<f32 name="y">0.39999992</f32>
-				<f32 name="z">-8.940697e-08</f32>
-			</object>
-			<object name="r">
-				<f32 name="x">0.73277116</f32>
-				<f32 name="y">0.021378752</f32>
-				<f32 name="z">-0.098100625</f32>
-				<f32 name="w">0.6730273</f32>
-			</object>
-			<object name="s">
-				<f32 name="x">1</f32>
-				<f32 name="y">1</f32>
-				<f32 name="z">1</f32>
-			</object>
-			<i32 name="mesh">-1</i32>
-			<string name="name">thigh_L</string>
-			<i32 name="parent">15</i32>
-			<object name="t">
-				<f32 name="x">-0.1</f32>
-				<f32 name="y">0.029104289</f32>
-				<f32 name="z">-0.007276088</f32>
-			</object>
-			<object name="r">
-				<f32 name="x">0.8425198</f32>
-				<f32 name="y">-0.090658195</f32>
-				<f32 name="z">-0.07078376</f32>
-				<f32 name="w">0.5262425</f32>
-			</object>
-			<object name="s">
-				<f32 name="x">1</f32>
-				<f32 name="y">1</f32>
-				<f32 name="z">0.99999994</f32>
-			</object>
-			<i32 name="mesh">-1</i32>
-			<string name="name">foot_R</string>
-			<i32 name="parent">13</i32>
-			<object name="t">
 				<f32 name="x">1.4901161e-08</f32>
 				<f32 name="y">0.42000002</f32>
 				<f32 name="z">1.3969839e-08</f32>
@@ -321,8 +264,8 @@
 				<f32 name="z">0.9999999</f32>
 			</object>
 			<i32 name="mesh">-1</i32>
-			<string name="name">shin_R</string>
-			<i32 name="parent">14</i32>
+			<string name="name">shin_L</string>
+			<i32 name="parent">11</i32>
 			<object name="t">
 				<f32 name="x">1.1175871e-08</f32>
 				<f32 name="y">0.40000007</f32>
@@ -340,7 +283,7 @@
 				<f32 name="z">1.0000001</f32>
 			</object>
 			<i32 name="mesh">-1</i32>
-			<string name="name">thigh_R</string>
+			<string name="name">thigh_L</string>
 			<i32 name="parent">15</i32>
 			<object name="t">
 				<f32 name="x">0.1</f32>
@@ -352,6 +295,63 @@
 				<f32 name="y">0.109257035</f32>
 				<f32 name="z">0.08530537</f32>
 				<f32 name="w">0.66334754</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">0.99999994</f32>
+			</object>
+			<i32 name="mesh">-1</i32>
+			<string name="name">foot_R</string>
+			<i32 name="parent">13</i32>
+			<object name="t">
+				<f32 name="x">1.8626451e-09</f32>
+				<f32 name="y">0.41999996</f32>
+				<f32 name="z">2.7474016e-08</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">-0.8623298</f32>
+				<f32 name="y">0.023849247</f32>
+				<f32 name="z">-0.003340181</f32>
+				<f32 name="w">0.50577414</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">0.99999994</f32>
+				<f32 name="y">0.99999994</f32>
+				<f32 name="z">0.9999998</f32>
+			</object>
+			<i32 name="mesh">-1</i32>
+			<string name="name">shin_R</string>
+			<i32 name="parent">14</i32>
+			<object name="t">
+				<f32 name="x">-1.1175871e-08</f32>
+				<f32 name="y">0.39999992</f32>
+				<f32 name="z">-8.940697e-08</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0.73277116</f32>
+				<f32 name="y">0.021378752</f32>
+				<f32 name="z">-0.098100625</f32>
+				<f32 name="w">0.6730273</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">-1</i32>
+			<string name="name">thigh_R</string>
+			<i32 name="parent">15</i32>
+			<object name="t">
+				<f32 name="x">-0.1</f32>
+				<f32 name="y">0.029104289</f32>
+				<f32 name="z">-0.007276088</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0.8425198</f32>
+				<f32 name="y">-0.090658195</f32>
+				<f32 name="z">-0.07078376</f32>
+				<f32 name="w">0.5262425</f32>
 			</object>
 			<object name="s">
 				<f32 name="x">1</f32>
@@ -494,17 +494,18 @@
 			<i32 name="mesh">-1</i32>
 		</array>
 		<string name="skeletonGuid">81addf2b-4da9-4f6d-be65-24a8684d358e</string>
-		<array name="animationGuids" count="2">
+		<array name="animationGuids" count="3">
 			<string>1665cf6f-0df9-41eb-ad47-29a3eb080937</string>
-			<string>7ae55a23-0d7a-4443-a05e-5eeb6c64584f</string>
+			<string>2ae5fb65-f74f-46ed-af06-ddc1b2901b75</string>
+			<string>644becf9-ccd7-4cea-9409-cf4262aac508</string>
 		</array>
 		<object name="boundsMin">
-			<f32 name="x">-0.38385126</f32>
+			<f32 name="x">-0.3816488</f32>
 			<f32 name="y">0</f32>
 			<f32 name="z">-0.9</f32>
 		</object>
 		<object name="boundsMax">
-			<f32 name="x">0.38385126</f32>
+			<f32 name="x">0.38164884</f32>
 			<f32 name="y">1.7501999</f32>
 			<f32 name="z">0.9</f32>
 		</object>
