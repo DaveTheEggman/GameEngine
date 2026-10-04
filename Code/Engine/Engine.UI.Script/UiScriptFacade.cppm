@@ -38,6 +38,9 @@ export namespace engine::uiscript
     struct UiScreenScriptBinding
     {
         foundation::ui::gamekit::ScreenStack* stack = nullptr;  // the stack over the screen root (tier-owned)
+        // The calling script's run's stack, when the host gives each run its own screen tier (the
+        // editor's Game tabs, UISubsystem::ScreensFor); unset, every script uses `stack`.
+        Function<foundation::ui::gamekit::ScreenStack*(const void* run)> stackForRun;
         // Instantiate a cooked UIDocument (by guid) into a live view tree. The app supplies this
         // (resource manager + MarkupLoader); nil -> push returns a null Screen.
         Function<RefPtr<foundation::ui::View>(const Guid&)> instantiate;
@@ -61,6 +64,8 @@ export namespace engine::uiscript
         RTTI_OBJECT(Ui, Object)
     public:
         [[nodiscard]] static UiScreenScriptBinding* Resolve();
+        /// The stack the calling script's screens live on: its run's, or the shared one.
+        [[nodiscard]] static foundation::ui::gamekit::ScreenStack* Stack(UiScreenScriptBinding* b);
 
         // Roots / narrowing.
         [[nodiscard]] static ViewGroup root();  // the screen-tier root as a group handle

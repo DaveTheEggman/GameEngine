@@ -400,6 +400,15 @@ namespace engine::uiscript
                    : nullptr;
     }
 
+    foundation::ui::gamekit::ScreenStack* Ui::Stack(UiScreenScriptBinding* b)
+    {
+        if (b == nullptr)
+        {
+            return nullptr;
+        }
+        return b->stackForRun ? b->stackForRun(foundation::script::CurrentRun()) : b->stack;
+    }
+
     ViewGroup Ui::root()
     {
         UiScreenScriptBinding* b = Resolve();
@@ -411,18 +420,19 @@ namespace engine::uiscript
         // (Push adds to it). A separately-captured raw RootView* can diverge in the embedded host
         // (captured stale/null while the stack points at the live root) and dangle after a UI
         // shutdown, so the binding carries none - the stack is the only root source.
-        foundation::ui::RootView* root = b->stack != nullptr ? b->stack->Root() : nullptr;
+        foundation::ui::gamekit::ScreenStack* stack = Stack(b);
+        foundation::ui::RootView* root = stack != nullptr ? stack->Root() : nullptr;
         return Wrap<ViewGroup>(root);
     }
     Screen Ui::top()
     {
         UiScreenScriptBinding* b = Resolve();
-        return Wrap<Screen>((b != nullptr && b->stack != nullptr) ? b->stack->Top() : nullptr);
+        return Wrap<Screen>(Stack(b) != nullptr ? Stack(b)->Top() : nullptr);
     }
     i32 Ui::count()
     {
         UiScreenScriptBinding* b = Resolve();
-        return (b != nullptr && b->stack != nullptr) ? static_cast<i32>(b->stack->Count()) : 0;
+        return Stack(b) != nullptr ? static_cast<i32>(Stack(b)->Count()) : 0;
     }
 
     View Ui::find(String name) { return root().find(Move(name)); }
@@ -437,7 +447,7 @@ namespace engine::uiscript
     Screen Ui::push(Guid document)
     {
         UiScreenScriptBinding* b = Resolve();
-        if (b == nullptr || b->stack == nullptr)
+        if (Stack(b) == nullptr)
         {
             return Screen{};
         }
@@ -446,20 +456,20 @@ namespace engine::uiscript
         {
             return Screen{};
         }
-        return Wrap<Screen>(b->stack->Push(screen));
+        return Wrap<Screen>(Stack(b)->Push(screen));
     }
     void Ui::pop()
     {
         UiScreenScriptBinding* b = Resolve();
-        if (b != nullptr && b->stack != nullptr)
+        if (Stack(b) != nullptr)
         {
-            b->stack->Pop();
+            Stack(b)->Pop();
         }
     }
     Screen Ui::replace(Guid document)
     {
         UiScreenScriptBinding* b = Resolve();
-        if (b == nullptr || b->stack == nullptr)
+        if (Stack(b) == nullptr)
         {
             return Screen{};
         }
@@ -468,20 +478,20 @@ namespace engine::uiscript
         {
             return Screen{};
         }
-        return Wrap<Screen>(b->stack->Replace(screen));
+        return Wrap<Screen>(Stack(b)->Replace(screen));
     }
     void Ui::clear()
     {
         UiScreenScriptBinding* b = Resolve();
-        if (b != nullptr && b->stack != nullptr)
+        if (Stack(b) != nullptr)
         {
-            b->stack->Clear();
+            Stack(b)->Clear();
         }
     }
     bool Ui::back()
     {
         UiScreenScriptBinding* b = Resolve();
-        return (b != nullptr && b->stack != nullptr) ? b->stack->HandleBack() : false;
+        return Stack(b) != nullptr ? Stack(b)->HandleBack() : false;
     }
 
     // ================================================================================== reflection ===

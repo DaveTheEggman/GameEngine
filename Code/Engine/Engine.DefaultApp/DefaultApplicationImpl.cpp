@@ -286,6 +286,12 @@ namespace engine::runtime
         if (m_ui != nullptr)
         {
             m_uiScreenBinding.stack = &m_ui->Screens();
+            // Each run's screens on its own tier when the host turns run screens on (the editor's
+            // Game tabs); the shared stack otherwise (ScreensFor answers it for every run).
+            m_uiScreenBinding.stackForRun =
+                core::Function<foundation::ui::gamekit::ScreenStack*(const void*)>{
+                    [self](const void* run) -> foundation::ui::gamekit::ScreenStack*
+                    { return self->m_ui != nullptr ? &self->m_ui->ScreensFor(run) : nullptr; }};
             m_uiScreenBinding.instantiate =
                 core::Function<core::RefPtr<foundation::ui::View>(const core::Guid&)>{
                     [self](const core::Guid& id) -> core::RefPtr<foundation::ui::View>

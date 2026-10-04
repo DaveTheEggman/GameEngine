@@ -16,6 +16,7 @@ import foundation.ui;         // UIContext / RootView / Label / ProgressBar / Bu
 import foundation.ui.gamekit; // ScreenStack
 import engine.ui.script;      // the `ui` facade + UiScreenScriptBinding + InstallUiScreenScriptService
 import foundation.script;
+import foundation.script.facades; // ScriptRuntimeBinding (a context's run)
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
 #endif
@@ -119,6 +120,58 @@ TEST_CASE("ui-facade: AngelScript pushes a screen, finds + drives typed controls
                   u8"main");
     REQUIRE(status.IsOk());
     CheckOutcome(bed, *ctx);
+}
+
+TEST_CASE("ui-facade: a script's screens land on its own run's stack when the host gives each run one")
+{
+    // The editor's Game tabs: two runs' scripts push their screens, each onto its run's stack (the
+    // binding's stackForRun, as UISubsystem::ScreensFor answers it), and find only their own.
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    RegisterReflectedTypes(*manager);
+
+    UiBed bed; // its stack stands for the shared tier: nothing may land there
+    RefPtr<ui::RootView> rootA = MakeRef<ui::RootView>(DefaultAllocator());
+    RefPtr<ui::RootView> rootB = MakeRef<ui::RootView>(DefaultAllocator());
+    bed.context.AddRootView(rootA.Get());
+    bed.context.AddRootView(rootB.Get());
+    gamekit::ScreenStack stackA;
+    gamekit::ScreenStack stackB;
+    stackA.Attach(rootA.Get());
+    stackB.Attach(rootB.Get());
+    int runA = 0;
+    int runB = 0;
+    bed.binding.stackForRun = Function<gamekit::ScreenStack*(const void*)>{
+        [&](const void* run) -> gamekit::ScreenStack*
+        { return run == &runA ? &stackA : run == &runB ? &stackB : &bed.stack; }};
+
+    ScriptRuntimeBinding runtimeA;
+    ScriptRuntimeBinding runtimeB;
+    runtimeA.run = &runA;
+    runtimeB.run = &runB;
+    RefPtr<IScriptContext> ctxA = manager->CreateContext();
+    RefPtr<IScriptContext> ctxB = manager->CreateContext();
+    ctxA->SetService(kScriptRuntimeService, &runtimeA);
+    ctxB->SetService(kScriptRuntimeService, &runtimeB);
+    engine::uiscript::InstallUiScreenScriptService(*ctxA, bed.binding);
+    engine::uiscript::InstallUiScreenScriptService(*ctxB, bed.binding);
+
+    const StringView script = u8"bool found;\n"
+                              u8"void main() {\n"
+                              u8"  ui::push(Guid(17, 34));\n"
+                              u8"  found = ui::findLabel(\"status\").isValid();\n"
+                              u8"}\n";
+    REQUIRE(ctxA->Load(script, u8"main").IsOk());
+    CHECK(stackA.Count() == 1u);
+    CHECK(stackB.Count() == 0u);
+    REQUIRE(ctxB->Load(script, u8"main").IsOk());
+    CHECK(stackB.Count() == 1u);
+    CHECK(bed.stack.Count() == 0u);
+    CHECK(ctxA->GetGlobal(u8"found").Get<bool>());
+    CHECK(ctxB->GetGlobal(u8"found").Get<bool>());
+    CHECK(rootA->FindByName<ui::Label>(u8"status") != nullptr);
+    CHECK(rootB->FindByName<ui::Label>(u8"status") != nullptr);
 }
 
 TEST_CASE("ui-facade: findLabel resolves through the stack's root (the only root source)")
