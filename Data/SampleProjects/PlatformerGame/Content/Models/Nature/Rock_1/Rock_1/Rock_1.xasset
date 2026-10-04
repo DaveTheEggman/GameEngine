@@ -1,0 +1,69 @@
+<root>
+	<string name="guid">cfc03f34-fa50-4a1d-adf2-a81a3a2d5b72</string>
+	<string name="typeNamespace">rtti::pipeline::modelimporter</string>
+	<string name="typeName">ModelManifestAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">2440385714661564817</u64>
+		<u32 name="version">2</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">Rock_1.gltf</string>
+		<array name="meshGuids" count="1">
+			<string>78a2a62a-7600-4f61-9a2b-4dbfbd0138ee</string>
+		</array>
+		<array name="meshSkinned" count="1">
+			<u8>0</u8>
+		</array>
+		<array name="meshMaterial" count="1">
+			<i32>0</i32>
+		</array>
+		<array name="meshMaterialSlots" count="1">
+			<object>
+				<array name="slots" count="1">
+					<i32>0</i32>
+				</array>
+			</object>
+		</array>
+		<array name="collisionGuids" count="0"/>
+		<array name="materialGuids" count="1">
+			<string>07109782-cde5-4c97-bcf2-c8faf794066b</string>
+		</array>
+		<array name="materialAlbedo" count="1">
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+		<array name="nodes" count="1">
+			<string name="name">Rock_1</string>
+			<i32 name="parent">-1</i32>
+			<object name="t">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+				<f32 name="w">1</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">0</i32>
+		</array>
+		<string name="skeletonGuid">00000000-0000-0000-0000-000000000000</string>
+		<array name="animationGuids" count="0"/>
+		<object name="boundsMin">
+			<f32 name="x">-0.79587376</f32>
+			<f32 name="y">-0.19124693</f32>
+			<f32 name="z">-0.71365404</f32>
+		</object>
+		<object name="boundsMax">
+			<f32 name="x">0.8066559</f32>
+			<f32 name="y">0.9051087</f32>
+			<f32 name="z">0.7509773</f32>
+		</object>
+		<array name="entries" count="0"/>
+	</object>
+</root>

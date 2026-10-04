@@ -1,0 +1,12 @@
+<root>
+	<string name="guid">1c6dcac7-0f1a-4574-ae03-4078fe9f065d</string>
+	<string name="typeNamespace">rtti::scene</string>
+	<string name="typeName">PrefabDocument</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">3442582207943668603</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="name">SpikyBall</string>
+	</object>
+</root>

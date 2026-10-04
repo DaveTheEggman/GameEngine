@@ -1,0 +1,71 @@
+<root>
+	<string name="guid">ac842af2-9db9-48d0-9787-befd1270bff7</string>
+	<string name="typeNamespace">rtti::pipeline::modelimporter</string>
+	<string name="typeName">ModelManifestAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">2440385714661564817</u64>
+		<u32 name="version">2</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">Bridge_Modular.gltf</string>
+		<array name="meshGuids" count="1">
+			<string>7a7b2d69-a289-429f-b994-0a26a3f9f322</string>
+		</array>
+		<array name="meshSkinned" count="1">
+			<u8>0</u8>
+		</array>
+		<array name="meshMaterial" count="1">
+			<i32>0</i32>
+		</array>
+		<array name="meshMaterialSlots" count="1">
+			<object>
+				<array name="slots" count="1">
+					<i32>0</i32>
+				</array>
+			</object>
+		</array>
+		<array name="collisionGuids" count="1">
+			<string>cf8de84f-d7e1-46aa-bb81-4499c9f025dc</string>
+		</array>
+		<array name="materialGuids" count="1">
+			<string>3c4e5f3e-bdf2-464d-a111-b37531aa409c</string>
+		</array>
+		<array name="materialAlbedo" count="1">
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+		<array name="nodes" count="1">
+			<string name="name">Bridge_Modular</string>
+			<i32 name="parent">-1</i32>
+			<object name="t">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+				<f32 name="w">1</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">0</i32>
+		</array>
+		<string name="skeletonGuid">00000000-0000-0000-0000-000000000000</string>
+		<array name="animationGuids" count="0"/>
+		<object name="boundsMin">
+			<f32 name="x">-1.4483521</f32>
+			<f32 name="y">-0.23416464</f32>
+			<f32 name="z">-1.0617183</f32>
+		</object>
+		<object name="boundsMax">
+			<f32 name="x">1.5</f32>
+			<f32 name="y">1.779246</f32>
+			<f32 name="z">1.1800194</f32>
+		</object>
+		<array name="entries" count="0"/>
+	</object>
+</root>

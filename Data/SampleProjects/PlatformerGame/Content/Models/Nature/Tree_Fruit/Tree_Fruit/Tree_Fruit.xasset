@@ -1,0 +1,75 @@
+<root>
+	<string name="guid">6a3f3b03-7759-4321-87b9-193e30752406</string>
+	<string name="typeNamespace">rtti::pipeline::modelimporter</string>
+	<string name="typeName">ModelManifestAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">2440385714661564817</u64>
+		<u32 name="version">2</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">Tree_Fruit.gltf</string>
+		<array name="meshGuids" count="1">
+			<string>645567f1-07fa-4533-8c8c-115329b0d09a</string>
+		</array>
+		<array name="meshSkinned" count="1">
+			<u8>0</u8>
+		</array>
+		<array name="meshMaterial" count="1">
+			<i32>0</i32>
+		</array>
+		<array name="meshMaterialSlots" count="1">
+			<object>
+				<array name="slots" count="3">
+					<i32>0</i32>
+					<i32>1</i32>
+					<i32>2</i32>
+				</array>
+			</object>
+		</array>
+		<array name="collisionGuids" count="0"/>
+		<array name="materialGuids" count="3">
+			<string>5c5b19dd-733c-4505-8c30-41f3243e6e4b</string>
+			<string>93ba1d96-84b7-4496-9167-da02dcb985d0</string>
+			<string>6596467f-b9b2-4194-b14c-e969d0a627a8</string>
+		</array>
+		<array name="materialAlbedo" count="3">
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+		<array name="nodes" count="1">
+			<string name="name">Tree_Fruit</string>
+			<i32 name="parent">-1</i32>
+			<object name="t">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+				<f32 name="w">1</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">0</i32>
+		</array>
+		<string name="skeletonGuid">00000000-0000-0000-0000-000000000000</string>
+		<array name="animationGuids" count="0"/>
+		<object name="boundsMin">
+			<f32 name="x">-2.7672405</f32>
+			<f32 name="y">0.00927381</f32>
+			<f32 name="z">-2.7746062</f32>
+		</object>
+		<object name="boundsMax">
+			<f32 name="x">2.7672408</f32>
+			<f32 name="y">8.635452</f32>
+			<f32 name="z">2.7746062</f32>
+		</object>
+		<array name="entries" count="0"/>
+	</object>
+</root>

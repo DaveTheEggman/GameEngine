@@ -1,0 +1,12 @@
+<root>
+	<string name="guid">c1e3a2f2-ed4e-4765-886f-d5fd8d2776fd</string>
+	<string name="typeNamespace">rtti::pipeline::ui</string>
+	<string name="typeName">UIVectorImageAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">9065859165864019562</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">IconHeart.svg</string>
+	</object>
+</root>

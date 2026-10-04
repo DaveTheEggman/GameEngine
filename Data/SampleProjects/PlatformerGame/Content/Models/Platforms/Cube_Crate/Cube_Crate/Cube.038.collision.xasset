@@ -1,0 +1,15 @@
+<root>
+	<string name="guid">ef9560bf-63a3-4337-933a-05c21c89e243</string>
+	<string name="typeNamespace">rtti::pipeline::physics</string>
+	<string name="typeName">CollisionShapeAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">10890425324706872610</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName"/>
+		<string name="sourceMesh">ece306e2-be9b-4d04-9f18-2313b7f6e963</string>
+		<u8 name="cook">1</u8>
+		<f32 name="hullTolerance">0.001</f32>
+	</object>
+</root>
