@@ -19,6 +19,7 @@ import :view;
 import :view_transform;
 import :animation;
 import :float_animation;
+import :float2_animation;
 
 using namespace foundation::core;
 
@@ -36,6 +37,7 @@ export namespace foundation::ui
                 view->MemoryAllocator(), from, to, duration,
                 Function<void(f32)>{[view](f32 v) { view->Opacity = v; }}, easing);
             anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Opacity);
             return anim;
         }
 
@@ -68,6 +70,7 @@ export namespace foundation::ui
                                                                }},
                                            easing);
             anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Translation);
             return anim;
         }
 
@@ -86,6 +89,26 @@ export namespace foundation::ui
                                                                }},
                                            easing);
             anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Translation);
+            return anim;
+        }
+
+        /// Translate a view on both axes at once using ViewTransform.
+        static UniquePtr<Animation> TranslateTo(View* view, Float2 from, Float2 to, f32 duration,
+                                                EasingFunction easing = nullptr)
+        {
+            UniquePtr<Float2Animation> anim =
+                MakeUnique<Float2Animation>(view->MemoryAllocator(), from, to, duration,
+                                            Function<void(Float2)>{[view](Float2 v)
+                                                                   {
+                                                                       ViewTransform t =
+                                                                           view->Transform;
+                                                                       t.Translation = v;
+                                                                       view->Transform = t;
+                                                                   }},
+                                            easing);
+            anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Translation);
             return anim;
         }
 
@@ -104,6 +127,7 @@ export namespace foundation::ui
                                                                }},
                                            easing);
             anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Scale);
             return anim;
         }
 
@@ -122,6 +146,7 @@ export namespace foundation::ui
                                                                }},
                                            easing);
             anim->SetTarget(view);
+            anim->SetChannel(AnimationChannel::Rotation);
             return anim;
         }
     };

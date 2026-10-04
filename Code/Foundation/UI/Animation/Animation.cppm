@@ -23,6 +23,19 @@ export namespace foundation::ui
 {
     class View;
 
+    /// Which of its target's properties an animation drives. A new animation of one property can
+    /// then cancel the old one of the same property (AnimationManager::CancelForView with a
+    /// channel) and leave the target's other animations running: a label can rise and fade at
+    /// once, and a fade started mid-rise does not stop the rise.
+    enum class AnimationChannel : u8
+    {
+        Other, // anything else; only a whole-view cancel stops it
+        Opacity,
+        Translation,
+        Scale,
+        Rotation,
+    };
+
     /// Abstract base class for all property animations.
     class Animation
     {
@@ -41,6 +54,10 @@ export namespace foundation::ui
         /// The view this animation targets (for AnimationManager.CancelForView).
         [[nodiscard]] View* Target() const noexcept { return m_target; }
         void SetTarget(View* value) noexcept { m_target = value; }
+
+        /// The target's property this animation drives (ViewAnimator sets it).
+        [[nodiscard]] AnimationChannel Channel() const noexcept { return m_channel; }
+        void SetChannel(AnimationChannel value) noexcept { m_channel = value; }
 
         /// Duration of one cycle in seconds.
         [[nodiscard]] f32 Duration() const noexcept { return m_duration; }
@@ -174,5 +191,6 @@ export namespace foundation::ui
         i32 m_repeatCount = 0; // 0 = play once, -1 = infinite
         i32 m_currentRepeat = 0;
         View* m_target = nullptr;
+        AnimationChannel m_channel = AnimationChannel::Other;
     };
 }

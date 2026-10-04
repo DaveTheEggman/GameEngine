@@ -102,6 +102,28 @@ export namespace foundation::ui
             }
         }
 
+        /// Cancel and delete the animations driving one property of a view, leaving the view's
+        /// other animations running.
+        void CancelForView(View* view, AnimationChannel channel)
+        {
+            for (i32 i = static_cast<i32>(m_animations.Size()) - 1; i >= 0; --i)
+            {
+                const Animation& anim = *m_animations[static_cast<usize>(i)];
+                if (anim.Target() == view && anim.Channel() == channel)
+                {
+                    m_animations.RemoveAtSwap(static_cast<usize>(i));
+                }
+            }
+            for (i32 i = static_cast<i32>(m_pending.Size()) - 1; i >= 0; --i)
+            {
+                const Animation& anim = *m_pending[static_cast<usize>(i)];
+                if (anim.Target() == view && anim.Channel() == channel)
+                {
+                    m_pending.RemoveAtSwap(static_cast<usize>(i));
+                }
+            }
+        }
+
     private:
         Array<UniquePtr<Animation>> m_animations;
         Array<UniquePtr<Animation>> m_pending;

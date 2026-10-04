@@ -305,3 +305,34 @@ TEST_CASE("animation: Manager_AutoCancelOnViewDelete")
     root->RemoveView(view.Get(), true);
     CHECK(ctx.Animations()->ActiveCount() == 0);
 }
+
+TEST_CASE("animation: Manager_CancelForView_OneChannel_LeavesTheOthers")
+{
+    UIContext ctx{DefaultAllocator()};
+    auto root = core::MakeRef<RootView>(core::DefaultAllocator());
+    Init(ctx, root.Get());
+
+    auto view = core::MakeRef<TestView>(core::DefaultAllocator(), 50.0f, 30.0f);
+    root->AddView(view.Get());
+
+    // A label rising and fading at once: cancelling the fade leaves the rise running.
+    ctx.Animations()->Add(ViewAnimator::FadeTo(view.Get(), 1.0f, 0.0f, 1.0f));
+    ctx.Animations()->Add(
+        ViewAnimator::TranslateTo(view.Get(), Float2{0.0f, 0.0f}, Float2{10.0f, -40.0f}, 1.0f));
+    ctx.Animations()->Add(ViewAnimator::ScaleTo(view.Get(), 1.0f, 2.0f, 1.0f));
+    CHECK(ctx.Animations()->ActiveCount() == 3);
+
+    ctx.Animations()->CancelForView(view.Get(), AnimationChannel::Opacity);
+    CHECK(ctx.Animations()->ActiveCount() == 2);
+    ctx.Animations()->CancelForView(view.Get(), AnimationChannel::Rotation); // none running
+    CHECK(ctx.Animations()->ActiveCount() == 2);
+
+    ctx.Animations()->Update(0.5f);
+    CHECK(view->Transform.Translation.x == doctest::Approx(5.0f));
+    CHECK(view->Transform.Translation.y == doctest::Approx(-20.0f));
+    CHECK(view->Transform.Scale.x == doctest::Approx(1.5f));
+    ctx.Animations()->Update(0.5f);
+    CHECK(view->Transform.Translation.y == doctest::Approx(-40.0f));
+    CHECK(view->Transform.Scale.y == doctest::Approx(2.0f));
+    CHECK(ctx.Animations()->ActiveCount() == 0);
+}
