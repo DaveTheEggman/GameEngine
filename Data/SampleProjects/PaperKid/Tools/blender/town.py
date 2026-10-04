@@ -129,8 +129,8 @@ def house(wall, roof_colour, door, ridge_along_x, chimney_x):
     # The front: the door in its frame, a window each side, more round the sides and the back.
     box("Door", (1.1, 0.08, 2.15), P(0, 3.02, 0.3 + 2.15 / 2), door)
     box("DoorFrame", (1.34, 0.1, 0.12), P(0, 3.04, 0.3 + 2.15 + 0.06), "Trim")
-    for x in (-0.61, 0.61):
-        box("DoorFrame", (0.12, 0.1, 2.27), P(x, 3.04, 0.3 + 2.27 / 2), "Trim")
+    for x in (-0.61, 0.61):  # the sides stop under the top piece rather than run into it
+        box("DoorFrame", (0.12, 0.1, 2.15), P(x, 3.04, 0.3 + 2.15 / 2), "Trim")
     ball("Knob", P(0.38, 3.08, 1.3), 0.045, "Hub", segments=(10, 8))
     for x in (-1.9, 1.9):
         window(x, 2.5, 3.02, 1.2, 1.0)
@@ -144,8 +144,12 @@ def house(wall, roof_colour, door, ridge_along_x, chimney_x):
     box("Step", (1.4, 0.35, 0.15), P(0, 4.78, 0.075), "PorchWood", bevel=0.015)
     for x in (-1.35, 1.35):
         box("Post", (0.14, 0.14, 2.3), P(x, 4.45, 0.3 + 1.15), "Trim")
-    box("PorchBeam", (3.1, 0.18, 0.18), P(0, 4.45, 2.65), "Trim")
-    box("PorchRoof", (3.4, 1.9, 0.12), P(0, 3.95, 2.8), "Roof", tilt=-10)
+    # The porch roof sheds away from the house: from the wall 3.05 m up, down 0.35 m over its 1.9 m
+    # run to its front edge, resting on the beam the posts carry. (A positive tilt lowers the front.)
+    slope = math.atan2(0.35, 1.9)
+    box("PorchBeam", (3.1, 0.18, 0.18), P(0, 4.45, 2.69), "Trim")
+    box("PorchRoof", (3.4, 1.9 / math.cos(slope), 0.12), P(0, 3.95, (3.05 + 2.70) / 2 + 0.06), "Roof",
+        tilt=math.degrees(slope))
     box("Rail", (0.08, 1.2, 0.08), P(-1.35, 3.8, 1.0), "Trim")
     box("Rail", (0.08, 1.2, 0.08), P(1.35, 3.8, 1.0), "Trim")
 
