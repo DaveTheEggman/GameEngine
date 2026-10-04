@@ -29,6 +29,9 @@ scripts drive them; none of this is game content.
 - `blender/town.py`: the houses, the cars and the street furniture (bin, hydrant, cone, newspaper),
   each written as `<Name>Model.glb` and imported as `Models/Town/<Name>Model`; `kit.py` keeps each
   prefab's colliders and behaviours and shows its model in place of the blockout's primitives.
+- `blender/pedestrian.py`: the pedestrian, rigged with a Walk clip (two 0.65 m steps a second),
+  imported as `Models/Town/PedestrianModel`; `Pedestrian.as` turns the figure toward where it walks
+  and plays Walk at its pace.
 - `blender/kid_bike.py`: the kid on his bike, modelled, rigged and animated in Blender (the
   Ride and Throw clips) and written as `KidBike.glb`; run it with Blender in the background
   (`blender --background --factory-startup --python blender/kid_bike.py -- <out dir> [preview]`),

@@ -88,8 +88,7 @@ def pedestrian():
     r = d.entity("Pedestrian")
     d.add(r, "navigation.Agent", radius=0.4, height=1.6, maxSpeed=3.0, maxAcceleration=6.0)
     d.script(r, (ids["Pedestrian"], {}), obstacle(d, r, 0.8))
-    part(d, r, "Body", CYL, (0, 0.6, 0), (0.5, 1.2, 0.5), (0.55, 0.3, 0.6))
-    part(d, r, "Head", SPHERE, (0, 1.42, 0), (0.42, 0.42, 0.42), (0.93, 0.76, 0.6))
+    model(d, r, "Pedestrian")  # rigged, with its Walk clip (blender/pedestrian.py)
     return d
 
 
