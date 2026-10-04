@@ -45,6 +45,11 @@
   PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
   give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
   log a failed load. Check what Sedulous's player does first.
+- **The editor crashes when the Console panel is squeezed very short** (found 2026-10-03, taking
+  PaperKid's screenshots): with the dock layout's top area at 97% of the window height, the editor
+  asserts on start in `LogView`'s list adapter (`LogView::Adapter::BindView`, `LogView.cppm:381`,
+  `index < m_size`, from `ListView::OnLayout`): a row index past the filtered rows. At 90% and
+  92.5% it starts. A list must not bind a row it does not have, however short the panel.
 - **`var()` inside a drawable's arguments draws white, silently** (found 2026-10-03, PaperKid's
   theme): `background: rounded-rect(var(--paper), radius=6, border=var(--ink), ...)` in a project
   theme (`.sss`) draws a plain white rect with no border, and the log says nothing; `var()` works
