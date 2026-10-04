@@ -21,7 +21,8 @@ higher quota, busier and faster traffic and less time for the distance. Three li
 block replays from the score you had when it started. A delivery scores 100 and a clear adds 5
 for every second left. The HUD shows the time, deliveries, papers, score and lives, and a
 minimap: a top-down render texture of the block with the subscribers (dimmed once delivered) and
-the bike, turned to its heading. A title screen with settings (master, music and effect
+the bike, turned to its heading. A title screen over a street going about its day (cars and
+people crossing, a dog and a cat pottering on the lawn) with settings (master, music and effect
 volumes), a pause menu, block cleared and failed screens, and a Game over or route complete
 summary.
 

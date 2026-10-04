@@ -114,13 +114,15 @@ and gamepad support throughout.
 **PaperKid** is an arcade paper-route game, also built entirely through the MCP tools: five
 town blocks on a difficulty ramp, papers thrown with a soft auto-aim, traffic and pedestrians on
 the navmesh, lives, a live minimap drawn by a top-down camera into a render texture, particle
-effects, a newsprint UI theme, and music that speeds up when the clock runs low.
+effects, a newsprint UI theme, and music that speeds up when the clock runs low. The kid and
+his bike, the houses, cars, people and animals are modelled, rigged and animated by Blender
+scripts.
 
 | Title | Riding a block | Block cleared |
 |:---:|:---:|:---:|
 | ![Title](Documentation/Images/PaperKid-Title.png) | ![Playing](Documentation/Images/PaperKid-Play.png) | ![Cleared](Documentation/Images/PaperKid-Cleared.png) |
 
-Watch it played on a Steam Deck: [PaperKid gameplay video](https://youtu.be/SauRONMkyOE).
+Watch it played on a Steam Deck: [PaperKid gameplay video](https://youtu.be/syJlmIirg_o).
 
 **NativeSample** is the reference for a game with native C++ code beside its scripts.
 
