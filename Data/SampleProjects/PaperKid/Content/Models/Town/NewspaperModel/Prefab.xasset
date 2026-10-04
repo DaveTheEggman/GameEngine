@@ -1,0 +1,12 @@
+<root>
+	<string name="guid">87b8eb50-5a0c-4bfc-ae15-b99b829ca6ee</string>
+	<string name="typeNamespace">rtti::scene</string>
+	<string name="typeName">PrefabDocument</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">3442582207943668603</u64>
+		<u32 name="version">0</u32>
+	</array>
+	<object name="payload">
+		<string name="name">NewspaperModel</string>
+	</object>
+</root>

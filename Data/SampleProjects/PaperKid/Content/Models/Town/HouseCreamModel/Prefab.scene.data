@@ -1,0 +1,83 @@
+<root>
+	<u32 name="magic">3586350318</u32>
+	<u32 name="version">3</u32>
+	<string name="name">HouseCreamModel</string>
+	<array name="entities" count="2">
+		<string name="id">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
+		<string name="name">HouseCreamModel</string>
+		<u8 name="active">1</u8>
+		<string name="parent">00000000-0000-0000-0000-000000000000</string>
+		<object name="position">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
+		</object>
+		<string name="id">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
+		<string name="name">HouseCreamModel</string>
+		<u8 name="active">1</u8>
+		<string name="parent">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
+		<object name="position">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
+		</object>
+	</array>
+	<array name="components" count="1">
+		<object>
+			<string name="owner">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
+			<string name="type">mesh</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">17486421469838262082</u64>
+					<u32 name="version">4</u32>
+				</array>
+				<string name="mesh">47e2ee17-23ab-41aa-87f2-3fa53f312d8d</string>
+				<array name="materials" count="9">
+					<string>d6678dfd-d2a1-426c-8883-5cfb705a1418</string>
+					<string>a0a72916-8e39-43d7-8689-dfec9a8e0e74</string>
+					<string>2250ee5a-3177-402d-bb88-e3b758f07f49</string>
+					<string>78cbb269-0ce0-4ec1-9fc1-8f61a7417329</string>
+					<string>69d665de-a65e-40ef-afe1-3ebc524809fe</string>
+					<string>4d33412d-80c6-451c-956b-bb015a499da5</string>
+					<string>e3887d6a-9dd6-4ed7-bc0a-dd6b0c2e0567</string>
+					<string>1dea9a16-fb98-4ae6-80f5-df97748f1aea</string>
+					<string>84e63dae-3b81-49bf-9486-0fba0b999fce</string>
+				</array>
+				<object name="color">
+					<f32 name="r">1</f32>
+					<f32 name="g">1</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<bool name="visible">true</bool>
+				<f32 name="lodBias">0</f32>
+				<i32 name="forceLod">-1</i32>
+			</object>
+		</object>
+	</array>
+	<array name="systemSettings" count="0"/>
+	<u8 name="prefabMode">4</u8>
+	<array name="prefabInstances" count="0"/>
+</root>

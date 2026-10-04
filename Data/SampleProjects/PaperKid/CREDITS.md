@@ -4,8 +4,8 @@ Made with GameEngine. Third-party assets, with thanks:
 
 ## Made for this game
 
-- The kid on his bike (model, rig and animations) is built for PaperKid from a Blender script
-  (`Tools/blender/kid_bike.py`), under the project's own licence.
+- The kid on his bike (model, rig and animations), the houses, the cars and the street furniture
+  are built for PaperKid from Blender scripts (`Tools/blender/`), under the project's own licence.
 
 ## Music
 
