@@ -64,8 +64,17 @@
       // The player calls this once the game is running (its first update).
       done: function () { this.root.classList.add('done'); },
       // ...and this when the game has quit: the card comes back, with a way to play again.
-      ended: function () {
+      // ...and this when the game has quit: the card comes back, with a way to play again. A game
+      // that stopped before it ever ran did not quit: it could not start, and a reason already
+      // shown (WebGPU not available) stays.
+      ended: function (started) {
         this.root.classList.remove('done');
+        if (this.root.classList.contains('failed')) return;
+        if (!started) {
+          this.fail('The game could not start. WebGPU may not be available on this device; ' +
+                    'the browser console says more.');
+          return;
+        }
         this.root.classList.add('ended');
         this.status.textContent = 'Thanks for playing';
         document.getElementById('loading-again').focus();
@@ -81,10 +90,22 @@
       }
     }).catch(function () {});
 
+    // WebGPU first: without it there is no point downloading a game. A browser can have the API
+    // and still give no adapter (WebGPU turned off, or the GPU blocklisted).
+    var webgpuHelp = 'Try a recent Chrome or Edge on desktop, with hardware acceleration on' +
+                     (window.isSecureContext ? '.' : ', and open the page over https.');
     if (!navigator.gpu) {
-      loading.fail('This game needs WebGPU, which this browser does not offer. ' +
-                   'Try a recent Chrome or Edge on desktop' +
-                   (window.isSecureContext ? '.' : ', and open the page over https.'));
+      loading.fail('WebGPU is not available in this browser, and this game needs it. ' + webgpuHelp);
+    } else {
+      navigator.gpu.requestAdapter().then(function (adapter) {
+        if (!adapter) {
+          loading.fail('WebGPU is not available on this device (the browser offers no GPU adapter), ' +
+                       'and this game needs it. ' + webgpuHelp);
+        }
+      }).catch(function (error) {
+        loading.fail('WebGPU is not available on this device (' + error + '), and this game needs it. ' +
+                     webgpuHelp);
+      });
     }
 
     // Every download the game makes (its engine's wasm, its content) goes through fetch: count
