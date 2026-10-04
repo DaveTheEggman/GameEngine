@@ -5,6 +5,7 @@
 // here; the editor exercises the XML factory). Also covers defaults, change notification, and the
 // core UserDataDir / GetEnvironmentVariable helpers the store's storage location builds on.
 #include <doctest/doctest.h>
+#include <string>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
 
@@ -242,4 +243,95 @@ TEST_CASE("settings: repeated Load/Save does not duplicate a preserved unknown s
         REQUIRE(s.Save(next, BinarySerializerFactory()).IsOk());
         stored = static_cast<MemoryStream&&>(next);
     }
+}
+
+// ---- SaveValues: a game's keyed saved values ----
+
+TEST_CASE("settings: save values answer what was set, a fallback otherwise, and report changes")
+{
+    settings::SaveValues values;
+    CHECK(values.SetInt(u8"best.level2", 4210));
+    CHECK_FALSE(values.SetInt(u8"best.level2", 4210)); // the same value is no change
+    CHECK(values.SetInt(u8"best.level2", 4000));
+    CHECK(values.SetFloat(u8"time.level2", 41.5f));
+    CHECK(values.SetBool(u8"unlocked.level3", true));
+    CHECK(values.SetText(u8"name", u8"Hopper"));
+    CHECK(values.SetBool(u8"zero", false)); // a new key is a change even at the default
+
+    CHECK(values.GetInt(u8"best.level2", 0) == 4000);
+    CHECK(values.GetFloat(u8"time.level2", 0.0f) == 41.5f);
+    CHECK(values.GetBool(u8"unlocked.level3", false));
+    CHECK(values.GetText(u8"name", u8"") == u8"Hopper");
+
+    // Absent, or read as another kind: the fallback. An int still reads as a float.
+    CHECK(values.GetInt(u8"missing", -1) == -1);
+    CHECK(values.GetInt(u8"time.level2", -1) == -1);
+    CHECK(values.GetText(u8"best.level2", u8"none") == u8"none");
+    CHECK(values.GetFloat(u8"best.level2", 0.0f) == 4000.0f);
+
+    // A key written as another kind takes the new kind.
+    CHECK(values.SetText(u8"best.level2", u8"gold"));
+    CHECK(values.GetText(u8"best.level2", u8"") == u8"gold");
+    CHECK(values.GetInt(u8"best.level2", -1) == -1);
+
+    // Kept in key order, whatever order they were set in.
+    REQUIRE(values.Count() == 5u);
+    for (usize i = 1; i < values.Count(); ++i)
+    {
+        CHECK(values.At(i - 1).key.AsView().Compare(values.At(i).key.AsView()) < 0);
+    }
+
+    CHECK(values.Remove(u8"name"));
+    CHECK_FALSE(values.Remove(u8"name"));
+    CHECK_FALSE(values.Has(u8"name"));
+    CHECK(values.Clear());
+    CHECK_FALSE(values.Clear());
+    CHECK(values.Count() == 0u);
+}
+
+namespace
+{
+    void RoundTripSaveValues(SerializerFactory (*make)())
+    {
+        settings::RegisterSaveValuesType();
+        MemoryStream stream;
+        {
+            settings::Settings store(foundation::core::DefaultAllocator());
+            settings::SaveValues& values = store.Section<settings::SaveValues>();
+            values.SetInt(u8"coins", 37);
+            values.SetFloat(u8"best.time", 62.25f);
+            values.SetBool(u8"won", true);
+            values.SetText(u8"last.level", u8"Level 3");
+            REQUIRE(store.Save(stream, make()).IsOk());
+        }
+        REQUIRE(stream.Seek(0, SeekOrigin::Begin) == 0);
+        settings::Settings store(foundation::core::DefaultAllocator());
+        REQUIRE(store.Load(stream, make()).IsOk());
+        const settings::SaveValues* values = store.Find<settings::SaveValues>();
+        REQUIRE(values != nullptr);
+        CHECK(values->Count() == 4u);
+        CHECK(values->GetInt(u8"coins", 0) == 37);
+        CHECK(values->GetFloat(u8"best.time", 0.0f) == 62.25f);
+        CHECK(values->GetBool(u8"won", false));
+        CHECK(values->GetText(u8"last.level", u8"") == u8"Level 3");
+    }
+}
+
+TEST_CASE("settings: save values round-trip as a section (binary)")
+{
+    RoundTripSaveValues(&BinarySerializerFactory);
+}
+
+TEST_CASE("settings: save values round-trip as a section (XML), kinds written by name")
+{
+    RoundTripSaveValues(&xml::XmlSerializerFactory);
+
+    settings::RegisterSaveValuesType();
+    settings::Settings store(foundation::core::DefaultAllocator());
+    store.Section<settings::SaveValues>().SetFloat(u8"best.time", 1.5f);
+    MemoryStream stream;
+    REQUIRE(store.Save(stream, xml::XmlSerializerFactory()).IsOk());
+    const std::string text(reinterpret_cast<const char*>(stream.Bytes().Data()), stream.Bytes().Size());
+    CHECK(text.find(">float<") != std::string::npos);
+    CHECK(text.find("best.time") != std::string::npos);
 }

@@ -19,6 +19,7 @@ module;
 export module foundation.settings;
 
 import foundation.core;
+export import :save_values; // SaveValues: a game's keyed saved values, a section like any other
 
 using namespace foundation::core;
 

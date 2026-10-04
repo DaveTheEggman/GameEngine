@@ -7,5 +7,8 @@ target_link_libraries(Settings PUBLIC Foundation::Core Foundation::Policy)
 target_sources(Settings
     PUBLIC
         FILE_SET settings_modules TYPE CXX_MODULES FILES
-            Settings.cppm)
+            Settings.cppm
+            SaveValues.cppm
+    PRIVATE
+        SaveValuesImpl.cpp)
 
