@@ -13,11 +13,14 @@
 	<string name="defaultBusLayoutId">00000000-0000-0000-0000-000000000000</string>
 	<string name="defaultUiThemeId">20f04881-d5e3-4315-9f7f-df6d0722baf2</string>
 	<string name="startupScriptId">f6302f5a-d4e6-4fde-9008-465a0e8d2fa4</string>
-	<string name="defaultUiFontId">7b6877c9-065f-4772-9ce8-167bab0aafd2</string>
+	<string name="defaultUiFontId">6784980b-7ff3-41a2-9cbf-d6fe216e04f0</string>
 	<string name="loadingDocumentId">00000000-0000-0000-0000-000000000000</string>
 	<u32 name="renderMsaaSamples">1</u32>
-	<array name="uiFontIds" count="1">
+	<array name="uiFontIds" count="4">
 		<string>e632a35e-2b25-4a50-b3e4-05f8df9317cd</string>
+		<string>f0c52c6a-1342-45ec-b500-18189131d03d</string>
+		<string>444d1c87-b50a-4e78-b80d-8202b93c9234</string>
+		<string>7b6877c9-065f-4772-9ce8-167bab0aafd2</string>
 	</array>
 	<u32 name="renderWidth">1280</u32>
 	<u32 name="renderHeight">720</u32>

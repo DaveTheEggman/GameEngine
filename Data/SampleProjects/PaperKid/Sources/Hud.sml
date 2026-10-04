@@ -6,35 +6,35 @@
 
       <Flex direction="horizontal" align="center" spacing="30">
         <Flex direction="vertical" align="center">
-          <Label text="TIME" font-size="16" class="hud-caption"/>
-          <Label id="hud-time" text="0" font-size="34" class="hud-alert"/>
+          <Label text="TIME" font-size="21" class="hud-caption"/>
+          <Label id="hud-time" text="0" font-size="44" class="hud-alert"/>
         </Flex>
         <Flex direction="vertical" align="center">
-          <Label text="DELIVERED" font-size="16" class="hud-caption"/>
-          <Label id="hud-deliveries" text="0 / 0" font-size="34" class="hud-value"/>
+          <Label text="DELIVERED" font-size="21" class="hud-caption"/>
+          <Label id="hud-deliveries" text="0 / 0" font-size="44" class="hud-value"/>
         </Flex>
         <Flex direction="vertical" align="center">
-          <Label text="PAPERS" font-size="16" class="hud-caption"/>
-          <Label id="hud-papers" text="0" font-size="34" class="hud-value"/>
+          <Label text="PAPERS" font-size="21" class="hud-caption"/>
+          <Label id="hud-papers" text="0" font-size="44" class="hud-value"/>
         </Flex>
         <Flex direction="vertical" align="center">
-          <Label text="SCORE" font-size="16" class="hud-caption"/>
-          <Label id="hud-score" text="0" font-size="34" class="hud-value"/>
+          <Label text="SCORE" font-size="21" class="hud-caption"/>
+          <Label id="hud-score" text="0" font-size="44" class="hud-value"/>
         </Flex>
         <Flex direction="vertical" align="center">
-          <Label text="LIVES" font-size="16" class="hud-caption"/>
-          <Label id="hud-lives" text="3" font-size="34" class="hud-alert"/>
+          <Label text="LIVES" font-size="21" class="hud-caption"/>
+          <Label id="hud-lives" text="3" font-size="44" class="hud-alert"/>
         </Flex>
       </Flex>
 
     </Panel>
 
     <!-- A delivery's points, rising from under the score as they fade (PaperKidGame.as moves it). -->
-    <Label id="hud-pop" gravity="Top|Left" text="+100" font-family="Lilita One" font-size="30" visibility="hidden"
+    <Label id="hud-pop" gravity="Top|Left" text="+100" font-family="Alfa Slab One" font-size="30" visibility="hidden"
            class="over-scene"/>
 
     <!-- A cleared block's banner, dropping in over the slowing street (PaperKidGame.as). -->
-    <Label id="hud-banner" gravity="Center" text="Block cleared!" font-family="Lilita One" font-size="84"
+    <Label id="hud-banner" gravity="Center" text="Block cleared!" font-family="Alfa Slab One" font-size="84"
            visibility="hidden" class="over-scene"/>
 
     <!-- The minimap: the Minimap render texture the block's top-down camera draws, with markers
