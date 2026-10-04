@@ -80,8 +80,8 @@
         this.root.classList.remove('done');
         if (this.root.classList.contains('failed')) return;
         if (!started) {
-          this.fail('Sorry, the game could not start. Your browser may not be able to use your ' +
-                    'graphics card for games. ' + browserHelp, true);
+          this.fail('Sorry, the game could not start. It needs WebGPU, which may not be working in ' +
+                    'this browser on this computer. ' + browserHelp, true);
           return;
         }
         this.root.classList.add('ended');
@@ -106,16 +106,17 @@
         ? 'Try the latest Chrome or Edge on a computer, with hardware acceleration turned on in its settings.'
         : 'Open this page with an https:// address, in the latest Chrome or Edge on a computer.';
     if (!navigator.gpu) {
-      loading.fail('Sorry, this game cannot run in this browser. ' + browserHelp);
+      loading.fail('Sorry, this game cannot run in this browser. It needs WebGPU, which this browser ' +
+                   'does not have. ' + browserHelp);
     } else {
       navigator.gpu.requestAdapter().then(function (adapter) {
         if (!adapter) {
-          loading.fail('Sorry, this game cannot run here: your browser cannot use your graphics card ' +
-                       'for games right now. ' + browserHelp);
+          loading.fail('Sorry, this game cannot run here. It needs WebGPU, and your browser cannot use ' +
+                       'it on this computer right now. ' + browserHelp);
         }
       }).catch(function () {
-        loading.fail('Sorry, this game cannot run here: your browser cannot use your graphics card ' +
-                     'for games right now. ' + browserHelp);
+        loading.fail('Sorry, this game cannot run here. It needs WebGPU, and your browser cannot use ' +
+                     'it on this computer right now. ' + browserHelp);
       });
     }
 
