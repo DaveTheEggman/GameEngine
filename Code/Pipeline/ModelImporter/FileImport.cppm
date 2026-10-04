@@ -464,6 +464,10 @@ export namespace pipeline
             manifest.boundsMax = model.bounds().max;
 
             Array<String> claimed; // names claimed THIS run (ClaimInstance's dedup scope)
+            // The manifest is named for the file, and is written last: its name is reserved
+            // first, so a sub-asset named like the model (a material "Gem_Blue" in
+            // Gem_Blue.gltf) takes a suffix rather than the manifest's instance.
+            claimed.PushBack(String(stem));
             Array<Guid> textureGuids;
             if (opt.importTextures)
             {
@@ -510,8 +514,20 @@ export namespace pipeline
             lap(phaseCollisionMs);
             ImportNodes(model, manifest);
 
-            content::Instance* instance =
-                modelGroup->CreateInstance(stem, ModelManifestAsset::StaticType());
+            // Reuse a previous import's manifest (its guid survives a re-import); a different type
+            // squatting the name (an import from before the name was reserved) keeps its
+            // instance, and the manifest takes the next free name.
+            content::Instance* instance = modelGroup->GetInstance(stem);
+            if (instance == nullptr)
+            {
+                instance = modelGroup->CreateInstance(stem, ModelManifestAsset::StaticType());
+            }
+            else if (instance->TypeName() !=
+                     StringView(reinterpret_cast<const utf8char*>(ModelManifestAsset::StaticType().name)))
+            {
+                instance = modelGroup->CreateInstance(modelGroup->UniqueInstanceName(stem).AsView(),
+                                                      ModelManifestAsset::StaticType());
+            }
             if (instance == nullptr)
             {
                 return Err(ErrorCode::Unknown);

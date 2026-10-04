@@ -2027,3 +2027,61 @@ TEST_CASE("model-import: with a prepared model the geometry writes are LAZY - pr
     (void)RemoveDirectoryRecursive(inlineDir);
     (void)RemoveDirectoryRecursive(lazyDir);
 }
+
+// A model whose material is named like the model itself (the platformer kit's Gem_Blue.gltf has a
+// material "Gem_Blue"): the material takes a suffix, and the manifest keeps the file's name and
+// its own instance, rather than being written into the material's.
+TEST_CASE("model-import: a material named like the model leaves the manifest its own instance")
+{
+    using namespace editor;
+
+    pipeline::RegisterModelManifestAsset();
+    pipeline::RegisterTextureAsset();
+    pipeline::RegisterMeshAssets();
+    pipeline::RegisterMaterialAsset();
+    pipeline::RegisterAnimationAssets();
+
+    const String dir(u8"scratch_gltf_samename_project");
+    (void)RemoveDirectoryRecursive(dir.AsView());
+    (void)RemoveDirectoryRecursive(u8"scratch_gltf_samename_src");
+    REQUIRE(CreateDirectories(u8"scratch_gltf_samename_src"));
+    const String source = PathJoin(u8"scratch_gltf_samename_src", u8"Gem.gltf");
+    const StringView gltf =
+        u8R"({"asset":{"version":"2.0"},"scene":0,"scenes":[{"nodes":[0]}],
+"nodes":[{"name":"Gem","mesh":0}],
+"meshes":[{"name":"Gem","primitives":[{"attributes":{"POSITION":0},"material":0}]}],
+"materials":[{"name":"Gem","pbrMetallicRoughness":{"baseColorFactor":[0.1,0.5,0.7,1]}}],
+"buffers":[{"byteLength":36,"uri":"data:application/octet-stream;base64,AAAAAAAAAAAAAAAAAACAPwAAAAAAAAAAAAAAAAAAgD8AAAAA"}],
+"bufferViews":[{"buffer":0,"byteLength":36}],
+"accessors":[{"bufferView":0,"componentType":5126,"count":3,"type":"VEC3","min":[0,0,0],"max":[1,1,0]}]})";
+    REQUIRE(WriteFile(source.AsView(), Span<const byte>(reinterpret_cast<const byte*>(gltf.Data()), gltf.Size()))
+                .IsOk());
+    REQUIRE(EditorProject::Create(DefaultAllocator(), dir.AsView(), u8"P").IsOk());
+    UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir.AsView());
+    REQUIRE(static_cast<bool>(project));
+
+    pipeline::ModelFileImporter importer;
+    Result<foundation::content::Instance*> imported =
+        importer.Import(source.AsView(), pipeline::ImportContext{DefaultAllocator(), project->SourcesRoot()},
+                        *project->SourceDb().RootGroup(), nullptr, nullptr, nullptr);
+    REQUIRE(imported.HasValue());
+    REQUIRE(imported.Value() != nullptr);
+    CHECK(imported.Value()->Name() == u8"Gem");
+    RefPtr<ISerializable> object = imported.Value()->ReadObject();
+    auto* manifest = Cast<pipeline::ModelManifestAsset>(object.Get());
+    REQUIRE(manifest != nullptr);
+    REQUIRE(manifest->manifest.materialGuids.Size() == 1u);
+
+    // The material is its own instance, a MaterialAsset under a suffixed name.
+    foundation::content::Instance* material =
+        project->SourceDb().GetInstance(manifest->manifest.materialGuids[0]);
+    REQUIRE(material != nullptr);
+    CHECK(material != imported.Value());
+    CHECK(material->Name() == u8"Gem.2");
+    RefPtr<ISerializable> materialObject = material->ReadObject();
+    CHECK(Cast<pipeline::MaterialAsset>(materialObject.Get()) != nullptr);
+
+    project = nullptr;
+    (void)RemoveDirectoryRecursive(dir.AsView());
+    (void)RemoveDirectoryRecursive(u8"scratch_gltf_samename_src");
+}
