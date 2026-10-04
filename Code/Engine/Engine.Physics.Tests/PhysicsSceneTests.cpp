@@ -172,6 +172,58 @@ TEST_CASE("physics.scene: descendant colliders compound into the ancestor body")
     CHECK(hit.position.y == doctest::Approx(1.0f).epsilon(0.05)); // the arm's top face
 }
 
+TEST_CASE("physics.scene: a scaled body's child colliders keep their world place and size")
+{
+    // A unit-cube hull, cooked once (the shape a model import's collision carries).
+    Array<byte> blob;
+    Array<Float3> corners;
+    const f32 ends[2] = {-0.5f, 0.5f};
+    for (f32 x : ends)
+        for (f32 y : ends)
+            for (f32 z : ends)
+            {
+                corners.PushBack(Float3{x, y, z});
+            }
+    REQUIRE(CookConvexHull(Span<const Float3>(corners.Data(), corners.Size()), blob));
+    RefPtr<CollisionShape> hull = MakeRef<CollisionShape>(DefaultAllocator());
+    hull->blob.Resize(blob.Size());
+    MemCopy(hull->blob.Data(), blob.Data(), blob.Size());
+
+    // A static body scaled 0.5 (a prefab scaled down), with a child 4 m out along x carrying the
+    // cooked cube scaled 2: in the world the child sits 2 m out and is 1 m across (top at 0.5).
+    PlayScene play;
+    const scene::EntityHandle body = play.scene.CreateEntity(u8"scaled body");
+    {
+        RigidBodyComponent& rb = play.scene.GetSystem<RigidBodyComponentManager>()->Add(body);
+        rb.motion = MotionKind::Static;
+        rb.layer = PhysicsLayer::Static;
+        rb.halfExtents = Float3{0.01f, 0.01f, 0.01f};
+        Transform t = play.scene.GetLocalTransform(body);
+        t.scale = Float3{0.5f, 0.5f, 0.5f};
+        play.scene.SetLocalTransform(body, t);
+    }
+    const scene::EntityHandle piece = play.scene.CreateEntity(u8"piece");
+    play.scene.SetParent(piece, body);
+    {
+        Transform t;
+        t.position = Float3{4.0f, 0.0f, 0.0f};
+        t.scale = Float3{2.0f, 2.0f, 2.0f};
+        play.scene.SetLocalTransform(piece, t);
+        ColliderComponent& c = play.scene.GetSystem<ColliderComponentManager>()->Add(piece);
+        c.shape = ShapeKind::Cooked;
+        c.collisionShape = hull;
+    }
+    play.Start();
+
+    RayHit hit;
+    REQUIRE(play.physics->World()->RayCast(Float3{2.0f, 5.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f},
+                                           10.0f, hit));
+    CHECK(hit.position.y == doctest::Approx(0.5f).epsilon(0.05)); // its top: 1 m across
+    // Nothing where the unscaled offset (4 m) or an unscaled 2 m cube would have reached.
+    CHECK_FALSE(play.physics->World()->RayCast(Float3{3.6f, 5.0f, 0.0f}, Float3{0.0f, -1.0f, 0.0f},
+                                               10.0f, hit));
+}
+
 namespace
 {
     // Records resolved contacts (the PhysicsSubsystem plays this role in a real run; the bare

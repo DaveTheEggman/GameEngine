@@ -272,10 +272,13 @@ namespace engine::physics
         out.shapes.PushBack(own);
 
         // Hierarchy compounding: descendant ColliderComponents fold in at their
-        // offset relative to THIS entity (captured at start).
+        // offset relative to THIS entity (captured at start). The physics body has no scale
+        // (only its position and rotation), so a child's place is measured in world units from
+        // the body and a cooked child keeps its WORLD scale: relative to a scaled body (a
+        // prefab scaled down) both would come out unscaled, the shape full size and off place.
         if (colliders != nullptr)
         {
-            const Float4x4 bodyInverse = Inverse(scene.GetWorldMatrix(e));
+            const Quaternion bodyInverse = Inverse(rotation);
             colliders->ForEach(
                 [&](ColliderComponent& extra, scene::EntityHandle child)
                 {
@@ -283,13 +286,14 @@ namespace engine::physics
                     {
                         return;
                     }
-                    Float3 lp, ls;
-                    Quaternion lr;
-                    if (!Decompose(scene.GetWorldMatrix(child) * bodyInverse, lp, lr,
-                                   ls))
+                    Float3 wp, ls;
+                    Quaternion wr;
+                    if (!Decompose(scene.GetWorldMatrix(child), wp, wr, ls))
                     {
                         return;
                     }
+                    const Float3 lp = RotateVector(bodyInverse, wp - position);
+                    const Quaternion lr = bodyInverse * wr;
                     ShapeDesc shape;
                     shape.kind = extra.shape;
                     shape.halfExtents = extra.halfExtents;
