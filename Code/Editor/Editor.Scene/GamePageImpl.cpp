@@ -1047,6 +1047,18 @@ namespace editor
             m_context->Notify(NoticeKind::Warning, u8"Game: startup script asset not found.");
             return;
         }
+        if (m_gameInstance != nullptr)
+        {
+            // Play in editor keeps its own save in the project's ignored Editor/ folder, so testing
+            // never touches a player's save (Documentation/Specs/save-data.md).
+            const editor::EditorProject& project = *m_context->Project();
+            m_gameInstance->SetSaveFile(
+                PathJoin(project.EditorStateRoot().AsView(),
+                         engine::project::SaveFileName(project.Settings().name.AsView(), Allocator())
+                             .AsView(),
+                         Allocator())
+                    .AsView());
+        }
         if (m_gameInstance == nullptr ||
             !m_gameInstance->StartScript(*proxy))
         {

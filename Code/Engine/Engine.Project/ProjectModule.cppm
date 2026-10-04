@@ -53,6 +53,15 @@ export namespace engine::project
     inline constexpr StringView kDistContentPak = u8"Content.pak";
     inline constexpr StringView kDistManifestFile = u8"player.xml";
 
+    // A game's save file (Documentation/Specs/save-data.md): `<project>.save.xml`, which the player
+    // keeps in the user data directory and play in editor in the project's Editor/ folder.
+    [[nodiscard]] inline String SaveFileName(StringView projectName, IAllocator& allocator)
+    {
+        String name(projectName.IsEmpty() ? StringView(u8"project") : projectName, allocator);
+        name.Append(u8".save.xml");
+        return name;
+    }
+
     // ProjectSettings reflects the settings the Project Settings dialog edits (and the MCP
     // project_settings_set sets), each with a `label`; an asset setting is a Guid property whose
     // `assetType` attribute names the asset type it takes (the picker's filter) and whose
