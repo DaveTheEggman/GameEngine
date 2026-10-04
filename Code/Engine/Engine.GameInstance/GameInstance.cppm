@@ -20,6 +20,7 @@ module;
 export module engine.gameinstance;
 
 export import :networkcontroller; // the run's networking, composed off this god object
+export import :save;              // the run's save (RunSave) and the Save facade
 
 import foundation.core;
 import engine.domain;
@@ -587,6 +588,14 @@ export namespace engine::runtime
         /// sees this frame's input). No-op when no source is set.
         void DriveInput(f32 deltaTime, f32 contextTimeScale);
 
+        // ---- save (the values this game keeps between runs) ----
+
+        /// Names this run's save file and reads it (the player's user data directory, the editor's
+        /// project Editor/ folder). The run's scripts reach it through the Save facade, and the run
+        /// writes it when its script stops if anything changed. Empty: values kept for the run only.
+        void SetSaveFile(core::StringView path) { m_save.Open(path); }
+        [[nodiscard]] RunSave& Saves() noexcept { return m_save; }
+
         // ---- networking (composed: this instance's NetworkController; forwards below) ----
 
         /// This instance's networking controller (the endpoint owner + INetworkController). Exposed so
@@ -635,6 +644,7 @@ export namespace engine::runtime
             m_runBinding; // stable; app fills its pointers, installed per context (StartScript)
 
         input::ActionRuntime m_inputRuntime; // this run's action state (per-instance)
+        RunSave m_save{DefaultAllocator()};  // this run's save, installed per context (StartScript)
         void TraceInput(); // ENV_INPUT_TRACE: the input path, logged twice a second
         input::IInputSourceProvider* m_inputSource =
             nullptr; // borrowed: the viewport / shell devices

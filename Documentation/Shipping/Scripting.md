@@ -40,6 +40,27 @@ Fields initialized in a behavior's constructor become editor-visible properties 
 booleans, strings, and vectors are harvested). Keep constructors to plain field
 initialization - they also run during cooking.
 
+## Saving
+
+The `Save` facade keeps values between runs: a best time, a high score, an unlocked level, the
+game's own options. Values are typed (int, float, bool, string) and keyed by any string you
+choose:
+
+```
+Save::setInt("best.level2", 4210);              // AngelScript
+int best = Save::getInt("best.level2", 0);      // the fallback when there is none yet
+Save.setFloat("time.level2", 41.5)              -- Luau
+```
+
+- `has`, `remove` and `clear` do what they say. A value read as another kind than it was
+  written answers the fallback, except that an int reads as a float.
+- The run writes what changed when it ends. Call `Save::flush()` at the moment that matters (a
+  level clear, leaving a settings screen) so a crash or a forced quit loses nothing.
+- The player keeps the file in the user's data directory; play in editor keeps its own in the
+  project's ignored `Editor/` folder, so testing never touches a player's save.
+- The audio bus volumes a settings screen sets are saved by the player on its own; a game
+  does not need to save them.
+
 ## Working through the MCP tools
 
 - `script_api` - the live bound API for a chosen backend. Read it before writing code.

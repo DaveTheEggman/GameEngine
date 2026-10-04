@@ -51,12 +51,17 @@ and per-scene/subsystem settings (`PhysicsSceneSettings`, `AudioBusSettings`, `P
 `FogSettings`, `ViewSettings`, `WindowSettings`, ...). The user-data-dir helper (for the per-user file)
 lives in `foundation.core` (`System.cppm`).
 
+A game's save is one more: `SaveValues` (`SaveValues.cppm`), the open-ended section. Its fields are not
+known ahead, so it keeps typed values (bool, int, float, text) by key, sorted, with kinds written by
+name. A save file is an ordinary settings file holding that one section; the run that owns it, the
+`Save` script facade and where each host keeps the file are in `game-instance.md` and
+`Documentation/Specs/save-data.md`.
+
 ## Deferred
 
 The dynamic **`PropertyBag` + `SettingsKey<T>`** bag (a compact tagged-`Value` map for genuinely
-open-ended / plugin key-values) is NOT built - no consumer has needed open-ended keys (typed reflected
-sections cover every case so far). It would layer in as another section type without disturbing the
-typed path.
+open-ended / plugin key-values) is NOT built. The one consumer with open-ended keys so far, a game's
+save, has its own section (`SaveValues`, above), which is what this would have layered in as.
 
 ---
 

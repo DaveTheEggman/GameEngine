@@ -84,6 +84,18 @@ control routed through the owning `GameInstance`: `SceneLoader.loadSceneAsync(id
 and returns a ticket (`loadComplete(t)` polled from a coroutine), `loadScene(id)` is a sync convenience,
 `sceneReady` reports state. Certified across the three backends (starter snippets in each cook).
 
+## Save data
+
+Each instance owns its run's save (`RunSave`, the `:save` partition): the values the game keeps
+between runs, the file they live in, and whether they changed since the last write. The host names
+the file with `SetSaveFile(path)`, which reads it: the player uses `<user data>/<project>.save.xml`,
+the editor's Game tab `<project>/Editor/<project>.save.xml` (ignored per-user state, so testing
+never touches a player's save). The run's contexts get it as the `run.save` service, which the
+`Save` facade resolves (`Save::setInt("best.level2", 4210)`, `Save::getInt(key, fallback)`, the
+same for float, bool and string, plus `has`, `remove`, `clear` and `flush`). `StopScript` writes
+whatever changed; `flush` writes at once. Writes are whole and atomic (`WriteFileAtomic`), so a crash
+never leaves a torn save. Spec: `Documentation/Specs/save-data.md`.
+
 ## Standalone vs editor + headless
 
 - **Player**: exactly one instance, created + started at launch. The current code IS the N=1 case.

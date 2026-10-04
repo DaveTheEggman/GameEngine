@@ -88,5 +88,6 @@ export namespace engine
     // 34 = +DebugDraw: DebugDraw.of(scene) immediate-mode debug draw facade.
     // 36 = + SplineHit + SceneSplines.
     // 37 = +SceneScripts: SceneScripts.of(scene), the scene's script time, send/emit, addBehavior.
-    inline constexpr usize kSubsystemFacadeNameCount = 37;
+    // 38 = +Save: Save.getInt/setInt/..., the run's save data (kept between runs).
+    inline constexpr usize kSubsystemFacadeNameCount = 38;
 }

@@ -1353,3 +1353,153 @@ TEST_CASE("game-instance: the run clock ignores time scale, and a game script's 
     gi.StopScript();
     CHECK_FALSE(gi.GetScriptProperty(u8"score").HasValue());
 }
+
+// ---- save data: the values a game keeps between runs (Documentation/Specs/save-data.md) ----
+
+namespace
+{
+    // A fresh scratch file under the build tree the tests run in.
+    String FreshSavePath(StringView name)
+    {
+        (void)CreateDirectories(u8"scratch_save");
+        String path = PathJoin(u8"scratch_save", name);
+        (void)FileDelete(path.AsView());
+        return path;
+    }
+}
+
+TEST_CASE("game-instance: a run save writes what changed, reads it back, and survives a bad file")
+{
+    const String path = FreshSavePath(u8"run_save.xml");
+
+    engine::runtime::RunSave save(DefaultAllocator());
+    CHECK_FALSE(save.Flush()); // no file named: nowhere to write
+    save.Open(path.AsView());  // absent: an empty save
+    CHECK(save.IsOpen());
+    CHECK(save.Values().Count() == 0u);
+    CHECK(save.Flush()); // nothing changed: nothing to write, and that is fine
+    CHECK_FALSE(FileExists(path.AsView()));
+
+    save.Values().SetInt(u8"best.level2", 4210);
+    save.Values().SetFloat(u8"time.level2", 41.5f);
+    save.MarkChanged();
+    REQUIRE(save.Flush());
+    CHECK_FALSE(save.HasChanges());
+    CHECK(FileExists(path.AsView()));
+
+    engine::runtime::RunSave reread(DefaultAllocator());
+    reread.Open(path.AsView());
+    CHECK(reread.Values().GetInt(u8"best.level2", 0) == 4210);
+    CHECK(reread.Values().GetFloat(u8"time.level2", 0.0f) == 41.5f);
+
+    // A file that is not a save: an empty save, and the file is left alone until the game writes.
+    const char garbage[] = "not a save";
+    REQUIRE(WriteFile(path.AsView(), Span<const byte>{reinterpret_cast<const byte*>(garbage), sizeof(garbage) - 1})
+                .IsOk());
+    engine::runtime::RunSave damaged(DefaultAllocator());
+    damaged.Open(path.AsView());
+    CHECK(damaged.Values().Count() == 0u);
+    CHECK(damaged.Flush());
+    Result<Array<byte>> bytes = ReadFile(path.AsView());
+    REQUIRE(bytes.HasValue());
+    CHECK(bytes.Value().Size() == sizeof(garbage) - 1);
+}
+
+TEST_CASE("game-instance: a game keeps its values between runs through Save (AngelScript)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    engine::runtime::RegisterSaveScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    const String path = FreshSavePath(u8"game_as.xml");
+
+    // Each run counts itself and keeps a best time; the second sees the first's values. The
+    // first never calls flush: the run writes what changed as it stops.
+    const StringView source = u8"class Game {\n"
+                              u8"  Game() {}\n"
+                              u8"  void launch() {\n"
+                              u8"    int runs = Save::getInt(\"runs\", 0);\n"
+                              u8"    Save::setInt(\"runs\", runs + 1);\n"
+                              u8"    if (Save::getFloat(\"best\", 999.0f) > 41.5f) Save::setFloat(\"best\", 41.5f);\n"
+                              u8"    Save::setBool(\"seen\", Save::has(\"runs\"));\n"
+                              u8"    Save::setString(\"name\", \"Hopper\");\n"
+                              u8"    Save::setInt(\"scratch\", 1);\n"
+                              u8"    Save::remove(\"scratch\");\n"
+                              u8"  }\n"
+                              u8"  void update(double dt) {}\n"
+                              u8"  void exit() {}\n"
+                              u8"}\n";
+    for (i32 run = 1; run <= 2; ++run)
+    {
+        engine::runtime::GameInstance gi;
+        gi.SetSaveFile(path.AsView());
+        REQUIRE(gi.StartScript(source, u8"game.as"));
+        CHECK(gi.Saves().Values().GetInt(u8"runs", 0) == run);
+        gi.StopScript();
+    }
+
+    engine::runtime::RunSave reread(DefaultAllocator());
+    reread.Open(path.AsView());
+    CHECK(reread.Values().GetInt(u8"runs", 0) == 2);
+    CHECK(reread.Values().GetFloat(u8"best", 0.0f) == 41.5f);
+    CHECK(reread.Values().GetBool(u8"seen", false));
+    CHECK(reread.Values().GetText(u8"name", u8"") == u8"Hopper");
+    CHECK_FALSE(reread.Values().Has(u8"scratch"));
+}
+
+TEST_CASE("game-instance: Save flushes on request and clears (Luau); a run with no file writes nowhere")
+{
+    RegisterCoreTypes();
+    engine::runtime::RegisterSaveScriptFacade();
+    foundation::script::RegisterLuauScriptBackend();
+    const String path = FreshSavePath(u8"game_luau.xml");
+
+    {
+        engine::runtime::GameInstance gi;
+        gi.SetSaveFile(path.AsView());
+        REQUIRE(gi.StartScript(u8"Game = {}\n"
+                               u8"Game.__index = Game\n"
+                               u8"function Game.new() return setmetatable({}, Game) end\n"
+                               u8"function Game:launch()\n"
+                               u8"  Save.setInt('coins', 37)\n"
+                               u8"  self.flushed = Save.flush()\n"
+                               u8"end\n"
+                               u8"function Game:update(dt) end\n"
+                               u8"function Game:exit() end\n",
+                               u8"game.luau"));
+        // Written at the flush, while the run is still going.
+        engine::runtime::RunSave reread(DefaultAllocator());
+        reread.Open(path.AsView());
+        CHECK(reread.Values().GetInt(u8"coins", 0) == 37);
+        gi.StopScript();
+    }
+    {
+        engine::runtime::GameInstance gi;
+        gi.SetSaveFile(path.AsView());
+        REQUIRE(gi.StartScript(u8"Game = {}\n"
+                               u8"Game.__index = Game\n"
+                               u8"function Game.new() return setmetatable({}, Game) end\n"
+                               u8"function Game:launch() Save.clear() end\n"
+                               u8"function Game:update(dt) end\n"
+                               u8"function Game:exit() end\n",
+                               u8"game.luau"));
+        gi.StopScript();
+        engine::runtime::RunSave reread(DefaultAllocator());
+        reread.Open(path.AsView());
+        CHECK(reread.Values().Count() == 0u);
+    }
+    {
+        // No file named: the game's values last the run, its reads see them, nothing is written.
+        engine::runtime::GameInstance gi;
+        REQUIRE(gi.StartScript(u8"Game = {}\n"
+                               u8"Game.__index = Game\n"
+                               u8"function Game.new() return setmetatable({}, Game) end\n"
+                               u8"function Game:launch() Save.setInt('coins', 5) end\n"
+                               u8"function Game:update(dt) end\n"
+                               u8"function Game:exit() end\n",
+                               u8"game.luau"));
+        CHECK(gi.Saves().Values().GetInt(u8"coins", 0) == 5);
+        gi.StopScript();
+    }
+}

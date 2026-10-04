@@ -120,6 +120,7 @@ namespace engine::runtime
         // Install THIS instance's input runtime as the context's Input service (overriding the shared
         // editor runtime the run-host configurator installed), so the game reads only ITS own source.
         context->SetService(input::kInputScriptService, &m_inputRuntime);
+        InstallSaveScriptService(*context, m_save); // Save.* -> this run's save
 
         const bool loaded = m_scriptContext->Load(source, name).IsOk();
         m_runHost
@@ -171,6 +172,8 @@ namespace engine::runtime
         m_runHost.SetGameScriptHold(false);
         m_runHost.SetExternalErrorSink(nullptr);
         StopNetworking(); // networking belongs to the run - the endpoint drops with it
+        // What the game saved and did not write yet is kept: the run writes it as it ends.
+        (void)m_save.Flush();
         // So does any rumble the game started: no pad is left buzzing after its run.
         if (m_inputSource != nullptr)
         {
@@ -492,7 +495,11 @@ namespace engine::runtime
     {
         static const engine::DomainModule kModule{
             .id = u8"run",
-            .registerScriptFacade = &RegisterRunScriptFacade};
+            .registerScriptFacade = []()
+            {
+                RegisterRunScriptFacade();
+                RegisterSaveScriptFacade();
+            }};
         return kModule;
     }
 }
