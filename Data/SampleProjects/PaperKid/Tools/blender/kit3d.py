@@ -168,6 +168,19 @@ def export_rigged(path, rig, body):
                               export_yup=True)
 
 
+def turn_quat(rig, bone_name, axis, degrees):
+    """A pose rotation turning the bone `degrees` about the world-rest `axis` (right-handed), given in
+    the bone's own frame, as pose bones take it. Built from the bone's real axes, not guessed signs."""
+    from mathutils import Quaternion
+    rest = rig.data.bones[bone_name].matrix_local.to_3x3()
+    return Quaternion(rest.inverted() @ Vector(axis).normalized(), math.radians(degrees))
+
+
+# Turns in the figure's own terms (it faces -Y, +X its left, +Z up). PITCH about -X: a bone pointing
+# forward lifts its tip, a bone pointing down swings its tip forward. YAW about +Z: turn to the left.
+PITCH_AXIS, YAW_AXIS, ROLL_AXIS = (-1, 0, 0), (0, 0, 1), (0, -1, 0)
+
+
 def export_static(path, name):
     """The parts joined into one mesh named `name`, written as a glTF binary (no rig, no clips)."""
     bpy.ops.object.select_all(action="DESELECT")
