@@ -9,13 +9,17 @@
 //
 // The block's traffic is set here too: on the first frame (every behavior has started by then) it
 // tells the cars and pedestrians their speeds, and the pedestrians where the ring road runs. A crash ("BikeCrashed", from the Bike) costs time.
-// The clock's tells: "Hurry up!" once at 20 s left, a tick every second of the last 10 while the
-// HUD's time blinks, and "Time over!" when it runs out. All on scene time, so a pause stops them.
+// The clock's tells: "Hurry up!" once at 15 s left, when the block's music also speeds up (the
+// arcade hurry-up: its playback rate eased up, tempo and pitch together; the next block's track
+// starts at its own speed), a tick every second of the last 10 while the HUD's time blinks, and
+// "Time over!" when it runs out. All on scene time, so a pause stops them.
 Guid kHurrySound = Guid("75413373-fbc2-4da3-9966-76e93a13782d");
 Guid kTickSound = Guid("96dd2268-4344-4224-bfad-661e2b5cf12b");
 Guid kTimeOverSound = Guid("2c347e4a-e1cb-42e2-ab4c-bd3caea67332");
 
-const float kHurryAt = 20.0f;
+const float kHurryAt = 15.0f;
+const float kHurryMusicRate = 1.2f;    // 20% faster
+const float kHurryMusicEase = 0.6f;    // seconds to get there
 const float kTicksFrom = 10.0f;
 
 class Level
@@ -129,6 +133,7 @@ class Level
         {
             m_hurried = true;
             Audio::playOneShot(kHurrySound, AudioBus::Effects);
+            Audio::setVoicePitch(Audio::musicVoice(), kHurryMusicRate, kHurryMusicEase);
         }
         Label@ time = ui::findLabel("hud-time");
         if (m_timeLeft > kTicksFrom)
