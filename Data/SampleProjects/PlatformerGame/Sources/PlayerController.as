@@ -12,6 +12,9 @@
 // there, facing the way they stood on it), a poof as they reappear, then a moment of blinking
 // in which nothing can hurt. Safe ground is a spot stood still on with ground all round it: near
 // an edge the nearest spot that has is kept instead, so a respawn never starts half off a ledge.
+//
+// The pad rumbles with the game: a heavy jolt for a fall or a hit, a sharp kick off a stomped
+// enemy, a thud for a hard landing, and a happy pulse at the flag.
 
 // The Character model's clips (Models/Character/Character).
 Guid kIdleClip = Guid("9208bf59-c1d7-4556-baf2-4535e81488c9");
@@ -123,6 +126,7 @@ class PlayerController
         if (grounded && !m_wasGrounded && (m_airTime > 0.35f))
         {
             dust();
+            Input::rumble(0.3f, 0.1f, 0.08f); // the thud of landing
         }
         m_airTime = grounded ? 0.0f : m_airTime + dt;
         m_wasGrounded = grounded;
@@ -202,6 +206,7 @@ class PlayerController
     {
         CharacterComponent::of(self).launch(bounceSpeed);
         m_sinceGrounded = 1000.0f; // the bounce is not a coyote jump
+        Input::rumble(0.25f, 0.6f, 0.12f); // a sharp kick off the enemy
     }
 
     // A hazard or an enemy touched the player: the same as a fall, with a jolt of the camera.
@@ -219,6 +224,7 @@ class PlayerController
     void onCelebrate()
     {
         m_celebrating = true;
+        Input::rumble(0.2f, 0.5f, 0.35f); // a happy pulse
     }
 
     // A fall or a hit: a poof where the player went, then back to the last safe ground with no
@@ -233,6 +239,7 @@ class PlayerController
         m_velX = 0.0f;
         m_velZ = 0.0f;
         ScenePrefabs::of(self.scene).spawn(kPoof, self.worldPosition());
+        Input::rumble(0.8f, 0.5f, 0.3f); // the jolt of a fall or a hit
         CharacterComponent::of(self).setPosition(m_spawn);
         m_yaw = m_spawnYaw;
         self.setRotation(Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f), m_yaw));
