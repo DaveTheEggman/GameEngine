@@ -477,6 +477,11 @@ namespace editor
         {
             m_audio->EndRun(m_gameInstance);
         }
+        // Its screens go with it (another tab's run keeps its own).
+        if (m_app != nullptr && m_app->UI() != nullptr && m_gameInstance != nullptr)
+        {
+            m_app->UI()->EndRunScreens(m_gameInstance);
+        }
         m_running = false;
         RefreshToolbar();
     }
@@ -664,6 +669,16 @@ namespace editor
             m_router->SetExternalCapture(false, m_viewport->HostKeyboardFocusElsewhere());
             m_router->Update();
         } // gate the surface: hover=mouse, click=keyboard focus
+        // The game UI's input (one pump for every Game tab) goes to the tab the keyboard is in, or
+        // to the one a playtest is scripting; with neither, it stays with the tab that took it last
+        // (a lone tab keeps it from Play on). Each run's screens are its own (run screens), so the
+        // claim decides only whose menus the keys and clicks reach.
+        if (m_running && m_input != nullptr &&
+            (m_scripted.Get() != nullptr ||
+             (m_viewport->Surface() != nullptr && m_viewport->Surface()->Focused())))
+        {
+            m_input->SetSourceProvider(ActiveSource(), m_scene);
+        }
         // IME follows the GAME UI's focus through the host window: the viewport (the
         // editor context's focused view while playing) forwards the game context's
         // WantsTextInput, and the editor's own input bridge does the Start/Stop.
@@ -788,14 +803,19 @@ namespace editor
         }
         frame.encoder->TransitionTexture(m_viewport->ColorTexture(), m_viewport->ColorState(),
                                          rhi::ResourceState::RenderTarget);
-        // The UI is shared between the Game tabs; each lays its screen tier out at its own render
-        // resolution as it draws.
+        // The UI is shared between the Game tabs; each draws its own run's screen tier, laid out at
+        // its own render resolution (the shared tier's global overlays draw above it).
         if (m_app != nullptr && m_app->UI() != nullptr)
         {
-            m_app->UI()->SetScreenResolution(m_renderWidth, m_renderHeight, m_renderFit);
+            m_app->UI()->SetScreenResolution(m_gameInstance, m_renderWidth, m_renderHeight, m_renderFit);
+            m_app->UI()->SetRenderRun(m_gameInstance);
         }
         render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
                                m_viewport->ColorFormat(), w, h, frame.frameIndex);
+        if (m_app != nullptr && m_app->UI() != nullptr)
+        {
+            m_app->UI()->SetRenderRun(nullptr);
+        }
         frame.encoder->TransitionTexture(m_viewport->ColorTexture(),
                                          rhi::ResourceState::RenderTarget,
                                          rhi::ResourceState::ShaderRead);

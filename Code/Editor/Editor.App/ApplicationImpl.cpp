@@ -388,6 +388,12 @@ namespace editor::app
             m_embeddedApp->Input()->SetUnboundScenePolicy(
                 engine::input::UnboundInputScenePolicy::ScreenTierOnly);
         }
+        // Each Game tab runs its own game inside this one application: each run gets its own
+        // screen tier (menus, HUD, pause), so tabs never draw or drive each other's screens.
+        if (m_embeddedApp->UI() != nullptr)
+        {
+            m_embeddedApp->UI()->SetRunScreens(true);
+        }
         m_runtimeContext.Startup();
         m_embeddedApp->OnStartup(*m_embeddedHost);
 
