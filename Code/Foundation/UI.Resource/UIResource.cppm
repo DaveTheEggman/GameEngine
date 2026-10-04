@@ -82,16 +82,42 @@ export namespace foundation::ui
         IAllocator* m_allocator;
     };
 
-    /// Cooked UI theme: a validated `.sss` stylesheet payload.
+    /// An SVG a theme names with `@icon name "{guid}"` (a vector image asset), embedded in the cooked
+    /// theme: the stylesheet then parses on its own, with nothing else to wait for, and `svg(name)`
+    /// draws it. `id` is the reference exactly as the sheet writes it.
+    struct UIThemeIcon
+    {
+        String id;
+        String svg;
+    };
+
+    /// Cooked UI theme: a validated `.sss` stylesheet payload, and the icons it names.
     class UIThemeSource : public ISerializable
     {
         RTTI_OBJECT(UIThemeSource, ISerializable)
     public:
         String stylesheet;
+        Array<UIThemeIcon> icons;
 
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "stylesheet", stylesheet);
+            u32 count = static_cast<u32>(icons.Size());
+            ar.Key("icons");
+            ar.BeginArray(count);
+            if (ar.Mode() == SerializeMode::Read)
+            {
+                icons.Clear();
+                icons.Resize(count);
+            }
+            for (UIThemeIcon& icon : icons)
+            {
+                ar.BeginObject();
+                foundation::core::Serialize(ar, "id", icon.id);
+                foundation::core::Serialize(ar, "svg", icon.svg);
+                ar.EndObject();
+            }
+            ar.EndArray();
         }
     };
 
@@ -100,6 +126,21 @@ export namespace foundation::ui
         RTTI_OBJECT(UITheme, Object)
     public:
         String stylesheet;
+        Array<UIThemeIcon> icons;
+
+        /// The SVG an icon reference (`"{guid}"`, as the sheet writes it) stands for; null if the
+        /// theme carries none by that reference.
+        [[nodiscard]] const String* FindIcon(StringView id) const noexcept
+        {
+            for (const UIThemeIcon& icon : icons)
+            {
+                if (icon.id.AsView() == id)
+                {
+                    return &icon.svg;
+                }
+            }
+            return nullptr;
+        }
     };
 
     class UIThemeFactory final : public IResourceFactory
@@ -128,9 +169,59 @@ export namespace foundation::ui
             }
             RefPtr<UITheme> theme = MakeRef<UITheme>(*m_allocator);
             theme->stylesheet = String(source->stylesheet.AsView());
+            theme->icons = Move(source->icons);
             return theme;
         }
     
+    private:
+        IAllocator* m_allocator;
+    };
+
+    /// Cooked vector image: a validated `.svg` document. A theme names one with `@icon` (the
+    /// theme's cook embeds it); the product carries it for anything else that draws one.
+    class UIVectorImageSource : public ISerializable
+    {
+        RTTI_OBJECT(UIVectorImageSource, ISerializable)
+    public:
+        String svg;
+
+        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "svg", svg); }
+    };
+
+    class UIVectorImage : public Object
+    {
+        RTTI_OBJECT(UIVectorImage, Object)
+    public:
+        String svg;
+    };
+
+    class UIVectorImageFactory final : public IResourceFactory
+    {
+    public:
+        explicit UIVectorImageFactory(IAllocator& allocator) noexcept : m_allocator(&allocator) {}
+
+        [[nodiscard]] const TypeInfo* ProductType() const override
+        {
+            return &UIVectorImage::StaticType();
+        }
+        [[nodiscard]] const TypeInfo* CookedType() const override
+        {
+            return &UIVectorImageSource::StaticType();
+        }
+        [[nodiscard]] RefPtr<Object> Create(ResourceManager&,
+                                            foundation::content::Instance& instance) override
+        {
+            RefPtr<ISerializable> object = instance.ReadObject();
+            UIVectorImageSource* source = Cast<UIVectorImageSource>(object.Get());
+            if (source == nullptr)
+            {
+                return RefPtr<Object>{};
+            }
+            RefPtr<UIVectorImage> image = MakeRef<UIVectorImage>(*m_allocator);
+            image->svg = Move(source->svg);
+            return image;
+        }
+
     private:
         IAllocator* m_allocator;
     };
@@ -143,12 +234,18 @@ export namespace foundation::ui
         GlobalTypeRegistry().Register(UIThemeSource::StaticType());
         RegisterSerializable<UIThemeSource>();
         GlobalTypeRegistry().Register(UITheme::StaticType());
+        GlobalTypeRegistry().Register(UIVectorImageSource::StaticType());
+        RegisterSerializable<UIVectorImageSource>();
+        GlobalTypeRegistry().Register(UIVectorImage::StaticType());
     }
 
     RTTI_DEFINE_OBJECT(UIDocumentSource, "rtti::ui")
     RTTI_DEFINE_OBJECT(UIDocument, "rtti::ui")
-    RTTI_DEFINE_OBJECT(UIThemeSource, "rtti::ui")
+    // v2: the icons the sheet names, embedded.
+    RTTI_DEFINE_OBJECT_VERSIONED(UIThemeSource, "rtti::ui", 2)
     RTTI_DEFINE_OBJECT(UITheme, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UIVectorImageSource, "rtti::ui")
+    RTTI_DEFINE_OBJECT(UIVectorImage, "rtti::ui")
 }
 
 export namespace foundation::ui
@@ -158,6 +255,7 @@ export namespace foundation::ui
     inline constexpr foundation::resource::ResourceFactoryDesc kUIResourceFactories[] = {
         foundation::resource::FactoryWithAllocator<UIDocument, UIDocumentSource, UIDocumentFactory>(),
         foundation::resource::FactoryWithAllocator<UITheme, UIThemeSource, UIThemeFactory>(),
+        foundation::resource::FactoryWithAllocator<UIVectorImage, UIVectorImageSource, UIVectorImageFactory>(),
     };
     inline constexpr foundation::resource::ResourceModule kUIResourceModule{
         u8"ui", &RegisterUIResource, kUIResourceFactories,

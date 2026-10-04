@@ -85,6 +85,14 @@ Play-in-editor works by construction (the same event stream through the viewport
   Each property tweens on its own channel: a new tween of one property replaces the running one of
   that property only, so a score can rise, fade and swell at once, and a `set` stops only its own
   property's tween. Zero seconds, or a view in no tree yet, is a set.
+- **Vector images** - an `.svg` imports as a `UIVectorImage` asset (linked in `Sources/`, validated
+  at cook by the same SVG loader that draws it: the icon-systems subset, paths and basic shapes with
+  fills and strokes). A game theme names one with `@icon heart "{guid}"` and draws it with
+  `svg(heart, tint=#E53935)` wherever a drawable goes, e.g. `.lives-icon { background: svg(heart); }`
+  on a sized `<Panel class="lives-icon" width="28" height="28"/>`. The theme's cook embeds every icon
+  it names (`UIThemeSource::icons`, a `reads` edge so a changed SVG recooks the theme), so the sheet
+  parses at runtime with nothing else to load; an `@icon` naming no vector image fails the cook.
+  The editor's theme page preview does not resolve them yet (it parses with no provider).
 - **Images** - `<ImageView source="{guid}"/>` shows a texture asset: the subsystem is its context's
   `IResourceProvider` and binds the id through the application's resource manager, one image key per
   texture, registered on every VG renderer before it draws. A render texture a camera targets is a

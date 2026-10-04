@@ -185,6 +185,7 @@ namespace pipeline
         AddBuilder<NavigationZoneAssetBuilder>(registry);
         AddBuilder<UIDocumentAssetBuilder>(registry);
         AddBuilder<UIThemeAssetBuilder>(registry);
+        AddBuilder<UIVectorImageAssetBuilder>(registry);
         AddBuilder<AudioClipAssetBuilder>(registry);
         AddBuilder<AudioBusLayoutAssetBuilder>(registry);
         AddBuilder<SoundCueAssetBuilder>(registry);

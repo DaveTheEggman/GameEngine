@@ -945,10 +945,7 @@ namespace engine::ui
                         c.themeSheet = nullptr;
                         if (theme != nullptr && !theme->stylesheet.IsEmpty())
                         {
-                            StyleSheetLoader loader(m_context.Allocator());
-                            loader.SetPalette(GameTheme::Palette());
-                            loader.ResourceProvider = m_images.Get(); // image(): texture ids
-                            c.themeSheet = loader.Load(theme->stylesheet.AsView());
+                            c.themeSheet = ParseTheme(*theme);
                         }
                         if (c.root.Get() != nullptr)
                         {
@@ -1096,10 +1093,7 @@ namespace engine::ui
                             c.themeSheet = nullptr;
                             if (theme != nullptr && !theme->stylesheet.IsEmpty())
                             {
-                                StyleSheetLoader loader(m_context.Allocator());
-                                loader.SetPalette(GameTheme::Palette());
-                                loader.ResourceProvider = m_images.Get(); // image(): texture ids
-                                c.themeSheet = loader.Load(theme->stylesheet.AsView());
+                                c.themeSheet = ParseTheme(*theme);
                             }
                             if (c.root.Get() != nullptr)
                             {
@@ -2456,15 +2450,51 @@ namespace engine::ui
                  static_cast<u64>(m_extraFonts.Size()), m_extraFonts.Size() == 1 ? u8"y" : u8"ies");
     }
 
+    namespace
+    {
+        // What a theme's stylesheet reads as it parses: the icons its cook embedded for @icon,
+        // and the subsystem's texture images for image().
+        struct ThemeSheetResources final : public IResourceProvider
+        {
+            ThemeSheetResources(const UITheme& sheetTheme, IResourceProvider& textureImages)
+                : theme(&sheetTheme), images(&textureImages)
+            {
+            }
+
+            bool LoadText(StringView path, String& outText) override
+            {
+                if (const String* svg = theme->FindIcon(path))
+                {
+                    outText = *svg;
+                    return true;
+                }
+                return false;
+            }
+            const foundation::image::ImageData* LoadImage(StringView path) override
+            {
+                return images->LoadImage(path);
+            }
+
+            const UITheme* theme;
+            IResourceProvider* images;
+        };
+    }
+
+    RefPtr<StyleSheet> UISubsystem::ParseTheme(const UITheme& theme)
+    {
+        ThemeSheetResources resources(theme, *m_images);
+        StyleSheetLoader loader(m_context.Allocator());
+        loader.SetPalette(GameTheme::Palette());
+        loader.ResourceProvider = &resources;
+        return loader.Load(theme.stylesheet.AsView());
+    }
+
     void UISubsystem::SetDefaultTheme(const UITheme* theme)
     {
         RefPtr<StyleSheet> sheet;
         if (theme != nullptr && !theme->stylesheet.IsEmpty())
         {
-            StyleSheetLoader loader(m_context.Allocator());
-            loader.SetPalette(GameTheme::Palette());
-            loader.ResourceProvider = m_images.Get(); // image(): texture ids
-            sheet = loader.Load(theme->stylesheet.AsView());
+            sheet = ParseTheme(*theme);
             if (sheet.Get() == nullptr)
             {
                 LOG_WARNING(

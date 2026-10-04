@@ -408,3 +408,123 @@ TEST_CASE("ui.pipeline: theme previewMarkup round-trips on the SOURCE asset but 
     RemoveAll(sourcesRoot);
     RemoveDirectory(u8"scratch_uipipe_preview_db");
 }
+
+// ---- vector images: an SVG asset, and a theme that draws it as an icon ----
+
+namespace
+{
+    constexpr StringView kHeartSvg =
+        u8"<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 24 24\">"
+        u8"<path d=\"M12 21 L3 12 A5 5 0 0 1 12 5 A5 5 0 0 1 21 12 Z\" fill=\"#E53935\"/></svg>";
+}
+
+TEST_CASE("ui.pipeline: a vector image cooks when it is an SVG the engine reads, and fails when not")
+{
+    RegisterUIResource();
+    RegisterUIAssets();
+    RemoveAll(u8"scratch_uipipe_svg_db");
+    REQUIRE(CreateDirectories(u8"scratch_uipipe_svg_db"));
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_svg_db", DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
+    const StringView sourcesRoot = u8"scratch_uipipe_svg_src";
+    StageSource(sourcesRoot, u8"heart.svg", kHeartSvg);
+    WriteText(PathJoin(sourcesRoot, u8"broken.svg").AsView(), u8"<html>not a vector image</html>");
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, DefaultAllocator());
+
+    UIVectorImageAssetBuilder builder;
+    auto* heart = outDb.RootGroup()->CreateInstance(u8"heart", UIVectorImageSource::StaticType());
+    {
+        UIVectorImageAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"heart.svg");
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
+        ctx.output = heart;
+        REQUIRE(builder.Build(asset, ctx).IsOk());
+    }
+    {
+        UIVectorImageAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"broken.svg");
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
+        ctx.output = outDb.RootGroup()->CreateInstance(u8"broken", UIVectorImageSource::StaticType());
+        CHECK_FALSE(builder.Build(asset, ctx).IsOk());
+    }
+
+    UIVectorImageFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), outDb);
+    manager.AddFactory(&factory);
+    Proxy<UIVectorImage> image = manager.Bind<UIVectorImage>(heart->Id());
+    REQUIRE(image);
+    CHECK(image->svg.AsView() == kHeartSvg);
+
+    // The importer takes an .svg as a vector image.
+    UIFileImporter importer;
+    CHECK(importer.Accepts(u8"svg"));
+
+    RemoveAll(sourcesRoot);
+    RemoveAll(u8"scratch_uipipe_svg_db");
+}
+
+TEST_CASE("ui.pipeline: a theme's @icon embeds the vector image it names, and an unknown one fails")
+{
+    RegisterUIResource();
+    RegisterUIAssets();
+    RemoveAll(u8"scratch_uipipe_icon_db");
+    REQUIRE(CreateDirectories(u8"scratch_uipipe_icon_db"));
+    foundation::vfs::NativeFileSystem outMount(u8"scratch_uipipe_icon_db", DefaultAllocator());
+    content::ContentDatabase outDb(DefaultAllocator(), outMount, BinarySerializerFactory(), u8".rasset");
+    const StringView sourcesRoot = u8"scratch_uipipe_icon_src";
+    StageSource(sourcesRoot, u8"heart.svg", kHeartSvg);
+    foundation::vfs::NativeFileSystem sourcesMount(sourcesRoot, DefaultAllocator());
+
+    // The vector image, cooked first (the theme's `reads` edge orders it so in a real cook).
+    auto* heart = outDb.RootGroup()->CreateInstance(u8"heart", UIVectorImageSource::StaticType());
+    {
+        UIVectorImageAsset asset;
+        asset.fileName = foundation::vfs::SourcePath(u8"heart.svg");
+        pipeline::AssetBuildContext ctx{DefaultAllocator()};
+        ctx.sources = &sourcesMount;
+        ctx.output = heart;
+        REQUIRE(UIVectorImageAssetBuilder{}.Build(asset, ctx).IsOk());
+    }
+    const String reference = Format(u8"{{{}}}", heart->Id());
+    String sheet(u8"@icon heart \"");
+    sheet.Append(reference.AsView());
+    sheet.Append(u8"\";\n.lives-icon { background: svg(heart, tint=#E53935); }\n");
+    WriteText(PathJoin(sourcesRoot, u8"theme.sss").AsView(), sheet.AsView());
+
+    UIThemeAsset asset;
+    asset.fileName = foundation::vfs::SourcePath(u8"theme.sss");
+    UIThemeAssetBuilder builder;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
+    ctx.sources = &sourcesMount;
+    ctx.db = &outDb;
+
+    // The scan names the image as content the theme reads, so a changed SVG recooks the theme.
+    pipeline::AssetDependencies dependencies;
+    builder.ScanDependencies(asset, ctx, dependencies);
+    REQUIRE(dependencies.reads.Size() == 1u);
+    CHECK(dependencies.reads[0] == heart->Id());
+
+    auto* themeInstance = outDb.RootGroup()->CreateInstance(u8"theme", UIThemeSource::StaticType());
+    ctx.output = themeInstance;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+    UIThemeFactory themeFactory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), outDb);
+    manager.AddFactory(&themeFactory);
+    Proxy<UITheme> theme = manager.Bind<UITheme>(themeInstance->Id());
+    REQUIRE(theme);
+    REQUIRE(theme->icons.Size() == 1u);
+    const String* svg = theme->FindIcon(reference.AsView());
+    REQUIRE(svg != nullptr);
+    CHECK(svg->AsView() == kHeartSvg);
+
+    // An @icon naming no vector image fails the cook rather than drawing nothing.
+    WriteText(PathJoin(sourcesRoot, u8"theme.sss").AsView(),
+              u8"@icon star \"{6dd1ae0e-fbe8-4c9b-8c9e-d10b727f4d84}\";\n.star { background: svg(star); }\n");
+    ctx.output = outDb.RootGroup()->CreateInstance(u8"theme2", UIThemeSource::StaticType());
+    CHECK_FALSE(builder.Build(asset, ctx).IsOk());
+
+    RemoveAll(sourcesRoot);
+    RemoveAll(u8"scratch_uipipe_icon_db");
+}

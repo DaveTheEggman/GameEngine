@@ -1307,6 +1307,43 @@ TEST_CASE("ui.subsystem: RenderTexture canvases own an offscreen target and stay
     ctx.Shutdown();
 }
 
+// A cooked theme carries the vector images its @icon directives name; the game's parse reads them
+// from the theme, so svg(name) draws with nothing else loaded.
+TEST_CASE("ui.subsystem: a theme's embedded icons draw through svg() in the game UI")
+{
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+
+    const StringView reference = u8"{0b9f3c2e-4a7d-4e21-9c55-6a1d2b3c4d5e}";
+    UITheme theme;
+    theme.stylesheet = Format(u8"@icon heart \"{}\";\n.heart {{ background: svg(heart, tint=#E53935); }}\n"
+                              u8".plain {{ background: svg(nothing); }}\n",
+                              reference);
+    theme.icons.PushBack(UIThemeIcon{String(reference),
+                                     String(u8"<svg viewBox=\"0 0 24 24\"><path d=\"M12 21 L3 12 L12 3 L21 12 Z\" "
+                                            u8"fill=\"#ffffff\"/></svg>")});
+    ui->SetDefaultTheme(&theme);
+
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    ui->Context().AddRootView(root.Get());
+    auto heart = MakeRef<Panel>(DefaultAllocator());
+    heart->AddClass(u8"heart");
+    root->AddView(heart.Get());
+    auto plain = MakeRef<Panel>(DefaultAllocator());
+    plain->AddClass(u8"plain");
+    root->AddView(plain.Get());
+
+    Drawable* drawn = heart->ResolveStyleDrawable(StyleProperty::Background);
+    REQUIRE(drawn != nullptr);
+    CHECK(Cast<SVGDrawable>(drawn) != nullptr);
+    CHECK(plain->ResolveStyleDrawable(StyleProperty::Background) == nullptr); // no such icon
+
+    ui->Context().RemoveRootView(root.Get());
+    ctx.Shutdown();
+}
+
 TEST_CASE(
     "ui.subsystem: the project-default theme swaps the context stylesheet (GameTheme fallback)")
 {

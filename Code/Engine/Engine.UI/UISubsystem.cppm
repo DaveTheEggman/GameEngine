@@ -757,6 +757,9 @@ export namespace engine::ui
         // impl-side: the context's resource provider (texture asset id -> a UI image)
         struct TextureImages;
         UniquePtr<TextureImages> m_images;
+        // A cooked theme's stylesheet, parsed with its own icons (@icon) and the texture images
+        // (image()); null when it does not parse.
+        [[nodiscard]] RefPtr<StyleSheet> ParseTheme(const UITheme& theme);
     };
 }
 

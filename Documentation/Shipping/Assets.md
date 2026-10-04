@@ -26,6 +26,11 @@ first (see below).
 Scenes and prefabs are NOT cooked - they are XML text sources staged directly (see
 Scenes.md).
 
+Game UI sources link like scripts: `.sml` screens, `.sss` themes and `.svg` vector images
+import as assets whose text stays in `Sources/`. A theme draws a vector image as an icon:
+`@icon heart "{guid}";` then `svg(heart, tint=#E53935)` as any background. The theme's cook
+embeds the icons it names and fails on one that names no vector image.
+
 ## Inspecting
 
 - `asset_list` / `asset_info` - what exists (guid, name, type, group), in either database.
