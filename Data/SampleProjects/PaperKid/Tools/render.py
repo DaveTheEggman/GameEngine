@@ -6,10 +6,12 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pkgen import mcp
 HERE = os.path.dirname(os.path.abspath(__file__))
 SOURCES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Sources")
-# By name; a prefab sharing a script's name is written {{Prefab:Name}}.
+# By name; a prefab sharing a script's name is written {{Prefab:Name}}, and an animation clip
+# {{Clip:Name}} (the kid's Throw clip shares its name with the throw's sound).
+PREFIX = {"PrefabDocument": "Prefab:", "AnimationClipAsset": "Clip:"}
 ids = {}
 for a in mcp("asset_list", {})["assets"]:
-    ids[("Prefab:" if a["type"] == "PrefabDocument" else "") + a["name"]] = a["guid"]
+    ids[PREFIX.get(a["type"], "") + a["name"]] = a["guid"]
 ok = True
 for name in sys.argv[1:]:
     text = open(os.path.join(HERE, "scripts", name + ".as")).read()

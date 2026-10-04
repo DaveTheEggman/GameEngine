@@ -27,6 +27,12 @@ Guid kFxConfetti = Guid("{{Prefab:FxConfetti}}");
 const int kAimDots = 14;
 const float kAimStep = 0.09f; // flight seconds between dots
 Guid kThrowSound = Guid("{{Throw}}");
+// The kid's clips (Models/KidBike, from Tools/blender/kid_bike.py). Ride turns the wheels twice and
+// the pedals once a second, 4.4 m of road, so it plays at the bike's speed over that; Throw is the
+// same second with the arm's throw in its first half, so Ride picks up where it ends.
+Guid kRideClip = Guid("{{Clip:Ride}}");
+Guid kThrowClip = Guid("{{Clip:Throw}}");
+const float kRideMetres = 4.4f;
 Guid kCrashSound = Guid("{{Crash}}");
 
 class Bike
@@ -64,11 +70,20 @@ class Bike
     private array<Entity@> m_dots;
     private Entity@ m_ring;
     private float m_clock = 0.0f;      // drives the dots' drift and the ring's spin
+    private Entity@ m_kid;             // the kid on his bike: the model whose clips play
+    private float m_throwing = 0.0f;   // seconds of the Throw clip left to play
 
     Bike(Entity@ entity) { @self = entity; }
 
     void onStart()
     {
+        @m_kid = self.findChildByName("KidBike");
+        if (m_kid !is null && m_kid.isValid())
+        {
+            SceneAnimation anim = SceneAnimation::of(self.scene);
+            anim.setClip(m_kid, kRideClip);
+            anim.play(m_kid);
+        }
         // Start facing the way the scene placed the bike.
         Float3 forward = Quaternion::RotateVector(self.rotation(), Float3(0.0f, 0.0f, 1.0f));
         m_heading = Math::Atan2(forward.x, forward.z);
@@ -154,11 +169,48 @@ class Bike
             placeGuides();
             if (Input::wasPressed("Throw") && throwPaper())
             {
+                startThrowClip();
                 Audio::playOneShot(kThrowSound, AudioBus::Effects, 0.8f, Random::range(0.9f, 1.15f));
                 Input::rumble(0.0f, 0.25f, 0.05f); // the flick of a throw
                 self.scene.events.emit("PaperThrown", 1);
             }
         }
+        animateKid(d);
+    }
+
+    // The kid pedals as fast as the bike goes (and stops pedalling when it stops); a throw plays
+    // at least at walking pace, so it is seen even from a standstill.
+    private void animateKid(float d)
+    {
+        if (m_kid is null || !m_kid.isValid())
+        {
+            return;
+        }
+        float pace = Math::Abs(m_speed) / kRideMetres;
+        if (m_throwing > 0.0f)
+        {
+            if (pace < 1.0f) { pace = 1.0f; }
+            m_throwing -= d * pace;
+            if (m_throwing <= 0.0f)
+            {
+                SceneAnimation anim = SceneAnimation::of(self.scene);
+                anim.setClip(m_kid, kRideClip);
+                anim.play(m_kid);
+            }
+        }
+        SkeletalAnimationComponent::of(m_kid).speed = pace;
+    }
+
+    private void startThrowClip()
+    {
+        if (m_kid is null || !m_kid.isValid())
+        {
+            return;
+        }
+        SceneAnimation anim = SceneAnimation::of(self.scene);
+        anim.setClip(m_kid, kThrowClip);
+        anim.play(m_kid);
+        m_throwing = 1.0f;
     }
 
     private float clamp01(float v)

@@ -94,20 +94,19 @@ CYL, SPHERE = ids["Cylinder"], ids["Sphere"]
 ROLL_Z = (0.0, 0.0, 0.7071068, 0.7071068)
 
 
+# The kid on his bike (Tools/blender/kid_bike.py, imported as Models/KidBike): its prefab's root
+# is the model, its origin the ground under the bike.
+KID_BIKE = next(a["guid"] for a in ASSETS
+                if a["type"] == "PrefabDocument" and a.get("group", "").startswith("Models/KidBike"))
+
+
 def bike(d, pos, facing):
     """The player: a character capsule (its centre is the entity; the feet are 0.9 below) with the
-    Bike behavior, and a bike and rider of primitives."""
+    Bike behavior, and the kid on his bike, standing on the ground under it."""
     b = d.entity("Bike", pos, yaw(facing), eid=BIKE_ID)
     d.add(b, "physics.Character", radius=0.4, halfHeight=0.5)
     d.script(b, (ids["Bike"], {}))
-    for z in (-0.55, 0.55):
-        mesh(d, "Wheel", CYL, (0, -0.55, z), (0.7, 0.12, 0.7), (0.1, 0.1, 0.11), ROLL_Z, parent=b)
-    mesh(d, "Frame", CUBE, (0, -0.4, 0), (0.1, 0.12, 1.1), (0.9, 0.2, 0.2), parent=b)
-    mesh(d, "Bars", CUBE, (0, -0.1, 0.45), (0.6, 0.06, 0.06), (0.2, 0.2, 0.22), parent=b)
-    mesh(d, "Bag", CUBE, (0, -0.15, -0.5), (0.5, 0.35, 0.4), (0.85, 0.75, 0.55), parent=b)
-    mesh(d, "Rider", CYL, (0, 0.15, -0.05), (0.45, 0.6, 0.35), (0.2, 0.45, 0.85), parent=b)
-    mesh(d, "Head", SPHERE, (0, 0.62, 0), (0.36, 0.36, 0.36), (0.93, 0.76, 0.6), parent=b)
-    mesh(d, "Cap", CUBE, (0, 0.8, 0.05), (0.38, 0.1, 0.42), (0.95, 0.35, 0.15), parent=b)
+    d.instance(KID_BIKE, (0, -0.9, 0), parent=b)
 
 
 def spaced(limit, step=10):
