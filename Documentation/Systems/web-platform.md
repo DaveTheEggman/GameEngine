@@ -37,6 +37,22 @@ html shell + `Content.pak` + the WGSL `Data/Shaders/shaders.dpak` (+ `Data/.data
 standard export path (the "Web" export template - see `Documentation/Systems/export.md`); the web
 player fetches the `Data/` tree into MEMFS so the one data-root discovery finds it at `/Data`.
 
+## Saves and settings
+
+The user data directory (a game's save, the user's settings) is mounted over the browser's IndexedDB
+by the web player before the game starts (`MountUserData` in `WebMain.cpp`, IDBFS, linked with
+`-lidbfs.js`), and what the page stored there before is loaded into it. A writer pushes what it wrote
+back with `core::PersistUserData()` (a run's save on flush, the player's settings), a background
+`FS.syncfs` on the web and a no-op on desktop. A browser that refuses storage (some private windows)
+keeps the directory in memory for the page.
+
+## Testing from another device
+
+WebGPU exists only in a secure context (localhost, or HTTPS). `serve.py` (staged beside every web
+export) serves the folder; `python3 serve.py 8443 --https` serves it over HTTPS with a self-signed
+certificate, so a phone or another computer on the network can open it by address after accepting
+the certificate once. Plain HTTP from another machine loads the page without WebGPU.
+
 ## Deferred (none block a playing game)
 
 - **wasm pthreads + SharedArrayBuffer** opt-in (hosting-header-gated).
