@@ -3,22 +3,111 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
-  <title>Player</title>
+  <title>Loading</title>
   <style>
     html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #0a0a0c; }
     /* The canvas fills the window; its backing pixel size is synced to the displayed size below
        so WebGPU renders at native resolution and the web shell's resize pump reconfigures the
        swapchain to match. */
     #canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+    /* What the page shows until the game draws: its name, what is downloading and how much has
+       come, or why it cannot start. */
+    #loading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+               background: #0a0a0c; color: #e8ecf3; font: 16px/1.4 system-ui, sans-serif;
+               transition: opacity 0.4s ease; }
+    #loading.done { opacity: 0; pointer-events: none; }
+    #loading .card { width: min(420px, calc(100vw - 32px)); text-align: center; }
+    #loading h1 { margin: 0 0 18px; font-size: 1.9rem; font-weight: 700; letter-spacing: 0.01em; }
+    #loading .bar { position: relative; height: 6px; border-radius: 3px; background: #23262e; overflow: hidden; }
+    #loading .bar span { position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 3px; background: #4da3ee;
+                         animation: slide 1.2s ease-in-out infinite; }
+    #loading.failed .bar { display: none; }
+    #loading p { margin: 12px 0 0; color: #9aa3b2; font-size: 0.95rem; min-height: 1.4em; }
+    #loading.failed p { color: #f0b4b4; }
+    @keyframes slide { from { left: -35%; } to { left: 100%; } }
   </style>
 </head>
 <body>
   <canvas id="canvas" tabindex="0" oncontextmenu="event.preventDefault()"></canvas>
+  <div id="loading"><div class="card">
+    <h1 id="loading-name">Loading</h1>
+    <div class="bar"><span></span></div>
+    <p id="loading-status">Starting</p>
+  </div></div>
   <script type="text/javascript">
     // Full C++ stacks in the mid-frame-wait tripwire: Chrome truncates Error.stack
     // at 10 frames by default, which is exactly deep enough to reach WaitIdle and
     // stop BEFORE the frame that names the actual caller.
     Error.stackTraceLimit = 64;
+
+    // ---- the loading card ----
+    var loading = {
+      root: document.getElementById('loading'),
+      status: document.getElementById('loading-status'),
+      received: 0,
+      pending: 0,
+      stage: 'Starting',
+      show: function () {
+        if (this.root.classList.contains('failed')) return;
+        var mb = this.received / (1024 * 1024);
+        this.status.textContent = this.stage + (mb >= 0.1 ? '  (' + mb.toFixed(1) + ' MB)' : '');
+      },
+      fail: function (text) {
+        this.root.classList.add('failed');
+        this.status.textContent = text;
+      },
+      // The player calls this once the game is running (its first update).
+      done: function () { this.root.classList.add('done'); }
+    };
+
+    // The game's name, from the manifest the player reads too, for the card and the tab.
+    fetch('player.xml').then(function (r) { return r.ok ? r.text() : ''; }).then(function (text) {
+      var match = /<string name="name">([^<]*)<\/string>/.exec(text);
+      if (match && match[1]) {
+        document.title = match[1];
+        document.getElementById('loading-name').textContent = match[1];
+      }
+    }).catch(function () {});
+
+    if (!navigator.gpu) {
+      loading.fail('This game needs WebGPU, which this browser does not offer. ' +
+                   'Try a recent Chrome or Edge on desktop' +
+                   (window.isSecureContext ? '.' : ', and open the page over https.'));
+    }
+
+    // Every download the game makes (its engine's wasm, its content) goes through fetch: count
+    // the bytes as they arrive, so the card says what is coming and how much has.
+    var pageFetch = window.fetch.bind(window);
+    window.fetch = function (input, init) {
+      var url = (typeof input === 'string') ? input : (input && input.url) || '';
+      if (/\.wasm(\?|$)/.test(url)) { loading.stage = 'Downloading the engine'; }
+      else if (/\.d?pak(\?|$)/.test(url)) { loading.stage = 'Downloading the game'; }
+      loading.show();
+      loading.pending += 1;
+      // With nothing left coming, the game is starting (setting up its first scene).
+      function finished() {
+        loading.pending -= 1;
+        if (loading.pending === 0) { loading.stage = 'Starting the game'; loading.show(); }
+      }
+      return pageFetch(input, init).then(function (response) {
+        if (!response.ok || !response.body || typeof ReadableStream === 'undefined') { finished(); return response; }
+        var reader = response.body.getReader();
+        var counted = new ReadableStream({
+          pull: function (controller) {
+            return reader.read().then(function (part) {
+              if (part.done) { controller.close(); finished(); return; }
+              loading.received += part.value.byteLength;
+              loading.show();
+              controller.enqueue(part.value);
+            });
+          },
+          cancel: function (reason) { finished(); return reader.cancel(reason); }
+        });
+        return new Response(counted, { status: response.status, statusText: response.statusText,
+                                       headers: response.headers });
+      }, function (error) { finished(); throw error; });
+    };
+
     var Module = {
       canvas: (function () {
         var c = document.getElementById('canvas');
@@ -35,6 +124,8 @@
         window.addEventListener('load', function () { c.focus(); });
         return c;
       })(),
+      onRuntimeInitialized: function () { loading.stage = 'Starting the game'; loading.show(); },
+      onAbort: function (what) { loading.fail('The game stopped while loading: ' + what); },
       print: function (t) { console.log(t); },
       printErr: function (t) { console.error(t); }
     };

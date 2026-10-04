@@ -108,6 +108,11 @@ EM_JS(void, StartUserDataMount, (const char* path), {
 });
 EM_JS(int, UserDataLoaded, (), { return Module.userDataLoaded ? 1 : 0; });
 EM_JS(int, UserDataPersistent, (), { return Module.userDataPersistent ? 1 : 0; });
+// The page's loading card (shell.html) stays up until the game runs; a page without one has
+// nothing to take down.
+EM_JS(void, PageGameRunning, (), {
+    if (typeof loading !== "undefined" && loading.done) loading.done();
+});
 // clang-format on
 
 namespace
@@ -213,7 +218,20 @@ namespace
     public:
         WebPlayerApplication() : PlayerApplication(MakeOptions()) {}
 
+        // The first update means the game is running: the page's loading card can go.
+        void OnUpdate(foundation::runtime::IApplicationHost& host, f32 deltaTime) override
+        {
+            PlayerApplication::OnUpdate(host, deltaTime);
+            if (!m_pageTold)
+            {
+                m_pageTold = true;
+                PageGameRunning();
+            }
+        }
+
     private:
+        bool m_pageTold = false;
+
         static engine::player::PlayerOptions MakeOptions()
         {
             // Fetch BEFORE the app boots: the project loader reads player.xml/Content.pak
