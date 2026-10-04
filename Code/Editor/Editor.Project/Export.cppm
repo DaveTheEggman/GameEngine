@@ -172,6 +172,11 @@ export namespace editor
             {
                 name += u8".exe";
             }
+            // The web player is its page: renamed, it stays a page, or the browser downloads it.
+            if (templateBinary.EndsWith(u8".html") && !name.AsView().EndsWith(u8".html"))
+            {
+                name += u8".html";
+            }
             return name;
         }
 

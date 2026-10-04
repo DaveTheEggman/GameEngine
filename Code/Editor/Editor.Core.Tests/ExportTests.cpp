@@ -2215,7 +2215,7 @@ TEST_CASE("export: desktop Content.pak is byte-identical with a sibling target D
 }
 #endif // OPTION_HAS_ANGELSCRIPT || OPTION_HAS_LUAU
 
-TEST_CASE("export: player output name carries the Windows .exe extension (target-platform aware)")
+TEST_CASE("export: player output name carries the executable or page extension (target-platform aware)")
 {
     using editor::detail::PlayerOutputName;
     // Windows: a bare name gains .exe; an already-suffixed name is left alone (idempotent).
@@ -2226,6 +2226,10 @@ TEST_CASE("export: player output name carries the Windows .exe extension (target
     CHECK(PlayerOutputName(u8"Win64", u8"", u8"Engine.Player") == StringView(u8"Engine.Player.exe"));
     // Non-Windows targets carry no executable suffix.
     CHECK(PlayerOutputName(u8"Linux64", u8"MyGame", u8"Engine.Player") == StringView(u8"MyGame"));
+    // The web player is its page: a renamed one keeps .html, or the browser downloads it.
+    CHECK(PlayerOutputName(u8"Web", u8"SkyHopper", u8"Engine.Player.html") == StringView(u8"SkyHopper.html"));
+    CHECK(PlayerOutputName(u8"Web", u8"SkyHopper.html", u8"Engine.Player.html") == StringView(u8"SkyHopper.html"));
+    CHECK(PlayerOutputName(u8"Web", u8"", u8"Engine.Player.html") == StringView(u8"Engine.Player.html"));
 }
 
 // --- Native ship link derivations (game-native-code.md N3) --------------------------------
