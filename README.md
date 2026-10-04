@@ -113,7 +113,8 @@ and gamepad support throughout.
 
 **PaperKid** is an arcade paper-route game, also built entirely through the MCP tools: five
 town blocks on a difficulty ramp, papers thrown with a soft auto-aim, traffic and pedestrians on
-the navmesh, lives, and a live minimap drawn by a top-down camera into a render texture.
+the navmesh, lives, a live minimap drawn by a top-down camera into a render texture, particle
+effects, a newsprint UI theme, and music that speeds up when the clock runs low.
 
 | Title | Riding a block | Block cleared |
 |:---:|:---:|:---:|

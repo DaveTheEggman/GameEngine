@@ -26,8 +26,12 @@ volumes), a pause menu, block cleared and failed screens, and a Game over or rou
 summary.
 
 The feel: chiptune music on the menus and across the blocks, a sound for every throw, delivery
-and crash, a jingle when a block is cleared or failed and a voice over the final screen, and a
-ticking clock in the last ten seconds ("Hurry up!" at twenty). The markers over the subscribers
+and crash, and a ticking clock in the last ten seconds; at fifteen, "Hurry up!" and the block's
+music speeds up. A cleared block is celebrated before its screen: the clock stops, a banner drops
+in, confetti bursts over the rider and the street eases into slow motion under a fanfare. A
+delivery sparkles off the porch, a crash kicks up dust and a paper puffs where it lands. The
+screens are printed newsprint: cream cards with an inked edge, slab-serif headlines and condensed
+type for the HUD and text. The markers over the subscribers
 bob and their porch mats breathe, the bike leans into turns and wobbles after a crash, the camera
 shakes on a crash, and a delivery's points rise from the score. Near a subscriber, a throw is
 shown before it is made: a trail of glowing dots along the paper's path and a ring spinning on the
@@ -45,13 +49,14 @@ confirm, Start (Options) to pause.
   effects and the music.
 - `Content/`: the asset envelopes (`*.xasset`) and their sidecars: the five blocks and the title
   scene, the blockout kit's prefabs, each block's baked navmesh, the minimap's render texture, the
-  audio clips and the markers' animation clips.
+  audio clips, the markers' animation clips, the particle effects, the UI theme and the shared
+  environment and post profiles every scene uses.
 - `Tools/`: the authoring scripts that drove the editor's MCP tools to build the game (the kit,
   the block generator, the scripts with their asset ids, a closed-loop playtest). Not game
   content; `Tools/README.md` says what each does.
-- `export_presets.xml`: the Linux desktop export target.
-- `CREDITS.md` and `Licenses/`: the music (Juhani Junkala, CC0), the sound effects (Kenney, CC0)
-  and the two fonts (OFL and Apache 2.0). The art is a primitive blockout made in the project.
+- `export_presets.xml`: the export targets (Linux desktop, Steam Deck).
+- `CREDITS.md` and `Licenses/`: the music (Juhani Junkala, CC0), the fanfare (celestialghost8,
+  CC0), the sound effects (Kenney, CC0) and the fonts (OFL, and Apache 2.0). The art is a primitive blockout made in the project.
 - `Cooked/`, `.cache/`, `Editor/`, `Dist/`: generated, and gitignored; the tools rebuild them.
 
 Open the project from the editor's project manager.
