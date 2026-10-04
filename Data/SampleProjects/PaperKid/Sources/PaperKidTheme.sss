@@ -7,7 +7,7 @@
 
 /* The palette (written out where used: var() does not reach inside a drawable's arguments):
  * paper #F4ECD8, paper shade #E4D6B8, ink #2A251F, soft ink #6A5F52, headline red #C8372D
- * (pressed #9C2820), marker yellow #FFD23F, stamp green #2F7D43. */
+ * (pressed #9C2820), marker yellow #FFD23F. */
 
 Label { text-color: #2A251F; }
 
@@ -20,21 +20,18 @@ Label { text-color: #2A251F; }
 	background: rounded-rect(#F4ECD8, radius=6, border=#2A251F, border-width=3);
 	box-shadow: 6 8 0 rgba(42, 37, 31, 0.45);
 }
-/* A cleared block is stamped green, a failed one red. */
-.card-good {
-	background: rounded-rect(#F4ECD8, radius=6, border=#2F7D43, border-width=4);
-	box-shadow: 6 8 0 rgba(42, 37, 31, 0.45);
-}
+/* A failed block's card is edged in headline red; a cleared block's headline is highlighted. */
 .card-bad {
 	background: rounded-rect(#F4ECD8, radius=6, border=#C8372D, border-width=4);
 	box-shadow: 6 8 0 rgba(42, 37, 31, 0.45);
 }
+/* A highlighter stroke behind a headline (the Block cleared screen's good news). */
+.highlight { background: rounded-rect(#FFD23F, radius=3); }
 /* The rule under a headline, as on a front page. */
 .rule { background: rounded-rect(#2A251F, radius=1); }
 
 .masthead { text-color: #C8372D; }
 .headline { text-color: #2A251F; }
-.headline-good { text-color: #2F7D43; }
 .headline-bad { text-color: #C8372D; }
 .body { text-color: #2A251F; }
 .note { text-color: #6A5F52; }
