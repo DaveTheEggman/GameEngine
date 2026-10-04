@@ -54,6 +54,10 @@
   the overlay API, `PushScreenOverlay` / `RemoveScreenOverlay`, has no run yet and only the
   shared tier's overlay layer; give it a run as `ScreensFor` has, keeping truly global overlays,
   a debug badge, shared). Check what Sedulous does first.
+- **pie_run cannot probe a behaviour's vector field** (found 2026-10-04, PaperKid's throws): a probe of
+  `Bike.m_target` (a private `Float3` member of the Bike behaviour) reads null, and `Bike.m_target.x`
+  answers "nothing at 'x'", while the behaviour's float fields probe fine. Probes should read a script
+  value type (Float3, Quaternion, Color) and its components, as they do an entity's `worldPosition`.
 - **Save data follow-ups** (2026-10-04, Documentation/Specs/save-data.md "Not now"): a web backend
   (the web build's user data directory is in memory, so a save lasts one page load: browser storage,
   IndexedDB); an MCP tool to read or clear the play-in-editor save, so an agent testing a "best
