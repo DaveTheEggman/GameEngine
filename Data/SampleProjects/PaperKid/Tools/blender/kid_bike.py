@@ -159,7 +159,7 @@ SHOULDER = lambda side: P(side * 0.21, 0.09, 1.31)
 NECK = P(0, 0.11, 1.37)
 HEAD = P(0, 0.16, 1.54)
 THIGH, SHIN = 0.40, 0.42      # hip to knee, knee to ankle
-UPPER_ARM, FOREARM = 0.27, 0.28
+UPPER_ARM, FOREARM = 0.245, 0.245  # a little longer than the reach to the grips: a slight bend
 ANKLE_LIFT = 0.06             # the ankle above the pedal's axle
 
 
@@ -315,6 +315,9 @@ def build_armature(pose):
         bone("pedal_" + s, p, p + up, "crank")
         # Not deforming: where the foot goes (on its pedal) and where the hand goes (the grip).
         bone("ik_foot_" + s, p + Vector((0, 0, ANKLE_LIFT)), p + Vector((0, 0, ANKLE_LIFT)) + up, "pedal_" + s, False)
+        # Laid along the foot (ankle to toe) and riding on the pedal: the foot copies its turn, so
+        # it stays flat on the pedal and points forward all the way round the crank.
+        bone("foot_aim_" + s, pose["ankle" + s], pose["toe" + s], "pedal_" + s, False)
         bone("ik_hand_" + s, GRIP(side), GRIP(side) + up, "bike", False)
         bone("pole_knee_" + s, HIP(side) + P(0, 0.8, 0.0), HIP(side) + P(0, 0.8, 0.0) + up, "bike", False)
         bone("pole_elbow_" + s, SHOULDER(side) + P(side * 0.6, -0.1, -0.4),
@@ -340,12 +343,14 @@ def build_armature(pose):
         ik.chain_count = 2
         # The foot stays flat on its pedal whatever the leg does.
         cr = pb["foot_" + s].constraints.new("COPY_ROTATION")
-        cr.target, cr.subtarget = rig, "pedal_" + s
+        cr.target, cr.subtarget = rig, "foot_aim_" + s
         cr.mix_mode = "REPLACE"
         ik = pb["forearm_" + s].constraints.new("IK")
         ik.target, ik.subtarget = rig, "ik_hand_" + s
         ik.pole_target, ik.pole_subtarget = rig, "pole_elbow_" + s
-        ik.pole_angle = math.radians(-90)
+        # +90 here (the knees' -90 would bend the elbows in toward the chest): the elbows point
+        # out, back and down, toward their poles.
+        ik.pole_angle = math.radians(90)
         ik.chain_count = 2
     for b in pb:
         b.rotation_mode = "XYZ"
@@ -438,7 +443,7 @@ def strip_helpers(rig, actions):
             b.constraints.remove(c)
     for act in actions:
         for fc in list(getattr(act, "fcurves", [])):
-            if any(h in fc.data_path for h in ("ik_foot", "ik_hand", "pole_")):
+            if any(h in fc.data_path for h in ("ik_foot", "ik_hand", "pole_", "foot_aim")):
                 act.fcurves.remove(fc)
 
 
