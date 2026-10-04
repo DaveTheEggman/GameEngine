@@ -9,13 +9,26 @@ SOURCES = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 # By name; a prefab sharing a script's name is written {{Prefab:Name}}, and an animation clip
 # {{Clip:Name}} (the kid's Throw clip shares its name with the throw's sound).
 PREFIX = {"PrefabDocument": "Prefab:", "AnimationClipAsset": "Clip:"}
-ids = {}
+ids, ambiguous = {}, set()
 for a in mcp("asset_list", {})["assets"]:
-    ids[PREFIX.get(a["type"], "") + a["name"]] = a["guid"]
+    key = PREFIX.get(a["type"], "") + a["name"]
+    if key in ids:
+        ambiguous.add(key)  # several assets answer to it: a script must not name it (several models'
+                            # Walk clips); pass such an asset as a behaviour property instead
+    ids[key] = a["guid"]
+
+
+def resolve(match):
+    key = match.group(1)
+    if key in ambiguous:
+        raise SystemExit("{{%s}} names more than one asset; make it a behaviour property" % key)
+    return ids[key]
+
+
 ok = True
 for name in sys.argv[1:]:
     text = open(os.path.join(HERE, "scripts", name + ".as")).read()
-    text = re.sub(r"\{\{([^}]+)\}\}", lambda m: ids[m.group(1)], text)
+    text = re.sub(r"\{\{([^}]+)\}\}", resolve, text)
     open(os.path.join(SOURCES, name + ".as"), "w").write(text)
     v = mcp("script_validate", {"source": text, "language": "angelscript", "name": name + ".as"})
     print(name, "valid" if v["valid"] else "INVALID", v.get("properties"), v.get("handlers"))

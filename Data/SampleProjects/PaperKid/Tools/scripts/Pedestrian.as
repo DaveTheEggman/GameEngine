@@ -5,9 +5,6 @@
 // The figure (Models/Town/PedestrianModel) turns toward where it walks, easing round rather than
 // snapping, and its Walk clip (two 0.65 m steps a second) plays at the pace it walks.
 
-// The pedestrian's walk (Tools/blender/pedestrian.py): 1.3 m of pavement a second at speed 1.
-Guid kWalkClip = Guid("{{Clip:Walk}}");
-const float kWalkMetres = 1.3f;
 
 class Pedestrian
 {
@@ -16,6 +13,8 @@ class Pedestrian
     [1.6, "Walking speed until the Level sets one (m/s)"] float speed;
     [18.0, "Nearest the middle a walk may lead (m)"] float inner;
     [31.0, "Farthest from the middle a walk may lead (m)"] float outer;
+    ["asset:AnimationClip", "The figure's walk clip"] Guid@ walkClip;
+    [1.3, "Metres the walk clip covers at speed 1"] float walkMetres;
 
     private bool m_walking = false;
     private Entity@ m_figure;
@@ -28,10 +27,10 @@ class Pedestrian
         NavAgentComponent::of(self).setSpeed(speed);
         pickTarget();
         @m_figure = self.findChildByName("PedestrianModel");
-        if (m_figure !is null && m_figure.isValid())
+        if (m_figure !is null && m_figure.isValid() && walkClip !is null && !walkClip.IsNil())
         {
             SceneAnimation anim = SceneAnimation::of(self.scene);
-            anim.setClip(m_figure, kWalkClip);
+            anim.setClip(m_figure, walkClip);
             anim.play(m_figure);
         }
     }
@@ -72,7 +71,7 @@ class Pedestrian
         }
         if (m_figure !is null && m_figure.isValid())
         {
-            SkeletalAnimationComponent::of(m_figure).speed = pace / kWalkMetres;
+            SkeletalAnimationComponent::of(m_figure).speed = pace / walkMetres;
         }
     }
 

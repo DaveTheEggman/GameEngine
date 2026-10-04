@@ -13,8 +13,15 @@ for a in mcp("asset_list", {})["assets"]:
 CUBE, PLANE, CYL, SPHERE, CONE = (ids[n] for n in ("Cube", "Plane", "Cylinder", "Sphere", "Cone"))
 # The modelled pieces (blender/town.py, imported as Models/Town/<Name>Model): each kit prefab keeps
 # its colliders and behaviours and shows its model instead of primitives.
-MODELS = {a["group"].split("/")[-1][:-len("Model")]: a["guid"] for a in mcp("asset_list", {})["assets"]
+ASSETS = mcp("asset_list", {})["assets"]
+MODELS = {a["group"].split("/")[-1][:-len("Model")]: a["guid"] for a in ASSETS
           if a["type"] == "PrefabDocument" and a.get("group", "").startswith("Models/Town/")}
+
+
+def clip(model, name):
+    """A model's animation clip by name (several models have a Walk)."""
+    return next(a["guid"] for a in ASSETS if a["type"] == "AnimationClipAsset"
+                and a.get("group", "") == "Models/Town/%sModel" % model and a["name"] == name)
 
 
 def model(doc, root, name):
@@ -87,7 +94,7 @@ def pedestrian():
     d = Doc("Pedestrian")
     r = d.entity("Pedestrian")
     d.add(r, "navigation.Agent", radius=0.4, height=1.6, maxSpeed=3.0, maxAcceleration=6.0)
-    d.script(r, (ids["Pedestrian"], {}), obstacle(d, r, 0.8))
+    d.script(r, (ids["Pedestrian"], {"walkClip": ("asset", clip("Pedestrian", "Walk"))}), obstacle(d, r, 0.8))
     model(d, r, "Pedestrian")  # rigged, with its Walk clip (blender/pedestrian.py)
     return d
 
