@@ -13,8 +13,8 @@
 //
 // The feel: the bike leans into its turns (harder the faster it goes) and wobbles while it
 // recovers from a crash, which kicks up road dust; a throw and a crash each have their sound,
-// pitched a little at random so repeats do not sound the same. A cleared block bursts confetti
-// over the rider. Near a subscriber, the throw is shown before it is made: a
+// pitched a little at random so repeats do not sound the same, and each kicks the pad (a crash a
+// heavy jolt, a throw a flick). A cleared block bursts confetti over the rider. Near a subscriber, the throw is shown before it is made: a
 // trail of glowing dots along the path a paper would take, drifting forward, and a ring spinning
 // on the porch the throw is pulled toward (the AimDot and TargetRing prefabs, spawned once and moved each frame).
 
@@ -105,6 +105,7 @@ class Bike
         // Bounce back against the way the bike was going: off whatever it ran into.
         m_speed = (m_speed >= 0.0f) ? -knockback : knockback;
         Audio::playOneShot(kCrashSound, AudioBus::Effects, 1.0f, Random::range(0.9f, 1.1f));
+        Input::rumble(0.9f, 0.5f, 0.35f); // the jolt of a crash
         // Road dust off the wheels (the bike's centre is 0.9 above them).
         ScenePrefabs::of(self.scene).spawn(kFxDust, self.position() + Float3(0.0f, -0.8f, 0.0f));
         self.scene.events.emit("BikeCrashed", 1);
@@ -154,6 +155,7 @@ class Bike
             if (Input::wasPressed("Throw") && throwPaper())
             {
                 Audio::playOneShot(kThrowSound, AudioBus::Effects, 0.8f, Random::range(0.9f, 1.15f));
+                Input::rumble(0.0f, 0.25f, 0.05f); // the flick of a throw
                 self.scene.events.emit("PaperThrown", 1);
             }
         }

@@ -4,7 +4,7 @@
 // marker goes, and the zone switches itself off: it takes no more papers, and an inactive entity
 // has no trigger, so the bike's auto-aim (an overlap of the zone group) no longer finds it and
 // stops drawing its arc and ring to a porch already served. A delivery sounds: the paper slapping
-// the porch and a chime, and sparkles off the porch.
+// the porch and a chime, sparkles off the porch, and a tap on the pad.
 
 Guid kLandSound = Guid("5ac330ab-7693-43a0-85ed-7b89d8a484e9");
 Guid kDeliveredSound = Guid("0357e902-2dcc-4003-bd4e-340c6f8fb268");
@@ -29,6 +29,7 @@ class Subscriber
         m_delivered = true;
         Audio::playOneShot(kLandSound, AudioBus::Effects, 0.9f, Random::range(0.95f, 1.05f));
         Audio::playOneShot(kDeliveredSound, AudioBus::Effects, 0.8f);
+        Input::rumble(0.1f, 0.45f, 0.1f); // a delivery's tap
         ScenePrefabs::of(self.scene).spawn(kFxSparkle, self.position() + Float3(0.0f, 0.3f, 0.0f));
         self.scene.events.emit("Delivered", value);
         Entity@ marker = self.findChildByName("Marker");
