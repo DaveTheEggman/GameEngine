@@ -138,6 +138,36 @@ def two_bone(root, target, l1, l2, bend):
     return root + dirn * a + side * h
 
 
+def skin(rig, name):
+    """The parts joined into one mesh named `name`, each still weighted wholly to its bone, and
+    bound to the rig."""
+    bpy.ops.object.select_all(action="DESELECT")
+    for ob in PARTS:
+        ob.select_set(True)
+    bpy.context.view_layer.objects.active = PARTS[0]
+    bpy.ops.object.join()
+    body = bpy.context.view_layer.objects.active
+    body.name = body.data.name = name
+    body.parent = rig
+    mod = body.modifiers.new("Armature", "ARMATURE")
+    mod.object = rig
+    return body
+
+
+def export_rigged(path, rig, body):
+    """The rig and its mesh as a glTF binary, every action in the file as a clip, at rest otherwise."""
+    rig.animation_data_create()
+    rig.animation_data.action = None
+    for track in list(rig.animation_data.nla_tracks):
+        rig.animation_data.nla_tracks.remove(track)
+    bpy.ops.object.select_all(action="DESELECT")
+    rig.select_set(True)
+    body.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_animations=True,
+                              export_animation_mode="ACTIONS", export_skins=True, export_def_bones=True,
+                              export_yup=True)
+
+
 def export_static(path, name):
     """The parts joined into one mesh named `name`, written as a glTF binary (no rig, no clips)."""
     bpy.ops.object.select_all(action="DESELECT")

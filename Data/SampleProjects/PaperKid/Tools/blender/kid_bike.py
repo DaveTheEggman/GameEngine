@@ -253,21 +253,6 @@ def build_armature(pose):
     return rig
 
 
-def skin(rig):
-    """The parts joined into one mesh, each still weighted wholly to its bone."""
-    bpy.ops.object.select_all(action="DESELECT")
-    for ob in PARTS:
-        ob.select_set(True)
-    bpy.context.view_layer.objects.active = PARTS[0]
-    bpy.ops.object.join()
-    body = bpy.context.view_layer.objects.active
-    body.name = body.data.name = "KidBike"
-    body.parent = rig
-    mod = body.modifiers.new("Armature", "ARMATURE")
-    mod.object = rig
-    return body
-
-
 # ---------------------------------------------------------------- the clips
 def bone_space(offset):
     """A rest-space offset in the local axes of a bone pointing up (+Z, no roll), which is how the
@@ -400,23 +385,14 @@ def main():
     build_bike()
     build_kid(pose)
     rig = build_armature(pose)
-    body = skin(rig)
+    body = skin(rig, "KidBike")
     ride = bake(rig, "Ride")
     throw_left = bake(rig, "ThrowLeft", "L")
     throw_right = bake(rig, "ThrowRight", "R")
     strip_helpers(rig, (ride, throw_left, throw_right))
     if PREVIEW:
         preview(rig, body, (ride, throw_left, throw_right))
-    # Export: the rig and its mesh, every action as a clip, at rest otherwise.
-    rig.animation_data.action = None
-    for track in list(rig.animation_data.nla_tracks):
-        rig.animation_data.nla_tracks.remove(track)
-    bpy.ops.object.select_all(action="DESELECT")
-    rig.select_set(True)
-    body.select_set(True)
-    bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, "KidBike.glb"), export_format="GLB",
-                              use_selection=True, export_animations=True, export_animation_mode="ACTIONS",
-                              export_skins=True, export_def_bones=True, export_yup=True)
+    export_rigged(os.path.join(OUT, "KidBike.glb"), rig, body)
     print("KidBike written to", OUT)
 
 
