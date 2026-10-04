@@ -63,6 +63,7 @@ namespace engine::runtime
             return false;
         }
         m_changed = false;
+        PersistUserData(); // a browser keeps it only once pushed to the page's storage
         return true;
     }
 

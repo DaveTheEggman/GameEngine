@@ -913,10 +913,28 @@ namespace foundation::core::sys
 // the host (node --stack-trace-limit / browser devtools), so WriteBacktrace is a no-op.
 #if defined(__EMSCRIPTEN__)
 
+#include <emscripten/emscripten.h> // EM_ASM
+
 namespace foundation::core::sys
 {
     int WriteBacktrace(int) noexcept { return 0; }
     void InstallCrashBacktrace() noexcept {}
+
+    // The web player mounts IndexedDB (IDBFS) over the user data directory and marks it
+    // (Module.userDataPersistent); a push copies what changed in memory to the page's storage. An
+    // unmounted build (a test, a sample) has nothing to push.
+    void PersistUserData() noexcept
+    {
+        // clang-format off
+        EM_ASM({
+            if (Module.userDataPersistent && typeof FS !== "undefined") {
+                FS.syncfs(false, function(error) {
+                    if (error) console.warn("user data was not saved to the browser storage: " + error);
+                });
+            }
+        });
+        // clang-format on
+    }
 }
 
 #else
@@ -926,6 +944,8 @@ namespace foundation::core::sys
 
 namespace foundation::core::sys
 {
+    void PersistUserData() noexcept {} // files are durable once written
+
     int WriteBacktrace(int fd) noexcept
     {
         void* frames[64];

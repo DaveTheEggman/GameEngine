@@ -311,6 +311,13 @@ export namespace foundation::core
         return PathJoin(StringView(reinterpret_cast<const utf8char*>(buffer), length), appName);
     }
 
+    // What is written under the user data directory is durable at once on a desktop. In a browser
+    // it is in memory until pushed to the page's storage (IndexedDB, mounted over the directory by
+    // the web player before the game starts): call this after writing a file there that must
+    // outlive the page, a save or a settings file. Returns at once; the push finishes in the
+    // background. A no-op everywhere but the web.
+    inline void PersistUserData() noexcept { sys::PersistUserData(); }
+
     // --- Platform identity -------------------------------------------------
 
     // Host platform tag ("Win64" / "Linux64" / "Mac64"), matching the Bin/<Config>/<Platform> layout.

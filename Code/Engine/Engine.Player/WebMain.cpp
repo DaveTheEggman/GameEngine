@@ -82,6 +82,34 @@ using namespace foundation::core;
 extern "C" foundation::runtime::IRuntimePlugin* CreatePlugin();
 #endif
 
+
+// The IndexedDB mount behind MountUserData. The path is ASCII (the browser's home directory), read
+// byte by byte from the heap.
+// clang-format off
+EM_JS(void, StartUserDataMount, (const char* path), {
+    Module.userDataLoaded = false;
+    var dir = "";
+    for (var at = path; HEAPU8[at] != 0; ++at) dir += String.fromCharCode(HEAPU8[at]);
+    try {
+        FS.mount(IDBFS, {}, dir);
+    } catch (error) {
+        console.warn("saves will last this page only: " + error);
+        Module.userDataLoaded = true;
+        return;
+    }
+    FS.syncfs(true, function(error) {
+        if (error) {
+            console.warn("saves will last this page only: " + error);
+        } else {
+            Module.userDataPersistent = true;
+        }
+        Module.userDataLoaded = true;
+    });
+});
+EM_JS(int, UserDataLoaded, (), { return Module.userDataLoaded ? 1 : 0; });
+EM_JS(int, UserDataPersistent, (), { return Module.userDataPersistent ? 1 : 0; });
+// clang-format on
+
 namespace
 {
     // Pull one dist file from the serving folder into the MEMFS root. Synchronous under
@@ -159,6 +187,25 @@ namespace
         FetchDistFile("Content.pak");
     }
 
+    // Saves outlive the page: the user data directory (where a game's save and the user's
+    // settings live) is mounted over the browser's IndexedDB, and what the page stored there before
+    // is loaded into it, before the game starts reading it. Writers then push changes back with
+    // PersistUserData. Synchronous under ASYNCIFY, as the fetches are. A browser without storage
+    // (a private window that refuses IndexedDB) keeps the directory in memory for the page.
+    void MountUserData()
+    {
+        const String dir = foundation::core::GetUserDataDirectory();
+        (void)CreateDirectories(dir.AsView());
+        StartUserDataMount(reinterpret_cast<const char*>(dir.CStr()));
+        while (UserDataLoaded() == 0)
+        {
+            emscripten_sleep(10);
+        }
+        LOG_INFO(u8"Player", u8"user data at '{}' ({})", dir.AsView(),
+                 UserDataPersistent() != 0 ? StringView(u8"kept in the browser's storage")
+                                           : StringView(u8"in memory for this page"));
+    }
+
     // Default-constructible so APP_MAIN can own it in static storage: the dist is
     // fetched from the serving folder into the MEMFS root, so the project dir is ".".
     class WebPlayerApplication final : public engine::player::PlayerApplication
@@ -172,6 +219,7 @@ namespace
             // Fetch BEFORE the app boots: the project loader reads player.xml/Content.pak
             // during Initialize, and the app resolves its data root (Data/.dataroot) in
             // Configure, then the render subsystem loads Data/Shaders/shaders.dpak on device init.
+            MountUserData(); // before the player reads the user's settings or a game its save
             FetchDistFile("player.xml");
             // Content: pick the variant pak by the browser's compressed-texture family (BC vs ASTC)
             // and mount it AS Content.pak, so the loader is unchanged (asset-variants P3b).

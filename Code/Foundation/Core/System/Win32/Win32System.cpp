@@ -69,6 +69,8 @@ namespace foundation::core::sys
         return (n >= outSize) ? static_cast<std::size_t>(n - 1) : static_cast<std::size_t>(n);
     }
 
+    void PersistUserData() noexcept {} // files are durable once written
+
     std::size_t GetUserDataDirectory(char* out, std::size_t outSize) noexcept
     {
         // Per-user, machine-local app data (roaming-free): %LOCALAPPDATA%.

@@ -47,6 +47,7 @@ if(EMSCRIPTEN)
         "-sASYNCIFY_STACK_SIZE=1048576" # the deep render-frame pump overflows the 4KB default
         "-lwebsocket.js"           # Net.WebSocket's INTERFACE option does not cross static
                                    # private deps ($<LINK_ONLY>) - restate it (WebScene precedent)
+        "-lidbfs.js"               # saves outlive the page: IndexedDB under the user data directory
     )
     set_target_properties(Engine.Player PROPERTIES SUFFIX ".html")
 
@@ -60,7 +61,8 @@ if(EMSCRIPTEN)
             "--shell-file=${_web_shell}"
             "-sASYNCIFY"
             "-sASYNCIFY_STACK_SIZE=1048576"
-            "-lwebsocket.js")
+            "-lwebsocket.js"
+            "-lidbfs.js")
         set_source_files_properties(WebMain.cpp PROPERTIES OBJECT_DEPENDS "${_web_shell}")
         # Its own basename (emscripten bakes the .js name into the .html and the .wasm name
         # into the .js, so the trio stays self-consistent as Engine.GamePlayer.*; it cannot

@@ -454,6 +454,7 @@ namespace engine::player
                 {
                     (void)userFs.AsWritable()->Save(UserSettingsFileName().AsView(),
                                                     buffer.Bytes());
+                    foundation::core::PersistUserData();
                 }
             }
             engine::runtime::DefaultApplication::OnShutdown(host); // releases products device-alive
