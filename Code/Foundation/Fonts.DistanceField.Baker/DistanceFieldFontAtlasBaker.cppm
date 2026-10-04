@@ -35,11 +35,26 @@ namespace
     // the neighbouring glyph - which otherwise shows as flickering seams under magnification.
     constexpr u32 kCellGutter = 2;
 
+    // The solid block for solid-colour draws, packed as a cell like any glyph.
+    constexpr u32 kWhiteBlockSize = 2;
+
+    // Atlas sides are rounded up to this, so the atlas stays block-compressible (4x4 blocks).
+    constexpr u32 kAtlasSideMultiple = 4;
+
+    // The narrowest width tried when sizing the atlas to its glyphs.
+    constexpr u32 kSmallestTriedWidth = 64;
+
+    [[nodiscard]] constexpr u32 RoundUp(u32 value, u32 multiple)
+    {
+        return (value + multiple - 1) / multiple * multiple;
+    }
+
     // Simple row-based atlas packer (leaves a gutter between cells).
     struct RowPacker
     {
         u32 atlasW = 0, atlasH = 0;
         u32 cursorX = 0, cursorY = 0, rowHeight = 0;
+        u32 usedW = 0, usedH = 0; // the extent the packed cells reach
 
         bool TryPack(u32 w, u32 h, u32& outX, u32& outY)
         {
@@ -49,16 +64,81 @@ namespace
                 cursorY += rowHeight + kCellGutter;
                 rowHeight = 0;
             }
-            if (cursorY + h > atlasH)
+            if (w > atlasW || cursorY + h > atlasH)
                 return false;
             outX = cursorX;
             outY = cursorY;
             cursorX += w + kCellGutter;
             if (h > rowHeight)
                 rowHeight = h;
+            if (outX + w > usedW)
+                usedW = outX + w;
+            if (outY + h > usedH)
+                usedH = outY + h;
             return true;
         }
     };
+
+    struct CellSize
+    {
+        u32 w = 0, h = 0;
+    };
+
+    struct CellPos
+    {
+        u32 x = 0, y = 0;
+    };
+
+    // Packs every cell, in order, into an atlas `width` wide and at most `maxH` tall. Fills `outPos`
+    // (one per cell) and the atlas size the cells need, rounded up to kAtlasSideMultiple; false if
+    // they do not all fit.
+    [[nodiscard]] bool PackAll(const Array<CellSize>& cells, u32 width, u32 maxH, Array<CellPos>* outPos,
+                               u32& outW, u32& outH)
+    {
+        RowPacker packer;
+        packer.atlasW = width;
+        packer.atlasH = maxH;
+        for (usize i = 0; i < cells.Size(); ++i)
+        {
+            u32 x = 0, y = 0;
+            if (!packer.TryPack(cells[i].w, cells[i].h, x, y))
+                return false;
+            if (outPos != nullptr)
+                (*outPos)[i] = CellPos{x, y};
+        }
+        outW = RoundUp(packer.usedW, kAtlasSideMultiple);
+        outH = RoundUp(packer.usedH, kAtlasSideMultiple);
+        return outW <= width && outH <= maxH;
+    }
+
+    // The width (at most maxW) whose packing of `cells` needs the smallest atlas, preferring the
+    // squarer atlas on a tie. The asset's atlas size is a maximum: a Latin set at 48 px needs a
+    // fraction of 1024 x 1024, and every texel of it ships. False if the cells do not fit at all.
+    [[nodiscard]] bool ChooseAtlasWidth(const Array<CellSize>& cells, u32 maxW, u32 maxH, u32& outWidth)
+    {
+        u64 bestArea = 0;
+        u32 bestSkew = 0;
+        bool found = false;
+        const auto consider = [&](u32 width)
+        {
+            u32 w = 0, h = 0;
+            if (!PackAll(cells, width, maxH, nullptr, w, h))
+                return;
+            const u64 area = static_cast<u64>(w) * h;
+            const u32 skew = w > h ? w - h : h - w;
+            if (!found || area < bestArea || (area == bestArea && skew < bestSkew))
+            {
+                found = true;
+                bestArea = area;
+                bestSkew = skew;
+                outWidth = width;
+            }
+        };
+        for (u32 width = kSmallestTriedWidth; width < maxW; width *= 2)
+            consider(width);
+        consider(maxW);
+        return found;
+    }
 }
 
 export namespace foundation::fonts
@@ -102,8 +182,9 @@ export namespace foundation::fonts
             const unsigned char* rawData = ttf.RawData();
             const auto rawDataSize = static_cast<df::i32>(ttf.RawDataSize());
 
-            const u32 atlasW = options.atlasWidth;
-            const u32 atlasH = options.atlasHeight;
+            // The asset's atlas size is the most the atlas may take; it is cropped to its glyphs.
+            const u32 maxAtlasW = options.atlasWidth;
+            const u32 maxAtlasH = options.atlasHeight;
             const u32 padding = options.padding;
             const f64 pxRange = kDefaultPxRange;
             const f32 pixelHeight = options.pixelHeight;
@@ -115,21 +196,13 @@ export namespace foundation::fonts
 
             const f32 scale = stbtt_ScaleForPixelHeight(&stbFont, pixelHeight);
 
-            // Allocate atlas pixel buffer (RGBA8).
-            Array<u8> pixels(static_cast<usize>(atlasW) * atlasH * 4);
-            MemSet(pixels.Data(), 0, pixels.Size());
-
             DistanceFieldFontAtlas* atlas = allocator.New<DistanceFieldFontAtlas>();
             atlas->SetPixelRange(static_cast<f32>(pxRange));
 
-            RowPacker packer;
-            packer.atlasW = atlasW;
-            packer.atlasH = atlasH;
-
-            // Phase 1 (sequential): metrics + deterministic packing. The MSDF generation
-            // itself is the expensive part and each glyph is independent, so it runs in
-            // phase 2 as a ParallelFor over the packed work list; the pack order (and so
-            // the atlas layout) never depends on worker scheduling.
+            // Phase 1 (sequential): metrics, then deterministic packing into an atlas sized to
+            // the glyphs. The MSDF generation itself is the expensive part and each glyph is
+            // independent, so it runs in phase 2 as a ParallelFor over the packed work list;
+            // the pack order (and so the atlas layout) never depends on worker scheduling.
             struct GlyphWork
             {
                 i32 codepoint = 0;
@@ -186,10 +259,6 @@ export namespace foundation::fonts
                 const i32 cellW = glyphW + pad * 2 + 2;
                 const i32 cellH = glyphH + pad * 2 + 2;
 
-                u32 packX = 0, packY = 0;
-                if (!packer.TryPack(static_cast<u32>(cellW), static_cast<u32>(cellH), packX, packY))
-                    continue;
-
                 // Advance width.
                 int advW, lsb;
                 stbtt_GetGlyphHMetrics(&stbFont, glyphIdx, &advW, &lsb);
@@ -204,8 +273,6 @@ export namespace foundation::fonts
                 item.codepoint = cp;
                 item.cellW = cellW;
                 item.cellH = cellH;
-                item.packX = packX;
-                item.packY = packY;
                 // msdfgen's Projection is scale*(coord + translate), so translate is in FONT
                 // UNITS (added before scaling). Map the glyph bbox min corner (fuX0, fuY0) to
                 // pixel (pad+1, pad+1): translate = (pad+1)/s - bboxMin. The msdfgen bitmap is
@@ -213,11 +280,40 @@ export namespace foundation::fonts
                 // convention, which lands the descender (low font Y) near the cell's bottom.
                 item.translateX = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuX0);
                 item.translateY = static_cast<f64>(pad + 1) / s - static_cast<f64>(fuY0);
-                item.region = AtlasRegion(static_cast<u16>(packX), static_cast<u16>(packY),
-                                          static_cast<u16>(cellW), static_cast<u16>(cellH), offsetX,
+                item.region = AtlasRegion(0, 0, static_cast<u16>(cellW), static_cast<u16>(cellH), offsetX,
                                           offsetY, static_cast<f32>(advW) * scale);
                 work.PushBack(item);
             }
+
+            // Pack the glyph cells and, last, the white block, at the width that needs the least
+            // atlas. A glyph that cannot fit fails the bake: dropping it would draw that
+            // character as nothing, with no word why.
+            Array<CellSize> cells;
+            for (const GlyphWork& item : work)
+                cells.PushBack(CellSize{static_cast<u32>(item.cellW), static_cast<u32>(item.cellH)});
+            cells.PushBack(CellSize{kWhiteBlockSize, kWhiteBlockSize});
+            u32 packWidth = 0;
+            if (!ChooseAtlasWidth(cells, maxAtlasW, maxAtlasH, packWidth))
+            {
+                allocator.Delete(atlas);
+                return Err(FontLoadResult::AtlasPackingFailed);
+            }
+            Array<CellPos> positions;
+            positions.Resize(cells.Size());
+            u32 atlasW = 0, atlasH = 0;
+            (void)PackAll(cells, packWidth, maxAtlasH, &positions, atlasW, atlasH);
+            for (usize i = 0; i < work.Size(); ++i)
+            {
+                work[i].packX = positions[i].x;
+                work[i].packY = positions[i].y;
+                work[i].region.x = static_cast<u16>(positions[i].x);
+                work[i].region.y = static_cast<u16>(positions[i].y);
+            }
+            const CellPos whiteAt = positions[cells.Size() - 1];
+
+            // The atlas pixels (RGBA8), zeroed: fully "outside" every glyph.
+            Array<u8> pixels(static_cast<usize>(atlasW) * atlasH * 4);
+            MemSet(pixels.Data(), 0, pixels.Size());
 
             // Phase 2 (parallel): generate each glyph's MSDF and blit it into its own
             // disjoint atlas rect. GenerateGlyphMSDF is stateless (per-call font parse),
@@ -270,13 +366,13 @@ export namespace foundation::fonts
                 return Err(FontLoadResult::NoGlyphsFound);
             }
 
-            // Write a 2x2 solid white block at bottom-right for solid-color draws.
+            // The solid white block for solid-colour draws, in the cell packed for it.
             {
-                const u32 wx = atlasW - 2;
-                const u32 wy = atlasH - 2;
-                for (u32 dy = 0; dy < 2; ++dy)
+                const u32 wx = whiteAt.x;
+                const u32 wy = whiteAt.y;
+                for (u32 dy = 0; dy < kWhiteBlockSize; ++dy)
                 {
-                    for (u32 dx = 0; dx < 2; ++dx)
+                    for (u32 dx = 0; dx < kWhiteBlockSize; ++dx)
                     {
                         const usize idx = (static_cast<usize>(wy + dy) * atlasW + wx + dx) * 4;
                         pixels[idx + 0] = 255;

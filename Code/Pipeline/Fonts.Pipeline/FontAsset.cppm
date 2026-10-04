@@ -113,7 +113,9 @@ export namespace pipeline{
         // product schema change bumps the builder Version() in the SAME commit - the bump IS
         // the migration; it forces every stale cooked font to re-cook.
         // 4 (2026-09-08): FontResource 2 - the glyph bounds keys use full names.
-        [[nodiscard]] u32 Version() const override { return 4; }
+        // 5 (2026-10-04): a distance-field atlas is sized to its glyphs (the asset's atlas size
+        // is a maximum), and a glyph that does not fit fails the bake instead of vanishing.
+        [[nodiscard]] u32 Version() const override { return 5; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override

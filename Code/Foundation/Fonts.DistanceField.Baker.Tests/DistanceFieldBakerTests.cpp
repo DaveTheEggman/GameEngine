@@ -223,6 +223,105 @@ TEST_CASE("df.baker: blank glyphs (space) get an advance-only region")
     DefaultAllocator().Delete(font);
 }
 
+TEST_CASE("df.baker: the atlas is sized to its glyphs, every glyph inside it and none overlapping")
+{
+    // The asset's atlas size is a maximum. A Latin set at 48 px fills a fraction of 1024 x 1024,
+    // and every texel of the atlas ships in the cooked font, so the baker crops to what it packs.
+    IFont* font = LoadRoboto();
+    REQUIRE(font != nullptr);
+
+    FontLoadOptions df = FontLoadOptions::DistanceField();
+    df.pixelHeight = 48.0f;
+    df.firstCodepoint = 32;
+    df.lastCodepoint = 255;
+    df.atlasWidth = df.atlasHeight = 1024;
+    DistanceFieldFontAtlasBaker baker;
+    Result<IFontAtlas*, FontLoadResult> baked = baker.Bake(*font, df, DefaultAllocator());
+    REQUIRE(baked.HasValue());
+    IFontAtlas* atlas = baked.Value();
+
+    const u32 W = atlas->Width();
+    const u32 H = atlas->Height();
+    CHECK(W <= df.atlasWidth);
+    CHECK(H <= df.atlasHeight);
+    CHECK(static_cast<u64>(W) * H * 2 <= static_cast<u64>(df.atlasWidth) * df.atlasHeight);
+    CHECK(W % 4 == 0); // block-compressible later
+    CHECK(H % 4 == 0);
+    CHECK(atlas->PixelData().Size() == static_cast<usize>(W) * H * 4);
+
+    // Every printable ASCII glyph with an outline is in the atlas (none dropped), and no two
+    // glyphs share a texel.
+    Array<AtlasRegion> drawn;
+    for (i32 cp = df.firstCodepoint; cp <= df.lastCodepoint; ++cp)
+    {
+        AtlasRegion r;
+        const bool has = atlas->TryGetRegion(cp, r);
+        if (cp >= 33 && cp <= 126)
+            CHECK(has);
+        if (!has || r.IsEmpty())
+            continue;
+        CHECK(static_cast<u32>(r.x) + r.width <= W);
+        CHECK(static_cast<u32>(r.y) + r.height <= H);
+        drawn.PushBack(r);
+    }
+    CHECK(drawn.Size() > 90);
+    usize overlaps = 0;
+    for (usize i = 0; i < drawn.Size(); ++i)
+        for (usize j = i + 1; j < drawn.Size(); ++j)
+        {
+            const AtlasRegion& a = drawn[i];
+            const AtlasRegion& b = drawn[j];
+            if (a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height)
+                ++overlaps;
+        }
+    CHECK(overlaps == 0);
+
+    // The white texel solid-colour draws sample is white, in its own cell clear of every glyph.
+    const Float2 uv = atlas->WhitePixelUV();
+    const u32 wx = static_cast<u32>(uv.x * static_cast<f32>(W));
+    const u32 wy = static_cast<u32>(uv.y * static_cast<f32>(H));
+    REQUIRE(wx < W);
+    REQUIRE(wy < H);
+    const Span<const u8> px = atlas->PixelData();
+    const usize at = (static_cast<usize>(wy) * W + wx) * 4;
+    CHECK(px[at + 0] == 255);
+    CHECK(px[at + 1] == 255);
+    CHECK(px[at + 2] == 255);
+    CHECK(px[at + 3] == 255);
+    for (const AtlasRegion& r : drawn)
+        CHECK_FALSE((wx >= r.x && wx < static_cast<u32>(r.x) + r.width && wy >= r.y &&
+                     wy < static_cast<u32>(r.y) + r.height));
+
+    DefaultAllocator().Delete(atlas);
+    DefaultAllocator().Delete(font);
+}
+
+TEST_CASE("df.baker: glyphs that cannot fit the maximum fail the bake instead of vanishing")
+{
+    // Dropping a glyph draws that character as nothing, with no word why; the cook must say so.
+    IFont* font = LoadRoboto();
+    REQUIRE(font != nullptr);
+    DistanceFieldFontAtlasBaker baker;
+
+    FontLoadOptions tooSmall = FontLoadOptions::DistanceField();
+    tooSmall.pixelHeight = 48.0f;
+    tooSmall.firstCodepoint = 32;
+    tooSmall.lastCodepoint = 126;
+    tooSmall.atlasWidth = tooSmall.atlasHeight = 128; // room for a handful of 48 px cells
+    Result<IFontAtlas*, FontLoadResult> crowded = baker.Bake(*font, tooSmall, DefaultAllocator());
+    REQUIRE_FALSE(crowded.HasValue());
+    CHECK(crowded.Error() == FontLoadResult::AtlasPackingFailed);
+
+    FontLoadOptions tooNarrow = tooSmall;
+    tooNarrow.atlasWidth = 16; // narrower than one cell
+    tooNarrow.atlasHeight = 4096;
+    Result<IFontAtlas*, FontLoadResult> narrow = baker.Bake(*font, tooNarrow, DefaultAllocator());
+    REQUIRE_FALSE(narrow.HasValue());
+    CHECK(narrow.Error() == FontLoadResult::AtlasPackingFailed);
+
+    DefaultAllocator().Delete(font);
+}
+
 TEST_CASE("df baker: baking is deterministic across runs (parallel-bake regression net)")
 {
     // The MSDF generation fans out across worker threads; the pack order and every

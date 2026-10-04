@@ -24,8 +24,9 @@ using namespace foundation::core;
 
 namespace
 {
-    // Bump on any layout change - old cache files then miss and rebake.
-    constexpr u32 kCacheFormatVersion = 1;
+    // Bump on any layout change - old cache files then miss and rebake. 2: distance-field atlases
+    // are sized to their glyphs, so a cached full-size atlas is stale.
+    constexpr u32 kCacheFormatVersion = 2;
     constexpr u32 kCacheMagic = 0x43414644u; // 'DFAC'
 
     struct CacheHeader
