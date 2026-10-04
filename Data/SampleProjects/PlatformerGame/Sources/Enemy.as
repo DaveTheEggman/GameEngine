@@ -1,7 +1,12 @@
 // Enemy - a patroller: it walks back and forth along X between two points, facing the way it
-// walks. Touching it hurts the player, unless the player comes down on it from above, which
+// walks. Touching it hurts the player, unless the player comes down on it from the air, which
 // defeats it ("EnemyDefeated") and bounces the player off it. On the enemy's entity, whose first
 // child is its model.
+//
+// Touching is a box, not a sphere: within `radius` across the ground and with the player's centre
+// no higher than `touchHeight` above the enemy's origin (and not below it). Only a player in the
+// air and on the way down stomps; one on the ground, walking or standing into the enemy, is hurt,
+// however the enemy's origin sits against the ground the player walks on.
 // FX/FxStompStars: the burst where an enemy was stomped.
 Guid kStompStars = Guid("ab197a34-58e6-4f23-add1-0f2a90f00ca6");
 
@@ -14,8 +19,9 @@ class Enemy
 
     [3.0, "Patrol half-width along X (m)"] float patrolDistance;
     [2.0, "Walk speed (m/s)"] float speed;
-    [1.1, "Touch reach from the enemy's origin to the player's centre (m)"] float radius;
-    [0.5, "The player's centre this far above the enemy's counts as a stomp (m)"] float stompHeight;
+    [1.1, "Touch reach across the ground, enemy to player (m)"] float radius;
+    [1.8, "Touching while the player's centre is at most this far above the enemy's origin (m)"] float touchHeight;
+    [1.0, "Falling at least this fast counts as coming down on the enemy (m/s)"] float stompSpeed;
     ["asset:AnimationClip", "The model's walk clip; none keeps its idle"] Guid@ walkClip;
 
     private Entity@ m_player;
@@ -66,15 +72,18 @@ class Enemy
             return;
         }
         Float3 at = m_player.worldPosition();
-        bool falling = at.y < m_lastPlayerY;
+        float fallSpeed = (dt > 0.0f) ? (m_lastPlayerY - at.y) / dt : 0.0f;
         m_lastPlayerY = at.y;
         Float3 here = self.worldPosition();
-        float distance = Float3::Distance(at, here);
-        if (distance >= radius + stompHeight)
+        float dx = at.x - here.x;
+        float dz = at.z - here.z;
+        float above = at.y - here.y;
+        if ((dx * dx + dz * dz >= radius * radius) || (above > touchHeight) || (above < 0.0f))
         {
             return;
         }
-        if (falling && (at.y > here.y + stompHeight))
+        bool airborne = !CharacterComponent::of(m_player).grounded();
+        if (airborne && (fallSpeed >= stompSpeed))
         {
             self.scene.events.emit("EnemyDefeated", 1);
             m_player.send("Bounce");
@@ -82,7 +91,7 @@ class Enemy
             Audio::playOneShot(kSquashSound);
             self.destroy();
         }
-        else if (distance < radius)
+        else
         {
             m_player.send("Hurt");
         }
