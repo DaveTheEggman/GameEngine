@@ -10,8 +10,9 @@ the same tools before it shipped to a Steam Deck through the container build
 
 ## The game
 
-Three levels of floating grass islands (Grassy Hills, Crab Crossing, Sky Climb): hop between
-platforms, collect coins, stomp crabs and skulls from above, dodge spikes, and reach the flag.
+Five levels of floating islands (Grassy Hills, Crab Crossing, Sky Climb, Bee Meadow, Cloud
+Fortress): hop between platforms, collect coins, stomp crabs, skulls and bees from above, cross
+bridges, dodge spikes, swinging saws and spiky balls, and reach the flag.
 
 A run has three lives: a fall or a hit costs one, a heart found in a level gives one back, and
 so does every 50th coin; the last one lost is the game over, and trying again starts from the
@@ -37,6 +38,8 @@ to jump and confirm, Start (Options) to pause.
   audio, and the kit's glTF models.
 - `Content/`: the asset envelopes (`*.xasset`) and their sidecars.
 - `export_presets.xml`: the Linux desktop and Steam Deck export targets.
+- `Tools/`: the authoring scripts that drive the editor's MCP tools (levels 4 and 5 among them);
+  not game content.
 - `CREDITS.md` and `Licenses/`: the third-party assets and their licences. The music by CodeManu
   is CC-BY 3.0 and must stay credited; everything else is CC0, OFL or Apache 2.0.
 - `Cooked/`, `.cache/`, `Editor/`, `Dist/`: generated, and gitignored; the tools rebuild them.
