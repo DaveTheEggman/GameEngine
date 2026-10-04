@@ -16,9 +16,8 @@
 	<string name="defaultUiFontId">6784980b-7ff3-41a2-9cbf-d6fe216e04f0</string>
 	<string name="loadingDocumentId">00000000-0000-0000-0000-000000000000</string>
 	<u32 name="renderMsaaSamples">1</u32>
-	<array name="uiFontIds" count="4">
+	<array name="uiFontIds" count="3">
 		<string>e632a35e-2b25-4a50-b3e4-05f8df9317cd</string>
-		<string>f0c52c6a-1342-45ec-b500-18189131d03d</string>
 		<string>444d1c87-b50a-4e78-b80d-8202b93c9234</string>
 		<string>7b6877c9-065f-4772-9ce8-167bab0aafd2</string>
 	</array>

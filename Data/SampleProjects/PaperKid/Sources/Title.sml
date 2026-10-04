@@ -6,7 +6,7 @@
     <!-- The front page: the masthead over a rule and the day's headline. -->
     <Panel class="card" padding="28">
       <Flex direction="vertical" align="center" spacing="6">
-        <Label id="title" font-family="Unifraktur" text="PaperKid" font-size="88" class="masthead"/>
+        <Label id="title" font-family="Lilita One" text="PaperKid" font-size="88" class="masthead"/>
         <Panel class="rule" width="460" height="4"/>
         <Label id="tagline" text="Deliver the papers before the clock runs out" font-size="31" class="body"/>
       </Flex>

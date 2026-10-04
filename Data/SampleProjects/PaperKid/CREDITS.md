@@ -24,12 +24,12 @@ Made with the Raptor engine. Third-party assets, with thanks:
 
 ## Fonts
 
-- **Lilita One** by Juan Montoreano, [SIL Open Font License 1.1](https://openfontlicense.org)
+- **Lilita One** by Juan Montoreano (the masthead), [SIL Open Font License 1.1](https://openfontlicense.org)
   (`Licenses/LilitaOne-OFL.txt`).
-- **UnifrakturMaguntia** by j. 'mach' wust (the masthead), **Alfa Slab One** by JM Solé (the
-  headlines) and **Oswald** by Vernon Adams and contributors (the HUD, buttons and text, a static
-  SemiBold cut from Fontsource), [SIL Open Font License 1.1](https://openfontlicense.org)
-  (`Licenses/UnifrakturMaguntia-OFL.txt`, `Licenses/AlfaSlabOne-OFL.txt`, `Licenses/Oswald-OFL.txt`).
+- **Alfa Slab One** by JM Solé (the headlines) and **Oswald** by Vernon Adams and contributors
+  (the HUD, buttons and text, a static SemiBold cut from Fontsource),
+  [SIL Open Font License 1.1](https://openfontlicense.org) (`Licenses/AlfaSlabOne-OFL.txt`,
+  `Licenses/Oswald-OFL.txt`).
 - **Roboto** by Google, [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
   (`Licenses/Roboto-NOTICE.txt`).
 
