@@ -90,28 +90,145 @@ namespace engine::uiscript
             }
             if (view->Context != nullptr)
             {
-                view->Context->Animations()->CancelForView(view);
+                view->Context->Animations()->CancelForView(view, ui::AnimationChannel::Opacity);
             }
             view->Opacity = Clamp(value, 0.0f, 1.0f);
         }
 
+        EasingFunction EasingOf(Ease ease)
+        {
+            switch (ease)
+            {
+            case Ease::Linear:
+                return ui::Easing::Linear;
+            case Ease::In:
+                return ui::Easing::EaseIn;
+            case Ease::Out:
+                return ui::Easing::EaseOut;
+            case Ease::OutBack:
+                return ui::Easing::BackOut;
+            case Ease::OutBounce:
+                return ui::Easing::BounceOut;
+            case Ease::OutElastic:
+                return ui::Easing::ElasticOut;
+            case Ease::InOut:
+                break;
+            }
+            return ui::Easing::EaseInOut;
+        }
+
+        // Runs `animation` in place of the view's running one on the same property. A view in no
+        // tree yet has no clock to run it on: the caller sets the end value instead.
+        bool StartTween(ui::View* view, UniquePtr<ui::Animation> animation)
+        {
+            if (view->Context == nullptr)
+            {
+                return false;
+            }
+            view->Context->Animations()->CancelForView(view, animation->Channel());
+            view->Context->Animations()->Add(Move(animation));
+            return true;
+        }
+
+        void StopTween(ui::View* view, ui::AnimationChannel channel)
+        {
+            if (view->Context != nullptr)
+            {
+                view->Context->Animations()->CancelForView(view, channel);
+            }
+        }
+
         // A fade on the UI's frame clock (UIContext::BeginFrame), which keeps running while the
         // game sits at time scale 0, so a pause menu or a fade to black animates.
-        void FadeViewTo(ui::View* view, f32 target, f32 seconds)
+        void FadeViewTo(ui::View* view, f32 target, f32 seconds, Ease ease = Ease::InOut)
         {
             if (view == nullptr)
             {
                 return;
             }
             const f32 to = Clamp(target, 0.0f, 1.0f);
-            if (view->Context == nullptr || seconds <= 0.0f)
+            if (seconds <= 0.0f ||
+                !StartTween(view, ui::ViewAnimator::FadeTo(view, view->Opacity, to, seconds, EasingOf(ease))))
             {
                 SetViewOpacity(view, to);
+            }
+        }
+
+        void MoveViewTo(ui::View* view, Float2 target, f32 seconds, Ease ease)
+        {
+            if (view == nullptr)
+            {
                 return;
             }
-            view->Context->Animations()->CancelForView(view);
-            view->Context->Animations()->Add(
-                ui::ViewAnimator::FadeTo(view, view->Opacity, to, seconds, ui::Easing::EaseInOut));
+            if (seconds <= 0.0f ||
+                !StartTween(view, ui::ViewAnimator::TranslateTo(view, view->Transform.Translation, target,
+                                                                seconds, EasingOf(ease))))
+            {
+                StopTween(view, ui::AnimationChannel::Translation);
+                ui::ViewTransform t = view->Transform;
+                t.Translation = target;
+                view->Transform = t;
+            }
+        }
+
+        void SetViewScale(ui::View* view, f32 value)
+        {
+            if (view == nullptr)
+            {
+                return;
+            }
+            StopTween(view, ui::AnimationChannel::Scale);
+            ui::ViewTransform t = view->Transform;
+            t.Scale = Float2{value, value};
+            view->Transform = t;
+        }
+
+        void ScaleViewTo(ui::View* view, f32 target, f32 seconds, Ease ease)
+        {
+            if (view == nullptr)
+            {
+                return;
+            }
+            if (seconds <= 0.0f ||
+                !StartTween(view, ui::ViewAnimator::ScaleTo(view, view->Transform.Scale.x, target, seconds,
+                                                            EasingOf(ease))))
+            {
+                SetViewScale(view, target);
+            }
+        }
+
+        void RotateViewTo(ui::View* view, f32 degrees, f32 seconds, Ease ease)
+        {
+            if (view == nullptr)
+            {
+                return;
+            }
+            const f32 to = DegreesToRadians(degrees);
+            if (seconds <= 0.0f ||
+                !StartTween(view, ui::ViewAnimator::RotateTo(view, view->Transform.Rotation, to, seconds,
+                                                             EasingOf(ease))))
+            {
+                StopTween(view, ui::AnimationChannel::Rotation);
+                ui::ViewTransform t = view->Transform;
+                t.Rotation = to;
+                view->Transform = t;
+            }
+        }
+
+        // From its normal size out to `peak` and back, half the time each way: the return is the
+        // same tween played backward, so it always settles at the normal size, even when a pulse
+        // starts over one still running.
+        void PulseView(ui::View* view, f32 peak, f32 seconds)
+        {
+            if (view == nullptr || view->Context == nullptr || seconds <= 0.0f)
+            {
+                return;
+            }
+            UniquePtr<ui::Animation> swell =
+                ui::ViewAnimator::ScaleTo(view, 1.0f, peak, seconds * 0.5f, ui::Easing::EaseOut);
+            swell->SetAutoReverse(true);
+            swell->SetRepeatCount(1);
+            (void)StartTween(view, Move(swell));
         }
     }
 
@@ -153,7 +270,17 @@ namespace engine::uiscript
         {                                                                                               \
             view->Transform.Rotation = DegreesToRadians(degrees);                                       \
         }                                                                                               \
-    }
+    }                                                                                                   \
+    void H::fadeTo(f32 target, f32 seconds, Ease ease) { FadeViewTo(view.Get(), target, seconds, ease); } \
+    void H::moveTo(f32 x, f32 y, f32 seconds) { MoveViewTo(view.Get(), Float2{x, y}, seconds, Ease::InOut); } \
+    void H::moveTo(f32 x, f32 y, f32 seconds, Ease ease) { MoveViewTo(view.Get(), Float2{x, y}, seconds, ease); } \
+    f32 H::scale() const { return view ? view->Transform.Scale.x : 1.0f; }                              \
+    void H::setScale(f32 value) { SetViewScale(view.Get(), value); }                                    \
+    void H::scaleTo(f32 target, f32 seconds) { ScaleViewTo(view.Get(), target, seconds, Ease::InOut); } \
+    void H::scaleTo(f32 target, f32 seconds, Ease ease) { ScaleViewTo(view.Get(), target, seconds, ease); } \
+    void H::rotateTo(f32 degrees, f32 seconds) { RotateViewTo(view.Get(), degrees, seconds, Ease::InOut); } \
+    void H::rotateTo(f32 degrees, f32 seconds, Ease ease) { RotateViewTo(view.Get(), degrees, seconds, ease); } \
+    void H::pulse(f32 peak, f32 seconds) { PulseView(view.Get(), peak, seconds); }
 
     UI_SCRIPT_DEFINE_COMMON(View)
     UI_SCRIPT_DEFINE_COMMON(Label)
@@ -495,6 +622,35 @@ namespace engine::uiscript
     }
 
     // ================================================================================== reflection ===
+    // The tweens every handle shares; each overload pair is an arity family (with or without an
+    // Ease), so both backends bind both.
+#define UI_SCRIPT_REFLECT_MOTION(H)                                                                     \
+    builder.Method<static_cast<void (H::*)(f32, f32, Ease)>(&H::fadeTo)>("fadeTo",                    \
+                                                                        {"opacity", "seconds", "ease"}); \
+    builder.Method<static_cast<void (H::*)(f32, f32, f32)>(&H::moveTo)>("moveTo", {"x", "y", "seconds"}); \
+    builder.Method<static_cast<void (H::*)(f32, f32, f32, Ease)>(&H::moveTo)>(                         \
+        "moveTo", {"x", "y", "seconds", "ease"});                                                       \
+    builder.ComputedProperty<&H::scale>("scale");                                                      \
+    builder.Method<&H::setScale>("setScale", {"value"});                                                \
+    builder.Method<static_cast<void (H::*)(f32, f32)>(&H::scaleTo)>("scaleTo", {"scale", "seconds"});  \
+    builder.Method<static_cast<void (H::*)(f32, f32, Ease)>(&H::scaleTo)>("scaleTo",                  \
+                                                                         {"scale", "seconds", "ease"}); \
+    builder.Method<static_cast<void (H::*)(f32, f32)>(&H::rotateTo)>("rotateTo", {"degrees", "seconds"}); \
+    builder.Method<static_cast<void (H::*)(f32, f32, Ease)>(&H::rotateTo)>(                            \
+        "rotateTo", {"degrees", "seconds", "ease"});                                                    \
+    builder.Method<&H::pulse>("pulse", {"peak", "seconds"})
+
+    REFLECT_ENUM(Ease, "rtti::engine.ui.script")
+    {
+        builder.Value("Linear", Ease::Linear);
+        builder.Value("In", Ease::In);
+        builder.Value("Out", Ease::Out);
+        builder.Value("InOut", Ease::InOut);
+        builder.Value("OutBack", Ease::OutBack);
+        builder.Value("OutBounce", Ease::OutBounce);
+        builder.Value("OutElastic", Ease::OutElastic);
+    }
+
     REFLECT_VALUE(View, "rtti::engine.ui.script")
     {
         builder.Method<&View::isValid>("isValid");
@@ -505,11 +661,12 @@ namespace engine::uiscript
         builder.Method<&View::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&View::opacity>("opacity");
         builder.Method<&View::setOpacity>("setOpacity", {"value"});
-        builder.Method<&View::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (View::*)(f32, f32)>(&View::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&View::translation>("translation");
         builder.Method<&View::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&View::rotation>("rotation");
         builder.Method<&View::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(View);
         builder.Constructor();
     }
     REFLECT_VALUE(Label, "rtti::engine.ui.script")
@@ -523,11 +680,12 @@ namespace engine::uiscript
         builder.Method<&Label::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&Label::opacity>("opacity");
         builder.Method<&Label::setOpacity>("setOpacity", {"value"});
-        builder.Method<&Label::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (Label::*)(f32, f32)>(&Label::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&Label::translation>("translation");
         builder.Method<&Label::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&Label::rotation>("rotation");
         builder.Method<&Label::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(Label);
         builder.Method<&Label::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -542,11 +700,12 @@ namespace engine::uiscript
         builder.Method<&Button::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&Button::opacity>("opacity");
         builder.Method<&Button::setOpacity>("setOpacity", {"value"});
-        builder.Method<&Button::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (Button::*)(f32, f32)>(&Button::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&Button::translation>("translation");
         builder.Method<&Button::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&Button::rotation>("rotation");
         builder.Method<&Button::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(Button);
         builder.Method<&Button::setText>("setText", {"value"});
         builder.Method<&Button::onClick>("onClick", {"handler"});
         builder.Constructor();
@@ -564,11 +723,12 @@ namespace engine::uiscript
         builder.Method<&Slider::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&Slider::opacity>("opacity");
         builder.Method<&Slider::setOpacity>("setOpacity", {"value"});
-        builder.Method<&Slider::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (Slider::*)(f32, f32)>(&Slider::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&Slider::translation>("translation");
         builder.Method<&Slider::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&Slider::rotation>("rotation");
         builder.Method<&Slider::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(Slider);
         builder.Method<&Slider::setValue>("setValue", {"value"});
         builder.Method<&Slider::setRange>("setRange", {"min", "max"});
         builder.Method<&Slider::setStep>("setStep", {"step"});
@@ -587,11 +747,12 @@ namespace engine::uiscript
         builder.Method<&ProgressBar::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&ProgressBar::opacity>("opacity");
         builder.Method<&ProgressBar::setOpacity>("setOpacity", {"value"});
-        builder.Method<&ProgressBar::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (ProgressBar::*)(f32, f32)>(&ProgressBar::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&ProgressBar::translation>("translation");
         builder.Method<&ProgressBar::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&ProgressBar::rotation>("rotation");
         builder.Method<&ProgressBar::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(ProgressBar);
         builder.Method<&ProgressBar::setValue>("setValue", {"value"});
         builder.Constructor();
     }
@@ -606,11 +767,12 @@ namespace engine::uiscript
         builder.Method<&TextBox::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&TextBox::opacity>("opacity");
         builder.Method<&TextBox::setOpacity>("setOpacity", {"value"});
-        builder.Method<&TextBox::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (TextBox::*)(f32, f32)>(&TextBox::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&TextBox::translation>("translation");
         builder.Method<&TextBox::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&TextBox::rotation>("rotation");
         builder.Method<&TextBox::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(TextBox);
         builder.Method<&TextBox::setText>("setText", {"value"});
         builder.Constructor();
     }
@@ -625,11 +787,12 @@ namespace engine::uiscript
         builder.Method<&Image::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&Image::opacity>("opacity");
         builder.Method<&Image::setOpacity>("setOpacity", {"value"});
-        builder.Method<&Image::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (Image::*)(f32, f32)>(&Image::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&Image::translation>("translation");
         builder.Method<&Image::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&Image::rotation>("rotation");
         builder.Method<&Image::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(Image);
         builder.Method<&Image::setSource>("setSource", {"value"});
         builder.Constructor();
     }
@@ -644,11 +807,12 @@ namespace engine::uiscript
         builder.Method<&ViewGroup::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&ViewGroup::opacity>("opacity");
         builder.Method<&ViewGroup::setOpacity>("setOpacity", {"value"});
-        builder.Method<&ViewGroup::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (ViewGroup::*)(f32, f32)>(&ViewGroup::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&ViewGroup::translation>("translation");
         builder.Method<&ViewGroup::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&ViewGroup::rotation>("rotation");
         builder.Method<&ViewGroup::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(ViewGroup);
         builder.Method<&ViewGroup::childAt>("childAt", {"index"});
         builder.Method<&ViewGroup::find>("find", {"name"});
         builder.Method<&ViewGroup::findLabel>("findLabel", {"name"});
@@ -672,11 +836,12 @@ namespace engine::uiscript
         builder.Method<&Screen::setEnabled>("setEnabled", {"value"});
         builder.ComputedProperty<&Screen::opacity>("opacity");
         builder.Method<&Screen::setOpacity>("setOpacity", {"value"});
-        builder.Method<&Screen::fadeTo>("fadeTo", {"opacity", "seconds"});
+        builder.Method<static_cast<void (Screen::*)(f32, f32)>(&Screen::fadeTo)>("fadeTo", {"opacity", "seconds"});
         builder.ComputedProperty<&Screen::translation>("translation");
         builder.Method<&Screen::setTranslation>("setTranslation", {"x", "y"});
         builder.ComputedProperty<&Screen::rotation>("rotation");
         builder.Method<&Screen::setRotation>("setRotation", {"degrees"});
+        UI_SCRIPT_REFLECT_MOTION(Screen);
         builder.Method<&Screen::childAt>("childAt", {"index"});
         builder.Method<&Screen::find>("find", {"name"});
         builder.Method<&Screen::findLabel>("findLabel", {"name"});
@@ -733,6 +898,8 @@ namespace engine::uiscript
             GlobalTypeRegistry().Register(TypeOf<Image>());
             GlobalTypeRegistry().Register(TypeOf<ViewGroup>());
             GlobalTypeRegistry().Register(TypeOf<Screen>());
+            RttiRegisterEnum_Ease();                         // the tweens' easing choice
+            GlobalTypeRegistry().Register(TypeOf<Ease>());
             return true;
         }();
         (void)once;

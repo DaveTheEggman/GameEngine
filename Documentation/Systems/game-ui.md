@@ -77,6 +77,14 @@ Play-in-editor works by construction (the same event stream through the viewport
   Every handle moves and turns its view with `setTranslation(x, y)` (pixels from where layout put
   it) and `setRotation(degrees)`, the view's post-layout transform, so a minimap marker or a
   compass needle moves each frame without a relayout; `translation` and `rotation` read it back.
+- **Tweens** - every handle animates on the UI frame clock, which runs while the game is paused:
+  `fadeTo(opacity, seconds)`, `moveTo(x, y, seconds)`, `scaleTo(scale, seconds)` (`setScale` and
+  `scale` for the instant form), `rotateTo(degrees, seconds)`, each with an optional `Ease`
+  (`Linear`, `In`, `Out`, `InOut` the default, `OutBack`, `OutBounce`, `OutElastic`), and
+  `pulse(peak, seconds)`, out to `peak` times the normal size and back (a counter that changed).
+  Each property tweens on its own channel: a new tween of one property replaces the running one of
+  that property only, so a score can rise, fade and swell at once, and a `set` stops only its own
+  property's tween. Zero seconds, or a view in no tree yet, is a set.
 - **Images** - `<ImageView source="{guid}"/>` shows a texture asset: the subsystem is its context's
   `IResourceProvider` and binds the id through the application's resource manager, one image key per
   texture, registered on every VG renderer before it draws. A render texture a camera targets is a

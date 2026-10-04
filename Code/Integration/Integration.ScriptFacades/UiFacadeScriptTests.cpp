@@ -292,6 +292,53 @@ TEST_CASE("ui-facade: AngelScript moves and turns a view (a minimap marker), and
     CHECK(marker->Transform.Rotation == doctest::Approx(DegreesToRadians(180.0f)));
 }
 
+TEST_CASE("ui-facade: AngelScript and Luau tween a view, with or without an Ease")
+{
+    RegisterCoreTypes();
+    engine::uiscript::RegisterUiScriptSurface();
+    const bool backends[] = {false, true};
+    for (bool luau : backends)
+    {
+        RefPtr<IScriptManager> manager = luau ? CreateLuauScriptManager(DefaultAllocator())
+                                              : angelscript::CreateScriptManager(DefaultAllocator());
+        RegisterReflectedTypes(*manager);
+        RefPtr<IScriptContext> ctx = manager->CreateContext();
+        UiBed bed;
+        engine::uiscript::InstallUiScreenScriptService(*ctx, bed.binding);
+
+        // Zero seconds lands at once, so the script reads the ends back; the eased overloads
+        // and the plain ones both bind, and a pulse starts without a frame to run it.
+        const Status status =
+            luau ? ctx->Load(u8"ui.push(Guid.new(17, 34))\n"
+                             u8"local marker = ui.findImage(\"minimap\")\n"
+                             u8"marker:moveTo(10, 20, 0, Ease.OutBack)\n"
+                             u8"marker:scaleTo(2, 0)\n"
+                             u8"marker:rotateTo(30, 0, Ease.Linear)\n"
+                             u8"marker:fadeTo(0.5, 0, Ease.Out)\n"
+                             u8"marker:pulse(1.2, 0.3)\n"
+                             u8"tweened = marker.translation.y == 20 and marker.scale == 2 and marker.opacity == 0.5\n",
+                             u8"main")
+                 : ctx->Load(u8"bool tweened = false;\n"
+                             u8"void main() {\n"
+                             u8"  ui::push(Guid(17, 34));\n"
+                             u8"  Image marker = ui::findImage(\"minimap\");\n"
+                             u8"  marker.moveTo(10.0f, 20.0f, 0.0f, Ease::OutBack);\n"
+                             u8"  marker.scaleTo(2.0f, 0.0f);\n"
+                             u8"  marker.rotateTo(30.0f, 0.0f, Ease::Linear);\n"
+                             u8"  marker.fadeTo(0.5f, 0.0f, Ease::Out);\n"
+                             u8"  marker.pulse(1.2f, 0.3f);\n"
+                             u8"  tweened = marker.translation.y == 20.0f && marker.scale == 2.0f && marker.opacity == 0.5f;\n"
+                             u8"}\n",
+                             u8"main");
+        REQUIRE(status.IsOk());
+        CHECK(ctx->GetGlobal(u8"tweened").template Get<bool>());
+        ui::ImageView* marker = bed.root->FindByName<ui::ImageView>(u8"minimap");
+        REQUIRE(marker != nullptr);
+        CHECK(marker->Transform.Translation.x == doctest::Approx(10.0f));
+        CHECK(marker->Transform.Rotation == doctest::Approx(DegreesToRadians(30.0f)));
+    }
+}
+
 TEST_CASE("ui-facade: AngelScript binds a button click to a script delegate; firing runs the handler")
 {
     RegisterCoreTypes();

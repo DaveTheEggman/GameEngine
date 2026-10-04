@@ -178,3 +178,66 @@ TEST_CASE("uiscript.handle: a view is translated and rotated through its transfo
     CHECK(missing.translation().x == doctest::Approx(0.0f));
     CHECK(missing.rotation() == doctest::Approx(0.0f));
 }
+
+// A score popping up: it rises, fades and swells at once, each tween on its own property, and a
+// new tween of one property replaces only that one.
+TEST_CASE("uiscript.handle: views move, scale, turn and pulse on the frame clock, each on its own")
+{
+    ui::UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.AddRootView(root.Get());
+    auto popup = MakeLabel(u8"popup", u8"+100");
+    root->AddView(popup.Get());
+    uis::Label label = Group(root.Get()).findLabel(u8"popup");
+    REQUIRE(label.isValid());
+    CHECK(label.scale() == doctest::Approx(1.0f));
+
+    label.moveTo(0.0f, -40.0f, 1.0f, uis::Ease::Linear);
+    label.fadeTo(0.0f, 1.0f, uis::Ease::Linear);
+    label.scaleTo(2.0f, 1.0f, uis::Ease::Linear);
+    ctx.BeginFrame(0.5f);
+    CHECK(label.translation().y == doctest::Approx(-20.0f));
+    CHECK(label.opacity() == doctest::Approx(0.5f));
+    CHECK(label.scale() == doctest::Approx(1.5f));
+
+    // A new move replaces the running move, from where the view is; the fade and swell go on.
+    label.moveTo(100.0f, -20.0f, 0.5f, uis::Ease::Linear);
+    ctx.BeginFrame(0.5f);
+    CHECK(label.translation().x == doctest::Approx(100.0f));
+    CHECK(label.opacity() == doctest::Approx(0.0f));
+    CHECK(label.scale() == doctest::Approx(2.0f));
+
+    // A set stops only its own property's tween.
+    label.rotateTo(90.0f, 1.0f);
+    label.scaleTo(1.0f, 1.0f);
+    ctx.BeginFrame(0.25f);
+    label.setScale(3.0f);
+    ctx.BeginFrame(1.0f);
+    CHECK(label.scale() == doctest::Approx(3.0f));
+    CHECK(label.rotation() == doctest::Approx(90.0f));
+
+    // A pulse swells out and settles at the normal size, whatever it started from.
+    label.pulse(1.5f, 0.4f);
+    ctx.BeginFrame(0.2f);
+    CHECK(label.scale() == doctest::Approx(1.5f));
+    ctx.BeginFrame(0.1f);
+    CHECK(label.scale() > 1.0f);
+    CHECK(label.scale() < 1.5f);
+    ctx.BeginFrame(0.2f);
+    CHECK(label.scale() == doctest::Approx(1.0f));
+
+    // Zero seconds is a set; a view in no tree has no clock, so a tween is a set; a null handle
+    // takes nothing.
+    label.moveTo(7.0f, 8.0f, 0.0f);
+    CHECK(label.translation().x == doctest::Approx(7.0f));
+    auto loose = MakeRef<ui::FrameLayout>(DefaultAllocator());
+    loose->AddView(MakeLabel(u8"loose", u8"x").Get());
+    uis::Label unrooted = Group(loose.Get()).findLabel(u8"loose");
+    unrooted.scaleTo(2.0f, 1.0f, uis::Ease::OutBack);
+    CHECK(unrooted.scale() == doctest::Approx(2.0f));
+    uis::Label missing = Group(root.Get()).findLabel(u8"nope");
+    missing.moveTo(1.0f, 1.0f, 1.0f);
+    missing.pulse(2.0f, 1.0f);
+    CHECK(missing.scale() == doctest::Approx(1.0f));
+}

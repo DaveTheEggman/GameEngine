@@ -36,6 +36,20 @@ export namespace engine::uiscript
     struct ViewGroup;
     struct Screen;
 
+    /// How a scripted tween moves through its time (`label.scaleTo(1.4f, 0.2f, Ease::OutBack)`).
+    /// InOut, the default, starts and ends gently; Out arrives gently; OutBack overshoots and
+    /// settles; OutBounce and OutElastic bounce and spring into place.
+    enum class Ease : i32
+    {
+        Linear,
+        In,
+        Out,
+        InOut,
+        OutBack,
+        OutBounce,
+        OutElastic,
+    };
+
     // Common accessors shared (by hand, value structs have no inheritance) across every handle.
 #define UI_SCRIPT_COMMON_HANDLE_MEMBERS                                                                 \
     RefPtr<foundation::ui::View> view;                                                                  \
@@ -57,7 +71,22 @@ export namespace engine::uiscript
     void setTranslation(f32 x, f32 y);                                                                  \
     /* Degrees, clockwise on screen, about the view's centre. */                                        \
     [[nodiscard]] f32 rotation() const;                                                                 \
-    void setRotation(f32 degrees);
+    void setRotation(f32 degrees);                                                                      \
+    /* Tweens on the UI frame clock, as fadeTo. Each property runs its own: a new tween of one */      \
+    /* property replaces the running one of that property and leaves the others (a label can rise */  \
+    /* and fade at once). Zero seconds, or a view in no tree yet, is a set. */                         \
+    void fadeTo(f32 target, f32 seconds, Ease ease);                                                    \
+    void moveTo(f32 x, f32 y, f32 seconds);                                                             \
+    void moveTo(f32 x, f32 y, f32 seconds, Ease ease);                                                  \
+    /* A uniform scale about the view's centre, as drawn (layout is unchanged). */                      \
+    [[nodiscard]] f32 scale() const;                                                                    \
+    void setScale(f32 value);                                                                           \
+    void scaleTo(f32 target, f32 seconds);                                                              \
+    void scaleTo(f32 target, f32 seconds, Ease ease);                                                   \
+    void rotateTo(f32 degrees, f32 seconds);                                                            \
+    void rotateTo(f32 degrees, f32 seconds, Ease ease);                                                 \
+    /* From the normal size out to `peak` times it and back over `seconds`: a counter that changed. */ \
+    void pulse(f32 peak, f32 seconds);
 
     /// A bare view - identity + visibility/enabled. What find / childAt return.
     struct View
