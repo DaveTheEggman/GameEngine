@@ -201,6 +201,13 @@ class Game
             {
                 ui::pop(); // the fade layer, on top since the fade began
                 enter(m_afterFade);
+                if (m_afterFade == Phase::Intro)
+                {
+                    // The level's card drops in from above and settles with a bounce.
+                    View@ card = ui::find("intro-card");
+                    card.moveTo(0.0f, 0.0f, 0.55f, Ease::OutBack);
+                    card.fadeTo(1.0f, 0.25f);
+                }
             }
             break;
         case Phase::Intro:
@@ -605,6 +612,9 @@ class Game
             Screen@ intro = ui::push(kIntroDoc);
             intro.findLabel("intro-number").setText("Level " + (m_level + 1));
             intro.findLabel("intro-name").setText(levelName(m_level));
+            View@ card = intro.find("intro-card"); // above, waiting for the fade to clear
+            card.setTranslation(0.0f, -260.0f);
+            card.setOpacity(0.0f);
             m_afterFade = Phase::Intro;
         }
         Screen@ s = ui::push(kFadeDoc);
