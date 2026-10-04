@@ -113,6 +113,10 @@ EM_JS(int, UserDataPersistent, (), { return Module.userDataPersistent ? 1 : 0; }
 EM_JS(void, PageGameRunning, (), {
     if (typeof loading !== "undefined" && loading.done) loading.done();
 });
+// A game that quits leaves the page with nothing to draw: the card comes back to say so.
+EM_JS(void, PageGameEnded, (), {
+    if (typeof loading !== "undefined" && loading.ended) loading.ended();
+});
 // clang-format on
 
 namespace
@@ -227,6 +231,14 @@ namespace
                 m_pageTold = true;
                 PageGameRunning();
             }
+        }
+
+        // The game has quit (run::requestExit, or the browser shell stopping): the page says so
+        // rather than leaving its last frame or black.
+        void OnShutdown(foundation::runtime::IApplicationHost& host) override
+        {
+            PlayerApplication::OnShutdown(host);
+            PageGameEnded();
         }
 
     private:

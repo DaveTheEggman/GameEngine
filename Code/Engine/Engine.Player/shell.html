@@ -24,6 +24,10 @@
     #loading.failed .bar { display: none; }
     #loading p { margin: 12px 0 0; color: #9aa3b2; font-size: 0.95rem; min-height: 1.4em; }
     #loading.failed p { color: #f0b4b4; }
+    #loading.ended .bar { display: none; }
+    #loading button { display: none; margin-top: 20px; padding: 10px 26px; border: 0; border-radius: 999px;
+                      background: #4da3ee; color: #0a0a0c; font: 700 1rem system-ui, sans-serif; cursor: pointer; }
+    #loading.ended button { display: inline-block; }
     @keyframes slide { from { left: -35%; } to { left: 100%; } }
   </style>
 </head>
@@ -33,6 +37,7 @@
     <h1 id="loading-name">Loading</h1>
     <div class="bar"><span></span></div>
     <p id="loading-status">Starting</p>
+    <button id="loading-again" type="button" onclick="location.reload()">Play again</button>
   </div></div>
   <script type="text/javascript">
     // Full C++ stacks in the mid-frame-wait tripwire: Chrome truncates Error.stack
@@ -57,7 +62,14 @@
         this.status.textContent = text;
       },
       // The player calls this once the game is running (its first update).
-      done: function () { this.root.classList.add('done'); }
+      done: function () { this.root.classList.add('done'); },
+      // ...and this when the game has quit: the card comes back, with a way to play again.
+      ended: function () {
+        this.root.classList.remove('done');
+        this.root.classList.add('ended');
+        this.status.textContent = 'Thanks for playing';
+        document.getElementById('loading-again').focus();
+      }
     };
 
     // The game's name, from the manifest the player reads too, for the card and the tab.
