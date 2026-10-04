@@ -222,20 +222,23 @@ def town(name, R, subscribers, inner_cars, outer_cars, walkers, level, nav):
     return d
 
 
+# The clock is about two laps of the ring at the bike's top speed (11 m/s: a lap is 17 s at R 24,
+# 23 s at R 32, 29 s at R 40) with room for the corners and a crash or two; the first limits
+# (120 to 165 s) left whole minutes over (user, 2026-10-03: "Time should run out faster").
 # The run, on a ramp: bigger rings, more subscribers, a higher quota, busier and faster traffic,
 # less time for the distance. Subscriber indices are into the houses in the order town() places
 # them (inner north/south pairs, inner east/west pairs, then outer north/south/east/west quads).
 BLOCKS = [
     ("Block1", 24, (3, 6, 10, 14, 19, 21), 2, 2, 8,
-     dict(timeLimit=120.0, quota=4, papers=8, trafficSpeed=7.5, pedestrianSpeed=1.4), "Block1Nav"),
+     dict(timeLimit=55.0, quota=4, papers=8, trafficSpeed=7.5, pedestrianSpeed=1.4), "Block1Nav"),
     ("Block2", 24, (0, 5, 7, 12, 17, 26), 3, 3, 10,
-     dict(timeLimit=110.0, quota=5, papers=9, trafficSpeed=8.5, pedestrianSpeed=1.6), "Block2Nav"),
+     dict(timeLimit=50.0, quota=5, papers=9, trafficSpeed=8.5, pedestrianSpeed=1.6), "Block2Nav"),
     ("Block3", 32, (1, 4, 8, 11, 14, 21, 27), 3, 3, 12,
-     dict(timeLimit=140.0, quota=5, papers=9, trafficSpeed=9.0, pedestrianSpeed=1.7), "Block3Nav"),
+     dict(timeLimit=65.0, quota=5, papers=9, trafficSpeed=9.0, pedestrianSpeed=1.7), "Block3Nav"),
     ("Block4", 32, (0, 3, 6, 9, 16, 23, 30), 4, 4, 14,
-     dict(timeLimit=130.0, quota=6, papers=9, trafficSpeed=10.0, pedestrianSpeed=1.8), "Block4Nav"),
+     dict(timeLimit=60.0, quota=6, papers=9, trafficSpeed=10.0, pedestrianSpeed=1.8), "Block4Nav"),
     ("Block5", 40, (2, 7, 11, 14, 19, 26, 33, 40), 4, 4, 16,
-     dict(timeLimit=165.0, quota=7, papers=10, trafficSpeed=11.0, pedestrianSpeed=2.0), "Block5Nav"),
+     dict(timeLimit=75.0, quota=7, papers=10, trafficSpeed=11.0, pedestrianSpeed=2.0), "Block5Nav"),
 ]
 
 
