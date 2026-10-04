@@ -203,6 +203,11 @@ TEST_CASE("editor.navigation: bake collects scene geometry and writes a loadable
         editor::navigation::BakeNavigationZone(sceneObj, zoneEntity, *assetInstance);
     CHECK(result.triangleCount == 12u);
     CHECK(result.baked);
+    // What the editor tells the author: the asset is written, so a cook applies it; the scene was
+    // not touched, so there is nothing to save.
+    const String told = editor::navigation::DescribeBake(result);
+    CHECK(told.AsView().ContainsIgnoreCase(u8"cook"));
+    CHECK_FALSE(told.AsView().ContainsIgnoreCase(u8"save"));
 
     // The written asset carries a navmesh (in the sidecar) that loads and paths.
     pipeline::NavigationZoneAsset readBack;

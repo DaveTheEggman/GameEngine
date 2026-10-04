@@ -133,7 +133,9 @@ namespace editor::navigation
     {
         if (result.baked)
         {
-            return String(u8"Navigation baked. Save and cook to apply.");
+            // The bake writes the zone's own asset and leaves the scene untouched: nothing to save.
+            return String(u8"Navigation baked into the zone's asset; the scene is unchanged. Cook to "
+                          u8"apply.");
         }
         if (result.triangleCount == 0)
         {
