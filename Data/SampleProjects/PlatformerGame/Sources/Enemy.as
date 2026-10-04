@@ -7,6 +7,10 @@
 // no higher than `touchHeight` above the enemy's origin (and not below it). Only a player in the
 // air and on the way down stomps; one on the ground, walking or standing into the enemy, is hurt,
 // however the enemy's origin sits against the ground the player walks on.
+//
+// A flier (the bee) is the same enemy in the air: it hovers, bobbing `hoverHeight` up and down,
+// and may patrol across the path (along Z) rather than along it. It is stomped and hurts the same
+// way, measured from where it flies.
 // FX/FxStompStars: the burst where an enemy was stomped.
 Guid kStompStars = Guid("ab197a34-58e6-4f23-add1-0f2a90f00ca6");
 
@@ -23,12 +27,16 @@ class Enemy
     [1.8, "Touching while the player's centre is at most this far above the enemy's origin (m)"] float touchHeight;
     [1.0, "Falling at least this fast counts as coming down on the enemy (m/s)"] float stompSpeed;
     ["asset:AnimationClip", "The model's walk clip; none keeps its idle"] Guid@ walkClip;
+    [0.0, "Hover: bob this far up and down as it patrols (m); 0 walks"] float hoverHeight;
+    [2.0, "Hover bob rate (rad/s)"] float hoverSpeed;
+    [false, "Patrol along Z (across the path) rather than X"] bool patrolAlongZ;
 
     private Entity@ m_player;
     private Float3 m_home = Float3(0.0f, 0.0f, 0.0f);
     private float m_offset = 0.0f;
     private float m_direction = 1.0f;
     private float m_lastPlayerY = 0.0f;
+    private float m_time = 0.0f;
 
     Enemy(Entity@ entity) { @self = entity; }
 
@@ -63,9 +71,20 @@ class Enemy
             m_offset = -patrolDistance;
             m_direction = 1.0f;
         }
-        self.setPosition(Float3(m_home.x + m_offset, m_home.y, m_home.z));
-        self.setRotation(Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f),
-                                                   (m_direction > 0.0f) ? 1.5708f : -1.5708f));
+        m_time += dt;
+        float bob = Math::Sin(m_time * hoverSpeed) * hoverHeight;
+        if (patrolAlongZ)
+        {
+            self.setPosition(Float3(m_home.x, m_home.y + bob, m_home.z + m_offset));
+            self.setRotation(Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f),
+                                                       (m_direction > 0.0f) ? 0.0f : 3.14159f));
+        }
+        else
+        {
+            self.setPosition(Float3(m_home.x + m_offset, m_home.y + bob, m_home.z));
+            self.setRotation(Quaternion::FromAxisAngle(Float3(0.0f, 1.0f, 0.0f),
+                                                       (m_direction > 0.0f) ? 1.5708f : -1.5708f));
+        }
 
         if (m_player is null || !m_player.isValid())
         {

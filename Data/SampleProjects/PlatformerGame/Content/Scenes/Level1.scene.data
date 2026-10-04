@@ -2,7 +2,7 @@
 	<u32 name="magic">3586350318</u32>
 	<u32 name="version">3</u32>
 	<string name="name">Level1</string>
-	<array name="entities" count="16">
+	<array name="entities" count="17">
 		<string name="id">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
 		<string name="name">Sun</string>
 		<u8 name="active">1</u8>
@@ -323,8 +323,28 @@
 			<f32 name="y">1</f32>
 			<f32 name="z">1</f32>
 		</object>
+		<string name="id">ca79dcd6-77d7-436b-809b-0d790ae2faa3</string>
+		<string name="name">Gem</string>
+		<u8 name="active">1</u8>
+		<string name="parent">00000000-0000-0000-0000-000000000000</string>
+		<object name="position">
+			<f32 name="x">-4</f32>
+			<f32 name="y">5</f32>
+			<f32 name="z">-19</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
+		</object>
 	</array>
-	<array name="components" count="18">
+	<array name="components" count="19">
 		<object>
 			<string name="owner">6eec409e-f081-4a23-86a5-69ab25d9d64c</string>
 			<string name="type">camera</string>
@@ -365,7 +385,7 @@
 					<f32 name="b">1</f32>
 					<f32 name="a">1</f32>
 				</object>
-				<f32 name="intensity">4.0</f32>
+				<f32 name="intensity">4</f32>
 				<f32 name="range">10</f32>
 				<f32 name="innerAngle">0.5</f32>
 				<f32 name="outerAngle">0.6</f32>
@@ -446,7 +466,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -462,7 +482,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -478,7 +498,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -514,7 +534,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -530,7 +550,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -569,7 +589,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -585,7 +605,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -601,7 +621,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -640,7 +660,7 @@
 					<string name="script">2b5347d1-2037-4ed0-83b3-facb25b3158b</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
 				</array>
 			</object>
 		</object>
@@ -656,7 +676,30 @@
 					<string name="script">57076cdb-e80b-4ae5-8155-213082a52498</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="0" />
+					<array name="overrides" count="0"/>
+				</array>
+			</object>
+		</object>
+		<object>
+			<string name="owner">ca79dcd6-77d7-436b-809b-0d790ae2faa3</string>
+			<string name="type">script</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">10795854242375899641</u64>
+					<u32 name="version">1</u32>
+				</array>
+				<array name="behaviors" count="1">
+					<string name="script">783164e8-8d4d-437e-ad93-ed92f8affbbb</string>
+					<bool name="enabled">true</bool>
+					<f32 name="updateInterval">0</f32>
+					<array name="overrides" count="2">
+						<u64 name="nameHash">778647783644341520</u64>
+						<u8 name="kind">4</u8>
+						<string name="text">GemCollected</string>
+						<u64 name="nameHash">4153783459286891395</u64>
+						<u8 name="kind">1</u8>
+						<f64 name="number">1.5</f64>
+					</array>
 				</array>
 			</object>
 		</object>
@@ -683,14 +726,63 @@
 			<object name="settings">
 				<string name="script">00000000-0000-0000-0000-000000000000</string>
 				<bool name="enabled">true</bool>
-				<array name="overrides" count="0" />
+				<array name="overrides" count="0"/>
 			</object>
 		</object>
-		<object><string name="system">environment</string><array name="dataVersions" count="1"><u64 name="type">8050982980905767318</u64><u32 name="version">6</u32></array><object name="settings"><string name="skyTexture">00000000-0000-0000-0000-000000000000</string><object name="ambientColor"><f32 name="r">0.3492</f32><f32 name="g">0.3811</f32><f32 name="b">0.4366</f32><f32 name="a">1.0</f32></object><f32 name="ambientIntensity">0.3</f32><u32 name="skyMode">0</u32><f32 name="skyIntensity">2.0</f32><f32 name="skyBackgroundIntensity">0.5</f32><f32 name="skyRotation">0.0</f32><object name="skyHorizon"><f32 name="r">0.7484</f32><f32 name="g">0.7977</f32><f32 name="b">0.8543</f32><f32 name="a">1.0</f32></object><object name="skyZenith"><f32 name="r">0.4845</f32><f32 name="g">0.6343</f32><f32 name="b">0.7858</f32><f32 name="a">1.0</f32></object><object name="skyGround"><f32 name="r">0.5469</f32><f32 name="g">0.5469</f32><f32 name="b">0.5469</f32><f32 name="a">1.0</f32></object><f32 name="sunIntensity">1.0</f32><f32 name="sunAngularSize">0.5</f32><f32 name="turbidity">3.0</f32><f32 name="iblDiffuseIntensity">1.0</f32><f32 name="iblSpecularIntensity">1.0</f32><f32 name="shadowDistance">300</f32><f32 name="shadowCascadeSplit">0.5</f32><f32 name="shadowFadeDistance">40</f32><u32 name="source">1</u32><string name="profile">a2c3d0c8-307c-4523-b266-f28a5a76e375</string></object></object><object>
+		<object>
+			<string name="system">environment</string>
+			<array name="dataVersions" count="1">
+				<u64 name="type">8050982980905767318</u64>
+				<u32 name="version">6</u32>
+			</array>
+			<object name="settings">
+				<string name="skyTexture">00000000-0000-0000-0000-000000000000</string>
+				<object name="ambientColor">
+					<f32 name="r">0.3492</f32>
+					<f32 name="g">0.3811</f32>
+					<f32 name="b">0.4366</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<f32 name="ambientIntensity">0.3</f32>
+				<u32 name="skyMode">0</u32>
+				<f32 name="skyIntensity">2</f32>
+				<f32 name="skyBackgroundIntensity">0.5</f32>
+				<f32 name="skyRotation">0</f32>
+				<object name="skyHorizon">
+					<f32 name="r">0.7484</f32>
+					<f32 name="g">0.7977</f32>
+					<f32 name="b">0.8543</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<object name="skyZenith">
+					<f32 name="r">0.4845</f32>
+					<f32 name="g">0.6343</f32>
+					<f32 name="b">0.7858</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<object name="skyGround">
+					<f32 name="r">0.5469</f32>
+					<f32 name="g">0.5469</f32>
+					<f32 name="b">0.5469</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<f32 name="sunIntensity">1</f32>
+				<f32 name="sunAngularSize">0.5</f32>
+				<f32 name="turbidity">3</f32>
+				<f32 name="iblDiffuseIntensity">1</f32>
+				<f32 name="iblSpecularIntensity">1</f32>
+				<f32 name="shadowDistance">300</f32>
+				<f32 name="shadowCascadeSplit">0.5</f32>
+				<f32 name="shadowFadeDistance">40</f32>
+				<u32 name="source">1</u32>
+				<string name="profile">a2c3d0c8-307c-4523-b266-f28a5a76e375</string>
+			</object>
+		</object>
+		<object>
 			<string name="system">postprocess</string>
 			<array name="dataVersions" count="1">
 				<u64 name="type">18428310631361443216</u64>
-				<u32 name="version">3</u32>
+				<u32 name="version">4</u32>
 			</array>
 			<object name="settings">
 				<f32 name="exposureEV">0</f32>
@@ -718,6 +810,8 @@
 				<f32 name="gradingIntensity">1</f32>
 				<bool name="ssgiEnabled">false</bool>
 				<f32 name="ssgiIntensity">1</f32>
+				<u32 name="source">0</u32>
+				<string name="profile">00000000-0000-0000-0000-000000000000</string>
 			</object>
 		</object>
 		<object>
@@ -734,13 +828,13 @@
 				</object>
 				<i32 name="collisionSteps">1</i32>
 				<bool name="debugDraw">false</bool>
-				<array name="groupNames" count="0" />
-				<array name="groupCollides" count="0" />
+				<array name="groupNames" count="0"/>
+				<array name="groupCollides" count="0"/>
 			</object>
 		</object>
 	</array>
 	<u8 name="prefabMode">4</u8>
-	<array name="prefabInstances" count="63">
+	<array name="prefabInstances" count="64">
 		<string name="prefab">643b75fb-6eaf-43bf-94a7-57bfcad0cec3</string>
 		<string name="parent">848dffcb-0530-4832-afe9-5758204bec3a</string>
 		<object name="position">
@@ -836,9 +930,9 @@
 			<string name="src">57836044-efc5-4eee-849d-c68b39fb1e3a</string>
 			<string name="live">0822b42f-65aa-421d-90b4-d4d6c5e72938</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -868,9 +962,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">0d72c373-0222-4ca8-b57e-008e7d860f3b</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -900,9 +994,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">9e7104f5-4f55-47c1-acbe-4fbeed6e575a</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -932,9 +1026,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">1d0ce4c2-a515-447d-9b78-7e3d922c1357</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -964,9 +1058,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">0c5dde57-4b25-4b38-afe1-0d0c8384829c</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -996,9 +1090,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">af859b08-1592-4b4c-8a21-06c4169310d6</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1028,9 +1122,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">750a6169-a878-4a2b-9e06-dfed87927533</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1060,9 +1154,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">fa05bdfe-45b5-485b-b59b-095fa99b07a2</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1092,9 +1186,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">8a3aee46-31ca-4509-9836-9fdef1d70751</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1124,9 +1218,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">05a8fdd0-bd84-4d42-8b52-d4ca01a50a95</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">c110b705-cd07-4e02-bfad-3d6b569d3999</string>
 		<object name="position">
@@ -1156,9 +1250,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">b38cf3be-5be5-438e-9d50-776861b6441e</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">956d3f40-296c-4531-a272-a83368dd6f34</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1188,9 +1282,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">05150fa7-ae78-49ef-bc07-2d0a1b24b525</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">7ed182fe-88a7-42fa-9fb0-1b77975f8c70</string>
 		<object name="position">
@@ -1220,9 +1314,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">f5feec2a-bae4-4085-8544-e67d182608ce</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">956d3f40-296c-4531-a272-a83368dd6f34</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1252,9 +1346,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">df7ec09e-d1c9-474e-9af3-710e06886026</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">b5444276-fac4-4eb9-a282-07b5b47492d0</string>
 		<object name="position">
@@ -1284,9 +1378,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">e5f3b752-aee3-4868-bc5d-58c91eaa1a4f</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1316,9 +1410,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">8cc9f23c-a51e-4553-96b0-9fa16f90ac89</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1348,9 +1442,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">be03ab39-fe05-4fde-b85f-1550d2ccd2fa</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1380,9 +1474,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">1309aaef-e264-404c-a673-515d50447dd3</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1412,9 +1506,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">dae47fcf-cd92-4f8e-932b-a94a4d257330</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1444,9 +1538,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">4c6b194c-1778-46b3-baae-4758fc74b988</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1476,9 +1570,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">d37a8b5f-6e92-4851-b90f-be229df2ce0e</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1508,9 +1602,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">c5aaccf0-28eb-4fad-aab0-554a9e7b6586</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1540,9 +1634,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">600450ff-4dc6-483a-9fb6-88224bfc09bd</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1572,9 +1666,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">f595693b-5230-42f4-add4-3a6bee793935</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1604,9 +1698,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">cd9a80a1-d9fa-4944-8f79-5070491f384e</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1636,9 +1730,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">a66f6685-f7b2-47dd-9a1d-02cbaba1050e</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1668,9 +1762,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">cb90d754-5e2e-4b1b-9fa4-a7bcd2a15ead</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1700,9 +1794,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">dffe3333-a57b-4fd1-b6a3-61092fb9290a</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1732,9 +1826,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">b7f3bf81-148e-49ad-8d27-3c956d357ebb</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1764,9 +1858,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">ee098448-c9a3-4ccf-8ccb-42606628b223</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">cb6ca431-e30d-4e79-839e-8507e16d3484</string>
 		<string name="parent">16331517-f784-473c-9e2a-483999b45495</string>
 		<object name="position">
@@ -1796,9 +1890,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">c299c4da-e0cf-4f54-a965-4893fb978ea4</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">da09ae2d-b3c8-49af-becc-db95f795750b</string>
 		<object name="position">
@@ -1828,9 +1922,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">15169ea9-c521-4d52-8b07-8d4ce4d8bf39</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">b43f856f-f008-471d-8d75-f9b076f32911</string>
 		<object name="position">
@@ -1860,9 +1954,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">d9ff68db-2ffe-4151-96d5-c296221356c8</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">eda0783b-b44e-4364-9c71-a8f21ca3a6e7</string>
 		<string name="parent">bda58c32-0791-4298-941a-befe18a3ccbe</string>
 		<object name="position">
@@ -1908,9 +2002,9 @@
 			<string name="src">e808c920-48c0-4320-b925-5a6d3cfa9042</string>
 			<string name="live">eef07453-890b-46d3-9384-95d6514cf72b</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">956d3f40-296c-4531-a272-a83368dd6f34</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -1940,9 +2034,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">b092b914-1464-4211-a696-67a1c04afc17</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">d7346736-4785-47ab-927e-a703f622575c</string>
 		<object name="position">
@@ -1972,9 +2066,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">b6b06309-38bf-4d5f-9784-806d4baf4aa9</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">956d3f40-296c-4531-a272-a83368dd6f34</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2004,9 +2098,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">e67b76f8-8f6a-4537-9a64-8e923ffbdf3f</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">55631ad2-9e49-428e-86e1-96b7f8e243e3</string>
 		<object name="position">
@@ -2036,9 +2130,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">d6719e88-2b66-4486-b4d7-27fab4d78565</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">956d3f40-296c-4531-a272-a83368dd6f34</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2068,9 +2162,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">c5e0bc6d-7777-4f8c-85e3-89ddd4334421</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">4f6b72eb-c7f9-4a69-a5f2-f0d12e1b8047</string>
 		<object name="position">
@@ -2100,9 +2194,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">07cd635e-4f1c-4a69-87a7-60cde0f6d018</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2132,9 +2226,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">de7f6d75-bcae-4969-ab7c-3ce712b3a0e5</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2164,9 +2258,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">5b418d75-9b3e-4a4e-891a-f072f687d05a</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2196,9 +2290,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">333297ff-d911-4d3b-9394-192643aa10d4</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2228,9 +2322,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">981b41d7-5c9c-4897-a08f-1ea674556273</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2260,9 +2354,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">96e6a0a4-040e-4890-9a7a-3f71c12cd89c</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2292,9 +2386,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">c8dc13dc-3ad0-4c52-bda8-e5451772ae00</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e523fc7-c4ac-4753-bd65-965fcc03fe01</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2324,9 +2418,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">2ee7bbfc-4c7b-401d-aa15-0db60efc1843</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2356,9 +2450,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">9a9e7565-87e3-4fd1-a9d5-05604e330069</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2388,9 +2482,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">bd1102ab-3927-4bcd-b9a9-dcc07197bebf</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2420,9 +2514,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">40b5e78c-6492-49ef-bfb8-48727872b1bf</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">c18f57e6-9373-49df-a229-ec78a3be2f9e</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2452,9 +2546,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">e649075d-28cf-4056-b657-8b9dbf3cdc2c</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">951ec2c8-29e5-45d8-93ce-d3d4b8c40a50</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2484,9 +2578,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">b48a0736-20c4-4a46-aa3b-53516d6cb28d</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">29c91bec-9a70-4ab2-b1a9-674e7cf28e0f</string>
 		<string name="parent">83e9bfa2-f105-4eac-9db5-c96ed599bf9a</string>
 		<object name="position">
@@ -2528,9 +2622,9 @@
 			<string name="src">e1252a95-5d98-4a00-9df2-d550331a79a1</string>
 			<string name="live">ebf521e8-de94-4194-89e9-dd07d75e3a1c</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4014027f-28b3-4858-acd0-067755711346</string>
 		<string name="parent">1e5bd5d9-61a2-4b82-aaeb-995a54add52f</string>
 		<object name="position">
@@ -2560,9 +2654,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">7856e545-aa47-4199-bc17-48aca588d883</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">fbfd6cc3-24cd-456c-92cf-db59ec2fba57</string>
 		<string name="parent">97d91529-141a-4d8b-bd35-5c0109f80e34</string>
 		<object name="position">
@@ -2592,9 +2686,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">c02099db-8cfb-4100-9eb5-91327a9cad7e</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">8db2f2ed-6e1b-4fe6-a8ae-979a47b1af31</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2624,9 +2718,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">1eddabaf-31e8-4b5a-b33c-b7c148d30e52</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">8db2f2ed-6e1b-4fe6-a8ae-979a47b1af31</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2656,9 +2750,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">5255efde-8919-418a-ad30-769dd8fa6e48</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">8db2f2ed-6e1b-4fe6-a8ae-979a47b1af31</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2688,9 +2782,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">7e5c0e91-79ea-4755-8f62-341a44f7ed5d</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">3cc2330d-a439-427a-b7f3-4bb12e4c029a</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2720,9 +2814,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">e2ed372b-afc7-4fde-8a34-6dc3f11b8d0c</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">3cc2330d-a439-427a-b7f3-4bb12e4c029a</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2752,9 +2846,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">f9362776-57af-48a6-9325-d32c4cbbd9d8</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e336b9b-fd7c-4c8d-91f2-0c57ee81bf65</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2784,9 +2878,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">93776c49-2940-484b-b67f-ed704e357ead</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e336b9b-fd7c-4c8d-91f2-0c57ee81bf65</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2816,9 +2910,9 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">a1280165-ec99-4c35-806a-52afd49d9311</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 		<string name="prefab">4e336b9b-fd7c-4c8d-91f2-0c57ee81bf65</string>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
@@ -2840,7 +2934,7 @@
 		<string name="rootLive">3271fbc7-ed45-4993-aa12-f5253598e296</string>
 		<string name="owner">00000000-0000-0000-0000-000000000000</string>
 		<string name="nestedSrcRoot">00000000-0000-0000-0000-000000000000</string>
-		<string name="nextSibling">00000000-0000-0000-0000-000000000000</string>
+		<string name="nextSibling">ca79dcd6-77d7-436b-809b-0d790ae2faa3</string>
 		<u8 name="placement">1</u8>
 		<array name="members" count="2">
 			<string name="src">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
@@ -2848,8 +2942,40 @@
 			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
 			<string name="live">5634b1c5-6809-4c54-a91b-2cca20a66a52</string>
 		</array>
-		<array name="destroyed" count="0" />
-		<array name="transformOverrides" count="0" />
-		<array name="componentOps" count="0" />
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
+		<string name="prefab">f4d9b6e3-572d-4468-99d1-0b0a20ab8092</string>
+		<string name="parent">ca79dcd6-77d7-436b-809b-0d790ae2faa3</string>
+		<object name="position">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+		</object>
+		<object name="rotation">
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
+		</object>
+		<object name="scale">
+			<f32 name="x">0.5</f32>
+			<f32 name="y">0.5</f32>
+			<f32 name="z">0.5</f32>
+		</object>
+		<string name="rootLive">6c510e20-9407-44fc-b6f6-9e611a463741</string>
+		<string name="owner">00000000-0000-0000-0000-000000000000</string>
+		<string name="nestedSrcRoot">00000000-0000-0000-0000-000000000000</string>
+		<string name="nextSibling">00000000-0000-0000-0000-000000000000</string>
+		<u8 name="placement">1</u8>
+		<array name="members" count="2">
+			<string name="src">1bbeb4f2-e82e-49e9-a81c-fdebe00fa2ec</string>
+			<string name="live">6c510e20-9407-44fc-b6f6-9e611a463741</string>
+			<string name="src">b1e1a434-be56-468d-aadd-8c949f1b63f5</string>
+			<string name="live">f9476d41-9375-4044-94fe-535dea6a2837</string>
+		</array>
+		<array name="destroyed" count="0"/>
+		<array name="transformOverrides" count="0"/>
+		<array name="componentOps" count="0"/>
 	</array>
 </root>

@@ -1,13 +1,24 @@
 // PlatformerGame - the run's orchestrator (the reserved class Game): the title screen, the
-// levels in order with an intro and a clear banner each, the pause menu, the fades between
-// them, and the HUD.
+// levels in order with an intro and a clear tally each, the pause menu, the fades between them,
+// the HUD, and the stakes.
+//
+// The stakes: a run has three lives. A fall or a hit costs one; a heart found in a level gives
+// one back, and so does every 50th coin. The last life lost is the game over, and trying again
+// starts the run over from the first level.
+//
+// The score: a coin is 100, a stomped enemy 200, a level's gem 500, and a clear adds a bonus for
+// every second under the level's par time and 1000 for a level without a fall. Each clear earns
+// up to three stars: all the coins, no falls, under par. A level's best score, stars and time,
+// and the best run, are saved (the Save facade) and shown on the title.
 //
 // The flow is one state machine on the run's REAL clock (run::realDeltaTime), because the
 // game sits at time scale 0 on every screen but play: the title, an intro, a pause, a clear.
 //
 // A level's coins announce themselves ("CoinRegistered") and report pickups
-// ("CoinCollected"), the player reports falls ("PlayerDied"), and the goal flag ends the level
-// ("GoalReached"). In a run the scene bus IS the run bus, so all of them reach this class.
+// ("CoinCollected"), enemies report stomps ("EnemyDefeated"), pickups report hearts and gems
+// ("LifeCollected", "GemCollected"), the player reports falls ("PlayerDied"), and the goal flag
+// ends the level ("GoalReached"). In a run the scene bus IS the run bus, so all of them reach
+// this class.
 
 Guid kHudDoc = Guid("628098f1-29ea-4b5e-bdea-e6a828da27f5");
 Guid kTitleDoc = Guid("56b50198-2bcf-4b62-8f30-8d13a4f5cce0");
@@ -17,6 +28,7 @@ Guid kClearDoc = Guid("3f75887a-3307-46a8-9a26-cb67ff50b552");
 Guid kVictoryDoc = Guid("02f01d46-4ab6-4d5e-99b1-f805ee089785");
 Guid kFadeDoc = Guid("34ea193f-3d13-409c-bc2b-9727c0b6df87");
 Guid kSettingsDoc = Guid("b2d2fa8d-33c1-458a-a509-af220c6b2141");
+Guid kGameOverDoc = Guid("201f7898-8288-44c8-a274-bdfbc0f2fc44");
 
 Guid kLevel1 = Guid("6dd1ae0e-fbe8-4c9b-8c9e-d10b727f4d84");
 Guid kLevel2 = Guid("96aab32b-3151-41a9-ac2e-5d16ba80ee06");
@@ -31,11 +43,24 @@ Guid kLevel3Music = Guid("ddb09ad4-a77d-489e-8feb-4166d4a88200");
 Guid kButtonSound = Guid("3202be18-f708-429a-9e20-c8f22e6dade4");
 Guid kClearJingle = Guid("c66fcc06-6184-4d2e-b03d-9c7ce7e82269");
 Guid kVictoryJingle = Guid("ae009c62-c064-4d20-905e-c188865664ca");
+// Audio/powerUp7 (Kenney, CC0): the tally's tick and a star landing, pitched up as they go.
+Guid kChime = Guid("6d963695-67f8-4b7f-9cf4-d234f8034116");
 const float kMusicVolume = 0.55f;
 
 const int kLevelCount = 3;
+const int kStartLives = 3;
+const int kMaxLives = 9;
+const int kCoinsPerLife = 50;
+const int kCoinPoints = 100;
+const int kStompPoints = 200;
+const int kGemPoints = 500;
+const int kSecondPoints = 20;
+const int kFlawlessPoints = 1000;
 const float kFadeSeconds = 0.45f;
-const float kClearSeconds = 3.0f;
+/// After the last life goes, the poof plays out before the game over card.
+const float kDyingSeconds = 1.1f;
+/// How long the clear card waits once its tally is done before the next level comes on its own.
+const float kClearHoldSeconds = 4.0f;
 
 Guid levelScene(int index)
 {
@@ -76,6 +101,20 @@ string levelName(int index)
     return "Grassy Hills";
 }
 
+/// A clear in this many seconds or fewer earns the time star, and every second under it scores.
+float levelPar(int index)
+{
+    if (index == 1)
+    {
+        return 50.0f;
+    }
+    if (index == 2)
+    {
+        return 60.0f;
+    }
+    return 40.0f;
+}
+
 enum Phase
 {
     Title,
@@ -85,6 +124,8 @@ enum Phase
     Intro,
     Playing,
     Paused,
+    Dying,
+    GameOver,
     Cleared,
     Victory
 }
@@ -104,18 +145,38 @@ class Game
     /// playing rather than restarting.
     private int m_track = 0;
 
+    // ---- the run ----
+    private int m_lives = kStartLives;
+    /// Points banked by the levels cleared so far.
+    private int m_score = 0;
+    /// Coins toward the next extra life.
+    private int m_lifeCoins = 0;
+    private int m_runStars = 0;
+    private int m_allCoins = 0;
+    private int m_allCoinTotal = 0;
+    private int m_allFalls = 0;
+    private float m_allTime = 0.0f;
+    /// The score the HUD shows, rolling up toward the real one.
+    private float m_shownScore = 0.0f;
+
     // ---- this level ----
     private int m_level = 0;
     private int m_coins = 0;
     private int m_coinTotal = 0;
     private int m_falls = 0;
+    private int m_stomps = 0;
+    private bool m_gem = false;
     private float m_time = 0.0f;
 
-    // ---- the whole game, levels cleared so far ----
-    private int m_allCoins = 0;
-    private int m_allCoinTotal = 0;
-    private int m_allFalls = 0;
-    private float m_allTime = 0.0f;
+    // ---- the clear tally ----
+    private int m_timeBonus = 0;
+    private int m_flawless = 0;
+    private int m_levelScore = 0;
+    private int m_stars = 0;
+    private bool m_newBest = false;
+    /// The tally's steps done so far, and whether the player skipped to the end.
+    private int m_tallyStep = 0;
+    private bool m_tallyDone = false;
 
     void launch()
     {
@@ -156,9 +217,17 @@ class Game
         case Phase::Playing:
             m_time += dt;
             ui::findLabel("hud-time").setText(clock(m_time));
+            rollScore(real, m_score + levelPoints());
             if (Input::wasPressed("Pause"))
             {
                 pause();
+            }
+            break;
+        case Phase::Dying:
+            rollScore(real, m_score + levelPoints());
+            if (m_timer >= kDyingSeconds)
+            {
+                showGameOver();
             }
             break;
         case Phase::Settings:
@@ -174,22 +243,8 @@ class Game
             }
             break;
         case Phase::Cleared:
-            {
-                int left = int(kClearSeconds - m_timer + 0.999f); // whole seconds left, rounded up
-                string next = (m_level + 1 < kLevelCount) ? "Next level in " : "Results in ";
-                ui::findLabel("clear-next").setText(next + left);
-                if (m_timer >= kClearSeconds)
-                {
-                    if (m_level + 1 < kLevelCount)
-                    {
-                        fadeToLevel(m_level + 1);
-                    }
-                    else
-                    {
-                        showVictory();
-                    }
-                }
-            }
+            rollScore(real, m_score); // the clear's points are banked: the HUD catches up under the card
+            updateTally();
             break;
         default:
             break;
@@ -215,7 +270,50 @@ class Game
             return;
         }
         m_coins += value;
+        popup("+" + (value * kCoinPoints));
+        ui::find("hud-coin").pulse(1.35f, 0.25f);
+        m_lifeCoins += value;
+        if (m_lifeCoins >= kCoinsPerLife)
+        {
+            m_lifeCoins -= kCoinsPerLife;
+            gainLife();
+        }
         refreshHud();
+    }
+
+    void onEnemyDefeated(int count)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_stomps += count;
+        popup("+" + (count * kStompPoints));
+        refreshHud();
+    }
+
+    void onGemCollected(int unused)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        m_gem = true;
+        popup("+" + kGemPoints);
+        View@ gem = ui::find("hud-gem");
+        gem.setVisible(true);
+        gem.setScale(0.0f);
+        gem.scaleTo(1.0f, 0.45f, Ease::OutBack);
+        refreshHud();
+    }
+
+    void onLifeCollected(int count)
+    {
+        if (m_phase != Phase::Playing)
+        {
+            return;
+        }
+        gainLife();
     }
 
     void onPlayerDied(int deaths)
@@ -225,7 +323,17 @@ class Game
             return;
         }
         m_falls += 1;
+        m_lives -= 1;
+        View@ heart = ui::find("hud-heart");
+        heart.pulse(0.6f, 0.35f); // the heart shrinks and comes back: a life gone
         refreshHud();
+        if (m_lives <= 0)
+        {
+            // The poof plays out, the pad gives a long low rumble, then the card.
+            Input::rumble(0.9f, 0.2f, 0.6f);
+            Audio::setVoiceVolume(Audio::musicVoice(), 0.15f, 0.8f);
+            enter(Phase::Dying);
+        }
     }
 
     void onGoalReached(int unused)
@@ -234,15 +342,40 @@ class Game
         {
             return;
         }
-        // Time runs on under the banner: the confetti flies and the player stands and watches.
+        // Time runs on under the card: the confetti flies and the player stands and watches.
+        float par = levelPar(m_level);
+        m_timeBonus = (m_time < par) ? int(par - m_time) * kSecondPoints : 0;
+        m_flawless = (m_falls == 0) ? kFlawlessPoints : 0;
+        m_levelScore = levelPoints() + m_timeBonus + m_flawless;
+        m_stars = 0;
+        if (m_coins >= m_coinTotal)
+        {
+            m_stars += 1;
+        }
+        if (m_falls == 0)
+        {
+            m_stars += 1;
+        }
+        if (m_time <= par)
+        {
+            m_stars += 1;
+        }
+        m_newBest = saveLevel(m_level, m_levelScore, starMask(), m_time);
+
+        m_score += m_levelScore;
+        m_runStars += m_stars;
         m_allCoins += m_coins;
         m_allCoinTotal += m_coinTotal;
         m_allFalls += m_falls;
         m_allTime += m_time;
         Audio::playOneShot(kClearJingle);
         Screen@ s = ui::push(kClearDoc);
-        s.findLabel("clear-summary").setText("Coins " + m_coins + " / " + m_coinTotal + "    Falls " + m_falls
-            + "    Time " + clock(m_time));
+        s.findLabel("star-3-caption").setText("Under " + clock(par));
+        s.findLabel("tally-total").setText("0");
+        s.findLabel("clear-best").setText("");
+        s.findLabel("clear-next").setText("");
+        m_tallyStep = 0;
+        m_tallyDone = false;
         enter(Phase::Cleared);
     }
 
@@ -250,11 +383,7 @@ class Game
     void onPlay()
     {
         click();
-        m_allCoins = 0;
-        m_allCoinTotal = 0;
-        m_allFalls = 0;
-        m_allTime = 0.0f;
-        fadeToLevel(0);
+        startRun();
     }
 
     /// The volumes, on the audio buses the player saves when it exits, so a change made
@@ -307,10 +436,18 @@ class Game
         enter(Phase::Playing);
     }
 
+    /// From the pause menu: the level again from its start, with the score it started with and
+    /// the lives left now (a restart is no way to win lives back).
     void onRestart()
     {
         click();
         fadeToLevel(m_level);
+    }
+
+    void onRetry()
+    {
+        click();
+        startRun();
     }
 
     void onQuitToTitle()
@@ -326,7 +463,21 @@ class Game
         m_timer = 0.0f;
     }
 
-    /// A volume row: its slider at the bus's level, its readout, and the handler.
+    private void startRun()
+    {
+        m_lives = kStartLives;
+        m_score = 0;
+        m_shownScore = 0.0f;
+        m_lifeCoins = 0;
+        m_runStars = 0;
+        m_allCoins = 0;
+        m_allCoinTotal = 0;
+        m_allFalls = 0;
+        m_allTime = 0.0f;
+        fadeToLevel(0);
+    }
+
+    /// A bound volume row: its slider at the bus's level, its readout, and the handler.
     private void bindVolume(Screen@ s, string row, AudioBus bus, Action@ handler)
     {
         Slider@ slider = s.findSlider(row + "-slider");
@@ -355,6 +506,9 @@ class Game
         s.findButton("play-btn").onClick(Action(this.onPlay));
         s.findButton("settings-btn").onClick(Action(this.onSettings));
         s.findButton("quit-btn").onClick(Action(this.onQuit));
+        s.findLabel("title-stars").setText("" + savedStars() + " / " + (kLevelCount * 3));
+        int best = Save::getInt("best.run", 0);
+        s.findLabel("title-best").setText(best > 0 ? "Best " + points(best) : "");
         enter(Phase::Title);
     }
 
@@ -368,13 +522,31 @@ class Game
         enter(Phase::Paused);
     }
 
+    private void showGameOver()
+    {
+        run::setTimeScale(0.0f);
+        int total = m_score + levelPoints();
+        bool best = saveRun(total);
+        Screen@ s = ui::push(kGameOverDoc);
+        s.findLabel("gameover-reached").setText("Reached level " + (m_level + 1) + ", " + levelName(m_level));
+        s.findLabel("gameover-score").setText(points(total));
+        s.findLabel("gameover-best").setText(best ? "New best run!" : "Best " + points(Save::getInt("best.run", 0)));
+        s.findButton("gameover-retry-btn").onClick(Action(this.onRetry));
+        s.findButton("gameover-title-btn").onClick(Action(this.onQuitToTitle));
+        enter(Phase::GameOver);
+    }
+
     private void showVictory()
     {
-        ui::pop(); // the clear banner
+        ui::pop(); // the clear card
         Audio::playOneShot(kVictoryJingle);
+        bool best = saveRun(m_score);
         Screen@ s = ui::push(kVictoryDoc);
         s.findLabel("victory-summary").setText("Coins " + m_allCoins + " / " + m_allCoinTotal + "    Falls "
             + m_allFalls + "    Time " + clock(m_allTime));
+        s.findLabel("victory-score").setText(points(m_score));
+        s.findLabel("victory-stars").setText("" + m_runStars + " / " + (kLevelCount * 3));
+        s.findLabel("victory-best").setText(best ? "New best run!" : "Best " + points(Save::getInt("best.run", 0)));
         s.findButton("victory-title-btn").onClick(Action(this.onQuitToTitle));
         enter(Phase::Victory);
     }
@@ -422,10 +594,14 @@ class Game
             m_coins = 0;
             m_coinTotal = 0; // the new level's coins register again
             m_falls = 0;
+            m_stomps = 0;
+            m_gem = false;
             m_time = 0.0f;
             run::loadScene(levelScene(m_level));
+            m_track = 0; // the level's music from its start, at full volume after a game over
             music(2 + m_level);
             ui::push(kHudDoc);
+            m_shownScore = float(m_score);
             refreshHud();
             Screen@ intro = ui::push(kIntroDoc);
             intro.findLabel("intro-number").setText("Level " + (m_level + 1));
@@ -439,6 +615,212 @@ class Game
         enter(Phase::FadingIn);
     }
 
+    // ---- the clear tally: one row at a time, each counting up with a tick ----
+    private void updateTally()
+    {
+        if (!m_tallyDone && Input::wasPressed("Jump"))
+        {
+            // Skip to the end: every row, the total and the stars at once.
+            while (m_tallyStep < 9)
+            {
+                tallyStep(m_tallyStep, true);
+                m_tallyStep += 1;
+            }
+            finishTally();
+            return;
+        }
+        if (!m_tallyDone)
+        {
+            // Step n lands at 0.45 s, then every 0.4 s.
+            while (m_tallyStep < 9 && m_timer >= 0.45f + 0.4f * float(m_tallyStep))
+            {
+                tallyStep(m_tallyStep, false);
+                m_tallyStep += 1;
+            }
+            if (m_tallyStep >= 9)
+            {
+                finishTally();
+            }
+            return;
+        }
+        bool more = m_level + 1 < kLevelCount;
+        int left = int(kClearHoldSeconds - m_timer + 0.999f);
+        ui::findLabel("clear-next").setText((more ? "Next level in " : "Results in ") + left
+            + "    (Space or A to go on)");
+        if (m_timer >= kClearHoldSeconds || Input::wasPressed("Jump"))
+        {
+            if (more)
+            {
+                fadeToLevel(m_level + 1);
+            }
+            else
+            {
+                showVictory();
+            }
+        }
+    }
+
+    /// Steps 0-4 are the rows, 5 the total, 6-8 the stars.
+    private void tallyStep(int step, bool quiet)
+    {
+        if (step <= 4)
+        {
+            string key;
+            string value;
+            if (step == 0)
+            {
+                key = "coins";
+                value = "" + m_coins + " / " + m_coinTotal + "    +" + points(m_coins * kCoinPoints);
+            }
+            else if (step == 1)
+            {
+                key = "stomps";
+                value = "" + m_stomps + "    +" + points(m_stomps * kStompPoints);
+            }
+            else if (step == 2)
+            {
+                key = "gem";
+                value = m_gem ? "Found    +" + points(kGemPoints) : "Not found";
+            }
+            else if (step == 3)
+            {
+                key = "time";
+                value = clock(m_time) + "    +" + points(m_timeBonus);
+            }
+            else
+            {
+                key = "flawless";
+                value = (m_flawless > 0) ? "+" + points(m_flawless) : "-";
+            }
+            View@ row = ui::find("tally-" + key + "-row");
+            row.setVisible(true);
+            Label@ label = ui::findLabel("tally-" + key);
+            label.setText(value);
+            if (!quiet)
+            {
+                row.setOpacity(0.0f);
+                row.fadeTo(1.0f, 0.2f);
+                row.setTranslation(-24.0f, 0.0f);
+                row.moveTo(0.0f, 0.0f, 0.25f, Ease::Out);
+                Audio::playOneShot(kChime, AudioBus::Effects, 0.35f, 0.9f + 0.08f * float(step));
+            }
+            return;
+        }
+        if (step == 5)
+        {
+            Label@ total = ui::findLabel("tally-total");
+            total.setText(points(m_levelScore));
+            if (!quiet)
+            {
+                total.pulse(1.4f, 0.35f);
+            }
+            return;
+        }
+        int star = step - 5; // 1 to 3
+        if ((starMask() & (1 << (star - 1))) == 0)
+        {
+            return;
+        }
+        View@ filled = ui::find("star-" + star);
+        filled.setVisible(true);
+        if (!quiet)
+        {
+            filled.setScale(0.0f);
+            filled.scaleTo(1.0f, 0.4f, Ease::OutBack);
+            filled.setRotation(-40.0f);
+            filled.rotateTo(0.0f, 0.4f, Ease::Out);
+            Audio::playOneShot(kChime, AudioBus::Effects, 0.7f, 1.0f + 0.15f * float(star));
+            Input::rumble(0.0f, 0.3f, 0.06f);
+        }
+    }
+
+    private void finishTally()
+    {
+        m_tallyDone = true;
+        Label@ best = ui::findLabel("clear-best");
+        if (m_newBest)
+        {
+            best.setText("New best!");
+            best.setScale(0.0f);
+            best.scaleTo(1.0f, 0.4f, Ease::OutBack);
+        }
+        else
+        {
+            best.setText("Best " + points(Save::getInt("best.score." + m_level, 0)));
+        }
+        enter(Phase::Cleared); // the hold before the next level starts now
+    }
+
+    // ---- the save: per level its best score, stars and time; the best run ----
+    /// Bit 0 all coins, bit 1 no falls, bit 2 under par: the stars this clear earned.
+    private int starMask()
+    {
+        int mask = 0;
+        if (m_coins >= m_coinTotal)
+        {
+            mask |= 1;
+        }
+        if (m_falls == 0)
+        {
+            mask |= 2;
+        }
+        if (m_time <= levelPar(m_level))
+        {
+            mask |= 4;
+        }
+        return mask;
+    }
+
+    /// Keeps the level's best score, every star ever earned there and its best time; true when
+    /// the score is a new best.
+    private bool saveLevel(int level, int score, int stars, float seconds)
+    {
+        string suffix = "." + level;
+        bool best = score > Save::getInt("best.score" + suffix, 0);
+        if (best)
+        {
+            Save::setInt("best.score" + suffix, score);
+        }
+        Save::setInt("best.stars" + suffix, Save::getInt("best.stars" + suffix, 0) | stars);
+        float bestTime = Save::getFloat("best.time" + suffix, 0.0f);
+        if (bestTime <= 0.0f || seconds < bestTime)
+        {
+            Save::setFloat("best.time" + suffix, seconds);
+        }
+        Save::flush(); // a clear is a moment worth keeping, whatever happens next
+        return best;
+    }
+
+    private bool saveRun(int score)
+    {
+        bool best = score > Save::getInt("best.run", 0);
+        if (best)
+        {
+            Save::setInt("best.run", score);
+            Save::flush();
+        }
+        return best;
+    }
+
+    /// Every star earned on every level, over all runs.
+    private int savedStars()
+    {
+        int total = 0;
+        for (int level = 0; level < kLevelCount; level++)
+        {
+            int mask = Save::getInt("best.stars." + level, 0);
+            for (int bit = 0; bit < 3; bit++)
+            {
+                if ((mask & (1 << bit)) != 0)
+                {
+                    total += 1;
+                }
+            }
+        }
+        return total;
+    }
+
+    // ---- the HUD ----
     private void music(int track)
     {
         if (track == m_track)
@@ -454,12 +836,66 @@ class Game
         Audio::playOneShot(kButtonSound);
     }
 
+    private void gainLife()
+    {
+        if (m_lives < kMaxLives)
+        {
+            m_lives += 1;
+        }
+        Label@ up = ui::findLabel("hud-life-popup");
+        up.setVisible(true);
+        up.setOpacity(1.0f);
+        up.setTranslation(0.0f, 0.0f);
+        up.moveTo(0.0f, -26.0f, 0.9f, Ease::Out);
+        up.fadeTo(0.0f, 0.9f, Ease::In);
+        ui::find("hud-heart").pulse(1.5f, 0.4f);
+        refreshHud();
+    }
+
+    /// The points scored in the level so far, before its clear bonuses.
+    private int levelPoints()
+    {
+        return m_coins * kCoinPoints + m_stomps * kStompPoints + (m_gem ? kGemPoints : 0);
+    }
+
+    /// A gain floating up from the score.
+    private void popup(string text)
+    {
+        Label@ pop = ui::findLabel("hud-popup");
+        pop.setText(text);
+        pop.setVisible(true);
+        pop.setOpacity(1.0f);
+        pop.setTranslation(0.0f, 0.0f);
+        pop.moveTo(0.0f, -22.0f, 0.7f, Ease::Out);
+        pop.fadeTo(0.0f, 0.7f, Ease::In);
+    }
+
+    /// The HUD's score rolls up toward `goal`, quickly for a big gain.
+    private void rollScore(float real, int goal)
+    {
+        float target = float(goal);
+        if (m_shownScore >= target)
+        {
+            return;
+        }
+        float step = (target - m_shownScore) * 8.0f * real + 40.0f * real;
+        m_shownScore = (m_shownScore + step > target) ? target : m_shownScore + step;
+        Label@ score = ui::findLabel("hud-score");
+        score.setText(points(int(m_shownScore)));
+        if (m_shownScore >= target)
+        {
+            score.pulse(1.2f, 0.2f);
+        }
+    }
+
     private void refreshHud()
     {
-        ui::findLabel("hud-coins").setText("Coins " + m_coins + " / " + m_coinTotal);
-        ui::findLabel("hud-falls").setText("Falls " + m_falls);
+        ui::findLabel("hud-lives").setText("x " + m_lives);
+        ui::findLabel("hud-coins").setText("" + m_coins + " / " + m_coinTotal);
         ui::findLabel("hud-time").setText(clock(m_time));
-        ui::findLabel("hud-level").setText("Level " + (m_level + 1) + "  " + levelName(m_level));
+        ui::findLabel("hud-level").setText("" + (m_level + 1) + "  " + levelName(m_level));
+        ui::findLabel("hud-score").setText(points(int(m_shownScore)));
+        ui::find("hud-gem").setVisible(m_gem);
     }
 
     private string clock(float seconds)
@@ -467,5 +903,23 @@ class Game
         int whole = int(seconds);
         int s = whole % 60;
         return "" + (whole / 60) + ":" + (s < 10 ? "0" : "") + s;
+    }
+
+    /// A score with its thousands set apart: 12,400.
+    private string points(int value)
+    {
+        string digits = "" + value;
+        string grouped = "";
+        int count = 0;
+        for (int i = int(digits.length()) - 1; i >= 0; i--)
+        {
+            grouped = digits.substr(i, 1) + grouped;
+            count += 1;
+            if (count % 3 == 0 && i > 0)
+            {
+                grouped = "," + grouped;
+            }
+        }
+        return grouped;
     }
 }

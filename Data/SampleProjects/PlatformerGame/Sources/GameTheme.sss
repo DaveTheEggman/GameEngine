@@ -8,7 +8,23 @@
  * cloud #FFFFFF, mist #EAF4FF, sky #4DA3EE, deep sky #1F5FAF, ink #233249, soft ink #5A6B85,
  * coin gold #FFC93C (deep gold #D99A00). */
 
+/* The icons (UI/Icons/*, vector images drawn by this project; the theme's cook embeds them). */
+@icon heart "{c1e3a2f2-ed4e-4765-886f-d5fd8d2776fd}";
+@icon coin "{8286b06a-7c3d-4a38-a303-c8e96991d0b9}";
+@icon star "{6faf9764-c33a-444f-8126-91cc8eade4f5}";
+@icon star-empty "{8d152545-e14d-443f-9450-6c41b0765988}";
+@icon clock "{61312858-e1db-4148-952a-29b440b6cd66}";
+@icon gem "{1cb0b016-e4eb-4605-ab11-4a30fc6aa89c}";
+
 Label { text-color: #233249; }
+
+/* An icon is a sized Panel with one of these: the SVG keeps its own colours. */
+.icon-heart { background: svg(heart); }
+.icon-coin { background: svg(coin); }
+.icon-star { background: svg(star); }
+.icon-star-empty { background: svg(star-empty); }
+.icon-clock { background: svg(clock); }
+.icon-gem { background: svg(gem); }
 
 /* ---- the sky behind a screen, and the clouds on it ---- */
 
@@ -85,3 +101,15 @@ Slider::thumb {
 .hud-value { text-color: #233249; }
 .hud-dim { text-color: #5A6B85; }
 .hud-level { text-color: #1F5FAF; }
+.hud-score { text-color: #1F5FAF; }
+/* A gain floating up from the score or a counter: gold edged in the deep sky, readable over
+ * sky and grass alike. */
+.popup { text-color: #FFC93C; }
+.popup-life { text-color: #EF4444; }
+
+/* ---- the level clear tally ---- */
+.tally-name { text-color: #5A6B85; }
+.tally-value { text-color: #233249; }
+.tally-total { text-color: #1F5FAF; }
+.best { text-color: #D99A00; }
+.rule { background: rounded-rect(#4DA3EE, radius=1); }
