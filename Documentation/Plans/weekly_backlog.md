@@ -45,6 +45,15 @@
   PaperKid's New game did nothing. A dist has one database, so exports are unaffected. Fix:
   give DefaultApplication the scene database separately, the player passing `m_sceneDb`, and
   log a failed load. Check what Sedulous's player does first.
+- **The loading screen setting shows nothing** (found 2026-10-04): the project's `loadingDocumentId`
+  ("the cooked UIDocument shown as the boot splash while the default scene loads",
+  `Engine.Project/ProjectModule.cppm`) is saved, exported and listed by `project_info`, but no code
+  in the engine or the player ever shows it. Build it, or drop the setting. When built: a loading
+  screen belongs to the RUN that is loading, not the shared screen tier, or every editor Game tab
+  shows it (Documentation/Specs/run-screens.md: each run has its own tier with run screens on;
+  the overlay API, `PushScreenOverlay` / `RemoveScreenOverlay`, has no run yet and only the
+  shared tier's overlay layer; give it a run as `ScreensFor` has, keeping truly global overlays,
+  a debug badge, shared). Check what Sedulous does first.
 - **The editor crashes when the Console panel is squeezed very short** (found 2026-10-03, taking
   PaperKid's screenshots): with the dock layout's top area at 97% of the window height, the editor
   asserts on start in `LogView`'s list adapter (`LogView::Adapter::BindView`, `LogView.cppm:381`,
