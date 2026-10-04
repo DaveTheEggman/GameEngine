@@ -23,11 +23,11 @@
                          animation: slide 1.2s ease-in-out infinite; }
     #loading.failed .bar { display: none; }
     #loading p { margin: 12px 0 0; color: #9aa3b2; font-size: 0.95rem; min-height: 1.4em; }
-    #loading.failed p { color: #f0b4b4; }
+    #loading.failed p { color: #e8ecf3; }
     #loading.ended .bar { display: none; }
     #loading button { display: none; margin-top: 20px; padding: 10px 26px; border: 0; border-radius: 999px;
                       background: #4da3ee; color: #0a0a0c; font: 700 1rem system-ui, sans-serif; cursor: pointer; }
-    #loading.ended button { display: inline-block; }
+    #loading.ended button, #loading.retry button { display: inline-block; }
     @keyframes slide { from { left: -35%; } to { left: 100%; } }
   </style>
 </head>
@@ -57,9 +57,18 @@
         var mb = this.received / (1024 * 1024);
         this.status.textContent = this.stage + (mb >= 0.1 ? '  (' + mb.toFixed(1) + ' MB)' : '');
       },
-      fail: function (text) {
+      // A problem the player can do something about: plain words, and a Try again button when
+      // reloading may help (it does not, for a browser without WebGPU).
+      fail: function (text, canRetry) {
+        if (this.root.classList.contains('failed')) return; // the first reason is the real one
+        this.root.classList.remove('done');
         this.root.classList.add('failed');
         this.status.textContent = text;
+        if (canRetry) {
+          var again = document.getElementById('loading-again');
+          again.textContent = 'Try again';
+          this.root.classList.add('retry');
+        }
       },
       // The player calls this once the game is running (its first update).
       done: function () { this.root.classList.add('done'); },
@@ -71,8 +80,8 @@
         this.root.classList.remove('done');
         if (this.root.classList.contains('failed')) return;
         if (!started) {
-          this.fail('The game could not start. WebGPU may not be available on this device; ' +
-                    'the browser console says more.');
+          this.fail('Sorry, the game could not start. Your browser may not be able to use your ' +
+                    'graphics card for games. ' + browserHelp, true);
           return;
         }
         this.root.classList.add('ended');
@@ -91,20 +100,22 @@
     }).catch(function () {});
 
     // WebGPU first: without it there is no point downloading a game. A browser can have the API
-    // and still give no adapter (WebGPU turned off, or the GPU blocklisted).
-    var webgpuHelp = 'Try a recent Chrome or Edge on desktop, with hardware acceleration on' +
-                     (window.isSecureContext ? '.' : ', and open the page over https.');
+    // and still give no adapter (WebGPU turned off, or the GPU blocklisted). The words are for a
+    // player, not a developer.
+    var browserHelp = window.isSecureContext
+        ? 'Try the latest Chrome or Edge on a computer, with hardware acceleration turned on in its settings.'
+        : 'Open this page with an https:// address, in the latest Chrome or Edge on a computer.';
     if (!navigator.gpu) {
-      loading.fail('WebGPU is not available in this browser, and this game needs it. ' + webgpuHelp);
+      loading.fail('Sorry, this game cannot run in this browser. ' + browserHelp);
     } else {
       navigator.gpu.requestAdapter().then(function (adapter) {
         if (!adapter) {
-          loading.fail('WebGPU is not available on this device (the browser offers no GPU adapter), ' +
-                       'and this game needs it. ' + webgpuHelp);
+          loading.fail('Sorry, this game cannot run here: your browser cannot use your graphics card ' +
+                       'for games right now. ' + browserHelp);
         }
-      }).catch(function (error) {
-        loading.fail('WebGPU is not available on this device (' + error + '), and this game needs it. ' +
-                     webgpuHelp);
+      }).catch(function () {
+        loading.fail('Sorry, this game cannot run here: your browser cannot use your graphics card ' +
+                     'for games right now. ' + browserHelp);
       });
     }
 
@@ -158,7 +169,10 @@
         return c;
       })(),
       onRuntimeInitialized: function () { loading.stage = 'Starting the game'; loading.show(); },
-      onAbort: function (what) { loading.fail('The game stopped while loading: ' + what); },
+      onAbort: function (what) {
+        console.error('the game stopped while loading: ' + what);
+        loading.fail('Sorry, something went wrong while loading the game.', true);
+      },
       print: function (t) { console.log(t); },
       printErr: function (t) { console.error(t); }
     };
