@@ -23,5 +23,10 @@ scripts drive them; none of this is game content.
 - `anim.py`: the property-animation clips (the marker's bob, the porch mat's pulse) and the
   throw guides' glowing unlit material, written through `asset_data_write`; `kit.py` puts them
   on the delivery zone's pieces and the AimDot and TargetRing prefabs.
+- `blender/kid_bike.py`: the kid on his bike, modelled, rigged and animated in Blender (the
+  Ride and Throw clips) and written as `KidBike.glb`; run it with Blender in the background
+  (`blender --background --factory-startup --python blender/kid_bike.py -- <out dir> [preview]`),
+  import the .glb as `Models/KidBike`, and `block.py` places its prefab on the Bike entity.
+  `Bike.as` plays Ride at the bike's speed and Throw on a throw.
 - `drive.py`: a closed-loop playtest of Block1 over `pie_run` (laps the ring, throws at each
   zone once).
