@@ -54,12 +54,6 @@
   the overlay API, `PushScreenOverlay` / `RemoveScreenOverlay`, has no run yet and only the
   shared tier's overlay layer; give it a run as `ScreensFor` has, keeping truly global overlays,
   a debug badge, shared). Check what Sedulous does first.
-- **The theme page's preview draws no icons or images** (found 2026-10-04, vector images): the
-  editor's theme page (`UIThemePageImpl.cpp`) parses the edited stylesheet with no resource
-  provider, so an `@icon "{guid}"` (a vector image asset) or an `@image "{guid}"` (a texture) in a
-  game theme resolves to nothing in the preview, while the cooked theme draws both in the game.
-  Give the preview a provider that reads vector images and textures through the project's
-  databases, as the theme cook (`ThemeIconCollector`) and the game (`ThemeSheetResources`) do.
 - **Save data follow-ups** (2026-10-04, Documentation/Specs/save-data.md "Not now"): a web backend
   (the web build's user data directory is in memory, so a save lasts one page load: browser storage,
   IndexedDB); an MCP tool to read or clear the play-in-editor save, so an agent testing a "best

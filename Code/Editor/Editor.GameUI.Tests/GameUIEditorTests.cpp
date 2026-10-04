@@ -12,6 +12,10 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import editor.core;
 import editor.gameui;
+import foundation.vfs;
+import foundation.content;
+import foundation.resource;
+import foundation.ui.resource;
 
 using namespace foundation::core;
 namespace toolkit = foundation::ui::toolkit;
@@ -52,4 +56,53 @@ TEST_CASE("gameui editor: a linked source reads empty without a project")
     editor::EditorContext context{DefaultAllocator()};
     const String text = editor::ReadProjectSource(context, u8"UI/missing.sml");
     CHECK(text.IsEmpty());
+}
+
+// The theme page previews a stylesheet before it is cooked: its @icon names a vector image the
+// preview reads through the resource manager, so svg(name) draws there as it will in the game.
+TEST_CASE("gameui editor: the theme preview reads an @icon's vector image through the resources")
+{
+    foundation::ui::RegisterUIResource();
+    const StringView dir = u8"scratch_theme_preview_db";
+    (void)RemoveDirectoryRecursive(dir);
+    REQUIRE(CreateDirectories(dir));
+    {
+        foundation::vfs::NativeFileSystem mount(dir, DefaultAllocator());
+        foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+        foundation::content::Instance* instance =
+            db.RootGroup()->CreateInstance(u8"heart", foundation::ui::UIVectorImageSource::StaticType());
+        foundation::ui::UIVectorImageSource source;
+        source.svg = String(u8"<svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\" fill=\"#E53935\"/></svg>");
+        REQUIRE(instance->WriteObject(source).IsOk());
+
+        foundation::ui::UIVectorImageFactory factory(DefaultAllocator());
+        foundation::resource::ResourceManager manager(DefaultAllocator(), db);
+        manager.AddFactory(&factory);
+        editor::ThemePreviewResources resources(&manager, nullptr);
+
+        const String reference = Format(u8"{{{}}}", instance->Id());
+        String svg;
+        REQUIRE(resources.LoadText(reference.AsView(), svg));
+        CHECK(svg.AsView() == source.svg.AsView());
+        CHECK_FALSE(resources.LoadText(u8"{6dd1ae0e-fbe8-4c9b-8c9e-d10b727f4d84}", svg)); // no such asset
+        CHECK_FALSE(resources.LoadText(u8"icons/heart.svg", svg));                       // not an id
+        CHECK(resources.LoadImage(u8"{6dd1ae0e-fbe8-4c9b-8c9e-d10b727f4d84}") == nullptr);  // no image source
+
+        // Through the loader, the icon becomes a drawable the preview's views resolve.
+        foundation::ui::StyleSheetLoader loader(DefaultAllocator());
+        loader.ResourceProvider = &resources;
+        RefPtr<foundation::ui::StyleSheet> sheet =
+            loader.Load(Format(u8"@icon heart \"{}\";\n.heart {{ background: svg(heart); }}\n", reference).AsView());
+        REQUIRE(sheet.Get() != nullptr);
+        foundation::ui::UIContext ctx{DefaultAllocator()};
+        auto root = MakeRef<foundation::ui::RootView>(DefaultAllocator());
+        ctx.AddRootView(root.Get());
+        root->SetLocalStyleSheet(sheet);
+        auto panel = MakeRef<foundation::ui::Panel>(DefaultAllocator());
+        panel->AddClass(u8"heart");
+        root->AddView(panel.Get());
+        CHECK(Cast<foundation::ui::SVGDrawable>(panel->ResolveStyleDrawable(foundation::ui::StyleProperty::Background)) != nullptr);
+        ctx.RemoveRootView(root.Get());
+    }
+    (void)RemoveDirectoryRecursive(dir);
 }

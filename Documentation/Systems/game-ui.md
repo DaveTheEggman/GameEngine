@@ -92,7 +92,9 @@ Play-in-editor works by construction (the same event stream through the viewport
   on a sized `<Panel class="lives-icon" width="28" height="28"/>`. The theme's cook embeds every icon
   it names (`UIThemeSource::icons`, a `reads` edge so a changed SVG recooks the theme), so the sheet
   parses at runtime with nothing else to load; an `@icon` naming no vector image fails the cook.
-  The editor's theme page preview does not resolve them yet (it parses with no provider).
+  The editor's theme page previews the edited sheet the same way: its parse reads an `@icon`'s
+  vector image through the editor's resource manager and textures through the game UI's provider
+  (`ThemePreviewResources`), so icons and images show before the sheet is cooked.
 - **Images** - `<ImageView source="{guid}"/>` shows a texture asset: the subsystem is its context's
   `IResourceProvider` and binds the id through the application's resource manager, one image key per
   texture, registered on every VG renderer before it draws. A render texture a camera targets is a

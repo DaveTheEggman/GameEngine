@@ -32,6 +32,8 @@ import foundation.ui;
 import foundation.ui.toolkit;
 import foundation.xml; // the markup probe (XmlDocument) behind the editors' diagnostics
 import foundation.ui.resource;
+import foundation.resource; // ResourceManager (the preview reads vector images through it)
+import foundation.image;    // IResourceProvider::LoadImage
 import ui.pipeline;
 import foundation.ui.runtime;
 import engine.ui;
@@ -43,6 +45,46 @@ using namespace foundation::core;
 
 export namespace editor
 {
+    // What the preview's stylesheet reads as it parses, the edited text not being cooked yet:
+    // an @icon names a vector image asset, read through the editor's resource manager (its
+    // cooked product, as the theme's cook embeds it); an image is a texture, which the game
+    // UI's own provider resolves.
+    struct ThemePreviewResources final : public foundation::ui::IResourceProvider
+    {
+        ThemePreviewResources(foundation::resource::ResourceManager* resourceManager,
+                         foundation::ui::IResourceProvider* textureImages)
+            : resources(resourceManager), images(textureImages)
+        {
+        }
+
+        bool LoadText(StringView path, String& outText) override
+        {
+            if (path.Size() == 38 && path[0] == utf8char('{') && path[37] == utf8char('}'))
+            {
+                path = path.SubStr(1, 36);
+            }
+            Guid id;
+            if (resources == nullptr || !Guid::TryParse(path, id) || id.IsNil())
+            {
+                return false;
+            }
+            auto image = resources->Bind<foundation::ui::UIVectorImage>(id);
+            if (!image || image->svg.IsEmpty())
+            {
+                return false;
+            }
+            outText = image->svg;
+            return true;
+        }
+        const foundation::image::ImageData* LoadImage(StringView path) override
+        {
+            return images != nullptr ? images->LoadImage(path) : nullptr;
+        }
+
+        foundation::resource::ResourceManager* resources;
+        foundation::ui::IResourceProvider* images;
+    };
+
     namespace runtime = foundation::runtime;
     namespace ui = foundation::ui;
     namespace vg = foundation::vg;

@@ -12,6 +12,8 @@ module editor.gameui;
 import foundation.core;
 import foundation.vfs;
 import foundation.content;
+import foundation.resource; // ResourceManager (the preview reads vector images through it)
+import foundation.image;    // IResourceProvider::LoadImage
 import foundation.runtime.client;
 import foundation.graphics;
 import foundation.rhi;
@@ -35,6 +37,7 @@ namespace vg = foundation::vg;
 
 namespace editor
 {
+
     Status UIThemeEditorPage::Save()
     {
         foundation::content::Instance* instance =
@@ -192,8 +195,12 @@ namespace editor
             return;
         }
         // Apply the EDITED stylesheet PER-ELEMENT (subtree-scoped) - never the shared game context.
+        // It reads what the game's would: vector images for @icon, the game UI's textures for
+        // image() and @image.
+        ThemePreviewResources resources(m_context->Resources(), m_ui->Context().ResourceProvider());
         ui::StyleSheetLoader loader(Allocator());
         loader.SetPalette(ui::ThemePalette::Dark());
+        loader.ResourceProvider = &resources;
         RefPtr<ui::StyleSheet> sheet = loader.Load(m_stylesheet.AsView());
         String status;
         if (sheet.Get() != nullptr)
