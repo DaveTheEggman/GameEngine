@@ -742,6 +742,10 @@ namespace editor
     {
         m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(editor));
         ui::toolkit::PropertyEditor* raw = editor;
+        // A row starts in its current state: the inspector runs no refresher on the frame it
+        // rebuilds, so a row whose label or enabled state comes from its refresher (the profile
+        // buttons) would show its built-in one for a frame.
+        refresher();
         m_refreshers->PushBack(Function<void()>{[raw, pull = Move(refresher)]()
                                                 {
                                                     if (!raw->IsEditing())

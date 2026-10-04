@@ -258,6 +258,13 @@ TEST_CASE("settings profiles: the shared rows read where their access points and
     turbidity->Setter(4.0f);
     REQUIRE(written.Size() == 1);
     CHECK(written[0] == u8"turbidity");
+
+    // A host's own row starts in its current state (no frame showing its built-in label).
+    auto button = MakeRef<foundation::ui::toolkit::ButtonEditor>(DefaultAllocator(), StringView(u8"Open"),
+                                                                 Function<void()>{}, StringView(u8"Environment"));
+    foundation::ui::toolkit::ButtonEditor* raw = button.Get();
+    rows.AddEditor(raw, [raw]() { raw->SetButtonEnabled(false); });
+    CHECK_FALSE(raw->ButtonEnabled());
 }
 
 TEST_CASE("settings profiles: the profile page's preview takes the profile's values")
