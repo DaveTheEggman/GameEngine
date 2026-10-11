@@ -40,20 +40,23 @@ namespace pipeline
         {
             return nullptr;
         }
-        // A directional sun, angled so the first mesh dropped in is lit and shadowed. The
-        // intensity stays the component default, so the value a user tunes is the one shown.
+        // A directional sun, angled and strong enough that the first mesh dropped in casts a
+        // shadow you can see: at the component default (1) and 60 degrees up, the sky's light
+        // filled a short shadow in until it read as a smudge (user, 2026-10-11).
         scene::Scene seeded(allocator, name.AsView());
         seeded.AddSystem<engine::render::LightComponentManager>();
         const scene::EntityHandle sun = seeded.CreateEntity(u8"Sun");
         Transform t;
-        // Shines along the entity's forward (-Z): tilted about 60 degrees down, with a slight
-        // compass yaw so shading has direction.
-        t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, 0.35f) *
-                     Quaternion::FromAxisAngle(Float3{1, 0, 0}, -1.05f);
+        // Shines along the entity's forward (-Z): 40 degrees down, travelling toward +X and +Z,
+        // so a shadow falls toward a camera that looks at the origin from that side (as the
+        // getting-started guide's does).
+        t.rotation = Quaternion::FromAxisAngle(Float3{0, 1, 0}, -2.35619f) *
+                     Quaternion::FromAxisAngle(Float3{1, 0, 0}, -0.698132f);
         seeded.SetLocalTransform(sun, t);
         engine::render::LightComponent& light =
             seeded.GetSystem<engine::render::LightComponentManager>()->Add(sun);
         light.castsShadows = true;
+        light.intensity = 4.0f;
         (void)scene::SaveScene(seeded, *instance);
         return instance;
     }

@@ -540,10 +540,14 @@ TEST_CASE("scene-editor: a new scene instance is seeded with a directional Sun")
     REQUIRE(light != nullptr);
     CHECK(light->type == engine::render::LightType::Directional);
     CHECK(light->castsShadows);
-    // Angled, not identity: the light's forward must have a downward component.
+    // 40 degrees down, travelling toward +X and +Z, and strong enough that a first mesh's shadow
+    // reads (the sky fills a weak sun's shadow in).
     const Transform t = loaded.GetLocalTransform(sun);
     const Float3 forward = RotateVector(t.rotation, Float3{0, 0, -1});
-    CHECK(forward.y < -0.5f);
+    CHECK(forward.y == doctest::Approx(-0.6428f).epsilon(0.01)); // sin 40 degrees
+    CHECK(forward.x > 0.5f);
+    CHECK(forward.z > 0.5f);
+    CHECK(light->intensity == doctest::Approx(4.0f));
 
     RemoveProjectTree(dir);
 }
