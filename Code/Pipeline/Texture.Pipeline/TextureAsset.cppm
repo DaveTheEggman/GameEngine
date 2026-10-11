@@ -13,8 +13,8 @@
 //     image file with a sensible preset (2D / equirectangular sky).
 //
 // Never linked by the runtime (an authoring/cook-seam helper). Cubemap import loads + validates +
-// combines 6 face files.
-// TODO: cooking a cubemap TextureResource through the builder is not implemented.
+// combines 6 face files; the builder cooks them into one cube (BuildCubemap, the +X face naming
+// the other five).
 
 module;
 #include "Core/Prelude.h"

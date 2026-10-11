@@ -186,7 +186,9 @@ TEST_CASE("integration.mcp: project_create seeds the default UI font, the sky an
     CHECK(asset->mode == pipeline::FontBakeMode::DistanceField); // one bake draws every size clean
     foundation::content::Group* root = project->SourceDb().RootGroup();
     REQUIRE(root->GetGroup(u8"Environment") != nullptr);
-    CHECK(root->GetGroup(u8"Environment")->GetInstance(u8"BlueSky") != nullptr);
+    CHECK(root->GetGroup(u8"Environment")->GetInstance(u8"Sky") != nullptr);
+    CHECK(std::filesystem::exists("mcp_seeded_project/Sources/kloofendal_48d_partly_cloudy_puresky_1k.hdr"));
+    CHECK_FALSE(std::filesystem::exists("mcp_seeded_project/Sources/BlueSky.hdr")); // the large one no more
     CHECK(std::filesystem::exists("mcp_seeded_project/Sources/Roboto-Regular.ttf"));
 }
 

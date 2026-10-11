@@ -69,14 +69,17 @@ namespace editor
             }
         }
 
-        // 2) The default sky: BlueSky.hdr as an equirectangular skybox texture.
+        // 2) The default sky: Poly Haven's Kloofendal 48d Partly Cloudy (Pure Sky) at 1K, CC0 (its
+        //    licence beside it), an equirectangular skybox texture. A 1024 x 512 HDR of 1.4 MB: the
+        //    4096 x 2048 BlueSky (10 MB, nearly 3 s to cook) was more than a starting sky needs.
         {
-            const String source = foundation::vfs::DataPath(dataRoot, u8"Assets/environment/BlueSky.hdr");
+            const String source = foundation::vfs::DataPath(
+                dataRoot, u8"Assets/environment/kloofendal_48d_partly_cloudy_puresky/kloofendal_48d_partly_cloudy_puresky_1k.hdr");
             Result<String> copied = pipeline::CopyIntoSources(import, source.AsView());
             if (copied.HasValue())
             {
                 if (foundation::content::Instance* instance = GroupNamed(root, u8"Environment")->CreateInstance(
-                        u8"BlueSky", pipeline::TextureAsset::StaticType()))
+                        u8"Sky", pipeline::TextureAsset::StaticType()))
                 {
                     pipeline::TextureAsset asset;
                     asset.fileName = foundation::vfs::SourcePath(copied.Value().AsView());

@@ -274,7 +274,7 @@ export namespace editor
 
     // The starter content a new project is seeded with, whether made by the editor's New Project
     // or the MCP project_create: Roboto as a distance-field font set as the manifest's default UI
-    // font (what a shipped game's text draws with), BlueSky.hdr as the default sky, and the cube,
+    // font (what a shipped game's text draws with), a 1K Poly Haven sky (CC0) as the default sky, and the cube,
     // sphere and plane primitives (every primitive with `allPrimitives`) through `creators`.
     // Payload files come from `dataRoot`'s Assets/. The caller saves the settings and the source
     // database. Defined in ProjectSeedImpl.cpp.
