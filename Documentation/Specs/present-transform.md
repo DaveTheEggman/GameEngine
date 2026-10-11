@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P3 built, P4a (the UI drawn turned) built; P4b (the editor preview) next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P4 built; P5: the samples' Web presets say Landscape (published to the demos site); the page's fullscreen and lock next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -154,7 +154,7 @@ setting against the window's shape). Noted here so the type is right; not built 
   (Engine.Input.Tests): a portrait window with a landscape game: a mouse and a finger at the
   window's corners map to the content's corners, a finger's normalized place is over the content, a
   drag's delta turns.
-- **P4 The screen-tier UI and the editor preview.** `DrawTier` rotation; the Game tab's "Phone,
+- **P4 The screen-tier UI and the editor preview (built).** `DrawTier` rotation; the Game tab's "Phone,
   portrait" preview. Tests (Engine.UI.Tests): with a quarter turn, a tap at the window point where a
   button is drawn presses it; the touch guide's buttons are in the content's bottom-right.
   Editor.Scene.Tests: the preview's shape and its rotation choice. The user's check in the editor.

@@ -23,6 +23,8 @@
 			<u32 name="windowHeight">720</u32>
 			<u8 name="windowMode">0</u8>
 			<bool name="windowResizable">true</bool>
+			<bool name="overridesOrientation">false</bool>
+			<i32 name="orientation">0</i32>
 		</object>
 		<object>
 			<string name="name">Web</string>
@@ -45,6 +47,8 @@
 			<u32 name="windowHeight">720</u32>
 			<u8 name="windowMode">0</u8>
 			<bool name="windowResizable">true</bool>
+			<bool name="overridesOrientation">true</bool>
+			<i32 name="orientation">1</i32>
 		</object>
 		<object>
 			<string name="name">Steam Deck</string>
@@ -67,6 +71,8 @@
 			<u32 name="windowHeight">800</u32>
 			<u8 name="windowMode">1</u8>
 			<bool name="windowResizable">false</bool>
+			<bool name="overridesOrientation">false</bool>
+			<i32 name="orientation">0</i32>
 		</object>
 	</array>
 </root>
