@@ -100,6 +100,10 @@ export namespace engine::ui
             return shown.stick ? inscribed * 0.35f : (inscribed > 4.0f ? inscribed - 3.0f : inscribed);
         }
 
+        // A control's name is this share of its guide's diameter, and never smaller than the least.
+        static constexpr f32 kGuideFontPerSize = 0.16f;
+        static constexpr f32 kGuideMinFontSize = 15.0f;
+
         IAllocator* m_allocator;
         Array<Shown> m_controls;
         Array<RefPtr<foundation::ui::Label>> m_labels; // one per control: its action's name

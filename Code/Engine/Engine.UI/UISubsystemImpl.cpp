@@ -3035,7 +3035,6 @@ namespace engine::ui
                             if (m_labels.Size() < m_controls.Size())
                             {
                                 auto label = MakeRef<foundation::ui::Label>(*m_allocator);
-                                label->FontSize.SetValue(15.0f);
                                 label->HAlign.SetValue(foundation::fonts::TextAlignment::Center);
                                 label->IsHitTestVisible = false;
                                 m_labels.PushBack(label);
@@ -3058,9 +3057,13 @@ namespace engine::ui
             }
             const Float2 centre = GuideCentre(m_controls[i], w, h);
             const f32 size = GuideRadius(m_controls[i], w, h) * 2.0f;
+            // The name grows with its button, as the button grows with the screen: a fixed size
+            // was legible on a desktop window and tiny on a phone's many pixels (user, 2026-10-11).
+            const f32 fontSize = Max(kGuideMinFontSize, size * kGuideFontPerSize);
+            label.FontSize.SetValue(fontSize);
             foundation::ui::LayoutStyle place;
             place.Left = centre.x - size * 0.5f;
-            place.Top = centre.y - 10.0f;
+            place.Top = centre.y - fontSize * 0.65f; // the line's middle on the centre
             place.Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(size));
             label.SetLayout(place);
             label.TextColor.SetValue(Optional<Color>(Color{1.0f, 1.0f, 1.0f, m_controls[i].down ? 1.0f : 0.85f}));

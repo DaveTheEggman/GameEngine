@@ -2401,6 +2401,32 @@ TEST_CASE("ui.subsystem: the touch guide shows the game's touch controls once a 
     ui->Context().UpdateRootView(screenRoot);
     CHECK(guide->Parent == screenRoot);
     CHECK(guide->Width() == doctest::Approx(800.0f));
+    // Each name is sized by its button, so it reads on a phone's many pixels as on a desktop: a
+    // larger screen, a larger name, never below the least.
+    const auto jumpFont = [&]() -> f32
+    {
+        for (usize i = 0; i < guide->ChildCount(); ++i)
+        {
+            if (auto* label = Cast<Label>(guide->GetChildAt(i)); label != nullptr && label->Text.Value().AsView() == StringView(u8"Jump"))
+            {
+                return label->FontSize.Value().HasValue() ? label->FontSize.Value().Value() : 0.0f;
+            }
+        }
+        return 0.0f;
+    };
+    devices.touch.Put(1, 600.0f, 300.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    const f32 small = jumpFont();
+    CHECK(small >= 15.0f);
+    screenRoot->ViewportSize = Float2{2340.0f, 1080.0f}; // a phone's pixels, the game turned on it
+    ui->Context().UpdateRootView(screenRoot);
+    ctx.BeginFrame(1.0f / 60.0f);
+    const f32 large = jumpFont();
+    CHECK(large > small * 1.5f);
+    CHECK(large > 40.0f);
+    screenRoot->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(screenRoot);
+    devices.touch.points.Clear();
     // A set out of effect shows nothing.
     input->Runtime().DisableSet(u8"Gameplay");
     ctx.BeginFrame(1.0f / 60.0f);
