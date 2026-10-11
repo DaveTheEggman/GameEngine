@@ -2473,7 +2473,7 @@ namespace foundation::render
                                               m_frameIndex, viewIndex, 1.0f, 0.0f,
                                               Float2{shown.sourceWidth, shown.sourceHeight},
                                               Float2{shown.sourceX, shown.sourceY}, 0.0f, false, false,
-                                              false, {}, {}, /*copyOnly*/ true);
+                                              false, {}, {}, /*copyOnly*/ true, shown.rotation);
                 }
             }
 

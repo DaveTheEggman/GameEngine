@@ -420,6 +420,18 @@ TEST_CASE("export: a preset's display overrides what the dist manifest carries")
         readDist(dist);
         CHECK(dist.renderWidth == 640u);
         CHECK(dist.renderFit == FitMode::IntegerScale);
+        CHECK(dist.orientation == ScreenOrientation::Any); // not overridden: the project's
+    }
+
+    // And the orientation: a phone-facing preset holds the game landscape.
+    handheld.overridesOrientation = true;
+    handheld.orientation = ScreenOrientation::Landscape;
+    writeDist();
+    REQUIRE(editor::ApplyPresetDisplay(dir.AsView(), handheld).IsOk());
+    {
+        engine::project::ProjectSettings dist;
+        readDist(dist);
+        CHECK(dist.orientation == ScreenOrientation::Landscape);
     }
 
     // The overrides round-trip through export_presets.xml.
@@ -432,6 +444,8 @@ TEST_CASE("export: a preset's display overrides what the dist manifest carries")
     CHECK(loaded.presets[0].overridesRender);
     CHECK(loaded.presets[0].renderHeight == 400u);
     CHECK(loaded.presets[0].windowMode == engine::project::WindowMode::Fullscreen);
+    CHECK(loaded.presets[0].overridesOrientation);
+    CHECK(loaded.presets[0].orientation == ScreenOrientation::Landscape);
     NukeTree(dir.AsView());
 }
 
@@ -448,7 +462,7 @@ TEST_CASE("export: a preset describes its fields through reflection")
         CHECK(engine::project::SettingAttribute(property, engine::project::kSettingLabelAttribute) != nullptr);
         ++labelled;
     }
-    CHECK(labelled == 18u);
+    CHECK(labelled == 20u);
     const PropertyInfo* files = FindProperty(type, "additionalFiles");
     REQUIRE(files != nullptr);
     CHECK(IsContainer(*files->type));

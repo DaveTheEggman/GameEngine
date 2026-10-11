@@ -16,7 +16,7 @@ struct TonemapPush { float Exposure; float BloomIntensity; float2 UvScale; float
                      // 1 = the target stores the display encoding as written (a plain UNORM target);
                      // 0 = it encodes on write (sRGB) or holds linear values (float). Three SCALAR
                      // pads, never a float3: a WGSL uniform wants a vec3 on a 16-byte boundary.
-                     float EncodeOutput; float Pad0; float Pad1; float Pad2; };
+                     float EncodeOutput; float Rotation; float Pad1; float Pad2; };
 PUSH_CONSTANT(TonemapPush, pc, space1);
 
 // Linear -> sRGB display encode (the OETF the CM1a "clamp" operator needs before writing the
@@ -94,7 +94,16 @@ float4 main(float4 pos : SV_Position, float2 uv : TEXCOORD0) : SV_Target {
     float2 st = pc.UvOffset + local * pc.UvScale;
     // Operator 2: the PRESENT copy of a view drawn at its own scene size, its finished image
     // (already what this target stores) scaled into the view's rectangle. No grading, no curve.
-    if (pc.Operator > 1.5) { return Hdr.SampleLevel(BloomSamp, st, 0); }
+    // A turned present (a landscape game on a portrait screen): the image lands turned in the
+    // view's rectangle, so the rectangle's local uv turns back into the image's before the scale.
+    // Rotation counts clockwise quarters (ContentRotation).
+    if (pc.Operator > 1.5) {
+        float2 turned = local;
+        if (pc.Rotation > 2.5)      { turned = float2(1.0 - local.y, local.x); }        // three quarters
+        else if (pc.Rotation > 1.5) { turned = float2(1.0 - local.x, 1.0 - local.y); }  // a half
+        else if (pc.Rotation > 0.5) { turned = float2(local.y, 1.0 - local.x); }        // a quarter
+        return Hdr.SampleLevel(BloomSamp, pc.UvOffset + turned * pc.UvScale, 0);
+    }
     // Debug: show the GTAO buffer (or a debug channel it wrote) straight to screen, no tonemap.
     if (pc.DebugShowAo > 0.5) { return float4(Ao.SampleLevel(BloomSamp, st, 0).rrr, 1.0); }
     float3 c = max(Hdr.SampleLevel(BloomSamp, st, 0).rgb, 0.0);

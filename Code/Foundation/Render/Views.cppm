@@ -104,7 +104,8 @@ export namespace foundation::render
             // A scene size of its own: the chain runs at it, the whole of it the view's.
             const SceneSize& size = settings.scene;
             m_scaled = size.IsSet() &&
-                       (size.width != m_viewportW || size.height != m_viewportH || size.IsCropped());
+                       (size.width != m_viewportW || size.height != m_viewportH || size.IsCropped() ||
+                        size.IsTurned());
             if (m_scaled)
             {
                 m_width = size.width;

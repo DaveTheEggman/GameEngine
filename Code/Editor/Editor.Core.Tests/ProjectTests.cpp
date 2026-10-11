@@ -446,7 +446,7 @@ TEST_CASE("project: the display settings are appended, with defaults an older ma
         REQUIRE(bytes.HasValue());
         std::string text(reinterpret_cast<const char*>(bytes.Value().Data()), bytes.Value().Size());
         for (const char* key : {"renderWidth", "renderHeight", "renderFit", "windowWidth", "windowHeight",
-                                "windowMode", "windowResizable"})
+                                "windowMode", "windowResizable", "orientation"})
         {
             const usize name = text.find(std::string("name=\"") + key + "\"");
             REQUIRE(name != std::string::npos);
@@ -473,11 +473,13 @@ TEST_CASE("project: the display settings are appended, with defaults an older ma
         CHECK(settings.windowHeight == 720u);
         CHECK(settings.windowMode == engine::project::WindowMode::Windowed);
         CHECK(settings.windowResizable);
+        CHECK(settings.orientation == ScreenOrientation::Any); // takes the window's shape
         project->Settings().renderWidth = 640;
         project->Settings().renderHeight = 360;
         project->Settings().renderFit = FitMode::IntegerScale;
         project->Settings().windowMode = engine::project::WindowMode::Borderless;
         project->Settings().windowResizable = false;
+        project->Settings().orientation = ScreenOrientation::Landscape;
         REQUIRE(project->SaveSettings().IsOk());
     }
     UniquePtr<EditorProject> project = EditorProject::Open(DefaultAllocator(), dir);
@@ -490,6 +492,7 @@ TEST_CASE("project: the display settings are appended, with defaults an older ma
     CHECK(dist.renderFit == FitMode::IntegerScale);
     CHECK(dist.windowMode == engine::project::WindowMode::Borderless);
     CHECK_FALSE(dist.windowResizable);
+    CHECK(dist.orientation == ScreenOrientation::Landscape);
 
     // Reflected for the dialog and the tools: the enums name their choices.
     const PropertyInfo* fit = FindProperty(engine::project::ProjectSettings::StaticType(), "renderFit");
@@ -498,6 +501,9 @@ TEST_CASE("project: the display settings are appended, with defaults an older ma
     const PropertyInfo* mode = FindProperty(engine::project::ProjectSettings::StaticType(), "windowMode");
     REQUIRE(mode != nullptr);
     CHECK(EnumeratorCount(*mode->type) == 3u);
+    const PropertyInfo* orientation = FindProperty(engine::project::ProjectSettings::StaticType(), "orientation");
+    REQUIRE(orientation != nullptr);
+    CHECK(EnumeratorCount(*orientation->type) == 3u);
 
     project.Reset();
     (void)FileDelete(PathJoin(dir, u8"Project.xml"));

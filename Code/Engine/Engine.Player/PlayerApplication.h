@@ -353,6 +353,7 @@ namespace engine::player
 
             // The resolution the game draws at, fitted into whatever window it got.
             SetRenderResolution(m_settings.renderWidth, m_settings.renderHeight, m_settings.renderFit);
+            SetOrientation(m_settings.orientation); // presented turned on a window of the other shape
 
             // Game script launches FIRST (task #123 boot reorder): the orchestrator's launch()/
             // update(dt) run from frame 1, scene or none, with the engine-service bindings above

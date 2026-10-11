@@ -83,7 +83,8 @@ export namespace foundation::render
                             f32 aoStrength = 0.0f, bool debugShowAo = false, bool agx = true,
                             bool sceneYFlipped = false,
                             const TonemapAutoExposure& autoExposure = {},
-                            const TonemapGrading& grading = {}, bool copyOnly = false);
+                            const TonemapGrading& grading = {}, bool copyOnly = false,
+                            ContentRotation turn = ContentRotation::None);
 
     private:
         static constexpr rhi::TextureFormat kHdrFormat = rhi::TextureFormat::RGBA16Float;

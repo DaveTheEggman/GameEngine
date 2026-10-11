@@ -139,3 +139,16 @@ TEST_CASE("content fit: a half turn and the bars of a turned letterbox")
     Float2 c;
     CHECK_FALSE(bars.ToContent(Float2{540, 30}, c)); // in a bar
 }
+
+TEST_CASE("content fit: the turn an orientation asks of a window")
+{
+    // Only a mismatched shape turns, and always three quarters (the game's top on the screen's
+    // left); a square window or Any never turns.
+    CHECK(TurnFor(ScreenOrientation::Landscape, 1080, 1920) == ContentRotation::ThreeQuarter);
+    CHECK(TurnFor(ScreenOrientation::Landscape, 1920, 1080) == ContentRotation::None);
+    CHECK(TurnFor(ScreenOrientation::Portrait, 1920, 1080) == ContentRotation::ThreeQuarter);
+    CHECK(TurnFor(ScreenOrientation::Portrait, 1080, 1920) == ContentRotation::None);
+    CHECK(TurnFor(ScreenOrientation::Landscape, 800, 800) == ContentRotation::None);
+    CHECK(TurnFor(ScreenOrientation::Any, 1080, 1920) == ContentRotation::None);
+    CHECK(TurnFor(ScreenOrientation::Any, 1920, 1080) == ContentRotation::None);
+}

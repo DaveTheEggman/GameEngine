@@ -138,6 +138,31 @@ TEST_CASE("export dialog: edits apply as made and save when the selection moves;
     CHECK_FALSE(f.exportedAll);
 }
 
+// Present transform P2: a preset holds the game its own way (a phone-facing Web preset says
+// Landscape), and the dialog shows the preset's choice again when it is selected.
+TEST_CASE("export dialog: a preset overrides the orientation")
+{
+    Fixture f;
+    auto dialog = MakeRef<app::ExportDialog>(DefaultAllocator(), f.context, f.presets, f.Seams());
+    REQUIRE(dialog->SelectedIndex() == 0);
+    CHECK_FALSE(dialog->OrientationOverrideField().IsChecked.Value());
+    CHECK(dialog->OrientationField().SelectedIndex() == static_cast<i32>(ScreenOrientation::Any));
+
+    dialog->OrientationOverrideField().IsChecked.SetValue(true);
+    dialog->OrientationField().SetSelectedIndex(static_cast<i32>(ScreenOrientation::Landscape));
+    CHECK(f.presets.At(0).overridesOrientation);
+    CHECK(f.presets.At(0).orientation == ScreenOrientation::Landscape);
+    CHECK_FALSE(f.presets.At(1).overridesOrientation);
+
+    // The other preset shows its own; coming back shows this one's again.
+    dialog->Select(1);
+    CHECK_FALSE(dialog->OrientationOverrideField().IsChecked.Value());
+    CHECK(dialog->OrientationField().SelectedIndex() == static_cast<i32>(ScreenOrientation::Any));
+    dialog->Select(0);
+    CHECK(dialog->OrientationOverrideField().IsChecked.Value());
+    CHECK(dialog->OrientationField().SelectedIndex() == static_cast<i32>(ScreenOrientation::Landscape));
+}
+
 TEST_CASE("export dialog: add, duplicate and remove presets")
 {
     Fixture f;

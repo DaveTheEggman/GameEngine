@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). P1 built (ContentFit rotation); P2 next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). P1 and P2 built; P3 next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -145,7 +145,7 @@ setting against the window's shape). Noted here so the type is right; not built 
   `ToContentDelta`. Tests (Core.Tests): a quarter turn fits a portrait region exactly; `ToContent` /
   `FromContent` round trip at the corners and centre for each rotation and each `FitMode`; `Scale`
   stays per content axis; `None` is byte-identical to today.
-- **P2 The setting and the present.** `ProjectSettings::orientation` (+ preset override, the dialog,
+- **P2 The setting and the present (built).** `ProjectSettings::orientation` (+ preset override, the dialog,
   player.xml); `SceneSize` rotation; the tonemap copy swizzle; the host's choice. Tests:
   Engine.Project (round trip, an old manifest reads `Any`); Render.Tests (a scaled view with a
   quarter turn sets the copy's rotation and swaps the destination); a pixel probe (RHI.TestSupport

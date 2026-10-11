@@ -93,6 +93,10 @@ namespace editor
         label(u8"Window mode");
         builder.Property<&ExportPreset::windowResizable>("windowResizable");
         label(u8"Window resizable");
+        builder.Property<&ExportPreset::overridesOrientation>("overridesOrientation");
+        label(u8"Own orientation");
+        builder.Property<&ExportPreset::orientation>("orientation");
+        label(u8"Orientation");
     }
 
     void RegisterExportPresetReflection()
@@ -1056,7 +1060,7 @@ namespace editor
 
     Status ApplyPresetDisplay(StringView outDir, const ExportPreset& preset)
     {
-        if (!preset.overridesRender && !preset.overridesWindow)
+        if (!preset.overridesRender && !preset.overridesWindow && !preset.overridesOrientation)
         {
             return Status{};
         }
@@ -1079,6 +1083,10 @@ namespace editor
             dist.windowHeight = preset.windowHeight;
             dist.windowMode = preset.windowMode;
             dist.windowResizable = preset.windowResizable;
+        }
+        if (preset.overridesOrientation)
+        {
+            dist.orientation = preset.orientation;
         }
         if (!engine::project::SaveProjectSettings(*mount.AsWritable(), dist, engine::project::kDistManifestFile)
                  .IsOk())

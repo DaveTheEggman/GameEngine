@@ -127,6 +127,10 @@ export namespace engine::project
         u32 windowHeight = 720;
         WindowMode windowMode = WindowMode::Windowed;
         bool windowResizable = true;
+        // The shape the game is made for: Any takes the window's; Landscape or Portrait is
+        // presented turned on a window of the other shape (a landscape game on a phone held
+        // upright; Specs/present-transform.md).
+        ScreenOrientation orientation = ScreenOrientation::Any;
 
         /// Whether the game draws at a fixed resolution rather than at its output's size.
         [[nodiscard]] bool HasRenderResolution() const noexcept { return renderWidth > 0 && renderHeight > 0; }
@@ -171,6 +175,7 @@ export namespace engine::project
             SerializeAppended(ar, "windowHeight", windowHeight);
             SerializeAppended(ar, "windowMode", windowMode);
             SerializeAppended(ar, "windowResizable", windowResizable);
+            SerializeAppended(ar, "orientation", orientation);
         }
     };
 

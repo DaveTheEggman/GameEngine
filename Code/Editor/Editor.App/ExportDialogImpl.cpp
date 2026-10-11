@@ -552,6 +552,16 @@ namespace editor::app
         m_windowResizable = resizable.Get();
         resizable->OnCheckedChanged.Add([stored](ui::CheckBox*, bool) { stored(); });
         column.AddView(resizable.Get());
+
+        auto overridesOrientation =
+            MakeRef<ui::CheckBox>(allocator, StringView(u8"Held its own way (orientation)"), false);
+        m_overridesOrientation = overridesOrientation.Get();
+        overridesOrientation->OnCheckedChanged.Add([stored](ui::CheckBox*, bool) { stored(); });
+        column.AddView(overridesOrientation.Get());
+        auto orientation = EnumCombo(allocator, SettingEnum("orientation"));
+        m_orientation = orientation.Get();
+        orientation->OnSelectionChanged.Add([stored](ui::ComboBox*, i32) { stored(); });
+        AddRow(column, u8"Orientation", orientation.Get());
     }
 
     ui::DrawablePtr ExportDialog::IconFor(const editor::ExportTemplate& tmpl)
@@ -688,6 +698,8 @@ namespace editor::app
             m_windowHeight->SetValue(static_cast<f64>(preset.windowHeight));
             SelectEnum(*m_windowMode, SettingEnum("windowMode"), static_cast<i64>(preset.windowMode));
             m_windowResizable->IsChecked.SetValue(preset.windowResizable);
+            m_overridesOrientation->IsChecked.SetValue(preset.overridesOrientation);
+            SelectEnum(*m_orientation, SettingEnum("orientation"), static_cast<i64>(preset.orientation));
         }
         m_loading = false;
         UpdateResolve();
@@ -735,6 +747,8 @@ namespace editor::app
         preset.windowMode =
             static_cast<engine::project::WindowMode>(ChosenEnum(*m_windowMode, SettingEnum("windowMode")));
         preset.windowResizable = m_windowResizable->IsChecked.Value();
+        preset.overridesOrientation = m_overridesOrientation->IsChecked.Value();
+        preset.orientation = static_cast<ScreenOrientation>(ChosenEnum(*m_orientation, SettingEnum("orientation")));
         m_presets->Update(static_cast<usize>(index), preset);
         m_dirty = true;
 

@@ -69,6 +69,9 @@ export namespace foundation::render
         f32 sourceY = 0.0f;
         f32 sourceWidth = 1.0f;
         f32 sourceHeight = 1.0f;
+        // How the finished image is turned as it is presented (a landscape game on a portrait
+        // screen; Specs/present-transform.md).
+        ContentRotation rotation = ContentRotation::None;
 
         SceneSize() = default;
         SceneSize(u32 w, u32 h) : width(w), height(h) {}
@@ -79,12 +82,15 @@ export namespace foundation::render
         {
             return sourceX != 0.0f || sourceY != 0.0f || sourceWidth != 1.0f || sourceHeight != 1.0f;
         }
+        // The image is presented turned.
+        [[nodiscard]] bool IsTurned() const noexcept { return rotation != ContentRotation::None; }
 
         // A fit of a scene into a region: the scene size, and the slice of it the fit shows (the
         // whole image, but for Crop).
         [[nodiscard]] static SceneSize FromFit(const ContentFit& fit)
         {
             SceneSize size(static_cast<u32>(fit.contentSize.x), static_cast<u32>(fit.contentSize.y));
+            size.rotation = fit.rotation;
             if (fit.contentSize.x > 0.0f && fit.contentSize.y > 0.0f)
             {
                 const Rectangle source = fit.SrcRect();

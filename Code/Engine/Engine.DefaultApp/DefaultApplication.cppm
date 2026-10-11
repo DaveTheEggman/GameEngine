@@ -140,6 +140,10 @@ export namespace engine::runtime
         /// reads in render pixels. Nought on either axis draws at the window's own size. After
         /// Configure.
         void SetRenderResolution(core::u32 width, core::u32 height, core::FitMode fit);
+        /// The shape the game is made for: on a window of the other shape it is presented turned a
+        /// quarter, input turned back (Specs/present-transform.md). Any takes the window's shape.
+        void SetOrientation(core::ScreenOrientation orientation);
+        [[nodiscard]] core::ScreenOrientation Orientation() const noexcept { return m_orientation; }
         [[nodiscard]] bool HasRenderResolution() const noexcept { return m_renderWidth > 0 && m_renderHeight > 0; }
 
         /// Preset BEFORE Configure: an explicit data-root directory (from `--data-root`);
@@ -283,6 +287,10 @@ export namespace engine::runtime
         core::u32 m_renderHeight = 0;
         core::FitMode m_renderFit = core::FitMode::Letterbox;
         core::UniquePtr<engine::input::FittedInputSource> m_fittedInput;
+        core::ScreenOrientation m_orientation = core::ScreenOrientation::Any;
+        // The fitted input while a render resolution or an orientation may move the game's frame
+        // off the window's; the shell's devices directly otherwise.
+        void UpdateFittedInput();
         // The source a game instance reads: the fitted one with a render resolution, else the shell's.
         [[nodiscard]] foundation::input::IInputSourceProvider* GameInputSource() noexcept;
         // Backs the `ui` script facade: a binding pointing at the UISubsystem's

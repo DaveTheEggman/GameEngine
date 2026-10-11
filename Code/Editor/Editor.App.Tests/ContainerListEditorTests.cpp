@@ -352,19 +352,22 @@ TEST_CASE("resource-row: the settings dialog edits number, choice and flag setti
         CollectViews(*dialog, choices);
         CollectViews(*dialog, flags);
         CollectViews(*dialog, buttons);
-        // Render width, height; window width, height. Render fit, window mode, then MSAA's own.
+        // Render width, height; window width, height. Render fit, window mode, orientation, then
+        // MSAA's own.
         REQUIRE(numbers.Size() == 4u);
-        REQUIRE(choices.Size() == 3u);
+        REQUIRE(choices.Size() == 4u);
         REQUIRE(flags.Size() == 1u);
         CHECK(numbers[2]->Value() == doctest::Approx(1280.0)); // seeded from the manifest
         CHECK(choices[0]->SelectedIndex() == static_cast<i32>(FitMode::Letterbox));
         CHECK(flags[0]->IsChecked.Value());
+        CHECK(choices[2]->SelectedIndex() == static_cast<i32>(ScreenOrientation::Any));
 
         numbers[0]->SetValue(640.0);
         numbers[1]->SetValue(360.0);
         numbers[2]->SetValue(0.0); // a window takes at least one pixel: the range clamps
         choices[0]->SetSelectedIndex(static_cast<i32>(FitMode::IntegerScale));
         choices[1]->SetSelectedIndex(static_cast<i32>(engine::project::WindowMode::Fullscreen));
+        choices[2]->SetSelectedIndex(static_cast<i32>(ScreenOrientation::Landscape));
         flags[0]->IsChecked.SetValue(false);
         ui::Button* save = nullptr;
         for (ui::Button* button : buttons)
@@ -381,6 +384,7 @@ TEST_CASE("resource-row: the settings dialog edits number, choice and flag setti
     CHECK(settings.renderFit == FitMode::IntegerScale);
     CHECK(settings.windowMode == engine::project::WindowMode::Fullscreen);
     CHECK_FALSE(settings.windowResizable);
+    CHECK(settings.orientation == ScreenOrientation::Landscape);
     context.SetProject(nullptr);
     project.Reset();
     (void)RemoveDirectoryRecursive(dir);

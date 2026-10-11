@@ -7,14 +7,19 @@
 // clearing the rest of the target black.
 //
 // The orientation probe's scene (a bright cube above, a dim plane below) at 32 x 32, into the
-// middle 64 x 64 of a 128 x 64 target, on a real device: the bars stay black, the rectangle
-// holds the scene, and the present keeps it upright.
+// middle 64 x 64 of a 128 x 64 target, on each real backend: the bars stay black, the rectangle
+// holds the scene, and the present keeps it upright; turned three quarters (present transform), the
+// scene's top lands on the rectangle's left.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 
 import foundation.core;
 import foundation.rhi;
 import foundation.rhi.vulkan;
+import foundation.rhi.webgpu;
+#ifdef OPTION_HAS_DX12
+import foundation.rhi.dx12;
+#endif
 import foundation.rhi.testsupport;
 import foundation.geometry;
 import foundation.materials;
@@ -40,23 +45,10 @@ namespace
     // The letterbox: the square scene fits the target's height, centred.
     constexpr i32 kRectX = 32;
     constexpr u32 kRectSize = 64;
-}
 
-TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright, the bars black")
-{
-    rhi::Backend* backend = nullptr;
-    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, backend);
-    rhi::Device* device = backend != nullptr ? testsupport::MakeTestDevice(backend) : nullptr;
-    if (device == nullptr)
+    void ProbeScaledView(rhi::Device* device, const char* backendName)
     {
-        MESSAGE("Vulkan unavailable - the scaled view probe skipped");
-        if (backend != nullptr)
-        {
-            backend->Destroy(); // backends self-free, created even when no device came up
-        }
-        return;
-    }
-    {
+        INFO(backendName);
         shaders::ShaderSystemHost host{DefaultAllocator()};
         REQUIRE(host.Initialize(*device, testsupport::DataFileSystem()));
         shaders::ShaderSystem& shaderSystem = *host.System();
@@ -116,74 +108,97 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
         rhi::Queue* queue = device->GetQueue(rhi::QueueType::Graphics);
         REQUIRE(queue != nullptr);
 
-        ViewSettings settings;
-        settings.clear = rhi::ClearColor::Black();
-        settings.targetTexture = target;
-        settings.targetFinalState = rhi::ResourceState::CopySrc;
-        settings.post.bloomEnabled = false;
-        settings.viewportX = kRectX;
-        settings.viewportY = 0;
-        settings.viewportWidth = kRectSize;
-        settings.viewportHeight = kRectSize;
-        settings.scene = SceneSize(kScene, kScene);
-        for (u32 i = 0; i < 2; ++i)
+        // Upright, then turned as a landscape game is on a portrait screen: the same square scene
+        // and rectangle, so only the present's turn differs.
+        const ContentRotation turns[] = {ContentRotation::None, ContentRotation::ThreeQuarter};
+        u64 submitted = 0; // the fence's value only rises
+        for (const ContentRotation turn : turns)
         {
-            rhi::CommandEncoder* encoder = nullptr;
-            REQUIRE(pool->CreateEncoder(encoder).IsOk());
-            settings.targetCurrentState = (i == 0) ? rhi::ResourceState::Undefined : rhi::ResourceState::CopySrc;
-            frame.Begin(*encoder, i % 2);
-            frame.AddView(scene, camera, settings, targetView, rhi::TextureFormat::RGBA8Unorm, kTargetWidth,
-                          kTargetHeight);
-            frame.End();
-            rhi::CommandBuffer* commandBuffer = encoder->Finish();
-            REQUIRE(commandBuffer != nullptr);
-            rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
-            queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
-            REQUIRE(fence->Wait(i + 1, ~0ull));
-            pool->DestroyEncoder(encoder);
-        }
-
-        // The chain ran at the scene size: its image and its depth are 32 x 32, not the rectangle.
-        Array<DebugResourceInfo> resources;
-        frame.CollectDebugResources(resources);
-        bool sceneImage = false;
-        bool sceneDepth = false;
-        for (const DebugResourceInfo& resource : resources)
-        {
-            sceneImage = sceneImage || (resource.name == StringView(u8"view.scene") && resource.width == kScene &&
-                                        resource.height == kScene);
-            sceneDepth = sceneDepth || (resource.name == StringView(u8"forward.depth") &&
-                                        resource.width == kScene && resource.height == kScene);
-        }
-        CHECK(sceneImage);
-        CHECK(sceneDepth);
-
-        const testsupport::CapturedImage image = testsupport::Readback(*device, target, kTargetWidth, kTargetHeight);
-        REQUIRE(image.valid);
-        f64 bars = 0.0;
-        f64 top = 0.0;
-        f64 bottom = 0.0;
-        for (u32 y = 0; y < kTargetHeight; ++y)
-        {
-            for (u32 x = 0; x < kTargetWidth; ++x)
+            CAPTURE(static_cast<int>(turn));
+            ViewSettings settings;
+            settings.clear = rhi::ClearColor::Black();
+            settings.targetTexture = target;
+            settings.targetFinalState = rhi::ResourceState::CopySrc;
+            settings.post.bloomEnabled = false;
+            settings.viewportX = kRectX;
+            settings.viewportY = 0;
+            settings.viewportWidth = kRectSize;
+            settings.viewportHeight = kRectSize;
+            settings.scene = SceneSize(kScene, kScene);
+            settings.scene.rotation = turn;
+            for (u32 i = 0; i < 2; ++i)
             {
-                const u8* p = image.At(x, y);
-                const f64 luma = p[0] + p[1] + p[2];
-                const bool inside = static_cast<i32>(x) >= kRectX && x < kRectX + kRectSize;
-                if (!inside)
+                rhi::CommandEncoder* encoder = nullptr;
+                REQUIRE(pool->CreateEncoder(encoder).IsOk());
+                settings.targetCurrentState = (i == 0) ? rhi::ResourceState::Undefined : rhi::ResourceState::CopySrc;
+                frame.Begin(*encoder, i % 2);
+                frame.AddView(scene, camera, settings, targetView, rhi::TextureFormat::RGBA8Unorm, kTargetWidth,
+                              kTargetHeight);
+                frame.End();
+                rhi::CommandBuffer* commandBuffer = encoder->Finish();
+                REQUIRE(commandBuffer != nullptr);
+                rhi::CommandBuffer* commandBuffers[] = {commandBuffer};
+                ++submitted;
+                queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, submitted);
+                REQUIRE(fence->Wait(submitted, ~0ull));
+                pool->DestroyEncoder(encoder);
+            }
+
+            // The chain ran at the scene size: its image and its depth are 32 x 32, not the rectangle.
+            Array<DebugResourceInfo> resources;
+            frame.CollectDebugResources(resources);
+            bool sceneImage = false;
+            bool sceneDepth = false;
+            for (const DebugResourceInfo& resource : resources)
+            {
+                sceneImage = sceneImage || (resource.name == StringView(u8"view.scene") && resource.width == kScene &&
+                                            resource.height == kScene);
+                sceneDepth = sceneDepth || (resource.name == StringView(u8"forward.depth") &&
+                                            resource.width == kScene && resource.height == kScene);
+            }
+            CHECK(sceneImage);
+            CHECK(sceneDepth);
+
+            const testsupport::CapturedImage image = testsupport::Readback(*device, target, kTargetWidth, kTargetHeight);
+            REQUIRE(image.valid);
+            f64 bars = 0.0;
+            f64 top = 0.0;
+            f64 bottom = 0.0;
+            f64 left = 0.0;
+            f64 right = 0.0;
+            for (u32 y = 0; y < kTargetHeight; ++y)
+            {
+                for (u32 x = 0; x < kTargetWidth; ++x)
                 {
-                    bars += luma;
-                }
-                else
-                {
-                    (y < kTargetHeight / 2 ? top : bottom) += luma;
+                    const u8* p = image.At(x, y);
+                    const f64 luma = p[0] + p[1] + p[2];
+                    const bool inside = static_cast<i32>(x) >= kRectX && x < kRectX + kRectSize;
+                    if (!inside)
+                    {
+                        bars += luma;
+                    }
+                    else
+                    {
+                        (y < kTargetHeight / 2 ? top : bottom) += luma;
+                        (static_cast<i32>(x) < kRectX + static_cast<i32>(kRectSize / 2) ? left : right) += luma;
+                    }
                 }
             }
+            INFO("bars=", bars, " top=", top, " bottom=", bottom, " left=", left, " right=", right);
+            CHECK(bars == doctest::Approx(0.0)); // the letterbox's bars stay black
+            if (turn == ContentRotation::None)
+            {
+                CHECK(top > 10000.0);      // the cube lights the rectangle's top half: upright
+                CHECK(bottom > top * 1.3); // and the plane, the larger, the bottom
+            }
+            else
+            {
+                // Turned three quarters (the game's top on the screen's left): the cube on the
+                // rectangle's left half, the plane on its right.
+                CHECK(left > 10000.0);
+                CHECK(right > left * 1.3);
+            }
         }
-        INFO("bars=", bars, " top=", top, " bottom=", bottom);
-        CHECK(bars == doctest::Approx(0.0)); // the letterbox's bars stay black
-        CHECK(top > 10000.0);                // the cube lights the rectangle's top half: upright
-        CHECK(bottom > top * 1.3);           // and the plane, the larger, the bottom
 
         device->WaitIdle();
         device->DestroyFence(fence);
@@ -192,6 +207,49 @@ TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright
         device->DestroyTexture(target);
         host.Shutdown();
     }
-    device->Destroy();
-    backend->Destroy();
+}
+
+TEST_CASE("scaled-view: a view drawn at its own size fills its rectangle upright, the bars black")
+{
+    // On every backend: the web player presents through WebGPU, a phone's turned present included.
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{}, vulkan);
+    rhi::Backend* webgpu = nullptr;
+    (void)rhi::webgpu::CreateBackend(rhi::webgpu::WebGpuBackendDesc{}, webgpu, DefaultAllocator());
+#ifdef OPTION_HAS_DX12
+    rhi::Backend* dx12 = nullptr;
+    (void)rhi::dx12::CreateDxBackend(rhi::dx12::DxBackendDesc{}, dx12);
+#endif
+    struct Lane
+    {
+        rhi::Backend* backend;
+        const char* name;
+    };
+    const Lane lanes[] = {
+        {vulkan, "vulkan"},
+        {webgpu, "webgpu"},
+#ifdef OPTION_HAS_DX12
+        {dx12, "dx12"},
+#endif
+    };
+    for (const Lane& lane : lanes)
+    {
+        if (rhi::Device* device = testsupport::MakeTestDevice(lane.backend))
+        {
+            ProbeScaledView(device, lane.name);
+            device->Destroy();
+        }
+        else
+        {
+            MESSAGE(lane.name, " unavailable - the scaled view probe skipped on it");
+        }
+    }
+    // Backends self-free via Destroy() (created even when no device came up).
+    for (const Lane& lane : lanes)
+    {
+        if (lane.backend != nullptr)
+        {
+            lane.backend->Destroy();
+        }
+    }
 }

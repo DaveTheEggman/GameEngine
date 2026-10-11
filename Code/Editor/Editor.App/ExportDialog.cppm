@@ -82,6 +82,8 @@ export namespace editor::app
         [[nodiscard]] ui::EditText& NameField() const noexcept { return *m_name; }
         [[nodiscard]] ui::ComboBox& TemplateField() const noexcept { return *m_template; }
         [[nodiscard]] ui::CheckBox& PruneField() const noexcept { return *m_prune; }
+        [[nodiscard]] ui::CheckBox& OrientationOverrideField() const noexcept { return *m_overridesOrientation; }
+        [[nodiscard]] ui::ComboBox& OrientationField() const noexcept { return *m_orientation; }
 
     private:
         class Adapter;
@@ -139,6 +141,8 @@ export namespace editor::app
         ui::NumericField* m_windowHeight = nullptr;
         ui::ComboBox* m_windowMode = nullptr;
         ui::CheckBox* m_windowResizable = nullptr;
+        ui::CheckBox* m_overridesOrientation = nullptr; // the preset is held its own way
+        ui::ComboBox* m_orientation = nullptr;
         // The left side's buttons.
         ui::View* m_duplicate = nullptr;
         ui::View* m_remove = nullptr;

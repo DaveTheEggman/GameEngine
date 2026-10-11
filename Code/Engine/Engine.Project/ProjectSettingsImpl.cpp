@@ -104,5 +104,8 @@ namespace engine::project
         builder.Property<&ProjectSettings::windowResizable>("windowResizable")
             .PropAttribute(kSettingLabelAttribute, String(u8"Window resizable"))
             .PropAttribute(kSettingCategoryAttribute, String(u8"Display"));
+        builder.Property<&ProjectSettings::orientation>("orientation")
+            .PropAttribute(kSettingLabelAttribute, String(u8"Orientation"))
+            .PropAttribute(kSettingCategoryAttribute, String(u8"Display"));
     }
 }

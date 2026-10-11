@@ -49,6 +49,31 @@ export namespace foundation::core
         ThreeQuarter
     };
 
+    // The shape a game is made for: Any takes the window's shape; Landscape or Portrait is turned to
+    // fit a window of the other shape (Specs/present-transform.md).
+    enum class ScreenOrientation
+    {
+        Any,
+        Landscape,
+        Portrait
+    };
+
+    // The turn a game of `orientation` takes on a `width` x `height` window: none when it matches
+    // (or takes any shape), else three quarters, the game's top on the window's left (a phone held
+    // upright shows a landscape game as it shows on the phone turned counter-clockwise, Android's
+    // primary landscape).
+    [[nodiscard]] constexpr ContentRotation TurnFor(ScreenOrientation orientation, f32 width, f32 height) noexcept
+    {
+        const bool tall = height > width;
+        const bool wide = width > height;
+        if ((orientation == ScreenOrientation::Landscape && tall) ||
+            (orientation == ScreenOrientation::Portrait && wide))
+        {
+            return ContentRotation::ThreeQuarter;
+        }
+        return ContentRotation::None;
+    }
+
     struct ContentFit
     {
         Rectangle region = Rectangle{0, 0, 0, 0}; // outer rect, REGION-space

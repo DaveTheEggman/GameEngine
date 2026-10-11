@@ -89,7 +89,7 @@ namespace foundation::render
                                      Float2 uvScale, Float2 uvOffset, f32 aoStrength,
                                      bool debugShowAo, bool agx, bool sceneYFlipped,
                                      const TonemapAutoExposure& autoExposure,
-                                     const TonemapGrading& grading, bool copyOnly)
+                                     const TonemapGrading& grading, bool copyOnly, ContentRotation turn)
     {
         rhi::RenderPipeline* pipeline = EnsurePipeline(ldrFormat);
         if (pipeline == nullptr)
@@ -119,7 +119,7 @@ namespace foundation::render
             autoOn ? 1.0f : 0.0f, autoExposure.key, autoExposure.minExposure,
             autoExposure.maxExposure,
             gradeOn ? grading.intensity : 0.0f, gradeOn ? grading.lutSize : 0.0f,
-            encodeOutput ? 1.0f : 0.0f, 0.0f, 0.0f, 0.0f};
+            encodeOutput ? 1.0f : 0.0f, static_cast<f32>(static_cast<u32>(turn)), 0.0f, 0.0f};
 
         const rhi::LoadOp load = clearColor ? rhi::LoadOp::Clear : rhi::LoadOp::Load;
         rhi::TextureView* autoView = autoOn ? autoExposure.view : nullptr;

@@ -384,6 +384,15 @@ namespace foundation::core
             .Value("IntegerScale", FitMode::IntegerScale);
     }
 
+    // The shape a game is made for (a project setting, and an export preset's): turned to fit a
+    // window of the other shape.
+    REFLECT_ENUM(ScreenOrientation, "rtti::core")
+    {
+        builder.Value("Any", ScreenOrientation::Any)
+            .Value("Landscape", ScreenOrientation::Landscape)
+            .Value("Portrait", ScreenOrientation::Portrait);
+    }
+
     REFLECT_ENUM(SeekOrigin, "rtti::core")
     {
         builder.Value("Begin", SeekOrigin::Begin)
@@ -460,6 +469,8 @@ namespace foundation::core
         GlobalTypeRegistry().Register(TypeOf<SeekOrigin>());
         RttiRegisterEnum_FitMode();
         GlobalTypeRegistry().Register(TypeOf<FitMode>());
+        RttiRegisterEnum_ScreenOrientation();
+        GlobalTypeRegistry().Register(TypeOf<ScreenOrientation>());
             return true;
         }();
         (void)once;

@@ -355,21 +355,33 @@ namespace engine::runtime
         {
             m_ui->SetScreenResolution(m_renderWidth, m_renderHeight, fit);
         }
+        UpdateFittedInput();
+    }
+
+    void DefaultApplication::SetOrientation(core::ScreenOrientation orientation)
+    {
+        m_orientation = orientation;
+        UpdateFittedInput();
+    }
+
+    void DefaultApplication::UpdateFittedInput()
+    {
         if (m_input == nullptr)
         {
             return;
         }
-        if (fixedSize)
+        if (HasRenderResolution() || m_orientation != core::ScreenOrientation::Any)
         {
             if (!m_fittedInput)
             {
                 m_fittedInput = core::MakeUnique<engine::input::FittedInputSource>(core::DefaultAllocator(),
                                                                                     m_input->ShellSource());
             }
+            // A placeholder until the first frame fits it to the window (RenderFrame).
             m_fittedInput->fit = core::ContentFit{core::Rectangle{0.0f, 0.0f, 1.0f, 1.0f},
-                                                  core::Float2{static_cast<core::f32>(width),
-                                                               static_cast<core::f32>(height)},
-                                                  fit};
+                                                  core::Float2{static_cast<core::f32>(m_renderWidth),
+                                                               static_cast<core::f32>(m_renderHeight)},
+                                                  m_renderFit};
             m_input->SetSourceProvider(m_fittedInput.Get());
         }
         else if (m_fittedInput)
@@ -749,22 +761,29 @@ namespace engine::runtime
                 }
                 for (foundation::scene::Scene* scene : gi.Scenes().ActiveScenes())
                 {
-                    if (!HasRenderResolution())
+                    // The game's frame on this window: its render resolution fitted in, and turned a
+                    // quarter when the game's orientation is not the window's shape (a landscape
+                    // game on a phone held upright: the game draws at the window's pixels turned).
+                    const core::f32 windowW = static_cast<core::f32>(frame.width);
+                    const core::f32 windowH = static_cast<core::f32>(frame.height);
+                    const core::ContentRotation turn = core::TurnFor(m_orientation, windowW, windowH);
+                    const bool turned = turn != core::ContentRotation::None;
+                    const core::Float2 content =
+                        HasRenderResolution()
+                            ? core::Float2{static_cast<core::f32>(m_renderWidth), static_cast<core::f32>(m_renderHeight)}
+                            : (turned ? core::Float2{windowH, windowW} : core::Float2{windowW, windowH});
+                    const core::ContentFit fit{core::Rectangle{0.0f, 0.0f, windowW, windowH}, content,
+                                               HasRenderResolution() ? m_renderFit : core::FitMode::Stretch, turn};
+                    // The pointer's fit follows the window as it resizes and turns.
+                    if (m_fittedInput)
+                    {
+                        m_fittedInput->fit = fit;
+                    }
+                    if (!HasRenderResolution() && !turned)
                     {
                         render->RenderScene(*scene, frame.backbufferView, colorFormat, frame.width,
                                             frame.height);
                         continue;
-                    }
-                    // At the render resolution fitted into the window, the pointer's fit following
-                    // the window as it resizes.
-                    const core::ContentFit fit{
-                        core::Rectangle{0.0f, 0.0f, static_cast<core::f32>(frame.width),
-                                        static_cast<core::f32>(frame.height)},
-                        core::Float2{static_cast<core::f32>(m_renderWidth), static_cast<core::f32>(m_renderHeight)},
-                        m_renderFit};
-                    if (m_fittedInput)
-                    {
-                        m_fittedInput->fit = fit;
                     }
                     const core::Rectangle dst = fit.DstRect();
                     const foundation::render::ViewportRect viewport{static_cast<core::i32>(dst.x), static_cast<core::i32>(dst.y),
