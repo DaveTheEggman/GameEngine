@@ -89,6 +89,9 @@ export namespace foundation::ui::gamekit
 
         // Whether this screen blocks input from reaching screens below it (Modal + Opaque do).
         [[nodiscard]] bool ShieldsInput() const noexcept { return m_mode != ScreenMode::Overlay; }
+        /// A shielding screen takes the pointer wherever it lands on it; an overlay only where its
+        /// controls are.
+        [[nodiscard]] bool TakesPointer() const noexcept override { return ShieldsInput() || IsFocusable; }
         // Whether this screen fully hides screens below it (Opaque does).
         [[nodiscard]] bool HidesBelow() const noexcept { return m_mode == ScreenMode::Opaque; }
 

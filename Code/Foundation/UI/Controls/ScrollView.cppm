@@ -109,6 +109,11 @@ export namespace foundation::ui
             Invalidate();
         }
 
+        /// A drag over it scrolls it, when it has room to.
+        [[nodiscard]] bool TakesPointer() const noexcept override
+        {
+            return IsFocusable || MaxScrollX() > 0.0f || MaxScrollY() > 0.0f;
+        }
         [[nodiscard]] f32 MaxScrollX() const
         {
             return core::Max(0.0f, m_contentWidth - ViewportWidth());

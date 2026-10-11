@@ -95,11 +95,11 @@ TEST_CASE("ui.subsystem: canvases instantiate, hot-reload, and sync visibility")
     REQUIRE(group != nullptr);
     CHECK(group->FindByName(u8"resume-btn") != nullptr);
     // The tier split: the canvas parents into ITS SCENE's root (above that scene's
-    // billboard layer); the screen root holds only the global overlay layer.
+    // billboard layer); the screen root holds only the touch guide and the global overlay layer.
     RootView* sceneRoot = ui->SceneRoot(*scene);
     REQUIRE(sceneRoot != nullptr);
     CHECK(sceneRoot->ChildCount() == 2u);        // billboard layer + canvas
-    CHECK(ui->ScreenRoot()->ChildCount() == 1u); // overlay layer only
+    CHECK(ui->ScreenRoot()->ChildCount() == 2u); // touch guide + overlay layer
     CHECK(Cast<ViewGroup>(sceneRoot)->FindByName(u8"resume-btn") != nullptr);
 
     // Hot reload: a NEW document product rebuilds the tree (structure proves it - a
@@ -1454,9 +1454,33 @@ namespace
         void SetGlobalCapture(bool) override {}
     };
 
+    // Fingers set by the test, as a source reports them (pointerX/Y where its mouse would be).
+    struct PointerFakeTouch final : foundation::shell::ITouch
+    {
+        Array<foundation::shell::TouchPoint> points;
+        [[nodiscard]] i32 TouchCount() const override { return static_cast<i32>(points.Size()); }
+        [[nodiscard]] bool GetTouchPoint(i32 index, foundation::shell::TouchPoint& out) const override
+        {
+            if (index < 0 || static_cast<usize>(index) >= points.Size())
+            {
+                return false;
+            }
+            out = points[static_cast<usize>(index)];
+            return true;
+        }
+        [[nodiscard]] bool HasTouch() const override { return !points.IsEmpty(); }
+        void Put(u64 id, f32 x, f32 y)
+        {
+            points.Clear();
+            points.PushBack(foundation::shell::TouchPoint{id, x / 800.0f, y / 600.0f, 1.0f, x, y});
+        }
+    };
+
     struct PointerFakeDevices final : foundation::input::IInputSourceProvider
     {
         PointerFakeMouse mouse;
+        PointerFakeTouch touch;
+        [[nodiscard]] foundation::shell::ITouch* Touch() override { return &touch; }
         bool mousePresent = true; // false = pointer-less frame (pad/keyboard-only path)
         Array<foundation::shell::InputEvent> events;
         [[nodiscard]] foundation::shell::IMouse* Mouse() override
@@ -2249,4 +2273,359 @@ TEST_CASE("default loading screen: the engine's logo over the bar the player dri
     REQUIRE(bareRoot != nullptr);
     CHECK(bareRoot->FindByName(u8"logo") == nullptr);
     CHECK(bareRoot->FindByName<foundation::ui::ProgressBar>(u8"progress") != nullptr);
+}
+
+TEST_CASE("ui.subsystem: a finger is the pointer - a tap presses, a drag scrolls")
+{
+    // A phone has no mouse: the web shell takes the touches, and the UI must take them as its
+    // pointer or no menu can be pressed.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* scenes = ctx.AddSubsystem<engine::scene::SceneSubsystem>();
+    scene::SceneManager sm{DefaultAllocator()};
+    scenes->RegisterManager(&sm);
+    {
+        const scene::SceneModule uiModule{u8"ui", &AddUISceneManagers, nullptr};
+        const scene::SceneModule* modules[] = {&uiModule};
+        scenes->SetComposition(scene::SceneComposition::Build(modules));
+    }
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    scene::Scene* scene = sm.CreateScene(u8"menu");
+    scene::EntityHandle hud = scene->CreateEntity(u8"hud");
+    scene->GetSystem<UICanvasComponentManager>()->Add(hud).document = MakeDocument(
+        u8"<Flex direction=\"vertical\">"
+        u8"<Button id=\"play\" text=\"Play\" width=\"200\" height=\"40\"/>"
+        u8"<ScrollView id=\"list\" width=\"200\" height=\"100\"><Flex direction=\"vertical\">"
+        u8"<Label text=\"1\" height=\"60\"/><Label text=\"2\" height=\"60\"/>"
+        u8"<Label text=\"3\" height=\"60\"/><Label text=\"4\" height=\"60\"/>"
+        u8"</Flex></ScrollView></Flex>");
+    ctx.BeginFrame(1.0f / 60.0f);
+    RootView* root = ui->SceneRoot(*scene);
+    REQUIRE(root != nullptr);
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(root);
+    int clicks = 0;
+    Cast<ViewGroup>(root)->FindByName<Button>(u8"play")->OnClick.Add([&clicks](ButtonBase*) { ++clicks; });
+    auto* list = Cast<ViewGroup>(root)->FindByName<ScrollView>(u8"list");
+    REQUIRE(list != nullptr);
+
+    // The mouse rests far away; a tap on the button clicks it, the release where the finger was.
+    devices.mouse.x = 700.0f;
+    devices.mouse.y = 500.0f;
+    devices.touch.Put(1, 50.0f, 20.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(input->Runtime().GetConsumptionMask().pointer); // a finger on the UI is the UI's
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1);
+    // Lifted: no cursor left behind, and the idle mouse does not take over.
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(ui->Context().GetInputManager()->HoveredId() == ViewId::Invalid);
+
+    // A drag up the list scrolls it.
+    ui->Context().UpdateRootView(root);
+    devices.touch.Put(2, 100.0f, 120.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.touch.Put(2, 100.0f, 90.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.touch.Put(2, 100.0f, 60.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(list->ScrollY() > 0.0f);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1); // the drag clicked nothing
+}
+
+TEST_CASE("ui.subsystem: the touch guide shows the game's touch controls once a finger touches")
+{
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    // A stick on the left half, a jump zone on the right.
+    foundation::input::InputMap map;
+    foundation::input::ActionSet set;
+    set.name = String(u8"Gameplay");
+    {
+        foundation::input::Action move;
+        move.name = String(u8"Move");
+        move.kind = foundation::input::ActionKind::Axis2D;
+        foundation::input::Binding stick;
+        stick.source = foundation::input::BindingSource::TouchStick;
+        stick.regionW = 0.5f;
+        move.bindings.PushBack(stick);
+        set.actions.PushBack(static_cast<foundation::input::Action&&>(move));
+        foundation::input::Action jump;
+        jump.name = String(u8"Jump");
+        foundation::input::Binding zone;
+        zone.source = foundation::input::BindingSource::TouchButton;
+        zone.regionX = 0.5f;
+        zone.regionW = 0.5f;
+        jump.bindings.PushBack(zone);
+        set.actions.PushBack(static_cast<foundation::input::Action&&>(jump));
+    }
+    map.sets.PushBack(static_cast<foundation::input::ActionSet&&>(set));
+    input->Runtime().SetMap(map);
+
+    TouchGuideView* guide = ui->TouchGuide();
+    REQUIRE(guide != nullptr);
+    // No finger yet (a desktop player): nothing shown.
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(guide->ControlCount() == 0u);
+    CHECK(guide->Visibility == Visibility::Gone);
+    // A finger: both controls, and they stay after it lifts.
+    devices.touch.Put(1, 600.0f, 300.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(guide->ControlCount() == 2u);
+    CHECK(guide->Visibility == Visibility::Visible);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(guide->ControlCount() == 2u);
+    // It covers the screen, and stays through the game's screens coming and going (Snowline
+    // clears its screens whenever it changes them).
+    RootView* screenRoot = ui->ScreenRoot();
+    screenRoot->ViewportSize = Float2{800.0f, 600.0f};
+    ui->Context().UpdateRootView(screenRoot);
+    CHECK(guide->Width() == doctest::Approx(800.0f));
+    CHECK(guide->Height() == doctest::Approx(600.0f));
+    (void)ui->Screens().Push(MenuFor(*ui, u8"g"));
+    ui->Screens().Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(screenRoot);
+    CHECK(guide->Parent == screenRoot);
+    CHECK(guide->Width() == doctest::Approx(800.0f));
+    // A set out of effect shows nothing.
+    input->Runtime().DisableSet(u8"Gameplay");
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(guide->ControlCount() == 0u);
+}
+
+TEST_CASE("ui.subsystem: a tap presses a button on a pushed screen, with the touch guide showing")
+{
+    // Snowline's title on a phone: the course cards on a screen pushed onto the screen tier, the
+    // game binding touch controls (so the guide shows from the first touch). The finger is id 0,
+    // as a phone's browser numbers its first finger.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+    foundation::input::InputMap map;
+    foundation::input::ActionSet set;
+    set.name = String(u8"Gameplay");
+    {
+        foundation::input::Action move;
+        move.name = String(u8"Move");
+        move.kind = foundation::input::ActionKind::Axis2D;
+        foundation::input::Binding stick;
+        stick.source = foundation::input::BindingSource::TouchStick;
+        stick.regionW = 0.5f;
+        move.bindings.PushBack(stick);
+        set.actions.PushBack(static_cast<foundation::input::Action&&>(move));
+    }
+    map.sets.PushBack(static_cast<foundation::input::ActionSet&&>(set));
+    input->Runtime().SetMap(map);
+
+    foundation::ui::gamekit::UIScreen* screen = ui->Screens().Push(MenuFor(*ui, u8"t"));
+    REQUIRE(screen != nullptr);
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    int clicks = 0;
+    Button* top = Cast<ViewGroup>(root)->FindByName<Button>(u8"t-top");
+    REQUIRE(top != nullptr);
+    top->OnClick.Add([&clicks](ButtonBase*) { ++clicks; });
+    const Float2 at = top->LocalToScreen(Float2{20.0f, 10.0f});
+    // A phone's browser may report the mouse's button down and leave it so (a synthesized or
+    // unpaired press): it must neither swallow the finger's press nor click on its own.
+    devices.mouse.x = 700.0f;
+    devices.mouse.y = 500.0f;
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f); // the stuck press lands away from the button, before the tap
+
+    devices.touch.Put(0, at.x, at.y);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    devices.touch.Put(0, at.x + 0.5f, at.y); // a finger never rests quite still
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1);
+    // The stuck mouse, unmoved over the button, does nothing afterwards; released, still nothing.
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1);
+}
+
+TEST_CASE("ui.subsystem: a held finger leaves a button as a held mouse does: pressed, then clicked")
+{
+    // What the player sees while a finger rests on a card: the button pressed (and hovered), as
+    // under a held mouse; and after either, focus on it without the ring (a pointer's focus).
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+    (void)ui->Screens().Push(MenuFor(*ui, u8"h"));
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    Button* button = Cast<ViewGroup>(root)->FindByName<Button>(u8"h-top");
+    REQUIRE(button != nullptr);
+    int clicks = 0;
+    button->OnClick.Add([&clicks](ButtonBase*) { ++clicks; });
+    const Float2 at = button->LocalToScreen(Float2{20.0f, 10.0f});
+    const auto has = [](ControlState state, ControlState bit) { return (state & bit) == bit; };
+
+    // A held mouse.
+    devices.mouse.x = at.x;
+    devices.mouse.y = at.y;
+    devices.PressLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    const ControlState mouseHeld = button->GetControlState();
+    CHECK(has(mouseHeld, ControlState::Pressed));
+    CHECK(has(mouseHeld, ControlState::Hover));
+    devices.ReleaseLeft();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1);
+    CHECK(ui->Context().GetFocusManager()->FocusedView() == button);
+    CHECK_FALSE(has(button->GetControlState(), ControlState::Focused)); // no ring for a pointer's focus
+
+    // A held finger (id 0, as a phone): the same state while it rests, the same click and focus.
+    ui->Context().GetFocusManager()->ClearFocus();
+    devices.touch.Put(0, at.x, at.y);
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.touch.Put(0, at.x + 0.5f, at.y);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(button->GetControlState() == mouseHeld);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 2);
+    CHECK(ui->Context().GetFocusManager()->FocusedView() == button);
+    CHECK_FALSE(has(button->GetControlState(), ControlState::Focused));
+}
+
+TEST_CASE("ui.subsystem: a game's own action runtime gets the touch guide and the UI's consumption")
+{
+    // The player: each game instance reads its actions in its own runtime, not the input
+    // subsystem's. The guide shows that runtime's touch controls, and what the UI takes is marked
+    // there too (else a tap on a menu also reached the game's actions).
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    foundation::input::ActionRuntime game; // the game instance's runtime
+    {
+        foundation::input::InputMap map;
+        foundation::input::ActionSet set;
+        set.name = String(u8"Gameplay");
+        foundation::input::Action jump;
+        jump.name = String(u8"Jump");
+        foundation::input::Binding zone;
+        zone.source = foundation::input::BindingSource::TouchButton;
+        zone.regionX = 0.5f;
+        zone.regionW = 0.5f;
+        jump.bindings.PushBack(zone);
+        set.actions.PushBack(static_cast<foundation::input::Action&&>(jump));
+        map.sets.PushBack(static_cast<foundation::input::ActionSet&&>(set));
+        game.SetMap(map);
+    }
+    input->SetRuntimesInPlay([&game](const engine::input::InputSubsystem::RuntimeVisitor& visit) { visit(game); });
+
+    (void)ui->Screens().Push(MenuFor(*ui, u8"p"));
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    Button* button = Cast<ViewGroup>(root)->FindByName<Button>(u8"p-top");
+    REQUIRE(button != nullptr);
+    const Float2 at = button->LocalToScreen(Float2{20.0f, 10.0f});
+
+    // A finger on the menu: the game's runtime hears the pointer is the UI's, and the guide shows
+    // the game's Jump zone.
+    devices.touch.Put(0, at.x, at.y);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(game.GetConsumptionMask().pointer);
+    CHECK(ui->TouchGuide()->ControlCount() == 1u);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(game.GetConsumptionMask().pointer); // off the UI, the game has it back
+}
+
+TEST_CASE("ui.subsystem: a pass-through HUD filling the screen takes the pointer only at its controls")
+{
+    // Snowline's HUD is an overlay screen whose layout fills the screen. Its layout boxes are not
+    // the UI's to take: a touch on the open screen (a touch control's zone) reaches the game, one
+    // on a control is the UI's, and a modal screen takes it wherever it lands.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    input->SetSourceProvider(&devices);
+
+    RefPtr<foundation::ui::gamekit::UIScreen> hud = MenuFor(*ui, u8"hud");
+    hud->SetMode(foundation::ui::gamekit::ScreenMode::Overlay);
+    {
+        // Its layout stretched over the whole screen, as Snowline's HUD is.
+        LayoutStyle fill;
+        fill.Width = SizeSpec::Match();
+        fill.Height = SizeSpec::Match();
+        hud->SetLayout(fill);
+        hud->GetChildAt(0)->SetLayout(fill);
+    }
+    (void)ui->Screens().Push(hud);
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = Float2{800.0f, 600.0f};
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    Button* button = Cast<ViewGroup>(root)->FindByName<Button>(u8"hud-top");
+    REQUIRE(button != nullptr);
+    const Float2 onButton = button->LocalToScreen(Float2{20.0f, 10.0f});
+    View* openHit = root->HitTest(Float2{600.0f, 500.0f});
+    REQUIRE(openHit != nullptr);
+    CHECK(openHit != root); // the HUD's layout box is what the open screen hits
+
+    // Open screen, inside the HUD's layout but on no control: the game's.
+    devices.touch.Put(0, 600.0f, 500.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK_FALSE(input->Runtime().GetConsumptionMask().pointer);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    // On the HUD's button: the UI's.
+    devices.touch.Put(0, onButton.x, onButton.y);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(input->Runtime().GetConsumptionMask().pointer);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+
+    // A modal screen shields what is below: the open screen is the UI's too.
+    RefPtr<foundation::ui::gamekit::UIScreen> pause = MenuFor(*ui, u8"pause");
+    pause->SetMode(foundation::ui::gamekit::ScreenMode::Modal);
+    (void)ui->Screens().Push(pause);
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    devices.touch.Put(0, 600.0f, 500.0f);
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(input->Runtime().GetConsumptionMask().pointer);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
 }

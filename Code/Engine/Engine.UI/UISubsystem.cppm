@@ -54,6 +54,57 @@ namespace rhi = foundation::rhi;
 
 export namespace engine::ui
 {
+    /// The guide to a game's touch controls, drawn over the game once a finger has touched the
+    /// screen (a desktop player never sees it): every touch binding of the sets in effect
+    /// (ActionRuntime::ForEachTouchControl), a button as a circle filling its zone with its action's
+    /// name (what is seen is what is tapped; stronger while held), an idle stick as a small ring low
+    /// in its zone, in a dark wash with a light edge that reads on snow and at night alike; a stick
+    /// a finger holds as a ring where the finger came down and a knob where it is. Regions are
+    /// normalized over the view. Never hit-tested. Bodies in the implementation unit.
+    class TouchGuideView final : public foundation::ui::AbsoluteLayout
+    {
+    public:
+        explicit TouchGuideView(IAllocator& allocator);
+        /// This frame's controls, from every action runtime in play (`input`); `touched` = a
+        /// finger has touched the screen.
+        void Update(engine::input::InputSubsystem& input, bool touched);
+        /// The controls shown (empty while hidden), for tests.
+        [[nodiscard]] usize ControlCount() const noexcept { return m_controls.Size(); }
+        void OnDraw(foundation::ui::UIDrawContext& ctx) override;
+
+    private:
+        struct Shown
+        {
+            Rectangle region;  // normalized
+            bool stick = false;
+            bool down = false;
+            bool held = false;
+            Float2 anchor{};   // normalized
+            Float2 finger{};
+            f32 radius = 0.0f; // normalized, over the width
+        };
+        // Where a control's guide is drawn and how large, in the view's pixels: a button fills its
+        // zone; an idle stick is a small ring low in its zone, a third of the way in.
+        [[nodiscard]] static Float2 GuideCentre(const Shown& shown, f32 w, f32 h) noexcept
+        {
+            const f32 across = shown.stick ? 0.3f : 0.5f;
+            const f32 down = shown.stick ? 0.75f : 0.5f;
+            return Float2{(shown.region.x + shown.region.width * across) * w,
+                          (shown.region.y + shown.region.height * down) * h};
+        }
+        [[nodiscard]] static f32 GuideRadius(const Shown& shown, f32 w, f32 h) noexcept
+        {
+            const f32 zoneW = shown.region.width * w;
+            const f32 zoneH = shown.region.height * h;
+            const f32 inscribed = (zoneW < zoneH ? zoneW : zoneH) * 0.5f;
+            return shown.stick ? inscribed * 0.35f : (inscribed > 4.0f ? inscribed - 3.0f : inscribed);
+        }
+
+        IAllocator* m_allocator;
+        Array<Shown> m_controls;
+        Array<RefPtr<foundation::ui::Label>> m_labels; // one per control: its action's name
+    };
+
     // Foundation aliases (sibling engine::* namespaces would otherwise shadow these).
     namespace render = foundation::render;
     namespace scene = foundation::scene;
@@ -416,6 +467,8 @@ export namespace engine::ui
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screen.root.Get(); }
+        /// The guide to the game's touch controls, on the screen tier beneath its screens.
+        [[nodiscard]] TouchGuideView* TouchGuide() noexcept { return m_touchGuide.Get(); }
         /// The screen-tier ScreenStack: push/pop/replace of UIScreens over the screen
         /// root. Tier-owned so its lifetime matches the root. Backs the `ui` script facade's screen
         /// management (engine.ui.script installs a service pointing at this + ScreenRoot()).
@@ -653,6 +706,25 @@ export namespace engine::ui
 
         void SyncCanvases();
         void PumpInput();
+
+        /// One frame of pointer for the UI: the mouse, or the first finger while one is down (its
+        /// left button held; where the mouse would report it). The frame a finger lifts is a
+        /// release at its last place, `touchLifted` set.
+        struct PointerFrame
+        {
+            bool present = false;
+            f32 x = 0.0f;
+            f32 y = 0.0f;
+            bool buttons[3] = {false, false, false}; // left, right, middle
+            f32 scrollX = 0.0f;
+            f32 scrollY = 0.0f;
+            bool used = false;     // moved, pressed or scrolled this frame
+            bool relative = false; // the mouse is captured (look mode): aim through the centre
+            bool touch = false;       // a finger drives it (its edges are its own, not the mouse's)
+            bool touchBegan = false;  // the finger came down this frame: a press
+            bool touchLifted = false; // it lifted this frame: a release
+        };
+        [[nodiscard]] PointerFrame ReadPointer(foundation::input::IInputSourceProvider& devices);
         // Nothing is focused and a navigation input came: the top screen's default focus, or
         // failing a screen the first focusable anywhere. False when there is nothing to focus.
         bool LandFocus();
@@ -742,6 +814,17 @@ export namespace engine::ui
         bool m_prevButtons[3] = {false, false, false};
         f32 m_prevWheel = 0.0f;
         bool m_pointerConsumed = false;
+        // The finger driving the pointer (ReadPointer): whether one does, its id, and where it last
+        // was (its release lands there). A flag, not an id of 0: a browser numbers fingers from 0.
+        bool m_touchHeld = false;
+        u64 m_touchId = 0;
+        Float2 m_touchLast{0.0f, 0.0f};
+        bool m_touchSeen = false;          // a finger has touched the screen: the guide shows
+        // After a touch the mouse waits until it moves: a phone's browser may leave its button
+        // reported down (a synthesized or unpaired press), which must neither swallow the next
+        // finger's press nor click on its own.
+        bool m_mouseWaits = false;
+        RefPtr<TouchGuideView> m_touchGuide; // the touch controls' guide (screen tier)
 
         // gamepad focus navigation (hold-repeat per direction)
         f32 m_navRepeat[4] = {0.0f, 0.0f, 0.0f, 0.0f}; // Up/Down/Left/Right

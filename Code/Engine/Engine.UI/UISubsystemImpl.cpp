@@ -733,6 +733,14 @@ namespace engine::ui
         overlay->IsHitTestVisible = false;
         m_screen.overlay = overlay;
         m_screen.root->AddView(m_screen.overlay.Get());
+        // The touch controls' guide, beneath the screens pushed on this root and the overlays.
+        m_touchGuide = MakeRef<TouchGuideView>(m_allocator, m_allocator);
+        {
+            LayoutStyle fill;
+            fill.Width = SizeSpec::Match();
+            fill.Height = SizeSpec::Match();
+            m_screen.root->InsertView(m_touchGuide.Get(), 0, fill);
+        }
     }
 
     void UISubsystem::OnReady()
@@ -800,6 +808,7 @@ namespace engine::ui
         }
         m_runTiers.Clear();
         m_screen.overlay = nullptr;
+        m_touchGuide = nullptr;
         if (m_screen.root.Get() != nullptr)
         {
             m_context.RemoveRootView(m_screen.root.Get());
@@ -1140,6 +1149,45 @@ namespace engine::ui
         return focus->FocusedView() != nullptr;
     }
 
+    namespace
+    {
+        // ENV_INPUT_TRACE set (on the web: the page's address has ?trace): the input path explains
+        // itself in the log.
+        [[nodiscard]] bool InputTracing()
+        {
+            static const bool tracing = []
+            {
+                const Optional<String> value = GetEnvironmentVariable(u8"ENV_INPUT_TRACE");
+                return value.HasValue() && !value->IsEmpty();
+            }();
+            return tracing;
+        }
+
+        // Whether the UI takes a pointer over `view`: it, or a view it sits in, answers pointers
+        // (View::TakesPointer). A layout box alone, or the root, does not.
+        [[nodiscard]] bool TakesPointerAt(const View* view)
+        {
+            for (const View* v = view; v != nullptr; v = v->Parent)
+            {
+                if (v->TakesPointer())
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        [[nodiscard]] String DescribeView(const View* view)
+        {
+            if (view == nullptr)
+            {
+                return String(u8"none");
+            }
+            return Format(u8"'{}' {}", view->Name.AsView(),
+                          StringView(reinterpret_cast<const utf8char*>(view->GetType()->name)));
+        }
+    }
+
     void UISubsystem::PumpInput()
     {
         // The global-overlay layer eats input only while it holds something INTERACTIVE
@@ -1160,7 +1208,9 @@ namespace engine::ui
             return;
         }
         foundation::input::IInputSourceProvider& devices = m_input->ActiveSource();
-        foundation::shell::IMouse* mouse = devices.Mouse();
+        // The pointer: the mouse, or the first finger while one is down (a phone has no mouse:
+        // a tap presses, a drag drags, so a scroll view scrolls).
+        const PointerFrame pointer = ReadPointer(devices);
         InputManager& inputManager = *m_context.GetInputManager();
 
         // Per-surface scene binding: which scene roots may
@@ -1204,9 +1254,9 @@ namespace engine::ui
             {
                 target = m_screen.root.Get(); // the global overlays live on the shared tier
             }
-            if (target == nullptr && mouse != nullptr)
+            if (target == nullptr && pointer.present)
             {
-                const Float2 point{mouse->X(), mouse->Y()};
+                const Float2 point{pointer.x, pointer.y};
                 if (tier.root.Get() != nullptr)
                 {
                     View* hit = tier.root->HitTest(ScreenLayoutPoint(tier, point));
@@ -1239,7 +1289,7 @@ namespace engine::ui
                 // the view center instead.
                 if (target == nullptr)
                 {
-                    const bool centerAim = mouse->RelativeMode();
+                    const bool centerAim = pointer.relative;
                     const bool rayDebug = GetEnvironmentVariable(u8"ENV_UI_RAY_DEBUG").HasValue();
                     f32 bestDistance = 0.0f;
                     for (SceneUI& sceneUI : m_sceneUIs)
@@ -1364,9 +1414,9 @@ namespace engine::ui
                         }
                     }
                 }
-                std::fprintf(stderr, "[UIRAY] frame target=%s mouse=%d pos=(%.0f,%.0f)\n", kind,
-                             mouse != nullptr ? 1 : 0, mouse != nullptr ? mouse->X() : -1.0f,
-                             mouse != nullptr ? mouse->Y() : -1.0f);
+                std::fprintf(stderr, "[UIRAY] frame target=%s pointer=%d pos=(%.0f,%.0f)\n", kind,
+                             pointer.present ? 1 : 0, pointer.present ? pointer.x : -1.0f,
+                             pointer.present ? pointer.y : -1.0f);
             }
             if (target == nullptr)
             {
@@ -1381,25 +1431,20 @@ namespace engine::ui
         // still, hidden on a handheld say, hovers nothing while keys or a pad drive. Moved by its
         // MOTION, not its position: the platform's first report of where the cursor rests, and a
         // warp, change the position with no motion at all.
-        if (mouse != nullptr)
+        if (pointer.present)
         {
-            const bool used = mouse->DeltaX() != 0.0f || mouse->DeltaY() != 0.0f || mouse->ScrollX() != 0.0f ||
-                              mouse->ScrollY() != 0.0f ||
-                              mouse->IsButtonDown(foundation::shell::MouseButton::Left) ||
-                              mouse->IsButtonDown(foundation::shell::MouseButton::Right) ||
-                              mouse->IsButtonDown(foundation::shell::MouseButton::Middle);
-            m_pointerLive = m_pointerLive || used;
+            m_pointerLive = m_pointerLive || pointer.used;
             if (!m_pointerLive)
             {
                 inputManager.ClearHover();
             }
         }
-        if (mouse != nullptr && m_pointerLive)
+        if (pointer.present && m_pointerLive)
         {
             // Panel routing swaps in panel-local pixels: the active root IS the panel's
             // standalone root, so dispatch coordinates live in its texture space.
-            f32 x = panelPointer ? panelPointerPx.x : mouse->X();
-            f32 y = panelPointer ? panelPointerPx.y : mouse->Y();
+            f32 x = panelPointer ? panelPointerPx.x : pointer.x;
+            f32 y = panelPointer ? panelPointerPx.y : pointer.y;
             // The screen tier drawn fitted takes its pointer in its own pixels.
             const ScreenTier* activeTier = TierOfRoot(m_context.ActiveInputRoot());
             if (!panelPointer && activeTier != nullptr)
@@ -1409,14 +1454,30 @@ namespace engine::ui
                 y = screen.y;
             }
             inputManager.ProcessMouseMove(x, y);
-            const foundation::shell::MouseButton shellButtons[3] = {
-                foundation::shell::MouseButton::Left, foundation::shell::MouseButton::Right,
-                foundation::shell::MouseButton::Middle};
             const MouseButton uiButtons[3] = {MouseButton::Left, MouseButton::Right,
                                               MouseButton::Middle};
-            for (u32 i = 0; i < 3; ++i)
+            if (pointer.touch)
             {
-                const bool down = mouse->IsButtonDown(shellButtons[i]);
+                // A finger's own edges: it came down, or it lifted (whatever the mouse reports).
+                if (pointer.touchBegan)
+                {
+                    inputManager.ProcessMouseDown(MouseButton::Left, x, y, m_context.TotalTime());
+                }
+                else if (pointer.touchLifted)
+                {
+                    inputManager.ProcessMouseUp(MouseButton::Left, x, y);
+                }
+                if (InputTracing() && (pointer.touchBegan || pointer.touchLifted))
+                {
+                    LOG_INFO(u8"UI", u8"UiTouch: finger {} at ({},{}) on {}, pressed {}",
+                             pointer.touchBegan ? StringView(u8"down") : StringView(u8"up"), x, y,
+                             DescribeView(m_context.GetViewById(inputManager.HoveredId())).AsView(),
+                             DescribeView(m_context.GetViewById(inputManager.PressedId())).AsView());
+                }
+            }
+            for (u32 i = 0; i < 3 && !pointer.touch; ++i)
+            {
+                const bool down = pointer.buttons[i];
                 if (down && !m_prevButtons[i])
                 {
                     inputManager.ProcessMouseDown(uiButtons[i], x, y, m_context.TotalTime());
@@ -1425,13 +1486,25 @@ namespace engine::ui
                 {
                     inputManager.ProcessMouseUp(uiButtons[i], x, y);
                 }
+                if (InputTracing() && down != m_prevButtons[i])
+                {
+                    LOG_INFO(u8"UI", u8"UiMouse: button {} {} at ({},{}) on {}", i,
+                             down ? StringView(u8"down") : StringView(u8"up"), x, y,
+                             DescribeView(m_context.GetViewById(inputManager.HoveredId())).AsView());
+                }
                 m_prevButtons[i] = down;
             }
-            const f32 wheel = mouse->ScrollY(); // per-frame delta already
-            if (wheel != 0.0f)
+            if (pointer.scrollY != 0.0f) // per-frame delta already
             {
-                inputManager.ProcessMouseWheel(x, y, mouse->ScrollX(), wheel);
+                inputManager.ProcessMouseWheel(x, y, pointer.scrollX, pointer.scrollY);
             }
+        }
+        // A lifted finger leaves no cursor behind: nothing stays hovered, and the mouse counts
+        // again only once it is used.
+        if (pointer.touchLifted)
+        {
+            m_pointerLive = false;
+            inputManager.ClearHover();
         }
 
         // ---- keyboard + text: the tagged event stream off the SAME
@@ -1594,21 +1667,21 @@ namespace engine::ui
         // screen tier first (topmost), then the ELIGIBLE scene roots - the same
         // binding rule as routing, so an un-bound editor context never publishes a
         // spurious mask from HUDs it cannot interact with.
-        bool pointer = false;
-        if (mouse != nullptr)
+        bool overUi = false;
+        if (pointer.present)
         {
-            const Float2 point{mouse->X(), mouse->Y()};
+            const Float2 point{pointer.x, pointer.y};
             if (tier.root.Get() != nullptr)
             {
                 View* hit = tier.root->HitTest(ScreenLayoutPoint(tier, point));
-                pointer = hit != nullptr && hit != tier.root.Get();
+                overUi = TakesPointerAt(hit);
             }
-            if (!pointer && overlayActive && &tier != &m_screen)
+            if (!overUi && overlayActive && &tier != &m_screen)
             {
                 View* hit = m_screen.root->HitTest(ScreenLayoutPoint(m_screen, point));
-                pointer = hit != nullptr && hit != m_screen.root.Get();
+                overUi = TakesPointerAt(hit);
             }
-            for (usize i = 0; !pointer && i < m_sceneUIs.Size(); ++i)
+            for (usize i = 0; !overUi && i < m_sceneUIs.Size(); ++i)
             {
                 if (!sceneRootEligible(m_sceneUIs[i]))
                 {
@@ -1620,7 +1693,7 @@ namespace engine::ui
                     continue;
                 }
                 View* hit = root->HitTest(point);
-                pointer = hit != nullptr && hit != root;
+                overUi = TakesPointerAt(hit);
             }
         }
         // A ray-hit interactive panel consumes the pointer like any hovered canvas. The pressed
@@ -1629,13 +1702,100 @@ namespace engine::ui
         // held click published a consumed mask and gated gameplay input for the press duration
         // (the PhysicsPlayground crosshair shove polls IsButtonPressed on exactly that frame).
         const View* pressedView = m_context.GetViewById(inputManager.PressedId());
-        const bool pressedOnUI = pressedView != nullptr && pressedView->Parent != nullptr;
-        pointer = pointer || panelPointer || pressedOnUI;
+        const bool pressedOnUI = TakesPointerAt(pressedView);
+        overUi = overUi || panelPointer || pressedOnUI;
         const bool keyboard = m_context.WantsTextInput();
-        m_pointerConsumed = pointer;
-        m_input->Runtime().SetConsumptionMask(
-            foundation::input::ActionRuntime::ConsumptionMask{pointer, keyboard});
-        TraceUi(mouse);
+        m_pointerConsumed = overUi;
+        // The touch guide: from the first touch on, the controls of the sets in effect.
+        if (foundation::shell::ITouch* touch = devices.Touch(); touch != nullptr && touch->HasTouch())
+        {
+            m_touchSeen = true;
+        }
+        if (m_touchGuide.Get() != nullptr)
+        {
+            m_touchGuide->Update(*m_input, m_touchSeen);
+        }
+        // On every runtime in play: a game's own reads its actions there.
+        const foundation::input::ActionRuntime::ConsumptionMask mask{overUi, keyboard};
+        m_input->ForEachRuntime([&mask](foundation::input::ActionRuntime& runtime)
+                                { runtime.SetConsumptionMask(mask); });
+        TraceUi(devices.Mouse());
+    }
+
+    UISubsystem::PointerFrame UISubsystem::ReadPointer(foundation::input::IInputSourceProvider& devices)
+    {
+        PointerFrame frame;
+        // A finger first: while the one driving is down it is the pointer, its left button held.
+        if (foundation::shell::ITouch* touch = devices.Touch(); touch != nullptr)
+        {
+            foundation::shell::TouchPoint point;
+            bool down = false;
+            const i32 count = touch->TouchCount();
+            for (i32 i = 0; i < count && !down; ++i)
+            {
+                if (touch->GetTouchPoint(i, point) && (!m_touchHeld || point.id == m_touchId))
+                {
+                    down = true;
+                }
+            }
+            if (down)
+            {
+                frame.touchBegan = !m_touchHeld;
+                m_touchHeld = true;
+                m_touchId = point.id;
+                m_touchLast = Float2{point.pointerX, point.pointerY};
+                m_mouseWaits = true;
+                frame.present = true;
+                frame.touch = true;
+                frame.x = point.pointerX;
+                frame.y = point.pointerY;
+                frame.buttons[0] = true;
+                frame.used = true;
+                return frame;
+            }
+        }
+        if (m_touchHeld)
+        {
+            // It lifted: a release where it last was (a tap's click lands there).
+            m_touchHeld = false;
+            frame.present = true;
+            frame.x = m_touchLast.x;
+            frame.y = m_touchLast.y;
+            frame.used = true;
+            frame.touch = true;
+            frame.touchLifted = true;
+            return frame;
+        }
+        foundation::shell::IMouse* mouse = devices.Mouse();
+        if (mouse == nullptr)
+        {
+            return frame;
+        }
+        if (m_mouseWaits)
+        {
+            if (mouse->DeltaX() == 0.0f && mouse->DeltaY() == 0.0f && mouse->ScrollX() == 0.0f &&
+                mouse->ScrollY() == 0.0f)
+            {
+                return frame; // no pointer until the mouse moves
+            }
+            // It moved: it drives again, from the buttons as they are now (no edge from a stale one).
+            m_mouseWaits = false;
+            m_prevButtons[0] = mouse->IsButtonDown(foundation::shell::MouseButton::Left);
+            m_prevButtons[1] = mouse->IsButtonDown(foundation::shell::MouseButton::Right);
+            m_prevButtons[2] = mouse->IsButtonDown(foundation::shell::MouseButton::Middle);
+        }
+        frame.present = true;
+        frame.x = mouse->X();
+        frame.y = mouse->Y();
+        frame.buttons[0] = mouse->IsButtonDown(foundation::shell::MouseButton::Left);
+        frame.buttons[1] = mouse->IsButtonDown(foundation::shell::MouseButton::Right);
+        frame.buttons[2] = mouse->IsButtonDown(foundation::shell::MouseButton::Middle);
+        frame.scrollX = mouse->ScrollX();
+        frame.scrollY = mouse->ScrollY();
+        frame.relative = mouse->RelativeMode();
+        frame.used = mouse->DeltaX() != 0.0f || mouse->DeltaY() != 0.0f || frame.scrollX != 0.0f ||
+                     frame.scrollY != 0.0f || frame.buttons[0] || frame.buttons[1] || frame.buttons[2];
+        return frame;
     }
 
     void UISubsystem::TraceUi(foundation::shell::IMouse* mouse)
@@ -1643,12 +1803,7 @@ namespace engine::ui
         // ENV_INPUT_TRACE set: twice a second, what the UI holds - the focused view and how focus
         // got there, the hovered one, and where the pointer is in layout space - beside the input
         // path's own trace.
-        static const bool tracing = []
-        {
-            const Optional<String> value = GetEnvironmentVariable(u8"ENV_INPUT_TRACE");
-            return value.HasValue() && !value->IsEmpty();
-        }();
-        if (!tracing || (++m_traceFrame % 30u) != 0u)
+        if (!InputTracing() || (++m_traceFrame % 30u) != 0u)
         {
             return;
         }
@@ -2775,5 +2930,109 @@ namespace engine::ui
         column->AddView(status.Get());
         screen->AddView(column.Get());
         return RefPtr<fui::View>(screen.Get());
+    }
+}
+
+namespace engine::ui
+{
+    TouchGuideView::TouchGuideView(IAllocator& allocator) : m_allocator(&allocator)
+    {
+        IsHitTestVisible = false;
+        Visibility = foundation::ui::Visibility::Gone;
+    }
+
+    void TouchGuideView::Update(engine::input::InputSubsystem& input, bool touched)
+    {
+        m_controls.Clear();
+        if (touched)
+        {
+            input.ForEachRuntime(
+                [this](foundation::input::ActionRuntime& runtime)
+                {
+                    runtime.ForEachTouchControl(
+                        [this](const foundation::input::ActionRuntime::TouchControl& control)
+                        {
+                            const foundation::input::Binding& b = *control.binding;
+                            Shown shown;
+                            shown.region = Rectangle{b.regionX, b.regionY, b.regionW, b.regionH};
+                            shown.stick = b.source == foundation::input::BindingSource::TouchStick;
+                            shown.down = control.down;
+                            shown.held = control.held;
+                            shown.anchor = control.anchor;
+                            shown.finger = control.finger;
+                            shown.radius = b.stickRadius > 0.0f ? b.stickRadius : 0.15f;
+                            m_controls.PushBack(shown);
+                            // The action's name, centred in its zone (a stick's while no finger holds it).
+                            if (m_labels.Size() < m_controls.Size())
+                            {
+                                auto label = MakeRef<foundation::ui::Label>(*m_allocator);
+                                label->FontSize.SetValue(15.0f);
+                                label->HAlign.SetValue(foundation::fonts::TextAlignment::Center);
+                                label->IsHitTestVisible = false;
+                                m_labels.PushBack(label);
+                                AddView(label.Get());
+                            }
+                            m_labels[m_controls.Size() - 1]->SetText(control.action);
+                        });
+                });
+        }
+        const f32 w = Width();
+        const f32 h = Height();
+        for (usize i = 0; i < m_labels.Size(); ++i)
+        {
+            foundation::ui::Label& label = *m_labels[i];
+            const bool show = i < m_controls.Size() && !m_controls[i].held;
+            label.Visibility = show ? foundation::ui::Visibility::Visible : foundation::ui::Visibility::Gone;
+            if (!show)
+            {
+                continue;
+            }
+            const Float2 centre = GuideCentre(m_controls[i], w, h);
+            const f32 size = GuideRadius(m_controls[i], w, h) * 2.0f;
+            foundation::ui::LayoutStyle place;
+            place.Left = centre.x - size * 0.5f;
+            place.Top = centre.y - 10.0f;
+            place.Width = foundation::ui::SizeSpec::Fixed(foundation::ui::Unit::Dp(size));
+            label.SetLayout(place);
+            label.TextColor.SetValue(Optional<Color>(Color{1.0f, 1.0f, 1.0f, m_controls[i].down ? 1.0f : 0.85f}));
+        }
+        Visibility = m_controls.IsEmpty() ? foundation::ui::Visibility::Gone : foundation::ui::Visibility::Visible;
+        Invalidate();
+    }
+
+    void TouchGuideView::OnDraw(foundation::ui::UIDrawContext& ctx)
+    {
+        const f32 w = Width();
+        const f32 h = Height();
+        for (const Shown& shown : m_controls)
+        {
+            if (shown.stick && shown.held)
+            {
+                // A ring where the finger came down, the stick's reach; a knob where it is,
+                // held inside the ring.
+                const Float2 anchor{shown.anchor.x * w, shown.anchor.y * h};
+                const f32 reach = shown.radius * w;
+                Float2 knob{shown.finger.x * w, shown.finger.y * h};
+                const Float2 offset{knob.x - anchor.x, knob.y - anchor.y};
+                const f32 length = Sqrt(offset.x * offset.x + offset.y * offset.y);
+                if (length > reach && length > 0.0f)
+                {
+                    knob = Float2{anchor.x + offset.x / length * reach, anchor.y + offset.y / length * reach};
+                }
+                ctx.VG().FillCircle(anchor, reach, Color{0.0f, 0.0f, 0.0f, 0.22f});
+                ctx.VG().StrokeCircle(anchor, reach, Color{1.0f, 1.0f, 1.0f, 0.6f}, 3.0f);
+                ctx.VG().FillCircle(knob, reach * 0.4f, Color{1.0f, 1.0f, 1.0f, 0.7f});
+                ctx.VG().StrokeCircle(knob, reach * 0.4f, Color{0.0f, 0.0f, 0.0f, 0.35f}, 2.0f);
+                continue;
+            }
+            // A button fills its zone (what is seen is what is tapped); an idle stick is a small
+            // ring low in its zone, where a thumb rests. A dark wash with a light edge reads on
+            // snow and at night alike.
+            const Float2 centre = GuideCentre(shown, w, h);
+            const f32 radius = GuideRadius(shown, w, h);
+            ctx.VG().FillCircle(centre, radius, Color{0.0f, 0.0f, 0.0f, shown.down ? 0.34f : 0.2f});
+            ctx.VG().StrokeCircle(centre, radius, Color{1.0f, 1.0f, 1.0f, shown.down ? 0.85f : 0.5f}, 2.5f);
+        }
+        DrawChildren(ctx);
     }
 }

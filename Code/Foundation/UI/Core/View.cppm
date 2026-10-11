@@ -432,6 +432,12 @@ export namespace foundation::ui
         [[nodiscard]] virtual IAcceleratorHandler* AsAcceleratorHandler() { return nullptr; }
         /// ITooltipProvider this view implements (custom tooltip content), or null. Override to return `this`.
         [[nodiscard]] virtual ITooltipProvider* AsTooltipProvider() { return nullptr; }
+
+        /// Whether a pointer over this view is the UI's to take, not the game's: a control that
+        /// answers it (focusable ones: buttons, sliders, fields, lists), a scroll view with room to
+        /// scroll, a screen that shields what is below. A plain layout box filling the screen (a
+        /// HUD's) is not, so a game under a pass-through HUD still gets its taps and clicks.
+        [[nodiscard]] virtual bool TakesPointer() const noexcept { return IsFocusable; }
         /// IDragSource this view implements (draggable), or null. Override to return `this`.
         [[nodiscard]] virtual IDragSource* AsDragSource() { return nullptr; }
         /// IDropTarget this view implements (accepts drops), or null. Override to return `this`.
