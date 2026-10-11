@@ -2547,7 +2547,8 @@ TEST_CASE("ui.subsystem: a game's own action runtime gets the touch guide and th
         map.sets.PushBack(static_cast<foundation::input::ActionSet&&>(set));
         game.SetMap(map);
     }
-    input->SetRuntimesInPlay([&game](const engine::input::InputSubsystem::RuntimeVisitor& visit) { visit(game); });
+    input->SetActionRuntimeProvider([&game](const engine::input::InputSubsystem::ActionRuntimeVisitor& visit)
+                                    { visit(game); });
 
     (void)ui->Screens().Push(MenuFor(*ui, u8"p"));
     RootView* root = ui->ScreenRoot();

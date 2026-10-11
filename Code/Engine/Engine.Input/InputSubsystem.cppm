@@ -58,15 +58,18 @@ export namespace engine::input
         /// editor's Game tabs), beside this subsystem's own: the UI marks what it takes on every
         /// one (else a tap on a menu also reached the game's actions) and shows their touch
         /// controls. Unset: this subsystem's runtime alone.
-        using RuntimeVisitor = Function<void(ActionRuntime&)>;
-        void SetRuntimesInPlay(Function<void(const RuntimeVisitor&)> forEach) { m_runtimesInPlay = Move(forEach); }
+        using ActionRuntimeVisitor = Function<void(ActionRuntime&)>;
+        void SetActionRuntimeProvider(Function<void(const ActionRuntimeVisitor&)> forEach)
+        {
+            m_actionRuntimeProvider = Move(forEach);
+        }
         /// This subsystem's runtime, then each in play.
-        void ForEachRuntime(const RuntimeVisitor& visit)
+        void ForEachActionRuntime(const ActionRuntimeVisitor& visit)
         {
             visit(m_runtime);
-            if (m_runtimesInPlay)
+            if (m_actionRuntimeProvider)
             {
-                m_runtimesInPlay(visit);
+                m_actionRuntimeProvider(visit);
             }
         }
 
@@ -159,7 +162,7 @@ export namespace engine::input
         const void* m_boundSceneKey = nullptr; // the override's scene binding (comparison only)
         UnboundInputScenePolicy m_unboundScenePolicy = UnboundInputScenePolicy::AllScenes;
         ActionRuntime m_runtime;
-        Function<void(const RuntimeVisitor&)> m_runtimesInPlay; // the host's instances' runtimes
+        Function<void(const ActionRuntimeVisitor&)> m_actionRuntimeProvider; // the host's instances' runtimes
     };
 
     // The scripting facade: a foreign class named `Input` whose STATIC methods resolve the

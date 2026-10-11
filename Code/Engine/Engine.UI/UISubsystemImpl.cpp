@@ -1717,7 +1717,7 @@ namespace engine::ui
         }
         // On every runtime in play: a game's own reads its actions there.
         const foundation::input::ActionRuntime::ConsumptionMask mask{overUi, keyboard};
-        m_input->ForEachRuntime([&mask](foundation::input::ActionRuntime& runtime)
+        m_input->ForEachActionRuntime([&mask](foundation::input::ActionRuntime& runtime)
                                 { runtime.SetConsumptionMask(mask); });
         TraceUi(devices.Mouse());
     }
@@ -2946,7 +2946,7 @@ namespace engine::ui
         m_controls.Clear();
         if (touched)
         {
-            input.ForEachRuntime(
+            input.ForEachActionRuntime(
                 [this](foundation::input::ActionRuntime& runtime)
                 {
                     runtime.ForEachTouchControl(
