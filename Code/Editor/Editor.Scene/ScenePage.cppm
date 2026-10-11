@@ -654,7 +654,7 @@ export namespace editor
         bool m_gridLines = false; // debug lines instead of the shader grid, to compare the two
         bool m_showLodOverlay = false;
         bool m_showColliders = false;
-        bool m_showMarkers = true;
+        bool m_showMarkers = false; // every entity's origin cross, off by default (the selection keeps its own)
         bool m_showFps = false;
         // The FPS overlay samples half-second windows so the readout is legible, not a blur.
         f64 m_fpsWindowSeconds = 0.0;

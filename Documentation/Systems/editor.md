@@ -237,7 +237,8 @@ service, status sink, and the registries:
 
 - **Scene toolbar shape (2026-09-24):** `[Translate][Rotate][Scale] | [World] | [Overlays v]
   [Post v][Debug v] | <tool palette> ... [Play][Pause][Stop]`. Overlays is one checkable dropdown
-  for the editor's own debug draws - Grid, Entity markers, LOD overlay, Colliders - and the FPS
+  for the editor's own debug draws - Grid, Entity markers (off by default since 2026-10-11: every
+  entity's origin cross is clutter; the selection keeps its own), LOD overlay, Colliders - and the FPS
   readout (top-right; half-second windows of the page's update dt), all per-scene persisted
   in `SceneViewPref` - which also carries the editor camera (position / yaw / pitch / orbit
   distance) and the entity selection a closing page saves and a reopening one restores (ids no

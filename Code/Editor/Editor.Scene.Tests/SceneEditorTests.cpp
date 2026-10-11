@@ -601,19 +601,19 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(LoadSceneViewPref(&reloaded, sceneB, fb).showColliders == false);
     CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showLodOverlay == true); // siblings intact
 
-    // showMarkers (the entity origin crosses): defaults ON, and an OFF choice survives the XML
+    // showMarkers (the entity origin crosses): defaults OFF, and an ON choice survives the XML
     // round trip per scene while its siblings stay put.
-    CHECK(fb.showMarkers == true);
-    CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showMarkers == true);
-    CHECK(SaveSceneViewPref(&reloaded, SceneViewPref{sceneA, true, true, true, false}));
+    CHECK(fb.showMarkers == false);
+    CHECK(LoadSceneViewPref(&reloaded, sceneA, fb).showMarkers == false);
+    CHECK(SaveSceneViewPref(&reloaded, SceneViewPref{sceneA, true, true, true, true}));
     MemoryStream buf4;
     REQUIRE(reloaded.Save(buf4, foundation::xml::XmlSerializerFactory()).IsOk());
     (void)buf4.Seek(0, SeekOrigin::Begin);
     foundation::settings::Settings again(foundation::core::DefaultAllocator());
     REQUIRE(again.Load(buf4, foundation::xml::XmlSerializerFactory()).IsOk());
-    CHECK(LoadSceneViewPref(&again, sceneA, fb).showMarkers == false);
+    CHECK(LoadSceneViewPref(&again, sceneA, fb).showMarkers == true);
     CHECK(LoadSceneViewPref(&again, sceneA, fb).showColliders == true);
-    CHECK(LoadSceneViewPref(&again, sceneB, fb).showMarkers == true); // untouched scene: default
+    CHECK(LoadSceneViewPref(&again, sceneB, fb).showMarkers == false); // untouched scene: default
 
     // showFps (the viewport frame-rate readout): defaults OFF and round-trips per scene.
     CHECK(fb.showFps == false);
@@ -733,7 +733,7 @@ TEST_CASE("scene-editor: a v3 view pref (before markers / FPS / camera) reads th
         BinarySerializer ar(v3, SerializeMode::Write);
         const SerializedDataVersion chain[] = {{type.id, 3u}};
         ar.PushVersionScope(chain, 1);
-        SceneViewPref pref{Guid{1, 2}, false, true, true, false, true};
+        SceneViewPref pref{Guid{1, 2}, false, true, true, true, true};
         pref.hasCamera = true; // must NOT reach the v3 record
         pref.Serialize(ar);
         ar.PopVersionScope();
@@ -752,7 +752,7 @@ TEST_CASE("scene-editor: a v3 view pref (before markers / FPS / camera) reads th
         CHECK(pref.showGrid == false);
         CHECK(pref.showLodOverlay == true);
         CHECK(pref.showColliders == true);
-        CHECK(pref.showMarkers == true);   // the v4 defaults, not the writer's values
+        CHECK(pref.showMarkers == false);  // the v4 defaults, not the writer's values
         CHECK(pref.showFps == false);
         CHECK_FALSE(pref.hasCamera);
         CHECK(pref.selection.IsEmpty());
@@ -764,7 +764,7 @@ TEST_CASE("scene-editor: a v3 view pref (before markers / FPS / camera) reads th
         BinarySerializer ar(v4, SerializeMode::Write);
         const SerializedDataVersion chain[] = {{type.id, 4u}};
         ar.PushVersionScope(chain, 1);
-        SceneViewPref pref{Guid{1, 2}, false, true, true, false, true};
+        SceneViewPref pref{Guid{1, 2}, false, true, true, true, true};
         pref.hasCamera = true;
         pref.cameraYaw = 0.5f;
         pref.selection.PushBack(Guid{9, 9});
@@ -781,7 +781,7 @@ TEST_CASE("scene-editor: a v3 view pref (before markers / FPS / camera) reads th
         pref.Serialize(ar);
         ar.PopVersionScope();
         REQUIRE(ar.IsOk());
-        CHECK(pref.showMarkers == false);
+        CHECK(pref.showMarkers == true);
         CHECK(pref.showFps == true);
         CHECK(pref.hasCamera);
         CHECK(pref.cameraYaw == doctest::Approx(0.5f));

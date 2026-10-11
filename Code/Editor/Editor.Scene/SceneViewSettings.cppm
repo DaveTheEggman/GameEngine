@@ -35,7 +35,7 @@ export namespace editor
         // set by name, so a partial brace init never trips -Wmissing-field-initializers.
         SceneViewPref() = default;
         explicit SceneViewPref(Guid sceneId, bool grid = true, bool lod = false,
-                               bool colliders = false, bool markers = true, bool fps = false)
+                               bool colliders = false, bool markers = false, bool fps = false)
             : scene(sceneId), showGrid(grid), showLodOverlay(lod), showColliders(colliders),
               showMarkers(markers), showFps(fps)
         {
@@ -45,7 +45,8 @@ export namespace editor
         bool showGrid = true;
         bool showLodOverlay = false;
         bool showColliders = false; // edit-time physics collider wireframes (v3)
-        bool showMarkers = true;    // the origin cross on every entity (off for a large scene)
+        bool showMarkers = false;   // the origin cross on every entity (off by default: clutter;
+                                    // the selected entity keeps its own)
         bool showFps = false;       // the frame-rate readout in the viewport's top-right corner
         // The editor camera as the page last had it (v4): restored on reopen so a scene comes
         // back where it was left. hasCamera = false until a page has saved one.
