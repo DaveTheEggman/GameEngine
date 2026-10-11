@@ -49,7 +49,7 @@ implementing agent's work).
 | [scene-prefab-unification.md](scene-prefab-unification.md) | - | WIP design question (needs Fable) |
 | [navigation-editor-ui.md](navigation-editor-ui.md) | - | design question (needs Fable): nav P4b editor UI |
 | [deferred-by-design.md](deferred-by-design.md) | - | note only |
-| [present-transform.md](present-transform.md) | 0.1 phones | M (DRAFT 2026-10-11, for review: a landscape game on a portrait screen, presented turned a quarter with input turned back, through a rotation in `ContentFit`; P1-P5) |
+| [present-transform.md](present-transform.md) | 0.1 phones | M (APPROVED 2026-10-11, P1 next: a landscape game on a portrait screen, presented turned a quarter with input turned back, through a rotation in `ContentFit`; P1-P5) |
 
 > Fully-built specs are archived at `../Archive/<name>-history.md` and dropped from this index.
 

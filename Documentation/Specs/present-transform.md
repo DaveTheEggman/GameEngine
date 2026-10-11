@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: DRAFT for review (2026-10-11). No code yet.
+> Status: APPROVED (user, 2026-10-11: the decisions below). No code yet; P1 next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -28,13 +28,13 @@ pre-transform for a native Android player.
 - Every pointer and touch position, every touch region, the UI's layout and its hit testing work in
   the game's frame, as if the window were the game's shape. Nothing in a game changes.
 - Where the browser can lock the orientation, the page asks it to, and then nothing turns.
+- The editor's Game tab can preview the game on a portrait phone, exercising the turn without one.
 - No cost when nothing turns (desktop, a matching window): the path stays as it is today.
 
 ## Not in scope
 
 - A half turn (180): no host asks for it; the type allows it, nothing chooses it.
 - Native Android (a Vulkan pre-transform): later, on the same type (see "Native, later").
-- Rotating the editor: its Game tab gains a preview of a portrait phone at most (an open question).
 - Per-scene orientation: it is a game's, like its render resolution.
 
 ## What exists (facts, 2026-10-11)
@@ -123,7 +123,15 @@ Chrome), the page turns and the window is landscape: no rotation. Where it is re
 iPhone, a desktop browser), section 3 turns the image. The page reads the orientation from
 player.xml, as it reads the name. (Open question 3: whether to ask at all.)
 
-### 7. Native, later
+### 7. The editor previews a portrait phone
+
+The Game tab gains a "Phone, portrait" preview: the tab's viewport takes a phone's portrait shape
+(9 by 19.5), and the host's choice of rotation runs on it as it runs in the player, so a landscape
+game is presented turned in the tab and the mouse drives it through the turned `InputSurface`. It
+exercises the whole path (present, input, the screen-tier UI, the touch guide) without a phone, and
+an agent can see it through `pie_screenshot`.
+
+### 8. Native, later
 
 A native Android player reads the surface's `currentTransform`: a quarter turn there becomes
 `ContentRotation::Quarter` for the present copy and input, the swapchain is created with
@@ -146,23 +154,19 @@ setting against the window's shape). Noted here so the type is right; not built 
   (Engine.Input.Tests): a portrait window with a landscape game: a mouse and a finger at the
   window's corners map to the content's corners, a finger's normalized place is over the content, a
   drag's delta turns.
-- **P4 The screen-tier UI.** `DrawTier` rotation. Tests (Engine.UI.Tests): with a quarter turn, a
-  tap at the window point where a button is drawn presses it; the touch guide's buttons are in the
-  content's bottom-right.
+- **P4 The screen-tier UI and the editor preview.** `DrawTier` rotation; the Game tab's "Phone,
+  portrait" preview. Tests (Engine.UI.Tests): with a quarter turn, a tap at the window point where a
+  button is drawn presses it; the touch guide's buttons are in the content's bottom-right.
+  Editor.Scene.Tests: the preview's shape and its rotation choice. The user's check in the editor.
 - **P5 The page and the samples.** The fullscreen and lock request on Play; the four samples' Web
   presets say `Landscape`. The user's phone test, held upright and turned, auto-rotate on and off.
 
-## Open questions
+## Decisions (user, 2026-10-11)
 
-1. **Direction of the quarter turn** when the page is portrait: counter-clockwise (the game's top on
-   the screen's left, Android's primary landscape), or follow the device's sensor
-   (`screen.orientation.angle` when it changes, needing a sensor the browser does not expose while
-   the page itself is locked portrait)? Proposed: fixed counter-clockwise.
-2. **The editor.** Should the Game tab offer a "phone, portrait" preview that exercises the turn (a
-   tall Game tab with a landscape game)? Proposed: yes, as P4's manual check, since it costs only
-   the host's choice running in the Game tab.
-3. **The lock request.** Fullscreen on Play hides the browser's bars, which suits a game but
-   surprises on a demos page with other content. Proposed: ask on Play only for a game that declares
+1. **The quarter turn is fixed counter-clockwise** when the page is portrait: the game's top on the
+   screen's left, Android's primary landscape. No sensor.
+2. **The editor previews a portrait phone** (section 7).
+3. **The page asks for fullscreen and the orientation lock on Play** only for a game that declares
    an orientation, and only on a touch device.
-4. **`Any` as the default** keeps every project as it is; the samples opt in through their Web
-   presets. A new project's template could default to `Landscape` on its Web preset.
+4. **`Any` is the default**: every project keeps today's behaviour; the samples opt in through their
+   Web presets, and a new project's Web preset defaults to `Landscape`.
