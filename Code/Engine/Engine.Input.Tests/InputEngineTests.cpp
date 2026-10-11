@@ -324,3 +324,69 @@ TEST_CASE("input: a fitted source maps the fingers as it maps the mouse")
     REQUIRE(touch->GetTouchPoint(0, point));
     CHECK(point.y < 0.0f);
 }
+
+TEST_CASE("input: a fitted source turned with the present reads the game's frame")
+{
+    // Present transform P3: a landscape game on a 1080x1920 portrait window, presented turned
+    // three quarters (its top on the screen's left), at the window's pixels turned (1920x1080,
+    // as the host fits it without a render resolution).
+    PointSource inner;
+    FittedInputSource fitted(inner);
+    fitted.fit = ContentFit{Rectangle{0, 0, 1080, 1920}, Float2{1920, 1080}, FitMode::Stretch,
+                            ContentRotation::ThreeQuarter};
+    foundation::shell::IMouse* mouse = fitted.Mouse();
+    REQUIRE(mouse != nullptr);
+
+    // The window's corners are the game's: bottom-left its top-left, top-left its top-right,
+    // top-right its bottom-right.
+    const struct
+    {
+        f32 windowX, windowY, gameX, gameY;
+    } corners[] = {{0, 1920, 0, 0}, {0, 0, 1920, 0}, {1080, 0, 1920, 1080}, {1080, 1920, 0, 1080}};
+    for (const auto& corner : corners)
+    {
+        CAPTURE(corner.windowX);
+        CAPTURE(corner.windowY);
+        inner.mouse.x = corner.windowX;
+        inner.mouse.y = corner.windowY;
+        CHECK(mouse->X() == doctest::Approx(corner.gameX));
+        CHECK(mouse->Y() == doctest::Approx(corner.gameY));
+    }
+
+    // A drag turns: up the window is right across the game, right across the window is down it.
+    inner.mouse.dx = 0.0f;
+    inner.mouse.dy = -10.0f;
+    CHECK(mouse->DeltaX() == doctest::Approx(10.0f));
+    CHECK(mouse->DeltaY() == doctest::Approx(0.0f));
+    inner.mouse.dx = 10.0f;
+    inner.mouse.dy = 0.0f;
+    CHECK(mouse->DeltaX() == doctest::Approx(0.0f));
+    CHECK(mouse->DeltaY() == doctest::Approx(10.0f));
+
+    // A finger near the window's bottom-left is near the game's top-left, in its pixels and
+    // normalized over it (where its touch regions are).
+    foundation::shell::ITouch* touch = fitted.Touch();
+    REQUIRE(touch != nullptr);
+    inner.touch.points.PushBack(
+        foundation::shell::TouchPoint{0, 100.0f / 1080.0f, 1820.0f / 1920.0f, 1.0f, 100.0f, 1820.0f});
+    foundation::shell::TouchPoint point;
+    REQUIRE(touch->GetTouchPoint(0, point));
+    CHECK(point.pointerX == doctest::Approx(100.0f));
+    CHECK(point.pointerY == doctest::Approx(100.0f));
+    CHECK(point.x == doctest::Approx(100.0f / 1920.0f));
+    CHECK(point.y == doctest::Approx(100.0f / 1080.0f));
+
+    // A render resolution letterboxed in the turn: 300x180 at scale 6 leaves bars of 60 along the
+    // window's top and bottom (the game's sides). A finger in the top bar is past the game's right
+    // edge, outside it rather than gone.
+    fitted.fit = ContentFit{Rectangle{0, 0, 1080, 1920}, Float2{300, 180}, FitMode::Letterbox,
+                            ContentRotation::ThreeQuarter};
+    inner.touch.points[0] = foundation::shell::TouchPoint{0, 0.5f, 30.0f / 1920.0f, 1.0f, 540.0f, 30.0f};
+    REQUIRE(touch->GetTouchPoint(0, point));
+    CHECK(point.x > 1.0f);
+    CHECK(point.y == doctest::Approx(0.5f));
+    inner.mouse.x = 540.0f;
+    inner.mouse.y = 960.0f;
+    CHECK(mouse->X() == doctest::Approx(150.0f)); // the window's centre is the game's
+    CHECK(mouse->Y() == doctest::Approx(90.0f));
+}

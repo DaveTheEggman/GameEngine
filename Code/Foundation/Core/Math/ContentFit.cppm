@@ -115,10 +115,21 @@ export namespace foundation::core
             {
                 return false;
             }
-            const f32 rx = (local.x - p.dst.x) / p.dst.width;
-            const f32 ry = (local.y - p.dst.y) / p.dst.height;
-            out = Float2{p.src.x + rx * p.src.width, p.src.y + ry * p.src.height};
+            out = LocalToContent(p, local);
             return true;
+        }
+
+        // Region-space point -> content-space with no bound: over a letterbox bar it maps outside
+        // the content rather than failing, for a pointer that keeps reporting wherever it is (a
+        // window's whole input). A degenerate fit returns the point.
+        [[nodiscard]] Float2 ToContentUnclamped(Float2 pt) const noexcept
+        {
+            const Placement p = Compute();
+            if (p.dst.width <= 0.0f || p.dst.height <= 0.0f)
+            {
+                return pt;
+            }
+            return LocalToContent(p, ToLocal(pt));
         }
 
         // Content-space point -> region-space (inverse of ToContent). Used e.g. to place an IME
@@ -222,6 +233,14 @@ export namespace foundation::core
             Rectangle dst;
             Rectangle src;
         };
+
+        // A local-frame point -> content-space through a placement with a drawn area.
+        [[nodiscard]] static Float2 LocalToContent(const Placement& p, Float2 local) noexcept
+        {
+            const f32 rx = (local.x - p.dst.x) / p.dst.width;
+            const f32 ry = (local.y - p.dst.y) / p.dst.height;
+            return Float2{p.src.x + rx * p.src.width, p.src.y + ry * p.src.height};
+        }
 
         // The placement in the local frame (the region turned back, at the origin).
         [[nodiscard]] Placement Compute() const noexcept

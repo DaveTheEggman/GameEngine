@@ -556,8 +556,7 @@ export namespace foundation::shell
                 core::Float2 cdelta{0, 0};
                 if (s == target)
                 {
-                    const core::Float2 scale = s->Fit().Scale();
-                    cdelta = core::Float2{delta.x * scale.x, delta.y * scale.y};
+                    cdelta = s->Fit().ToContentDelta(delta); // turned with a turned fit, then scaled
                 }
 
                 s->ApplyGate(hovered, focused, captured, content, cdelta);

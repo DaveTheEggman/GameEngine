@@ -492,6 +492,67 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
     CHECK(touch->TouchCount() == 0);
 }
 
+// Present transform P3: the editor's Game tab previewing a portrait phone, a landscape game
+// turned three quarters in a portrait viewport. The router maps the mouse and a finger into the
+// game's frame and turns a drag's motion with it.
+TEST_CASE("input: a turned surface reads the mouse and fingers in the game's frame")
+{
+    class Manager final : public shell::IInputManager
+    {
+    public:
+        FakeKeyboard keyboard;
+        FakeMouse mouse;
+        FakeTouch touch;
+        [[nodiscard]] shell::IKeyboard* Keyboard() override { return &keyboard; }
+        [[nodiscard]] shell::IMouse* Mouse() override { return &mouse; }
+        [[nodiscard]] shell::ITouch* Touch() override { return &touch; }
+        [[nodiscard]] i32 GamepadCount() const override { return 0; }
+        [[nodiscard]] shell::IGamepad* GetGamepad(i32) override { return nullptr; }
+        [[nodiscard]] Span<const shell::InputEvent> Events() const override { return {}; }
+        [[nodiscard]] u32 HoverWindow() const override { return 1u; }
+        [[nodiscard]] u32 FocusedWindow() const override { return 1u; }
+        void Update() override {}
+    };
+    Manager manager;
+
+    // A 600x800 viewport at (100, 100) of a 1920x1080 window, showing an 800x600 game turned.
+    shell::InputSurface surface(&manager, 1u,
+                                ContentFit{Rectangle{100.0f, 100.0f, 600.0f, 800.0f}, Float2{800.0f, 600.0f},
+                                           FitMode::Stretch, ContentRotation::ThreeQuarter});
+    surface.SetWindowSize(Float2{1920.0f, 1080.0f});
+    shell::InputRouter router(&manager);
+    router.AddSurface(&surface);
+
+    // Near the viewport's bottom-left is near the game's top-left.
+    manager.mouse.x = 110.0f;
+    manager.mouse.y = 890.0f;
+    router.Update();
+    REQUIRE(router.Hovered() == &surface);
+    shell::IMouse* mouse = surface.Mouse();
+    REQUIRE(mouse != nullptr);
+    CHECK(mouse->X() == doctest::Approx(10.0f));
+    CHECK(mouse->Y() == doctest::Approx(10.0f));
+
+    // A drag up the viewport moves right across the game.
+    manager.mouse.dy = -10.0f;
+    router.Update();
+    CHECK(mouse->DeltaX() == doctest::Approx(10.0f));
+    CHECK(mouse->DeltaY() == doctest::Approx(0.0f));
+
+    // A finger at the same place is at the game's top-left too, normalized over the game.
+    manager.touch.Set(1, 110.0f / 1920.0f, 890.0f / 1080.0f);
+    shell::ITouch* touch = surface.Touch();
+    REQUIRE(touch != nullptr);
+    REQUIRE(touch->TouchCount() == 1);
+    shell::TouchPoint mapped;
+    REQUIRE(touch->GetTouchPoint(0, mapped));
+    CHECK(mapped.pointerX == doctest::Approx(10.0f).epsilon(0.01));
+    CHECK(mapped.pointerY == doctest::Approx(10.0f).epsilon(0.01));
+    CHECK(mapped.x == doctest::Approx(10.0f / 800.0f).epsilon(0.01));
+    CHECK(mapped.y == doctest::Approx(10.0f / 600.0f).epsilon(0.01));
+    router.RemoveSurface(&surface);
+}
+
 TEST_CASE("input: touch - region buttons and the floating virtual stick")
 {
     InputMap map;

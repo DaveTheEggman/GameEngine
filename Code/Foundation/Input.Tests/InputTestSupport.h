@@ -37,10 +37,10 @@ namespace
     class FakeMouse final : public shell::IMouse
     {
     public:
-        f32 dx = 0, dy = 0, wheel = 0;
+        f32 x = 0, y = 0, dx = 0, dy = 0, wheel = 0;
         bool buttons[8] = {};
-        [[nodiscard]] f32 X() const override { return 0; }
-        [[nodiscard]] f32 Y() const override { return 0; }
+        [[nodiscard]] f32 X() const override { return x; }
+        [[nodiscard]] f32 Y() const override { return y; }
         [[nodiscard]] f32 GlobalX() const override { return 0; }
         [[nodiscard]] f32 GlobalY() const override { return 0; }
         [[nodiscard]] f32 DeltaX() const override { return dx; }

@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). P1 and P2 built; P3 next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P3 built; P4 next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -150,7 +150,7 @@ setting against the window's shape). Noted here so the type is right; not built 
   Engine.Project (round trip, an old manifest reads `Any`); Render.Tests (a scaled view with a
   quarter turn sets the copy's rotation and swaps the destination); a pixel probe (RHI.TestSupport
   harness: a known gradient presented with a quarter turn lands turned, on Vulkan and WebGPU).
-- **P3 Input.** `FittedInputSource` whenever the fit is not plain; deltas turned. Tests
+- **P3 Input (built).** `FittedInputSource` whenever the fit is not plain; deltas turned. Tests
   (Engine.Input.Tests): a portrait window with a landscape game: a mouse and a finger at the
   window's corners map to the content's corners, a finger's normalized place is over the content, a
   drag's delta turns.

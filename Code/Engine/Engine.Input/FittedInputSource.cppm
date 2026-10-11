@@ -6,7 +6,8 @@
 // The devices of another source with the MOUSE and the TOUCHES mapped into a fitted content space:
 // a game drawn at a fixed render resolution and fitted into its window reads its pointer in render
 // pixels, wherever the window puts the image, and a finger normalized over that image (where its
-// touch regions are). The keyboard, the pads and the event stream pass through.
+// touch regions are). A turned present (Specs/present-transform.md) turns them back, so a game
+// reads them in its own frame. The keyboard, the pads and the event stream pass through.
 //
 // Ungated, unlike an editor viewport's surface: it is the whole window's input, so a player who
 // never moves the mouse still has the keyboard. Over a letterbox bar the pointer maps outside the
@@ -104,18 +105,9 @@ export namespace engine::input
         }
         [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override { return m_inner->Events(); }
 
-        /// A window point in render pixels, through the fit and without the bars' clamp.
-        [[nodiscard]] Float2 ToContent(Float2 point) const noexcept
-        {
-            const Rectangle dst = fit.DstRect();
-            const Rectangle src = fit.SrcRect();
-            if (dst.width <= 0.0f || dst.height <= 0.0f)
-            {
-                return point;
-            }
-            return Float2{src.x + (point.x - dst.x) / dst.width * src.width,
-                          src.y + (point.y - dst.y) / dst.height * src.height};
-        }
+        /// A window point in render pixels, through the fit (its turn included) and without the
+        /// bars' clamp.
+        [[nodiscard]] Float2 ToContent(Float2 point) const noexcept { return fit.ToContentUnclamped(point); }
 
     private:
         foundation::input::IInputSourceProvider* m_inner;
@@ -126,8 +118,16 @@ export namespace engine::input
     inline foundation::shell::IMouse& FittedMouse::Raw() const { return *m_source->Inner().Mouse(); }
     inline f32 FittedMouse::X() const { return m_source->ToContent(Float2{Raw().X(), Raw().Y()}).x; }
     inline f32 FittedMouse::Y() const { return m_source->ToContent(Float2{Raw().X(), Raw().Y()}).y; }
-    inline f32 FittedMouse::DeltaX() const { return Raw().DeltaX() * m_source->fit.Scale().x; }
-    inline f32 FittedMouse::DeltaY() const { return Raw().DeltaY() * m_source->fit.Scale().y; }
+    // Turned with the content as well as scaled: on a turned present, moving the mouse up the
+    // window moves right across the game.
+    inline f32 FittedMouse::DeltaX() const
+    {
+        return m_source->fit.ToContentDelta(Float2{Raw().DeltaX(), Raw().DeltaY()}).x;
+    }
+    inline f32 FittedMouse::DeltaY() const
+    {
+        return m_source->fit.ToContentDelta(Float2{Raw().DeltaX(), Raw().DeltaY()}).y;
+    }
 
     inline i32 FittedTouch::TouchCount() const
     {

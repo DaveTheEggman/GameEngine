@@ -110,6 +110,10 @@ TEST_CASE("content fit: points round-trip through every turn and mode")
                 CHECK(back.x == doctest::Approx(point.x).epsilon(0.001));
                 CHECK(back.y == doctest::Approx(point.y).epsilon(0.001));
                 CHECK(fit.DstRect().Contains(there));
+                // The unclamped map agrees wherever the clamped one maps.
+                const Float2 free = fit.ToContentUnclamped(there);
+                CHECK(free.x == doctest::Approx(back.x));
+                CHECK(free.y == doctest::Approx(back.y));
             }
             // The drawn rectangle sits inside the region.
             const Rectangle dst = fit.DstRect();
@@ -138,6 +142,11 @@ TEST_CASE("content fit: a half turn and the bars of a turned letterbox")
     CHECK(dst.y == doctest::Approx(60));        // bars of 60 above and below
     Float2 c;
     CHECK_FALSE(bars.ToContent(Float2{540, 30}, c)); // in a bar
+    // Unclamped, the bar maps past the content's edge: turned a quarter, the screen's top is the
+    // content's left.
+    const Float2 free = bars.ToContentUnclamped(Float2{540, 30});
+    CHECK(free.x < 0.0f);
+    CHECK(free.y == doctest::Approx(90.0f));
 }
 
 TEST_CASE("content fit: the turn an orientation asks of a window")
