@@ -869,7 +869,6 @@ the WebSocket client and web export integration, the importer chooser):
 **Portability**
 - Web tail: Firefox validation (the WebSocket client and export integration shipped:
   c8bef210, 79e6b412).
-- Android: shell backend + touch/input + build (Vulkan covers the GPU side).
 
 **Editor + MVP closer**
 - Asset browser: dropping an asset into the viewport or the hierarchy to spawn it (the

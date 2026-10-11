@@ -4,6 +4,29 @@
 > `weekly_backlog.md`; `backlog-0.1.md` holds the release's work. Pull an item out of here into
 > the current weekly when it is started; delete it here when done.
 
+## Android: a native player and its export (user 2026-10-11)
+
+Games run on phones today through the web export (touch drives the game UI, touch controls with
+their guide, 0.1). A native Android player is the 0.2 step: a game shipped as an app, on Vulkan,
+without a browser's limits. Moved here from `weekly_backlog.md` ("Android: shell backend +
+touch/input + build"). The pieces:
+
+- **Shell.** The desktop shell is SDL3, which runs on Android: its window, lifecycle (pause,
+  resume, a lost surface on going to the background), touch (already normalized, with `pointerX/Y`,
+  the contract the web and desktop shells keep) and the back button.
+- **Rendering.** Vulkan (the RHI's backend); the surface's `currentTransform` drives the present
+  transform (`Specs/present-transform.md` section "Native, later": `preTransform = currentTransform`,
+  the extent swapped, the content turned), so the compositor does no rotation work.
+- **Build and export.** An Android export template (NDK, Gradle, an APK or AAB), the player and its
+  sidecars as the desktop and web templates are; an export preset (Android) with its icon, its
+  orientation (the spec's `ScreenOrientation`) and signing; content in the APK's assets read through
+  the VFS.
+- **Saves and files.** The user data directory on Android's app storage.
+- **Not in it.** The editor stays desktop; on-device MCP and play-in-editor are out.
+
+Check against a real device (the user's phone), as the web demos were: touch, rotation, pause and
+resume, the back button.
+
 ## Seeded: mountable content directories (user 2026-08-29)
 
 Origin: reviewing Sedulous's VFS while building the editor's `data://` discovery+mount. Sedulous lets
