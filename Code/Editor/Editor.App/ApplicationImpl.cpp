@@ -1167,6 +1167,11 @@ namespace editor::app
             m_embeddedApp->OnShutdown(*m_embeddedHost);
             m_runtimeContext.Shutdown();
         }
+        // The project's resources go here, not with this object: their manager decodes on the
+        // global job system and waits for a decode still in flight as it goes, and the host stops
+        // that job system right after this returns (Sedulous found the exit trap, 2026-10-11).
+        m_context.SetResources(nullptr);
+        m_resources = nullptr;
         EditorIcons::Get().Shutdown(); // release drawables deterministically
         if (kUseDistanceFieldFonts)
         {
