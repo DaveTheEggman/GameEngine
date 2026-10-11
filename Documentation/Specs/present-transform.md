@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). No code yet; P1 next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). P1 built (ContentFit rotation); P2 next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -71,7 +71,7 @@ struct ContentFit { Rectangle region; Float2 contentSize; FitMode mode; ContentR
 The content is fitted into the region as if the region were turned back: with a quarter turn, a 1080
 x 1920 portrait region fits 1920 x 1080 content exactly. `DstRect` stays the axis-aligned rectangle
 the content covers on the target; `ToContent`/`FromContent` turn points through it; `Scale` returns
-the per-axis factor in the content's frame (a quarter turn swaps the axes); a new `RotateVector`
+the per-axis factor in the content's frame (a quarter turn swaps the axes); a new `ToContentDelta`
 turns a delta (mouse motion). `None` is today's behaviour, bit for bit.
 
 ### 2. A game declares its orientation
@@ -102,7 +102,7 @@ draws inside the compose, so it turns with the image for free.
 The host uses `FittedInputSource` whenever the fit is not plain (a render resolution, or a
 rotation), not only for a render resolution. Through the rotated `ContentFit`: the mouse's position
 and the fingers' `pointerX/Y` map into the content's pixels, the fingers' normalized `x/y` over the
-content (so touch regions are in the game's frame), and mouse deltas turn with `RotateVector` (a
+content (so touch regions are in the game's frame), and mouse deltas turn with `ToContentDelta` (a
 look speed keeps its direction). The editor's `InputSurface` and `InputRouter` follow from the same
 `ContentFit` methods.
 
@@ -141,10 +141,10 @@ setting against the window's shape). Noted here so the type is right; not built 
 
 ## Phases
 
-- **P1 `ContentFit` rotation.** The enum, the four methods with the rotation, `RotateVector`. Tests
-  (Core.Tests): a quarter turn fits a portrait region exactly; `ToContent` / `FromContent` round
-  trip at the corners and centre for each rotation and each `FitMode`; `Scale` swaps; `None` is
-  byte-identical to today.
+- **P1 `ContentFit` rotation (built).** The enum, the four methods with the rotation,
+  `ToContentDelta`. Tests (Core.Tests): a quarter turn fits a portrait region exactly; `ToContent` /
+  `FromContent` round trip at the corners and centre for each rotation and each `FitMode`; `Scale`
+  stays per content axis; `None` is byte-identical to today.
 - **P2 The setting and the present.** `ProjectSettings::orientation` (+ preset override, the dialog,
   player.xml); `SceneSize` rotation; the tonemap copy swizzle; the host's choice. Tests:
   Engine.Project (round trip, an old manifest reads `Any`); Render.Tests (a scaled view with a

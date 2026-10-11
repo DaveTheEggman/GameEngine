@@ -15,6 +15,7 @@ add_executable(Core.Tests
     TimeTests.cpp
     ContainersTests.cpp
     SimdMathTests.cpp
+    ContentFitTests.cpp
     StringTests.cpp
     StringUtilTests.cpp
     FormatLogTests.cpp

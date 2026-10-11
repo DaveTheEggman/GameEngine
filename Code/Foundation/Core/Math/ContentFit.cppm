@@ -8,6 +8,12 @@
 // - the outer rect is region-space (the caller's coordinate space); it is NOT inherently
 // a window. The renderer places the image with DstRect/SrcRect; input remaps points with
 // ToContent/FromContent. One computation shared by both, so they can never drift.
+//
+// The content may be presented TURNED (`rotation`, clockwise in quarters): a landscape game on a
+// portrait screen is shown turned a quarter (Specs/present-transform.md). The fit is computed in the
+// region turned back (a quarter turn swaps its sides), so a 1080 x 1920 region fits 1920 x 1080
+// content exactly; DstRect is the axis-aligned rectangle the turned content covers, and the point
+// maps turn through it. None is the unturned behaviour, unchanged.
 
 module;
 #include "Core/Prelude.h"
@@ -33,16 +39,38 @@ export namespace foundation::core
         IntegerScale
     };
 
+    // How the content is turned as it is presented, clockwise: a quarter turn shows its top on the
+    // region's right, three quarters on its left.
+    enum class ContentRotation
+    {
+        None,
+        Quarter,
+        Half,
+        ThreeQuarter
+    };
+
     struct ContentFit
     {
         Rectangle region = Rectangle{0, 0, 0, 0}; // outer rect, REGION-space
         Float2 contentSize = Float2{0, 0};        // logical content resolution
         FitMode mode = FitMode::Stretch;
+        ContentRotation rotation = ContentRotation::None;
 
         // Where the content is drawn within `region` (region-space). For Letterbox/IntegerScale
         // this is the centered, aspect-preserved sub-rect (the rest is bars); for Stretch/Crop it
         // is the whole region.
-        [[nodiscard]] Rectangle DstRect() const noexcept { return Compute().dst; }
+        [[nodiscard]] Rectangle DstRect() const noexcept
+        {
+            // The placement's rectangle in the turned-back frame, its corners turned onto the region.
+            const Rectangle d = Compute().dst;
+            const Float2 a = FromLocal(Float2{d.x, d.y});
+            const Float2 b = FromLocal(Float2{d.x + d.width, d.y + d.height});
+            const f32 x0 = a.x < b.x ? a.x : b.x;
+            const f32 y0 = a.y < b.y ? a.y : b.y;
+            const f32 x1 = a.x < b.x ? b.x : a.x;
+            const f32 y1 = a.y < b.y ? b.y : a.y;
+            return Rectangle{x0, y0, x1 - x0, y1 - y0};
+        }
 
         // Which content texels are sampled ([0..contentSize]). For Crop this is the centered,
         // aspect-preserved slice; otherwise the whole content.
@@ -57,12 +85,13 @@ export namespace foundation::core
             {
                 return false;
             }
-            if (!p.dst.Contains(pt))
+            const Float2 local = ToLocal(pt);
+            if (!p.dst.Contains(local))
             {
                 return false;
             }
-            const f32 rx = (pt.x - p.dst.x) / p.dst.width;
-            const f32 ry = (pt.y - p.dst.y) / p.dst.height;
+            const f32 rx = (local.x - p.dst.x) / p.dst.width;
+            const f32 ry = (local.y - p.dst.y) / p.dst.height;
             out = Float2{p.src.x + rx * p.src.width, p.src.y + ry * p.src.height};
             return true;
         }
@@ -74,12 +103,12 @@ export namespace foundation::core
             const Placement p = Compute();
             const f32 rx = (p.src.width != 0.0f) ? (pt.x - p.src.x) / p.src.width : 0.0f;
             const f32 ry = (p.src.height != 0.0f) ? (pt.y - p.src.y) / p.src.height : 0.0f;
-            return Float2{p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height};
+            return FromLocal(Float2{p.dst.x + rx * p.dst.width, p.dst.y + ry * p.dst.height});
         }
 
-        // Region -> content scale factor (content units per region unit), for scaling relative
-        // input (mouse delta) so sensitivity is invariant to region size. Per-axis (equal for the
-        // aspect-preserving modes).
+        // Region -> content scale factor (content units per region unit), per CONTENT axis (equal
+        // for the aspect-preserving modes). For a relative movement (a mouse delta) use
+        // ToContentDelta, which turns it as well.
         [[nodiscard]] Float2 Scale() const noexcept
         {
             const Placement p = Compute();
@@ -89,23 +118,99 @@ export namespace foundation::core
             };
         }
 
+        // A region-space movement (a mouse delta) in the content's units and frame: turned back with
+        // the content, then scaled, so a look speed keeps its direction and is invariant to the
+        // region's size.
+        [[nodiscard]] Float2 ToContentDelta(Float2 delta) const noexcept
+        {
+            const Float2 turned = TurnBack(delta);
+            const Float2 scale = Scale();
+            return Float2{turned.x * scale.x, turned.y * scale.y};
+        }
+
     private:
+        // Whether the turn swaps the region's sides (a quarter either way).
+        [[nodiscard]] bool SidesSwap() const noexcept
+        {
+            return rotation == ContentRotation::Quarter || rotation == ContentRotation::ThreeQuarter;
+        }
+        // The region turned back: the frame the content is fitted in, its origin at (0, 0).
+        [[nodiscard]] Float2 LocalSize() const noexcept
+        {
+            return SidesSwap() ? Float2{region.height, region.width} : Float2{region.width, region.height};
+        }
+        // A direction in the region turned back into the local frame (no translation).
+        [[nodiscard]] Float2 TurnBack(Float2 d) const noexcept
+        {
+            switch (rotation)
+            {
+            case ContentRotation::Quarter:
+                return Float2{d.y, -d.x};
+            case ContentRotation::Half:
+                return Float2{-d.x, -d.y};
+            case ContentRotation::ThreeQuarter:
+                return Float2{-d.y, d.x};
+            case ContentRotation::None:
+            default:
+                return d;
+            }
+        }
+        // Region-space point -> the local frame (the region turned back).
+        [[nodiscard]] Float2 ToLocal(Float2 pt) const noexcept
+        {
+            const f32 x = pt.x - region.x;
+            const f32 y = pt.y - region.y;
+            const Float2 size = LocalSize();
+            switch (rotation)
+            {
+            case ContentRotation::Quarter:
+                return Float2{y, size.y - x};
+            case ContentRotation::Half:
+                return Float2{size.x - x, size.y - y};
+            case ContentRotation::ThreeQuarter:
+                return Float2{size.x - y, x};
+            case ContentRotation::None:
+            default:
+                return Float2{x, y};
+            }
+        }
+        // The local frame -> region space (inverse of ToLocal).
+        [[nodiscard]] Float2 FromLocal(Float2 pt) const noexcept
+        {
+            const Float2 size = LocalSize();
+            switch (rotation)
+            {
+            case ContentRotation::Quarter:
+                return Float2{region.x + size.y - pt.y, region.y + pt.x};
+            case ContentRotation::Half:
+                return Float2{region.x + size.x - pt.x, region.y + size.y - pt.y};
+            case ContentRotation::ThreeQuarter:
+                return Float2{region.x + pt.y, region.y + size.x - pt.x};
+            case ContentRotation::None:
+            default:
+                return Float2{region.x + pt.x, region.y + pt.y};
+            }
+        }
+
         struct Placement
         {
             Rectangle dst;
             Rectangle src;
         };
 
+        // The placement in the local frame (the region turned back, at the origin).
         [[nodiscard]] Placement Compute() const noexcept
         {
+            const Float2 size = LocalSize();
+            const Rectangle frame{0.0f, 0.0f, size.x, size.y};
             const f32 cw = contentSize.x, ch = contentSize.y;
             const Rectangle fullSrc{0.0f, 0.0f, cw, ch};
-            if (cw <= 0.0f || ch <= 0.0f || region.width <= 0.0f || region.height <= 0.0f)
+            if (cw <= 0.0f || ch <= 0.0f || frame.width <= 0.0f || frame.height <= 0.0f)
             {
-                return Placement{region, fullSrc};
+                return Placement{frame, fullSrc};
             }
-            const f32 sx = region.width / cw;
-            const f32 sy = region.height / ch;
+            const f32 sx = frame.width / cw;
+            const f32 sy = frame.height / ch;
 
             switch (mode)
             {
@@ -122,20 +227,20 @@ export namespace foundation::core
                     }
                 }
                 const f32 dw = cw * s, dh = ch * s;
-                const f32 dx = region.x + (region.width - dw) * 0.5f;
-                const f32 dy = region.y + (region.height - dh) * 0.5f;
+                const f32 dx = frame.x + (frame.width - dw) * 0.5f;
+                const f32 dy = frame.y + (frame.height - dh) * 0.5f;
                 return Placement{Rectangle{dx, dy, dw, dh}, fullSrc};
             }
             case FitMode::Crop:
             {
                 const f32 s = (sx > sy) ? sx : sy;                        // fill, overflow cropped
-                const f32 vw = region.width / s, vh = region.height / s;  // visible content size
+                const f32 vw = frame.width / s, vh = frame.height / s;  // visible content size
                 const f32 sxo = (cw - vw) * 0.5f, syo = (ch - vh) * 0.5f; // centered slice
-                return Placement{region, Rectangle{sxo, syo, vw, vh}};
+                return Placement{frame, Rectangle{sxo, syo, vw, vh}};
             }
             case FitMode::Stretch:
             default:
-                return Placement{region, fullSrc};
+                return Placement{frame, fullSrc};
             }
         }
     };
