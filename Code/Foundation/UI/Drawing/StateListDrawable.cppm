@@ -34,10 +34,13 @@ export namespace foundation::ui
             m_drawables.InsertOrAssign(static_cast<u32>(state), drawable);
         }
 
-        /// Get the drawable for a state: exact match, then strip flags high->low, then Normal.
-        /// Disabled DOMINATES: interaction flags (hover/pressed/focused) strip first when
-        /// Disabled is set - the generic high->low order would strip Disabled before Hover,
-        /// making a disabled control light up under the mouse and read as clickable.
+        /// Get the drawable for a state: the exact match, else the defined state within it that
+        /// says the most (each flag weighed: Disabled, then Pressed, then Checked/Indeterminate,
+        /// then Focused, then Hover), else Normal. So a pressed control under the pointer
+        /// (Pressed|Hover, rarely defined) draws pressed, not hover: stripping flags by bit value
+        /// dropped Pressed first, and a pressed button never showed it was pressed. Disabled
+        /// DOMINATES: with interaction flags set it takes its own drawable first, so a disabled
+        /// control never lights up under the mouse and reads as clickable.
         [[nodiscard]] Drawable* Get(ControlState state) const
         {
             const u32 key = static_cast<u32>(state);
@@ -58,25 +61,40 @@ export namespace foundation::ui
                 }
             }
 
-            u32 remaining = key;
-            static constexpr u32 kFlags[] = {32u, 16u, 8u, 4u, 2u, 1u};
-            for (u32 flag : kFlags)
+            // Every defined state made of this one's flags (Normal aside); the weightiest wins.
+            Drawable* best = nullptr;
+            u32 bestWeight = 0u;
+            for (u32 subset = key; subset != 0u; subset = (subset - 1u) & key)
             {
-                if ((remaining & flag) == 0u)
+                const RefPtr<Drawable>* candidate = m_drawables.Find(subset);
+                if (candidate != nullptr && (best == nullptr || Weight(subset) > bestWeight))
                 {
-                    continue;
+                    best = candidate->Get();
+                    bestWeight = Weight(subset);
                 }
-                remaining &= ~flag;
-                if (const RefPtr<Drawable>* fb = m_drawables.Find(remaining))
-                {
-                    return fb->Get();
-                }
+            }
+            if (best != nullptr)
+            {
+                return best;
             }
             if (const RefPtr<Drawable>* normal = m_drawables.Find(0u))
             {
                 return normal->Get();
             }
             return nullptr;
+        }
+
+        /// How much a state's flags say, for choosing among partial matches.
+        [[nodiscard]] static constexpr u32 Weight(u32 flags) noexcept
+        {
+            u32 weight = 0u;
+            weight += (flags & static_cast<u32>(ControlState::Disabled)) != 0u ? 64u : 0u;
+            weight += (flags & static_cast<u32>(ControlState::Pressed)) != 0u ? 32u : 0u;
+            weight += (flags & static_cast<u32>(ControlState::Checked)) != 0u ? 16u : 0u;
+            weight += (flags & static_cast<u32>(ControlState::Indeterminate)) != 0u ? 16u : 0u;
+            weight += (flags & static_cast<u32>(ControlState::Focused)) != 0u ? 4u : 0u;
+            weight += (flags & static_cast<u32>(ControlState::Hover)) != 0u ? 2u : 0u;
+            return weight;
         }
 
         void Draw(UIDrawContext& ctx, const Rectangle& bounds) override

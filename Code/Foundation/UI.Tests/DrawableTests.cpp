@@ -213,3 +213,30 @@ TEST_CASE("drawable: an ImageView and an ImageDrawable round the picture's corne
     image.Radii = foundation::vg::CornerRadii(6.0f);
     CHECK(drawOnce([&](UIDrawContext& ctx) { image.Draw(ctx, bounds); }) > 4u);
 }
+
+TEST_CASE("drawable: statelist picks the weightiest defined state - a pressed control under the pointer draws pressed")
+{
+    // A button is hovered whenever it is pressed by a pointer: Pressed|Hover, which a style
+    // rarely defines. Stripping flags by bit value dropped Pressed first and drew hover, so no
+    // pressed button ever showed it was pressed (Snowline's course cards, on a phone and a desktop).
+    auto list = core::MakeRef<StateListDrawable>(core::DefaultAllocator());
+    auto normal = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Black);
+    auto hover = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Green);
+    auto pressed = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color{1.0f, 1.0f, 0.0f, 1.0f});
+    auto focused = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Blue);
+    auto checked = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::White);
+    list->Set(ControlState::Normal, core::RefPtr<Drawable>(normal.Get()));
+    list->Set(ControlState::Hover, core::RefPtr<Drawable>(hover.Get()));
+    list->Set(ControlState::Pressed, core::RefPtr<Drawable>(pressed.Get()));
+    list->Set(ControlState::Focused, core::RefPtr<Drawable>(focused.Get()));
+    list->Set(ControlState::Checked, core::RefPtr<Drawable>(checked.Get()));
+
+    CHECK(list->Get(ControlState::Pressed | ControlState::Hover) == pressed.Get());
+    CHECK(list->Get(ControlState::Pressed | ControlState::Focused | ControlState::Hover) == pressed.Get());
+    CHECK(list->Get(ControlState::Focused | ControlState::Hover) == focused.Get());
+    CHECK(list->Get(ControlState::Checked | ControlState::Hover) == checked.Get()); // a toggle stays checked
+    // An exact definition still wins over any part of it.
+    auto pressedHover = core::MakeRef<ColorDrawable>(core::DefaultAllocator(), core::Color::Red);
+    list->Set(ControlState::Pressed | ControlState::Hover, core::RefPtr<Drawable>(pressedHover.Get()));
+    CHECK(list->Get(ControlState::Pressed | ControlState::Hover) == pressedHover.Get());
+}
