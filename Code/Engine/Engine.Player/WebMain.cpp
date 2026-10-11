@@ -17,6 +17,7 @@
 #include "Core/Log/Log.h"
 #include "Core/Reflection/Reflect.h"
 #include <emscripten/emscripten.h>
+#include <cstdlib> // setenv (the page's ?trace)
 #include "EmbeddedEngineLogo.h" // the default loading screen's logo
 
 import foundation.core;
@@ -108,6 +109,21 @@ EM_JS(void, StartUserDataMount, (const char* path), {
     });
 });
 EM_JS(int, UserDataLoaded, (), { return Module.userDataLoaded ? 1 : 0; });
+// `?trace` in the page's address turns on the input trace (ENV_INPUT_TRACE): the input path logs
+// what it receives, which the page shows in a panel over the game (shell.html), so a phone can
+// show what it sends. Set while the runtime starts, before anything reads it.
+EM_JS(int, PageWantsInputTrace, (), { return new URLSearchParams(location.search).has("trace") ? 1 : 0; });
+namespace
+{
+    const int g_inputTraceFromPage = []
+    {
+        if (PageWantsInputTrace() != 0)
+        {
+            (void)setenv("ENV_INPUT_TRACE", "1", 1);
+        }
+        return 0;
+    }();
+}
 EM_JS(int, UserDataPersistent, (), { return Module.userDataPersistent ? 1 : 0; });
 // The page's loading card (shell.html) stays up until the game runs; a page without one has
 // nothing to take down.
