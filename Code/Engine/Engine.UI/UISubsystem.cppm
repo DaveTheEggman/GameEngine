@@ -407,6 +407,21 @@ export namespace engine::ui
         scene.AddSystem<UIWorldPanelComponentManager>();
     }
 
+    /// Where a screen tier draws on its target, and how (Specs/present-transform.md). `fitted`
+    /// false is the plain draw: laid out at the target's own size over all of it. Fitted, the
+    /// root lays out at `drawSize` over its DpiScale (`dpiScale`) and draws into `rect` of the
+    /// target, through `transform`, which turns the root's pixels (a `drawSize` frame, `rect`
+    /// turned back) onto `rect`'s own: identity unless the game's orientation turns it.
+    struct ScreenPlacement
+    {
+        bool fitted = false;
+        ContentRotation turn = ContentRotation::None;
+        Rectangle rect{0.0f, 0.0f, 0.0f, 0.0f};
+        Float2 drawSize{0.0f, 0.0f};
+        f32 dpiScale = 1.0f;
+        Float4x4 transform = Float4x4::Identity();
+    };
+
     class UISubsystem final : public foundation::runtime::Subsystem,
                               public scene::ISceneObserver,
                               public foundation::render::ISceneOverlay,
@@ -464,6 +479,15 @@ export namespace engine::ui
         /// the game's does. Nought on either axis goes back to the target's own size.
         void SetScreenResolution(u32 width, u32 height, FitMode fit);
         [[nodiscard]] bool HasScreenResolution() const noexcept { return m_screen.HasResolution(); }
+        /// The game's orientation: on a target of the other shape the screen tier lays out at the
+        /// game's shape (its render resolution, else the target's sides swapped) and draws turned
+        /// a quarter, as the game's image is presented. Its pointer arrives in the game's frame
+        /// already (the fitted input turns it). Any: never turned.
+        void SetScreenOrientation(ScreenOrientation orientation) noexcept { m_screen.orientation = orientation; }
+        /// Where a screen tier at `resolution` (none: 0 x 0), fitted by `fit` and held to
+        /// `orientation`, draws on a `target`-sized target: what a draw applies, and a test reads.
+        [[nodiscard]] static ScreenPlacement PlaceScreen(Float2 resolution, FitMode fit,
+                                                         ScreenOrientation orientation, Float2 target) noexcept;
         /// The scene-LESS screen tier's root (global overlays only; scene UI lives in
         /// per-scene roots - see SceneRoot).
         [[nodiscard]] RootView* ScreenRoot() noexcept { return m_screen.root.Get(); }
@@ -491,6 +515,8 @@ export namespace engine::ui
         [[nodiscard]] RootView* ScreenRootFor(const void* run) { return ScreensFor(run).Root(); }
         /// The screen resolution of `run`'s tier (SetScreenResolution for the shared one).
         void SetScreenResolution(const void* run, u32 width, u32 height, FitMode fit);
+        /// The orientation of `run`'s tier (SetScreenOrientation for the shared one).
+        void SetScreenOrientation(const void* run, ScreenOrientation orientation);
         /// The run whose screen tier the next screen-overlay draw shows (null = the shared tier),
         /// set by a host around its RenderOverlays for that run's view.
         void SetRenderRun(const void* run) noexcept { m_renderRun = run; }
@@ -743,6 +769,9 @@ export namespace engine::ui
             Float2 resolution{0.0f, 0.0f};
             FitMode fitMode = FitMode::Letterbox;
             Float2 targetSize{0.0f, 0.0f}; // the target the tier last drew into
+            // The game's orientation, and the turn it took on the last target.
+            ScreenOrientation orientation = ScreenOrientation::Any;
+            ContentRotation turn = ContentRotation::None;
             [[nodiscard]] bool HasResolution() const noexcept { return resolution.x > 0.0f && resolution.y > 0.0f; }
         };
         void RebuildFontService();
@@ -782,7 +811,7 @@ export namespace engine::ui
         void DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
                             rhi::TextureFormat format, i32 viewportX, i32 viewportY, u32 width,
                             u32 height, i32 frameIndex, bool stencilCapable = false,
-                            u32 sampleCount = 1);
+                            u32 sampleCount = 1, const ScreenPlacement* placement = nullptr);
 
         [[nodiscard]] bool ReadDataFile(StringView path, Array<u8>& outBytes) const; // impl unit
 

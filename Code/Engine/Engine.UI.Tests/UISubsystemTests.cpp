@@ -2630,3 +2630,108 @@ TEST_CASE("ui.subsystem: a pass-through HUD filling the screen takes the pointer
     devices.touch.points.Clear();
     ctx.BeginFrame(1.0f / 60.0f);
 }
+
+TEST_CASE("ui.subsystem: a landscape game's screen tier on a portrait target lays out landscape, drawn turned")
+{
+    // Present transform P4: where the screen tier draws (PlaceScreen), as the game's image is
+    // presented. Held to its orientation on a target of the other shape, it lays out at the game's
+    // shape and is turned three quarters (the game's top on the screen's left).
+    const Float2 portrait{1080.0f, 1920.0f};
+    const Float2 landscape{1920.0f, 1080.0f};
+    const Float2 none{0.0f, 0.0f};
+
+    // Nothing asks for a fit: the plain draw.
+    CHECK_FALSE(UISubsystem::PlaceScreen(none, FitMode::Letterbox, ScreenOrientation::Any, portrait).fitted);
+    CHECK_FALSE(UISubsystem::PlaceScreen(none, FitMode::Letterbox, ScreenOrientation::Landscape, landscape).fitted);
+
+    // No resolution: the target's own pixels at the game's shape, one layout unit a pixel.
+    const ScreenPlacement turned =
+        UISubsystem::PlaceScreen(none, FitMode::Letterbox, ScreenOrientation::Landscape, portrait);
+    REQUIRE(turned.fitted);
+    CHECK(turned.turn == ContentRotation::ThreeQuarter);
+    CHECK(turned.rect.width == doctest::Approx(1080.0f));
+    CHECK(turned.rect.height == doctest::Approx(1920.0f));
+    CHECK(turned.drawSize.x == doctest::Approx(1920.0f));
+    CHECK(turned.drawSize.y == doctest::Approx(1080.0f));
+    CHECK(turned.dpiScale == doctest::Approx(1.0f));
+    // The layout's corners where the turn puts them: its top-left at the screen's bottom-left, its
+    // top-right at the top-left, its bottom-right (where the touch guide's buttons sit) top-right.
+    const auto drawn = [&](const ScreenPlacement& place, Float2 layout)
+    { return TransformPoint2D(Float2{layout.x * place.dpiScale, layout.y * place.dpiScale}, place.transform); };
+    const Float2 topLeft = drawn(turned, Float2{0.0f, 0.0f});
+    const Float2 topRight = drawn(turned, Float2{1920.0f, 0.0f});
+    const Float2 bottomRight = drawn(turned, Float2{1920.0f, 1080.0f});
+    CHECK(topLeft.x == doctest::Approx(0.0f));
+    CHECK(topLeft.y == doctest::Approx(1920.0f));
+    CHECK(topRight.x == doctest::Approx(0.0f));
+    CHECK(topRight.y == doctest::Approx(0.0f));
+    CHECK(bottomRight.x == doctest::Approx(1080.0f));
+    CHECK(bottomRight.y == doctest::Approx(0.0f));
+
+    // A render resolution turned with it: 1280x720 fills the turned-back 1920x1080 at 1.5 pixels a
+    // unit, its layout corner still at the screen's bottom-left.
+    const ScreenPlacement scaled =
+        UISubsystem::PlaceScreen(Float2{1280.0f, 720.0f}, FitMode::Letterbox, ScreenOrientation::Landscape, portrait);
+    REQUIRE(scaled.fitted);
+    CHECK(scaled.dpiScale == doctest::Approx(1.5f));
+    CHECK(scaled.drawSize.x == doctest::Approx(1920.0f));
+    const Float2 scaledCorner = drawn(scaled, Float2{1280.0f, 720.0f});
+    CHECK(scaledCorner.x == doctest::Approx(1080.0f));
+    CHECK(scaledCorner.y == doctest::Approx(0.0f));
+
+    // Unturned, a resolution draws as it always did: letterboxed, no turn.
+    const ScreenPlacement upright =
+        UISubsystem::PlaceScreen(Float2{320.0f, 180.0f}, FitMode::Letterbox, ScreenOrientation::Landscape,
+                                 Float2{1280.0f, 1080.0f});
+    REQUIRE(upright.fitted);
+    CHECK(upright.turn == ContentRotation::None);
+    CHECK(upright.rect.y == doctest::Approx(180.0f));
+    CHECK(upright.drawSize.x == doctest::Approx(1280.0f));
+    CHECK(upright.dpiScale == doctest::Approx(4.0f));
+    CHECK(upright.transform == Float4x4::Identity());
+}
+
+TEST_CASE("ui.subsystem: a tap where a turned screen draws a button presses it")
+{
+    // A landscape game on a phone held upright: the screen tier laid out landscape and drawn
+    // turned, the finger read through the turned fit (as the player's fitted input reads it). The
+    // window point where the button is DRAWN is the one that presses it.
+    runtime::Context ctx(foundation::core::DefaultAllocator());
+    auto* input = ctx.AddSubsystem<engine::input::InputSubsystem>(nullptr);
+    auto* ui = ctx.AddSubsystem<UISubsystem>(DefaultAllocator(), DataFs());
+    ctx.Startup();
+    PointerFakeDevices devices;
+    FittedInputSource fitted(devices);
+    const Float2 window{1080.0f, 1920.0f};
+    fitted.fit = ContentFit{Rectangle{0.0f, 0.0f, window.x, window.y}, Float2{1920.0f, 1080.0f}, FitMode::Stretch,
+                            ContentRotation::ThreeQuarter};
+    input->SetSourceProvider(&fitted);
+    ui->SetScreenOrientation(ScreenOrientation::Landscape);
+    const ScreenPlacement place =
+        UISubsystem::PlaceScreen(Float2{0.0f, 0.0f}, FitMode::Letterbox, ScreenOrientation::Landscape, window);
+    REQUIRE(place.fitted);
+
+    (void)ui->Screens().Push(MenuFor(*ui, u8"p"));
+    RootView* root = ui->ScreenRoot();
+    root->ViewportSize = place.drawSize; // as the turned draw lays it out
+    root->DpiScale = place.dpiScale;
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    Button* button = Cast<ViewGroup>(root)->FindByName<Button>(u8"p-top");
+    REQUIRE(button != nullptr);
+    int clicks = 0;
+    button->OnClick.Add([&clicks](ButtonBase*) { ++clicks; });
+    const Float2 layout = button->LocalToScreen(Float2{20.0f, 10.0f});
+    const Float2 at = TransformPoint2D(Float2{layout.x * place.dpiScale, layout.y * place.dpiScale}, place.transform);
+    CHECK(at.x < window.x * 0.5f); // a button near the game's top is near the screen's left
+
+    devices.touch.points.Clear();
+    devices.touch.points.PushBack(foundation::shell::TouchPoint{0, at.x / window.x, at.y / window.y, 1.0f, at.x, at.y});
+    ctx.BeginFrame(1.0f / 60.0f);
+    ui->Context().UpdateRootView(root);
+    devices.touch.points[0].pointerX = at.x + 0.5f; // a finger never rests quite still
+    ctx.BeginFrame(1.0f / 60.0f);
+    devices.touch.points.Clear();
+    ctx.BeginFrame(1.0f / 60.0f);
+    CHECK(clicks == 1);
+}

@@ -1991,17 +1991,17 @@ namespace engine::ui
                                const render::ScreenOverlayView& view, bool stencil)
     {
         tier.targetSize = Float2{static_cast<f32>(view.width), static_cast<f32>(view.height)};
-        if (tier.HasResolution())
+        const ScreenPlacement place = PlaceScreen(tier.resolution, tier.fitMode, tier.orientation, tier.targetSize);
+        tier.turn = place.turn;
+        if (place.fitted)
         {
-            // Laid out at the screen resolution, drawn crisp at the target's resolution into the
-            // rectangle the game's image was fitted to.
-            const ContentFit fit = ScreenFit(tier);
-            const Rectangle dst = fit.DstRect();
-            const f32 scale = fit.Scale().y; // layout units per target pixel, down the height
-            tier.root->DpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
-            DrawRootInPass(*tier.root, encoder, view.targetFormat, static_cast<i32>(dst.x),
-                           static_cast<i32>(dst.y), static_cast<u32>(Max(dst.width, 1.0f)),
-                           static_cast<u32>(Max(dst.height, 1.0f)), static_cast<i32>(view.frameIndex), stencil);
+            // Laid out at the game's resolution (or shape), drawn crisp at the target's resolution
+            // into the rectangle the game's image was fitted to, turned with it.
+            tier.root->DpiScale = place.dpiScale;
+            DrawRootInPass(*tier.root, encoder, view.targetFormat, static_cast<i32>(place.rect.x),
+                           static_cast<i32>(place.rect.y), static_cast<u32>(Max(place.rect.width, 1.0f)),
+                           static_cast<u32>(Max(place.rect.height, 1.0f)), static_cast<i32>(view.frameIndex),
+                           stencil, 1, &place);
             return;
         }
         DrawRootInPass(*tier.root, encoder, view.targetFormat, 0, 0, view.width, view.height,
@@ -2023,6 +2023,62 @@ namespace engine::ui
     void UISubsystem::SetScreenResolution(u32 width, u32 height, FitMode fit)
     {
         ApplyResolution(m_screen, width, height, fit);
+    }
+
+    ScreenPlacement UISubsystem::PlaceScreen(Float2 resolution, FitMode fit, ScreenOrientation orientation,
+                                             Float2 target) noexcept
+    {
+        ScreenPlacement place;
+        if (target.x <= 0.0f || target.y <= 0.0f)
+        {
+            return place;
+        }
+        const ContentRotation turn = TurnFor(orientation, target.x, target.y);
+        const bool hasResolution = resolution.x > 0.0f && resolution.y > 0.0f;
+        if (!hasResolution && turn == ContentRotation::None)
+        {
+            return place; // the plain draw
+        }
+        const bool swaps = turn == ContentRotation::Quarter || turn == ContentRotation::ThreeQuarter;
+        // The game's frame: its resolution, else the target's own pixels at the game's shape.
+        const Float2 content = hasResolution ? resolution : (swaps ? Float2{target.y, target.x} : target);
+        const ContentFit placed{Rectangle{0.0f, 0.0f, target.x, target.y}, content,
+                                hasResolution ? fit : FitMode::Stretch, turn};
+        place.fitted = true;
+        place.turn = turn;
+        place.rect = placed.DstRect();
+        place.drawSize = swaps ? Float2{place.rect.height, place.rect.width} : Float2{place.rect.width, place.rect.height};
+        const f32 scale = placed.Scale().y; // layout units per target pixel, down the game's height
+        place.dpiScale = scale > 0.0f ? 1.0f / scale : 1.0f;
+        if (turn != ContentRotation::None)
+        {
+            // The root's pixels onto the rectangle's, turned as the game's image is: the image of
+            // the origin and of each axis through the same fit, as a row-vector affine.
+            const ContentFit turned{Rectangle{0.0f, 0.0f, place.rect.width, place.rect.height}, place.drawSize,
+                                    FitMode::Stretch, turn};
+            const Float2 origin = turned.FromContent(Float2{0.0f, 0.0f});
+            const Float2 xAxis = turned.FromContent(Float2{1.0f, 0.0f});
+            const Float2 yAxis = turned.FromContent(Float2{0.0f, 1.0f});
+            place.transform = Float4x4{{{xAxis.x - origin.x, xAxis.y - origin.y, 0.0f, 0.0f},
+                                        {yAxis.x - origin.x, yAxis.y - origin.y, 0.0f, 0.0f},
+                                        {0.0f, 0.0f, 1.0f, 0.0f},
+                                        {origin.x, origin.y, 0.0f, 1.0f}}};
+        }
+        return place;
+    }
+
+    void UISubsystem::SetScreenOrientation(const void* run, ScreenOrientation orientation)
+    {
+        if (m_runScreens && run != nullptr)
+        {
+            (void)ScreensFor(run); // made on first use, as SetScreenResolution
+            if (ScreenTier* tier = FindRunTier(run))
+            {
+                tier->orientation = orientation;
+                return;
+            }
+        }
+        m_screen.orientation = orientation;
     }
 
     void UISubsystem::SetScreenResolution(const void* run, u32 width, u32 height, FitMode fit)
@@ -2135,8 +2191,14 @@ namespace engine::ui
 
     ContentFit UISubsystem::ScreenFit(const ScreenTier& tier) noexcept
     {
-        return ContentFit{Rectangle{0.0f, 0.0f, tier.targetSize.x, tier.targetSize.y}, tier.resolution,
-                          tier.fitMode};
+        // As PlaceScreen fitted it on the last draw: the turn it took, and without a resolution the
+        // target's pixels at the game's shape.
+        const bool swaps = tier.turn == ContentRotation::Quarter || tier.turn == ContentRotation::ThreeQuarter;
+        const Float2 content = tier.HasResolution() ? tier.resolution
+                               : swaps              ? Float2{tier.targetSize.y, tier.targetSize.x}
+                                                    : tier.targetSize;
+        return ContentFit{Rectangle{0.0f, 0.0f, tier.targetSize.x, tier.targetSize.y}, content,
+                          tier.HasResolution() ? tier.fitMode : FitMode::Stretch, tier.turn};
     }
 
     Float2 UISubsystem::ScreenLayoutPoint(const ScreenTier& tier, Float2 point) noexcept
@@ -2169,9 +2231,12 @@ namespace engine::ui
     void UISubsystem::DrawRootInPass(RootView& root, rhi::RenderPassEncoder& encoder,
                                      rhi::TextureFormat format, i32 viewportX, i32 viewportY,
                                      u32 width, u32 height, i32 frameIndex, bool stencilCapable,
-                                     u32 sampleCount)
+                                     u32 sampleCount, const ScreenPlacement* placement)
     {
-        root.ViewportSize = Float2{static_cast<f32>(width), static_cast<f32>(height)};
+        // A turned tier lays out in its own frame (the rectangle turned back) and draws through the
+        // turn; everything else at the rectangle's size.
+        root.ViewportSize = placement != nullptr ? placement->drawSize
+                                                 : Float2{static_cast<f32>(width), static_cast<f32>(height)};
         m_context.UpdateRootView(&root);
 
         // The emission must match the pass this batch will render into: stencil-fill
@@ -2182,6 +2247,10 @@ namespace engine::ui
             stencilCapable && m_render->canvasStencilFormat != rhi::TextureFormat::Undefined;
         m_render->vgContext.SetStencilFills(stencil);
         m_render->vgContext.Clear();
+        if (placement != nullptr)
+        {
+            m_render->vgContext.SetTransform(placement->transform); // under the root's own DpiScale
+        }
         m_context.DrawRootView(&root, m_render->vgContext);
         vg::VGBatch& batch = m_render->vgContext.GetBatch();
         m_render->vgContext.SetStencilFills(false); // reset; each tier opts in per batch

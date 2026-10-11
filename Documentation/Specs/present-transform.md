@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P3 built; P4 next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P3 built, P4a (the UI drawn turned) built; P4b (the editor preview) next.
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 

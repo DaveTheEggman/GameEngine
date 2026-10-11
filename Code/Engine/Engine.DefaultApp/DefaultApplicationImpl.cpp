@@ -361,6 +361,10 @@ namespace engine::runtime
     void DefaultApplication::SetOrientation(core::ScreenOrientation orientation)
     {
         m_orientation = orientation;
+        if (m_ui != nullptr)
+        {
+            m_ui->SetScreenOrientation(orientation); // the screen tier turns with the game's image
+        }
         UpdateFittedInput();
     }
 
