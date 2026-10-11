@@ -1,6 +1,6 @@
 # Present transform - a landscape game on a portrait screen
 
-> Status: APPROVED (user, 2026-10-11: the decisions below). P1 to P4 built; P5: the samples' Web presets say Landscape (published to the demos site); the page's fullscreen and lock next.
+> Status: APPROVED (user, 2026-10-11: the decisions below). Built, P1 to P5; the user's phone test passed (held upright and turned, auto-rotate on and off, and the lock).
 > Track: 0.1 backlog, the web demos on a phone ("Orientation on mobile").
 > Mirror: Sedulous ports each phase after it lands.
 
@@ -117,8 +117,9 @@ corner whatever the phone does. ImGui (debug only) stays unturned.
 
 ### 6. The web page asks for the lock where it can
 
-The loading card's "Play" (a tap, which a browser requires) requests fullscreen and, for a game that
-declares an orientation, `screen.orientation.lock("landscape")`. Where the lock is granted (Android
+The player's first tap (a browser grants fullscreen and the lock only from one; the loading card
+has no Play button, the game starting as soon as it loads) requests fullscreen and, for a game
+that declares an orientation, `screen.orientation.lock("landscape")`, once. Where the lock is granted (Android
 Chrome), the page turns and the window is landscape: no rotation. Where it is refused (Safari on
 iPhone, a desktop browser), section 3 turns the image. The page reads the orientation from
 player.xml, as it reads the name. (Open question 3: whether to ask at all.)
@@ -158,7 +159,7 @@ setting against the window's shape). Noted here so the type is right; not built 
   portrait" preview. Tests (Engine.UI.Tests): with a quarter turn, a tap at the window point where a
   button is drawn presses it; the touch guide's buttons are in the content's bottom-right.
   Editor.Scene.Tests: the preview's shape and its rotation choice. The user's check in the editor.
-- **P5 The page and the samples.** The fullscreen and lock request on Play; the four samples' Web
+- **P5 The page and the samples (built).** The fullscreen and lock request on Play; the four samples' Web
   presets say `Landscape`. The user's phone test, held upright and turned, auto-rotate on and off.
 
 ## Decisions (user, 2026-10-11)
