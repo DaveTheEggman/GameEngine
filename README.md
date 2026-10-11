@@ -121,7 +121,7 @@ Add `--mcp` to serve the open project to an agent over MCP while you work in the
 
 Game projects under `Data/SampleProjects/`, opened from the editor's project manager. The four
 games are built through the engine's MCP tools and ship to the web and the Steam Deck;
-[GameEngineDemos](https://jayrulez.github.io/GameEngineDemos/) plays them in a browser.
+[the website](https://assiduousengine.github.io/#games) plays them in a browser.
 
 **Sky Hopper** (`PlatformerGame`) is a small 3D platformer, played through to the end over the
 MCP tools by an AI agent while it was built: five levels, coins, enemies and hazards, three lives

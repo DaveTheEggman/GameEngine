@@ -8,7 +8,8 @@
 
 ## Editor
 
-- **An orthographic editor camera** (user 2026-10-09): the scene view's camera can switch
+- **An orthographic editor camera** (user 2026-10-09; big, user 2026-10-11: several rendering
+  effects are disabled for orthographic cameras today, and they come first): the scene view's camera can switch
   between perspective and orthographic with a toggle (in the view's toolbar, and a key). Pairs
   with the orientation gizmo: snapping to a face is where an orthographic top, front or side
   view is most used. The engine's cameras already have an orthographic projection
@@ -91,16 +92,6 @@
   support two scripting languages (the cost of every script facade, test and doc twice, against
   what each brings). The heist plan already had a Luau-only game coming after Lamplight.
 
-### The web demos on a phone (user 2026-10-06)
-
-
-- **Orientation on mobile**: held upright, a phone gives the canvas a portrait shape, and the games
-  are landscape. Options: ask the browser for landscape (`screen.orientation.lock`, which needs
-  fullscreen and is refused on some browsers), letterbox a landscape render into the portrait canvas,
-  or rotate the presented image a quarter turn with the input transformed to match, and a prompt to
-  turn the phone where nothing else works. Likely the larger item of the three: the shell's canvas
-  sizing, the player's fit, and every pointer and touch coordinate are involved.
-
 ### Seeded: GPU profiler + profiler visualization (user 2026-08-26)
 
 Origin: same parity doc - "GPU PROFILER: Lumix-ahead - unified CPU/GPU profiler
@@ -140,26 +131,33 @@ website and the flagship game.
 
 - **Documentation cleaned up and made proper, for the 0.1 release** (user 2026-10-09): the
   documentation as a user of the engine meets it, current and organised (getting started, the
-  editor, each system, scripting, exporting, the MCP guide), with the plans, specs and history
-  that grew in `Documentation/` kept apart from it or archived.
+  editor, each system, scripting, exporting, the MCP guide). Ruled 2026-10-11: it is written
+  fresh in its own repository, `AssiduousEngine/docs` (Astro Starlight, private source, published
+  to the public `docs-site` at https://assiduousengine.github.io/docs-site/), from the DeepWiki
+  page, corrected against `Documentation/` and the source; this repository's `Documentation/`
+  stays as the engine's development documentation. Started 2026-10-11: the home page and the
+  introduction, with the outline in its README.
 - **The 0.1 release** (user 2026-10-09): the release itself, with
-  - **a website** for the engine (beyond the demos site, GameEngineDemos);
+  - **a website** for the engine: started 2026-10-11 as `AssiduousEngine/website` (Astro, private
+    source, published to the public `assiduousengine.github.io`, live at
+    https://assiduousengine.github.io/): a landing page and the sample games, whose web builds
+    publish apart to the public `AssiduousEngine/demos` at `/demos/` (the website's
+    `scripts/publish-demos.sh`), replacing the old GameEngineDemos site (user 2026-10-11); the
+    domains are the user's, their DNS not yet set up;
   - **a showcase game**: the engine's flagship, released on Steam. Separate from the sample
     games in this repository and not part of it (its own project and repository); the samples
     stay the engine's examples.
   The items marked for 0.1 above (custom shaders through the editor, the documentation, the
   fifth sample below) belong to it.
-- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09): no sample
+- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09; after custom
+  shaders, which it showcases too, user 2026-10-11): no sample
   project uses the network stack or crowds yet, so neither has been showcased or stressed in a
   game. The fifth sample in `Data/SampleProjects/` built around both: players over the network
   (the engine's reliable UDP and replication) and a crowd (instanced skinning, navigation
   crowds), built and playtested through the MCP tools as the others were. (Lamplight's crowd
   was set aside "for later" when it was planned.)
-- **Sort the backlog and plans into 0.1 and 0.2** (user 2026-10-09): go through `weekly_backlog.md`,
-  the plans and everything else open (`Documentation/Plans`, `Ideas`, `Specs` with open parts,
-  `terrain-backlog.md`), keep what 0.1 needs, and move everything that will not be looked at for
-  0.1 to 0.2, so what is left in front of 0.1 is only the release's work.
-- **The 0.1 release builds and samples** (user 2026-10-09): build and package what users
+- **The 0.1 release builds and samples** (user 2026-10-09; after every other 0.1 item but the
+  release notes and download links, user 2026-10-11): build and package what users
   download for 0.1: the export templates (each platform), the editor and the command-line tools
   (Tools.Mcp, Tools.Export, Tools.Cook and the rest a user needs; `scripts/build-editor-dist.*`
   and `scripts/build-export-templates.*` are the starting point), and the sample projects
