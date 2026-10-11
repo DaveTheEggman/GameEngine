@@ -340,7 +340,7 @@ export namespace foundation::shell
             {
                 return false;
             }
-            out = TouchPoint{raw.id, mapped.x / content.x, mapped.y / content.y, raw.pressure};
+            out = TouchPoint{raw.id, mapped.x / content.x, mapped.y / content.y, raw.pressure, mapped.x, mapped.y};
             return true;
         }
     }

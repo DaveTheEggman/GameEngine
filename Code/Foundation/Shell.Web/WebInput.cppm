@@ -244,19 +244,19 @@ export namespace foundation::shell
         }
         [[nodiscard]] bool HasTouch() const override { return m_points.Size() > 0; }
 
-        // Upsert a touch point (touchstart/touchmove); Remove drops it (touchend/touchcancel).
-        void Upsert(core::u64 id, core::f32 x, core::f32 y)
+        // Upsert a touch point (touchstart/touchmove): normalized over the canvas, and in the
+        // mouse's backing pixels. Remove drops it (touchend/touchcancel).
+        void Upsert(const TouchPoint& point)
         {
             for (TouchPoint& p : m_points)
             {
-                if (p.id == id)
+                if (p.id == point.id)
                 {
-                    p.x = x;
-                    p.y = y;
+                    p = point;
                     return;
                 }
             }
-            m_points.PushBack(TouchPoint{id, x, y, 1.0f});
+            m_points.PushBack(point);
         }
         void Remove(core::u64 id)
         {
@@ -464,6 +464,8 @@ export namespace foundation::shell
             {
                 return;
             }
+            m_backingWidth = static_cast<core::f32>(backingW);
+            m_backingHeight = static_cast<core::f32>(backingH);
             if (cssW > 0.0 && backingW > 0)
             {
                 m_pointerScaleX = static_cast<core::f32>(backingW / cssW);
@@ -549,15 +551,20 @@ export namespace foundation::shell
             }
             case RawEvent::Type::Touch:
             {
-                const core::f32 x = r.x * m_pointerScaleX;
-                const core::f32 y = r.y * m_pointerScaleY;
+                // Backing pixels, where the mouse reports; normalized over the canvas for the
+                // touch bindings (the touch contract; they were pixels here, so no touch region
+                // ever matched in a browser).
+                const core::f32 px = r.x * m_pointerScaleX;
+                const core::f32 py = r.y * m_pointerScaleY;
+                const core::f32 x = m_backingWidth > 0.0f ? px / m_backingWidth : 0.0f;
+                const core::f32 y = m_backingHeight > 0.0f ? py / m_backingHeight : 0.0f;
                 if (r.touchPhase == 2)
                 {
                     m_touch.Remove(r.touchId);
                 }
                 else
                 {
-                    m_touch.Upsert(r.touchId, x, y);
+                    m_touch.Upsert(TouchPoint{r.touchId, x, y, 1.0f, px, py});
                 }
                 InputEvent e;
                 e.kind = (r.touchPhase == 0)   ? InputEventKind::TouchDown
@@ -725,6 +732,8 @@ export namespace foundation::shell
         core::Array<WebGamepad*> m_connectedPads;    // compact list of currently-connected pads
         core::f32 m_pointerScaleX = 1.0f; // CSS -> backing pixels (see RefreshPointerScale)
         core::f32 m_pointerScaleY = 1.0f;
+        core::f32 m_backingWidth = 0.0f; // the canvas's backing size: touches normalize over it
+        core::f32 m_backingHeight = 0.0f;
         core::Array<RawEvent> m_queue;   // filled async by the callbacks, drained in Update()
         core::Array<InputEvent> m_events; // this frame's event stream (valid until next Update)
         core::u32 m_mainWindow = 0;

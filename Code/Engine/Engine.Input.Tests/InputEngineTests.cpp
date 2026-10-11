@@ -246,14 +246,32 @@ namespace
         void SetCursor(foundation::shell::CursorType) override {}
         void SetGlobalCapture(bool) override {}
     };
+    // Fingers set by the test, as a shell reports them.
+    struct PointTouch final : foundation::shell::ITouch
+    {
+        Array<foundation::shell::TouchPoint> points;
+        [[nodiscard]] i32 TouchCount() const override { return static_cast<i32>(points.Size()); }
+        [[nodiscard]] bool GetTouchPoint(i32 index, foundation::shell::TouchPoint& out) const override
+        {
+            if (index < 0 || static_cast<usize>(index) >= points.Size())
+            {
+                return false;
+            }
+            out = points[static_cast<usize>(index)];
+            return true;
+        }
+        [[nodiscard]] bool HasTouch() const override { return !points.IsEmpty(); }
+    };
     struct PointSource final : foundation::input::IInputSourceProvider
     {
         PointMouse mouse;
+        PointTouch touch;
         bool hasMouse = true;
         [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return nullptr; }
         [[nodiscard]] foundation::shell::IMouse* Mouse() override { return hasMouse ? &mouse : nullptr; }
         [[nodiscard]] i32 GamepadCount() const override { return 0; }
         [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32) override { return nullptr; }
+        [[nodiscard]] foundation::shell::ITouch* Touch() override { return &touch; }
     };
 }
 
@@ -281,4 +299,28 @@ TEST_CASE("input: a fitted source reads the pointer in render pixels, through th
 
     inner.hasMouse = false; // no mouse below, none here
     CHECK(fitted.Mouse() == nullptr);
+}
+
+TEST_CASE("input: a fitted source maps the fingers as it maps the mouse")
+{
+    // The same letterboxed 320x180 game: a finger at the window's centre is the render's centre,
+    // in render pixels for the UI and normalized over the image for the touch regions; one on a
+    // bar falls outside the image.
+    PointSource inner;
+    FittedInputSource fitted(inner);
+    fitted.fit = ContentFit{Rectangle{0, 0, 1280, 1080}, Float2{320, 180}, FitMode::Letterbox};
+    foundation::shell::ITouch* touch = fitted.Touch();
+    REQUIRE(touch != nullptr);
+    inner.touch.points.PushBack(foundation::shell::TouchPoint{7, 0.5f, 0.5f, 1.0f, 640.0f, 540.0f});
+    REQUIRE(touch->TouchCount() == 1);
+    foundation::shell::TouchPoint point;
+    REQUIRE(touch->GetTouchPoint(0, point));
+    CHECK(point.id == 7u);
+    CHECK(point.pointerX == doctest::Approx(160.0f));
+    CHECK(point.pointerY == doctest::Approx(90.0f));
+    CHECK(point.x == doctest::Approx(0.5f));
+    CHECK(point.y == doctest::Approx(0.5f));
+    inner.touch.points[0] = foundation::shell::TouchPoint{7, 0.5f, 90.0f / 1080.0f, 1.0f, 640.0f, 90.0f};
+    REQUIRE(touch->GetTouchPoint(0, point));
+    CHECK(point.y < 0.0f);
 }

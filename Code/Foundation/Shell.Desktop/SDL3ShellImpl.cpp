@@ -1171,7 +1171,17 @@ namespace foundation::shell
                 e.y = event.tfinger.y;
                 e.value = event.tfinger.pressure;
                 m_input.EmitEvent(e);
-                m_input.TouchDevice().AddOrUpdate(TouchPoint{e.touchId, e.x, e.y, e.value});
+                // In the mouse's coordinates too (SDL window coordinates): normalized times the
+                // window's size.
+                int width = 0;
+                int height = 0;
+                if (SDL_Window* window = SDL_GetWindowFromID(event.tfinger.windowID); window != nullptr)
+                {
+                    (void)SDL_GetWindowSize(window, &width, &height);
+                }
+                m_input.TouchDevice().AddOrUpdate(TouchPoint{e.touchId, e.x, e.y, e.value,
+                                                             e.x * static_cast<core::f32>(width),
+                                                             e.y * static_cast<core::f32>(height)});
                 break;
             }
             case SDL_EVENT_FINGER_UP:

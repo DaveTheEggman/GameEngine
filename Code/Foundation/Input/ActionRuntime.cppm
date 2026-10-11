@@ -362,6 +362,53 @@ export namespace foundation::input
         }
         [[nodiscard]] u64 Frame() const noexcept { return m_frame; }
 
+        /// A touch control of the sets in effect, for an on-screen guide to them.
+        struct TouchControl
+        {
+            StringView action;              ///< the action it drives
+            const Binding* binding = nullptr; ///< its region, and a stick's reach (normalized)
+            bool down = false;              ///< the action is held
+            bool held = false;              ///< a stick a finger holds: anchor and finger follow
+            Float2 anchor{0.0f, 0.0f};      ///< where that finger came down (normalized)
+            Float2 finger{0.0f, 0.0f};      ///< where it is now (normalized)
+        };
+        /// Every touch binding (TouchButton, TouchStick) of the sets in effect: the enabled ones,
+        /// or the exclusive top alone while one is pushed. In map order.
+        template <typename Fn>
+        void ForEachTouchControl(Fn&& visit) const
+        {
+            const i32 exclusiveTop = ExclusiveTopSet();
+            usize flat = 0;
+            for (usize s = 0; s < m_map.sets.Size(); ++s)
+            {
+                const bool inEffect = m_setEnabled[s] != 0u && (exclusiveTop < 0 || static_cast<i32>(s) == exclusiveTop);
+                for (usize a = 0; a < m_map.sets[s].actions.Size(); ++a, ++flat)
+                {
+                    if (!inEffect)
+                    {
+                        continue;
+                    }
+                    const Action& action = m_map.sets[s].actions[a];
+                    const ActionState& state = m_states[flat];
+                    for (const Binding& b : action.bindings)
+                    {
+                        if (b.source != BindingSource::TouchButton && b.source != BindingSource::TouchStick)
+                        {
+                            continue;
+                        }
+                        TouchControl control;
+                        control.action = action.name.AsView();
+                        control.binding = &b;
+                        control.down = state.pressed;
+                        control.held = b.source == BindingSource::TouchStick && state.touchHeld;
+                        control.anchor = state.touchAnchor;
+                        control.finger = state.touchPoint;
+                        visit(control);
+                    }
+                }
+            }
+        }
+
         // ---- rumble ----
         // A request waits for the next Update and reaches the pad through that frame's devices:
         // a runtime holds no device between frames, and each run's runtime reaches only its own
@@ -507,9 +554,12 @@ export namespace foundation::input
             f32 heldSeconds = 0.0f;
             f32 sinceLastTap = 1.0e9f; // DoubleTap window timer
             bool holdFired = false;
-            // Virtual-stick tracking (TouchStick): the owning touch + its anchor.
+            // Virtual-stick tracking (TouchStick): whether a touch owns it, which, its anchor and where
+            // it is now. A flag, not an id of 0: a browser numbers fingers from 0.
+            bool touchHeld = false;
             u64 touchId = 0;
             Float2 touchAnchor{0.0f, 0.0f};
+            Float2 touchPoint{0.0f, 0.0f};
         };
         struct Candidate
         {
@@ -787,7 +837,7 @@ export namespace foundation::input
             shell::ITouch* touch = devices.Touch();
             if (touch == nullptr)
             {
-                state.touchId = 0;
+                state.touchHeld = false;
                 return out;
             }
             auto inRegion = [&](f32 x, f32 y)
@@ -813,7 +863,7 @@ export namespace foundation::input
 
             // TouchStick: a floating stick anchored where its owning touch STARTED.
             const i32 count = touch->TouchCount();
-            if (state.touchId != 0)
+            if (state.touchHeld)
             {
                 bool alive = false;
                 shell::TouchPoint point;
@@ -827,10 +877,11 @@ export namespace foundation::input
                 }
                 if (!alive)
                 {
-                    state.touchId = 0;
+                    state.touchHeld = false;
                 }
                 else
                 {
+                    state.touchPoint = Float2{point.x, point.y};
                     const f32 radius = b.stickRadius > 0.0f ? b.stickRadius : 0.15f;
                     Float2 v{(point.x - state.touchAnchor.x) / radius,
                              (point.y - state.touchAnchor.y) / radius};
@@ -846,15 +897,17 @@ export namespace foundation::input
                     out.digitalDown = length > b.deadZone;
                 }
             }
-            if (state.touchId == 0)
+            if (!state.touchHeld)
             {
                 for (i32 i = 0; i < count; ++i)
                 {
                     shell::TouchPoint point;
                     if (touch->GetTouchPoint(i, point) && inRegion(point.x, point.y))
                     {
+                        state.touchHeld = true;
                         state.touchId = point.id;
                         state.touchAnchor = Float2{point.x, point.y};
+                        state.touchPoint = state.touchAnchor;
                         break; // value starts at 0 this frame (anchor == position)
                     }
                 }

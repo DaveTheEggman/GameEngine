@@ -468,6 +468,9 @@ TEST_CASE("input: SurfaceTouch transforms + spatially gates through the ContentF
     CHECK(mapped.x == doctest::Approx(0.5f).epsilon(0.01));
     CHECK(mapped.y == doctest::Approx(0.5f).epsilon(0.01));
     CHECK(mapped.id == 1u);
+    // And in the surface's pointer space (content pixels), where its mouse reports.
+    CHECK(mapped.pointerX == doctest::Approx(400.0f).epsilon(0.01));
+    CHECK(mapped.pointerY == doctest::Approx(300.0f).epsilon(0.01));
 
     // Letterbox: 800x600 region showing 1280x800 content (16:10 in 4:3) - vertical bars
     // ABOVE/BELOW? 16:10 content in 4:3 region: content wider -> bars top+bottom. A
@@ -545,19 +548,50 @@ TEST_CASE("input: touch - region buttons and the floating virtual stick")
     CHECK(runtime.WasReleased(fire));
 
     // Stick: a touch starting in-region anchors (value 0), deflection scales over the
-    // radius, clamps at 1, and a touch that STARTED OUTSIDE never captures.
-    devices.touch.Set(2, 0.25f, 0.5f);
+    // radius, clamps at 1, and a touch that STARTED OUTSIDE never captures. The finger is id 0,
+    // as a browser numbers its first finger.
+    devices.touch.Set(0, 0.25f, 0.5f);
     runtime.Update(devices, step); // capture frame: anchor == position
     CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
-    devices.touch.Set(2, 0.30f, 0.5f); // +0.05 over radius 0.1 = half deflection...
+    devices.touch.Set(0, 0.30f, 0.5f); // +0.05 over radius 0.1 = half deflection...
     runtime.Update(devices, step);
     CHECK(runtime.Value2D(move).x > 0.30f); // ...minus the dead-zone rescale
     CHECK(runtime.Value2D(move).x < 0.60f);
-    devices.touch.Set(2, 0.60f, 0.5f); // way past the radius: clamped
+    devices.touch.Set(0, 0.60f, 0.5f); // way past the radius: clamped
     runtime.Update(devices, step);
     CHECK(runtime.Value2D(move).x == doctest::Approx(1.0f));
     CHECK(runtime.Value2D(move).y == doctest::Approx(0.0f));
-    devices.touch.Remove(2);
+    // The controls, as an on-screen guide reads them: each binding with its action, the stick
+    // held where its finger came down and where it is now.
+    {
+        Array<String> actions;
+        bool stickHeld = false;
+        Float2 anchor{}, finger{};
+        runtime.ForEachTouchControl(
+            [&](const ActionRuntime::TouchControl& control)
+            {
+                actions.PushBack(String(control.action));
+                if (control.binding->source == BindingSource::TouchStick)
+                {
+                    stickHeld = control.held;
+                    anchor = control.anchor;
+                    finger = control.finger;
+                }
+            });
+        REQUIRE(actions.Size() == 2u);
+        CHECK(actions[0] == StringView(u8"Fire"));
+        CHECK(actions[1] == StringView(u8"Move"));
+        CHECK(stickHeld);
+        CHECK(anchor.x == doctest::Approx(0.25f));
+        CHECK(finger.x == doctest::Approx(0.60f));
+        // A disabled set shows nothing.
+        runtime.DisableSet(u8"S");
+        usize shown = 0;
+        runtime.ForEachTouchControl([&](const ActionRuntime::TouchControl&) { ++shown; });
+        CHECK(shown == 0u);
+        runtime.EnableSet(u8"S");
+    }
+    devices.touch.Remove(0);
     runtime.Update(devices, step);
     CHECK(runtime.Value2D(move).x == doctest::Approx(0.0f));
 

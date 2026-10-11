@@ -265,12 +265,18 @@ export namespace foundation::shell
 
     // ---- Touch ------------------------------------------------------------
 
+    // A finger: where it is NORMALIZED over the space its source's mouse reports in (0..1 across
+    // the window, or the content a surface fits; what the touch bindings' regions read), and the
+    // same place in that mouse's own coordinates (pointerX/Y; what a pointer consumer, the UI,
+    // reads, so a finger lands where the cursor would).
     struct TouchPoint
     {
         core::u64 id = 0;
         core::f32 x = 0.0f;
         core::f32 y = 0.0f;
         core::f32 pressure = 1.0f;
+        core::f32 pointerX = 0.0f;
+        core::f32 pointerY = 0.0f;
     };
 
     // ---- Input events (the event-first source of truth) -------------------

@@ -3,10 +3,10 @@
 
 // Engine::Input - :fitted_input partition (Sedulous f9b1feb7).
 //
-// The devices of another source with the MOUSE mapped into a fitted content space: a game drawn
-// at a fixed render resolution and fitted into its window reads its pointer in render pixels,
-// wherever the window puts the image. The keyboard, the pads, the touches and the event stream
-// pass through.
+// The devices of another source with the MOUSE and the TOUCHES mapped into a fitted content space:
+// a game drawn at a fixed render resolution and fitted into its window reads its pointer in render
+// pixels, wherever the window puts the image, and a finger normalized over that image (where its
+// touch regions are). The keyboard, the pads and the event stream pass through.
 //
 // Ungated, unlike an editor viewport's surface: it is the whole window's input, so a player who
 // never moves the mouse still has the keyboard. Over a letterbox bar the pointer maps outside the
@@ -26,6 +26,19 @@ using namespace foundation::core;
 export namespace engine::input
 {
     class FittedInputSource;
+
+    /// The inner touches through the fit: pointerX/Y in render pixels, x/y normalized over them.
+    class FittedTouch final : public foundation::shell::ITouch
+    {
+    public:
+        explicit FittedTouch(FittedInputSource& source) noexcept : m_source(&source) {}
+        [[nodiscard]] i32 TouchCount() const override;
+        [[nodiscard]] bool GetTouchPoint(i32 index, foundation::shell::TouchPoint& out) const override;
+        [[nodiscard]] bool HasTouch() const override { return TouchCount() > 0; }
+
+    private:
+        FittedInputSource* m_source;
+    };
 
     /// The inner mouse, its position and motion in the fitted content space.
     class FittedMouse final : public foundation::shell::IMouse
@@ -85,7 +98,10 @@ export namespace engine::input
         }
         [[nodiscard]] i32 GamepadCount() const override { return m_inner->GamepadCount(); }
         [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32 index) override { return m_inner->Gamepad(index); }
-        [[nodiscard]] foundation::shell::ITouch* Touch() override { return m_inner->Touch(); }
+        [[nodiscard]] foundation::shell::ITouch* Touch() override
+        {
+            return m_inner->Touch() != nullptr ? &m_touch : nullptr;
+        }
         [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override { return m_inner->Events(); }
 
         /// A window point in render pixels, through the fit and without the bars' clamp.
@@ -104,6 +120,7 @@ export namespace engine::input
     private:
         foundation::input::IInputSourceProvider* m_inner;
         FittedMouse m_mouse{*this};
+        FittedTouch m_touch{*this};
     };
 
     inline foundation::shell::IMouse& FittedMouse::Raw() const { return *m_source->Inner().Mouse(); }
@@ -111,4 +128,29 @@ export namespace engine::input
     inline f32 FittedMouse::Y() const { return m_source->ToContent(Float2{Raw().X(), Raw().Y()}).y; }
     inline f32 FittedMouse::DeltaX() const { return Raw().DeltaX() * m_source->fit.Scale().x; }
     inline f32 FittedMouse::DeltaY() const { return Raw().DeltaY() * m_source->fit.Scale().y; }
+
+    inline i32 FittedTouch::TouchCount() const
+    {
+        foundation::shell::ITouch* raw = m_source->Inner().Touch();
+        return raw != nullptr ? raw->TouchCount() : 0;
+    }
+    inline bool FittedTouch::GetTouchPoint(i32 index, foundation::shell::TouchPoint& out) const
+    {
+        foundation::shell::ITouch* raw = m_source->Inner().Touch();
+        foundation::shell::TouchPoint point;
+        if (raw == nullptr || !raw->GetTouchPoint(index, point))
+        {
+            return false;
+        }
+        // Over a letterbox bar a finger maps outside the image (normalized below 0 or above 1)
+        // rather than vanishing, as the mouse does.
+        const Float2 content = m_source->ToContent(Float2{point.pointerX, point.pointerY});
+        const Rectangle src = m_source->fit.SrcRect();
+        out = point;
+        out.pointerX = content.x;
+        out.pointerY = content.y;
+        out.x = src.width > 0.0f ? (content.x - src.x) / src.width : point.x;
+        out.y = src.height > 0.0f ? (content.y - src.y) / src.height : point.y;
+        return true;
+    }
 }

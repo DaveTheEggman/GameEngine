@@ -54,6 +54,22 @@ export namespace engine::input
 
         [[nodiscard]] ActionRuntime& Runtime() noexcept { return m_runtime; }
 
+        /// How to reach the action runtimes a host's game instances each run (the player, the
+        /// editor's Game tabs), beside this subsystem's own: the UI marks what it takes on every
+        /// one (else a tap on a menu also reached the game's actions) and shows their touch
+        /// controls. Unset: this subsystem's runtime alone.
+        using RuntimeVisitor = Function<void(ActionRuntime&)>;
+        void SetRuntimesInPlay(Function<void(const RuntimeVisitor&)> forEach) { m_runtimesInPlay = Move(forEach); }
+        /// This subsystem's runtime, then each in play.
+        void ForEachRuntime(const RuntimeVisitor& visit)
+        {
+            visit(m_runtime);
+            if (m_runtimesInPlay)
+            {
+                m_runtimesInPlay(visit);
+            }
+        }
+
         /// The raw shell devices as an input source - a host points a GameInstance's per-instance input
         /// runtime here when there is no gated viewport (the standalone player reads the window directly).
         [[nodiscard]] IInputSourceProvider& ShellSource() noexcept { return m_shellSource; }
@@ -143,6 +159,7 @@ export namespace engine::input
         const void* m_boundSceneKey = nullptr; // the override's scene binding (comparison only)
         UnboundInputScenePolicy m_unboundScenePolicy = UnboundInputScenePolicy::AllScenes;
         ActionRuntime m_runtime;
+        Function<void(const RuntimeVisitor&)> m_runtimesInPlay; // the host's instances' runtimes
     };
 
     // The scripting facade: a foreign class named `Input` whose STATIC methods resolve the

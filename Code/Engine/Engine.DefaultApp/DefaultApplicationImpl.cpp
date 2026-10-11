@@ -220,6 +220,10 @@ namespace engine::runtime
         // The primary instance's per-instance input reads the shell devices by default (the player
         // path); the editor Game tab overrides this to its gated viewport source per tab.
         m_instance.SetInputSource(&m_input->ShellSource());
+        // Every instance's action runtime, so the UI's consumption and touch guide reach the game.
+        m_input->SetRuntimesInPlay(
+            [this](const engine::input::InputSubsystem::RuntimeVisitor& visit)
+            { ForEachInstance([&visit](GameInstance& instance) { visit(instance.InputRuntime()); }); });
         m_ui = host.Ctx().AddSubsystem<engine::ui::UISubsystem>(host.Ctx().Allocator(),
                                                                *m_dataFileSystem);
 
