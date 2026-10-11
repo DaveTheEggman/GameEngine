@@ -94,10 +94,6 @@
 ### The web demos on a phone (user 2026-10-06)
 
 
-- **Touch controls in the sample games**: the input map already binds touch (`TouchButton`, a screen
-  region; `TouchStick`, a floating virtual stick), but no game uses it. Each game binds a stick and
-  buttons (Snowline: the left half carves, zones on the right for jump, tuck and grab) and draws a
-  light overlay showing them, shown only once a touch is seen.
 - **Orientation on mobile**: held upright, a phone gives the canvas a portrait shape, and the games
   are landscape. Options: ask the browser for landscape (`screen.orientation.lock`, which needs
   fullscreen and is refused on some browsers), letterbox a landscape render into the portrait canvas,

@@ -44,6 +44,21 @@ def http_rpc(method, params, ident=1):
     return json.loads(raw)
 
 
+def call(tool, args):
+    """One tool call to the editor; the result parsed as JSON (or {"text": ...}). Exits on an error."""
+    r = http_rpc("tools/call", {"name": tool, "arguments": args})
+    if "error" in r:
+        raise SystemExit("%s failed: %s" % (tool, json.dumps(r["error"])[:2000]))
+    result = r["result"]
+    text = "".join(part.get("text", "") for part in result.get("content", []))
+    if result.get("isError"):
+        raise SystemExit("%s failed: %s" % (tool, text[:2000]))
+    try:
+        return json.loads(text)
+    except ValueError:
+        return {"text": text}
+
+
 def main():
     mode = sys.argv[1]
     if mode == "http":
