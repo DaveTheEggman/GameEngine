@@ -399,6 +399,47 @@ TEST_CASE("ui.viewport: content of its own resolution maps the pointer into that
     CHECK(view->Surface()->Fit().contentSize.x == doctest::Approx(640.0f));
 }
 
+// Present transform P4: the editor's Game tab previewing a phone held upright. The texture is the
+// phone's screen (a fixed 720x1560) letterboxed in the panel, and a landscape game inside it is
+// presented turned three quarters: the pointer maps through both, to the game's own pixels.
+TEST_CASE("ui.viewport: a fixed-size screen with turned content maps the pointer through both")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    foundation::shell::NullInputManager input;
+    auto root = MakeRef<ui::RootView>(DefaultAllocator());
+    auto view = MakeRef<ViewportView>(DefaultAllocator());
+    view->Initialize(&device, nullptr, &input, /*windowId*/ 0);
+    REQUIRE(view->Surface() != nullptr);
+    root->AddView(view.Get());
+    view->Layout(0.0f, 0.0f, 1000.0f, 600.0f);
+    view->SetFixedResolution(720, 1560);
+    view->SetFitMode(FitMode::Letterbox);
+    REQUIRE(view->RenderWidth() == 720u);
+    // The game at the phone's pixels turned (1560x720), filling the screen.
+    view->SetContentResolution(1560, 720, FitMode::Stretch, ContentRotation::ThreeQuarter);
+    view->SyncInputRegion();
+    const ContentFit& fit = view->Surface()->Fit();
+
+    // The phone's screen in the panel: 600 tall, 600 * 720 / 1560 wide, centred.
+    const f32 width = 600.0f * 720.0f / 1560.0f;
+    const f32 left = (1000.0f - width) * 0.5f;
+    Float2 c;
+    // Near the screen's bottom-left: near the game's top-left (its top on the screen's left).
+    REQUIRE(fit.ToContent(Float2{left + 1.0f, 599.0f}, c));
+    CHECK(c.x == doctest::Approx(1560.0f / 600.0f).epsilon(0.05));
+    CHECK(c.y == doctest::Approx(720.0f / width).epsilon(0.05));
+    // The screen's centre: the game's.
+    REQUIRE(fit.ToContent(Float2{500.0f, 300.0f}, c));
+    CHECK(c.x == doctest::Approx(780.0f));
+    CHECK(c.y == doctest::Approx(360.0f));
+    // The screen's top-right: the game's bottom-right.
+    REQUIRE(fit.ToContent(Float2{left + width - 0.01f, 0.01f}, c));
+    CHECK(c.x == doctest::Approx(1560.0f).epsilon(0.01));
+    CHECK(c.y == doctest::Approx(720.0f).epsilon(0.01));
+    // Beside the phone, in the panel's bars: no hit.
+    CHECK_FALSE(fit.ToContent(Float2{50.0f, 300.0f}, c));
+}
+
 TEST_CASE("ui.viewport: the clear colour is a UI colour (sRGB), cleared with its linear value")
 {
     auto viewRef = foundation::core::MakeRef<ViewportView>(DefaultAllocator());

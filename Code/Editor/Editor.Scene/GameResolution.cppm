@@ -33,7 +33,48 @@ export namespace editor
         String label; // what the dropdown shows
         u32 width = 0; // nought for the panel's own size
         u32 height = 0;
+        // An export preset held its own way (a phone-facing Web preset says Landscape): the Game
+        // tab previews it so; otherwise the project's orientation applies.
+        bool overridesOrientation = false;
+        ScreenOrientation orientation = ScreenOrientation::Any;
     };
+
+    /// The Game tab's phone preview (Specs/present-transform.md): a phone held upright, 9 by 19.5.
+    inline constexpr u32 kPhonePreviewWidth = 720;
+    inline constexpr u32 kPhonePreviewHeight = 1560;
+
+    /// The game on a `width` x `height` target (the panel, or the previewed phone's screen), as the
+    /// player puts it in its window: its render resolution (0 x 0: none) fitted by `fit`, turned a
+    /// quarter when `orientation` is not the target's shape, and then at the target's pixels turned
+    /// when it has no resolution of its own.
+    [[nodiscard]] inline ContentFit GameFitOn(u32 width, u32 height, u32 renderWidth, u32 renderHeight, FitMode fit,
+                                              ScreenOrientation orientation) noexcept
+    {
+        const f32 w = static_cast<f32>(width);
+        const f32 h = static_cast<f32>(height);
+        const ContentRotation turn = TurnFor(orientation, w, h);
+        const bool swaps = turn == ContentRotation::Quarter || turn == ContentRotation::ThreeQuarter;
+        const bool sized = renderWidth > 0 && renderHeight > 0;
+        const Float2 content = sized   ? Float2{static_cast<f32>(renderWidth), static_cast<f32>(renderHeight)}
+                               : swaps ? Float2{h, w}
+                                       : Float2{w, h};
+        return ContentFit{Rectangle{0.0f, 0.0f, w, h}, content, sized ? fit : FitMode::Stretch, turn};
+    }
+
+    /// The orientation's name for a label, empty for Any.
+    [[nodiscard]] inline StringView OrientationLabel(ScreenOrientation orientation) noexcept
+    {
+        switch (orientation)
+        {
+        case ScreenOrientation::Landscape:
+            return u8"landscape";
+        case ScreenOrientation::Portrait:
+            return u8"portrait";
+        case ScreenOrientation::Any:
+        default:
+            return u8"";
+        }
+    }
 
     /// The choices, in the dropdown's order. Any source may be absent (no project, no preset
     /// file, no user store); the project's entry and the panel's are always there.
@@ -59,16 +100,31 @@ export namespace editor
         }
         if (presets != nullptr)
         {
+            const u32 projectWidth = out[0].width;
+            const u32 projectHeight = out[0].height;
             for (const ExportPreset& preset : presets->presets)
             {
-                if (!preset.overridesRender || preset.renderWidth == 0 || preset.renderHeight == 0)
+                // A preset that draws at its own size, or is held its own way; one that changes
+                // neither looks as the project does.
+                const bool ownSize = preset.overridesRender && preset.renderWidth > 0 && preset.renderHeight > 0;
+                const StringView held = preset.overridesOrientation ? OrientationLabel(preset.orientation) : StringView();
+                if (!ownSize && held.IsEmpty())
                 {
                     continue;
                 }
-                out.PushBack(GameResolutionChoice{
-                    Format(u8"export:{}", preset.name.AsView()),
-                    Format(u8"{} {}x{}", preset.name.AsView(), preset.renderWidth, preset.renderHeight),
-                    preset.renderWidth, preset.renderHeight});
+                GameResolutionChoice choice;
+                choice.key = Format(u8"export:{}", preset.name.AsView());
+                choice.width = ownSize ? preset.renderWidth : projectWidth;
+                choice.height = ownSize ? preset.renderHeight : projectHeight;
+                choice.label = choice.width > 0 ? Format(u8"{} {}x{}", preset.name.AsView(), choice.width, choice.height)
+                                                : Format(u8"{} (panel size)", preset.name.AsView());
+                if (!held.IsEmpty())
+                {
+                    choice.label += Format(u8", {}", held).AsView();
+                    choice.overridesOrientation = true;
+                    choice.orientation = preset.orientation;
+                }
+                out.PushBack(Move(choice));
             }
         }
         if (previews != nullptr)
@@ -109,7 +165,9 @@ export namespace editor
         String signature;
         for (const GameResolutionChoice& choice : choices)
         {
-            signature += Format(u8"{}={}x{};", choice.key.AsView(), choice.width, choice.height).AsView();
+            signature += Format(u8"{}={}x{}@{};", choice.key.AsView(), choice.width, choice.height,
+                                static_cast<i32>(choice.orientation))
+                             .AsView();
         }
         signature += Format(u8"fit={}", static_cast<i32>(fit)).AsView();
         return signature;

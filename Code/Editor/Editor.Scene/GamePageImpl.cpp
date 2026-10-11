@@ -654,6 +654,7 @@ namespace editor
         AdvanceScriptedInput();
         EnsureViewportBound();
         TickResolution(dt);
+        SyncGameFit(); // the target may have changed shape: the turn, and so the pointer's map
         m_viewport->SyncInputRegion();
         // A running game owns the keys its focused viewport receives: the editor's arrow key
         // focus moves and single key bindings stay out of it.
@@ -739,11 +740,11 @@ namespace editor
         m_captureY = 0;
         m_captureWidth = w;
         m_captureHeight = h;
-        if (m_renderWidth > 0 && m_renderHeight > 0)
+        const ContentFit fit = GameFitIn(w, h);
+        if (GameFitted(fit))
         {
-            // At the render resolution, fitted into the panel as the player fits its window; the
-            // capture is the game's image, without the bars.
-            const ContentFit fit = RenderFitIn(w, h);
+            // At the render resolution (or turned), fitted into the panel as the player fits its
+            // window; the capture is the game's image, without the bars.
             const Rectangle dst = fit.DstRect();
             const render::ViewportRect viewport{static_cast<i32>(dst.x), static_cast<i32>(dst.y),
                                                 static_cast<u32>(Max(dst.width, 1.0f)),
@@ -808,6 +809,7 @@ namespace editor
         if (m_app != nullptr && m_app->UI() != nullptr)
         {
             m_app->UI()->SetScreenResolution(m_gameInstance, m_renderWidth, m_renderHeight, m_renderFit);
+            m_app->UI()->SetScreenOrientation(m_gameInstance, m_orientation);
             m_app->UI()->SetRenderRun(m_gameInstance);
         }
         render->RenderOverlays(*frame.encoder, m_viewport->ColorTargetView(),
@@ -1242,8 +1244,51 @@ namespace editor
                 self->SaveResolutionKey();
                 self->ApplyResolution();
             });
+        // A phone held upright: the game as a phone would show it, turned when it is held the
+        // other way (mouse and touch map through the same turn).
+        m_phoneToggle = m_toolbar->AddToggle(u8"Phone");
+        m_phoneToggle->OnCheckedChanged.Add(
+            [self](ui::toolkit::ToolbarToggle*, bool on)
+            {
+                if (self->m_resolutionRebuilding)
+                {
+                    return;
+                }
+                self->SetPhonePreview(on);
+                self->SaveResolutionKey();
+            });
         LoadResolutionKey();
+        m_resolutionRebuilding = true;
+        m_phoneToggle->SetIsChecked(m_phonePreview);
+        m_resolutionRebuilding = false;
         RefreshResolutionChoices(true);
+    }
+
+    void GameEditorPage::SetPhonePreview(bool on)
+    {
+        m_phonePreview = on;
+        ApplyResolution();
+    }
+
+    void GameEditorPage::SyncGameFit()
+    {
+        const u32 w = m_viewport->RenderWidth();
+        const u32 h = m_viewport->RenderHeight();
+        if (w == 0 || h == 0)
+        {
+            m_viewport->SetContentResolution(m_renderWidth, m_renderHeight, m_renderFit);
+            return;
+        }
+        const ContentFit fit = GameFitIn(w, h);
+        if (GameFitted(fit))
+        {
+            m_viewport->SetContentResolution(static_cast<u32>(fit.contentSize.x), static_cast<u32>(fit.contentSize.y),
+                                             fit.mode, fit.rotation);
+        }
+        else
+        {
+            m_viewport->SetContentResolution(0, 0, m_renderFit);
+        }
     }
 
     void GameEditorPage::TickResolution(f32 dt)
@@ -1311,9 +1356,14 @@ namespace editor
         m_renderWidth = choice.width;
         m_renderHeight = choice.height;
         m_renderFit = project != nullptr ? project->Settings().renderFit : FitMode::Letterbox;
-        m_viewport->SetFixedResolution(0, 0);
-        m_viewport->SetFitMode(FitMode::Stretch);
-        m_viewport->SetContentResolution(m_renderWidth, m_renderHeight, m_renderFit);
+        m_orientation = choice.overridesOrientation ? choice.orientation
+                        : project != nullptr      ? project->Settings().orientation
+                                                  : ScreenOrientation::Any;
+        // The previewed phone's screen is the target, letterboxed in the panel; else the panel is.
+        m_viewport->SetFixedResolution(m_phonePreview ? kPhonePreviewWidth : 0,
+                                       m_phonePreview ? kPhonePreviewHeight : 0);
+        m_viewport->SetFitMode(m_phonePreview ? FitMode::Letterbox : FitMode::Stretch);
+        SyncGameFit();
     }
 
     void GameEditorPage::LoadResolutionKey()
@@ -1327,6 +1377,7 @@ namespace editor
                 {
                     m_resolutionKey = section->resolutionKey;
                 }
+                m_phonePreview = section->phonePreview;
             }
         }
     }
@@ -1339,6 +1390,7 @@ namespace editor
             return;
         }
         store->Section<GamePageSettings>().resolutionKey = m_resolutionKey;
+        store->Section<GamePageSettings>().phonePreview = m_phonePreview;
         store->MarkChanged<GamePageSettings>();
         m_context->RequestProjectEditorSettingsSave();
     }

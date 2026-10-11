@@ -277,11 +277,13 @@ export namespace foundation::ui::viewport
         /// its own fitted image (a game at its render resolution, letterboxed in a panel-sized
         /// texture): the input surface then maps the pointer into that resolution. Nought is the
         /// texture's own.
-        void SetContentResolution(u32 width, u32 height, FitMode fit) noexcept
+        void SetContentResolution(u32 width, u32 height, FitMode fit,
+                                  ContentRotation rotation = ContentRotation::None) noexcept
         {
             m_contentWidth = width;
             m_contentHeight = height;
             m_contentFit = fit;
+            m_contentRotation = rotation;
         }
 
         void OnKeyDown(KeyEventArgs& e) override
@@ -342,20 +344,45 @@ export namespace foundation::ui::viewport
                 dpi = Max(rv->DpiScale, 0.01f);
             }
             const Float2 tl = LocalToScreen(Float2{0.0f, 0.0f});
-            m_surface->SetRegion(
-                Rectangle{tl.x * dpi, tl.y * dpi, Width() * dpi, Height() * dpi});
+            const Rectangle region{tl.x * dpi, tl.y * dpi, Width() * dpi, Height() * dpi};
+            m_surface->SetRegion(region);
+            m_surface->SetRotation(ContentRotation::None);
+            const Float2 texture{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)};
             if (m_contentWidth > 0 && m_contentHeight > 0)
             {
                 // The content draws at a resolution of its own inside the texture: the pointer
-                // maps into THAT, through the content's own fit.
-                m_surface->SetContentSize(
-                    Float2{static_cast<f32>(m_contentWidth), static_cast<f32>(m_contentHeight)});
+                // maps into THAT, through the content's own fit (and turn).
+                const Float2 content{static_cast<f32>(m_contentWidth), static_cast<f32>(m_contentHeight)};
+                m_surface->SetContentSize(content);
                 m_surface->SetFitMode(m_contentFit);
+                m_surface->SetRotation(m_contentRotation);
+                if (m_fixedWidth > 0 && m_fixedHeight > 0 && texture.x > 0.0f && texture.y > 0.0f)
+                {
+                    // Two steps in one fit: the texture (a fixed size, a phone's screen) is fitted
+                    // into the view, and the content into the texture. The content's own rectangle,
+                    // carried through the first step, is where the pointer maps through the second.
+                    const Rectangle drawn = ContentFit{region, texture, m_fitMode}.DstRect();
+                    if (m_contentFit == FitMode::Crop)
+                    {
+                        m_surface->SetRegion(drawn); // no bars, a slice: the fit scales evenly
+                    }
+                    else
+                    {
+                        const Rectangle inside =
+                            ContentFit{Rectangle{0.0f, 0.0f, texture.x, texture.y}, content, m_contentFit,
+                                       m_contentRotation}
+                                .DstRect();
+                        const f32 sx = drawn.width / texture.x;
+                        const f32 sy = drawn.height / texture.y;
+                        m_surface->SetRegion(Rectangle{drawn.x + inside.x * sx, drawn.y + inside.y * sy,
+                                                       inside.width * sx, inside.height * sy});
+                        m_surface->SetFitMode(FitMode::Stretch); // the region IS the content's rectangle
+                    }
+                }
             }
             else
             {
-                m_surface->SetContentSize(
-                    Float2{static_cast<f32>(m_textureWidth), static_cast<f32>(m_textureHeight)});
+                m_surface->SetContentSize(texture);
                 m_surface->SetFitMode(m_fitMode);
             }
             // Window pixel size (the root view spans the client area, in physical pixels): the
@@ -630,6 +657,7 @@ export namespace foundation::ui::viewport
         u32 m_contentWidth = 0; // the content's own resolution inside the texture (0 = the texture's)
         u32 m_contentHeight = 0;
         FitMode m_contentFit = FitMode::Letterbox;
+        ContentRotation m_contentRotation = ContentRotation::None; // the content presented turned
     };
 
     RTTI_DEFINE_OBJECT(ViewportView, "rtti::ui::viewport")

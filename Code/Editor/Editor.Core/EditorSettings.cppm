@@ -265,8 +265,15 @@ export namespace editor
     public:
         /// The chosen resolution's key: "project", "export:<preset>", "preset:<name>" or "panel".
         String resolutionKey;
+        /// The tab previews a phone held upright (Specs/present-transform.md): its screen is a
+        /// portrait phone's, and a game held to the other orientation is presented turned.
+        bool phonePreview = false;
 
-        void Serialize(ISerializer& ar) override { foundation::core::Serialize(ar, "resolutionKey", resolutionKey); }
+        void Serialize(ISerializer& ar) override
+        {
+            foundation::core::Serialize(ar, "resolutionKey", resolutionKey);
+            foundation::core::SerializeAppended(ar, "phonePreview", phonePreview);
+        }
     };
 
     /// The registry's overrides into the section: every registered action with one is written

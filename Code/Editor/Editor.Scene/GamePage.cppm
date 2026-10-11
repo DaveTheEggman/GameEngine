@@ -511,13 +511,22 @@ export namespace editor
         // there being nothing to fit.
         void ApplyResolution();
         void LoadResolutionKey();
-        // The render resolution fitted into a panel-sized target.
-        [[nodiscard]] ContentFit RenderFitIn(u32 width, u32 height) const noexcept
+        // The game on a `width` x `height` target (the panel, or the previewed phone's screen), as
+        // the player puts it in its window: its render resolution fitted by its render fit, turned
+        // a quarter when its orientation is not the target's shape (then at the target's pixels
+        // turned when it has no resolution). Plain (none of that) draws straight at the target.
+        [[nodiscard]] ContentFit GameFitIn(u32 width, u32 height) const noexcept
         {
-            return ContentFit{Rectangle{0.0f, 0.0f, static_cast<f32>(width), static_cast<f32>(height)},
-                              Float2{static_cast<f32>(m_renderWidth), static_cast<f32>(m_renderHeight)},
-                              m_renderFit};
+            return GameFitOn(width, height, m_renderWidth, m_renderHeight, m_renderFit, m_orientation);
         }
+        [[nodiscard]] bool GameFitted(const ContentFit& fit) const noexcept
+        {
+            return (m_renderWidth > 0 && m_renderHeight > 0) || fit.rotation != ContentRotation::None;
+        }
+        // The input surface's content follows the game's fit on the tab's current target.
+        void SyncGameFit();
+        // The phone preview: the tab's screen becomes a portrait phone's, or the panel again.
+        void SetPhonePreview(bool on);
         void SaveResolutionKey();
 
         void RefreshToolbar();
@@ -570,6 +579,11 @@ export namespace editor
         u32 m_renderWidth = 0;
         u32 m_renderHeight = 0;
         FitMode m_renderFit = FitMode::Letterbox;
+        // How the game is held (the chosen preset's, else the project's), and whether the tab
+        // previews a phone held upright (Specs/present-transform.md).
+        ScreenOrientation m_orientation = ScreenOrientation::Any;
+        bool m_phonePreview = false;
+        ui::toolkit::ToolbarToggle* m_phoneToggle = nullptr;
         GameScriptErrorSink m_scriptErrors;
         DebuggerPanel m_debuggerPanel;      // the debugger UI (contract-only)
         GameDebugListener m_debugListener;  // debugger state sink (drained in OnUpdate)

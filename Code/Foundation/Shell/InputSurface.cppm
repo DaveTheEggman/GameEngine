@@ -162,6 +162,9 @@ export namespace foundation::shell
         void SetRegion(core::Rectangle region) noexcept { m_fit.region = region; }
         void SetContentSize(core::Float2 size) noexcept { m_fit.contentSize = size; }
         void SetFitMode(core::FitMode mode) noexcept { m_fit.mode = mode; }
+        // The content presented turned (a landscape game on a portrait screen): the pointer and
+        // fingers turn back with it.
+        void SetRotation(core::ContentRotation rotation) noexcept { m_fit.rotation = rotation; }
         void SetWindowSize(core::Float2 size) noexcept { m_windowSize = size; }
         [[nodiscard]] core::Float2 WindowSize() const noexcept { return m_windowSize; }
         // Re-target the surface to a different window (e.g. a dockable panel hosting the surface is
