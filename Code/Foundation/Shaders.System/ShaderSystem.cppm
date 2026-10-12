@@ -183,30 +183,13 @@ export namespace foundation::shaders
         {
             if (m_pack != nullptr)
             {
-                // Explicit RegisterSource beats the pack: the engine pack covers only the
-                // engine corpus, while registered sources carry bespoke inline shaders AND
-                // user shader ASSETS (ShaderResource) - those must keep resolving in pack
-                // mode or custom material shaders die in a dist.
-                if (m_sources.Find(SourceKey(name, stage)) != nullptr)
+                // A registered source (a project's shader, a bespoke inline one) compiles while a
+                // compiler is here: the editor's source is newer than any pack. Without one (a
+                // dist) the pack serves it like the corpus: the export cooked the project's
+                // shaders into it, with their entry points and lattices.
+                if (m_compiler != nullptr && m_sources.Find(SourceKey(name, stage)) != nullptr)
                 {
-                    if (m_compiler != nullptr)
-                    {
-                        return GetCompiledVariant(name, stage, flags);
-                    }
-                    // Compiler-free dist: a registered SOURCE cannot be served. Loud once
-                    // per (name, stage) - the fix is cooking user shaders to bytecode.
-                    const core::u64 srcKey = SourceKey(name, stage);
-                    if (m_loggedFailures.Find(srcKey) == nullptr)
-                    {
-                        m_loggedFailures.InsertOrAssign(srcKey, true);
-                        rhi::LogErrorf("Registered shader source '%.*s' (stage %u) cannot be "
-                                       "compiled in compiler-free pack mode - cook it or ship "
-                                       "a compiler",
-                                       static_cast<int>(name.Size()),
-                                       reinterpret_cast<const char*>(name.Data()),
-                                       static_cast<unsigned>(stage));
-                    }
-                    return nullptr;
+                    return GetCompiledVariant(name, stage, flags);
                 }
                 return GetCookedVariant(name, stage, flags);
             }

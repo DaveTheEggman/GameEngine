@@ -503,3 +503,31 @@ TEST_CASE("shader system: a registered source with a declared mask canonicalizes
     }
     compiler->Destroy();
 }
+
+// A dist has no compiler: a project's shader is registered from its cooked product (its source,
+// possibly stripped) but served from the pack the export cooked it into, with the pack's entry
+// point and lattice. A variant the pack lacks stays the loud cook-coverage miss.
+TEST_CASE("shader system: without a compiler, a registered shader is served from the pack")
+{
+    rhi::null::NullDevice device{DefaultAllocator()};
+    CookedShaderPack pack;
+    const byte blob[] = {byte{1}, byte{2}, byte{3}, byte{4}};
+    pack.Add(u8"toon", ShaderStage::Fragment, ShaderFlags::None, CookedShaderFormat::SpirV,
+             Span<const byte>(blob, 4));
+    pack.Add(u8"toon", ShaderStage::Fragment, ShaderFlags::GBuffer, CookedShaderFormat::SpirV,
+             Span<const byte>(blob, 4));
+    pack.AddDeclaredMask(u8"toon", ShaderStage::Fragment, ShaderFlags::GBuffer);
+    pack.AddEntryPoint(u8"toon", ShaderStage::Fragment, u8"PSMain");
+
+    ShaderSystem ss(device);
+    ss.SetCookedPack(&pack);
+    ss.RegisterSource(u8"toon", ShaderStage::Fragment, u8"", u8"PSMain", ShaderFlags::GBuffer);
+    rhi::ShaderModule* plain = ss.GetVariant(u8"toon", ShaderStage::Fragment, ShaderFlags::None);
+    REQUIRE(plain != nullptr);
+    CHECK(plain->entryPoint.AsView() == StringView(u8"PSMain"));
+    // Flags the stage never declared reduce to the cooked variant.
+    CHECK(ss.GetVariant(u8"toon", ShaderStage::Fragment, ShaderFlags::Skinned) == plain);
+    CHECK(ss.GetVariant(u8"toon", ShaderStage::Fragment, ShaderFlags::GBuffer) != nullptr);
+    // A stage the pack never cooked is a miss.
+    CHECK(ss.GetVariant(u8"toon", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
+}
