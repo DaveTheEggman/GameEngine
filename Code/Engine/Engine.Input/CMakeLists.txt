@@ -6,6 +6,7 @@ target_link_libraries(Engine.Input
 target_sources(Engine.Input
     PRIVATE
         InputSubsystemImpl.cpp   # REFLECT_MEMBERS body (see InputSubsystem.cppm)
+        FittedInputSourceImpl.cpp # the fitted devices' members: their vtables stay in this module
     PUBLIC
         FILE_SET input_subsystem_modules TYPE CXX_MODULES FILES
             InputSubsystem.cppm

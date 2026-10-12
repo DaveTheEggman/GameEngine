@@ -9,6 +9,11 @@
 // touch regions are). A turned present (Specs/present-transform.md) turns them back, so a game
 // reads them in its own frame. The keyboard, the pads and the event stream pass through.
 //
+// The member functions are defined in FittedInputSourceImpl.cpp: a class whose virtuals are all
+// inline has no key function, so every importer generated its vtables, and clang 21 crashed doing
+// so (CI, GameUiSandbox; a vtable-layout crash in codegen). Out of line, the vtables are this
+// module's alone.
+//
 // Ungated, unlike an editor viewport's surface: it is the whole window's input, so a player who
 // never moves the mouse still has the keyboard. Over a letterbox bar the pointer maps outside the
 // render area rather than vanishing.
@@ -93,16 +98,10 @@ export namespace engine::input
         [[nodiscard]] foundation::input::IInputSourceProvider& Inner() const noexcept { return *m_inner; }
 
         [[nodiscard]] foundation::shell::IKeyboard* Keyboard() override { return m_inner->Keyboard(); }
-        [[nodiscard]] foundation::shell::IMouse* Mouse() override
-        {
-            return m_inner->Mouse() != nullptr ? &m_mouse : nullptr;
-        }
+        [[nodiscard]] foundation::shell::IMouse* Mouse() override;
         [[nodiscard]] i32 GamepadCount() const override { return m_inner->GamepadCount(); }
         [[nodiscard]] foundation::shell::IGamepad* Gamepad(i32 index) override { return m_inner->Gamepad(index); }
-        [[nodiscard]] foundation::shell::ITouch* Touch() override
-        {
-            return m_inner->Touch() != nullptr ? &m_touch : nullptr;
-        }
+        [[nodiscard]] foundation::shell::ITouch* Touch() override;
         [[nodiscard]] Span<const foundation::shell::InputEvent> Events() override { return m_inner->Events(); }
 
         /// A window point in render pixels, through the fit (its turn included) and without the
@@ -114,43 +113,4 @@ export namespace engine::input
         FittedMouse m_mouse{*this};
         FittedTouch m_touch{*this};
     };
-
-    inline foundation::shell::IMouse& FittedMouse::Raw() const { return *m_source->Inner().Mouse(); }
-    inline f32 FittedMouse::X() const { return m_source->ToContent(Float2{Raw().X(), Raw().Y()}).x; }
-    inline f32 FittedMouse::Y() const { return m_source->ToContent(Float2{Raw().X(), Raw().Y()}).y; }
-    // Turned with the content as well as scaled: on a turned present, moving the mouse up the
-    // window moves right across the game.
-    inline f32 FittedMouse::DeltaX() const
-    {
-        return m_source->fit.ToContentDelta(Float2{Raw().DeltaX(), Raw().DeltaY()}).x;
-    }
-    inline f32 FittedMouse::DeltaY() const
-    {
-        return m_source->fit.ToContentDelta(Float2{Raw().DeltaX(), Raw().DeltaY()}).y;
-    }
-
-    inline i32 FittedTouch::TouchCount() const
-    {
-        foundation::shell::ITouch* raw = m_source->Inner().Touch();
-        return raw != nullptr ? raw->TouchCount() : 0;
-    }
-    inline bool FittedTouch::GetTouchPoint(i32 index, foundation::shell::TouchPoint& out) const
-    {
-        foundation::shell::ITouch* raw = m_source->Inner().Touch();
-        foundation::shell::TouchPoint point;
-        if (raw == nullptr || !raw->GetTouchPoint(index, point))
-        {
-            return false;
-        }
-        // Over a letterbox bar a finger maps outside the image (normalized below 0 or above 1)
-        // rather than vanishing, as the mouse does.
-        const Float2 content = m_source->ToContent(Float2{point.pointerX, point.pointerY});
-        const Rectangle src = m_source->fit.SrcRect();
-        out = point;
-        out.pointerX = content.x;
-        out.pointerY = content.y;
-        out.x = src.width > 0.0f ? (content.x - src.x) / src.width : point.x;
-        out.y = src.height > 0.0f ? (content.y - src.y) / src.height : point.y;
-        return true;
-    }
 }
