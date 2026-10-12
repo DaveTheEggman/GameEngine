@@ -95,11 +95,13 @@ TEST_CASE("file provider: manifest scan, stem/stage mapping, lazy fetch")
     CHECK(sawCluster);
 
     String source;
-    CHECK(provider.FetchSource(u8"tonemap", ShaderStage::Fragment, source));
+    String entryPoint;
+    CHECK(provider.FetchSource(u8"tonemap", ShaderStage::Fragment, source, entryPoint));
     CHECK(source.AsView() == StringView(reinterpret_cast<const char8_t*>(kRedPS)));
-    CHECK(provider.FetchSource(u8"cluster", ShaderStage::Compute, source));
-    CHECK_FALSE(provider.FetchSource(u8"tonemap", ShaderStage::Compute, source));
-    CHECK_FALSE(provider.FetchSource(u8"nope", ShaderStage::Fragment, source));
+    CHECK(entryPoint.AsView() == kCorpusEntryPoint); // the corpus: a file per stage, `main`
+    CHECK(provider.FetchSource(u8"cluster", ShaderStage::Compute, source, entryPoint));
+    CHECK_FALSE(provider.FetchSource(u8"tonemap", ShaderStage::Compute, source, entryPoint));
+    CHECK_FALSE(provider.FetchSource(u8"nope", ShaderStage::Fragment, source, entryPoint));
 
     // A folder the mount does not have -> NotFound (callers fall back to registered strings).
     FileShaderSourceProvider missing{DefaultAllocator()};
@@ -125,7 +127,8 @@ TEST_CASE("file provider: a Shaders subfolder - mount-relative paths and folder-
     CHECK(provider.ShaderFileCount() == 1);
 
     String source;
-    CHECK(provider.FetchSource(u8"tonemap", ShaderStage::Fragment, source));
+    String entryPoint;
+    CHECK(provider.FetchSource(u8"tonemap", ShaderStage::Fragment, source, entryPoint));
     CHECK(source.AsView() == StringView(reinterpret_cast<const char8_t*>(kRedPS)));
 
     // The include resolver half: a bare first-level include resolves inside the folder; a
@@ -176,7 +179,7 @@ TEST_CASE("shader system: pulls source from the provider; includes resolve; "
 
         // Explicit registration takes precedence over the provider on the next compile.
         ss.RegisterSource(u8"prov", ShaderStage::Fragment,
-                          u8"float4 main() : SV_Target { return oops; }");
+                          u8"float4 main() : SV_Target { return oops; }", kCorpusEntryPoint);
         ss.InvalidateShader(u8"prov");
         CHECK(ss.GetVariant(u8"prov", ShaderStage::Fragment, ShaderFlags::None) == nullptr);
     }
@@ -222,7 +225,8 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
         CHECK(ss.Version(u8"cold") == 0);
         CHECK(ss.GetVariant(u8"hot", ShaderStage::Fragment, ShaderFlags::None) != nullptr);
         String fetched;
-        CHECK(provider.FetchSource(u8"hot", ShaderStage::Fragment, fetched));
+        String entryPoint;
+        CHECK(provider.FetchSource(u8"hot", ShaderStage::Fragment, fetched, entryPoint));
         CHECK(fetched.AsView() == StringView(reinterpret_cast<const char8_t*>(kGreenPS)));
 
         // Edit a .hlsli: includers are unknown, so EVERY served shader reloads.

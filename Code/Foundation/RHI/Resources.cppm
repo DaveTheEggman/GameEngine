@@ -84,12 +84,32 @@ export namespace foundation::rhi
         SamplerDesc desc{};
     };
 
-    /// Compiled shader module (SPIR-V or DXIL bytecode).
+    /// Compiled shader module (SPIR-V or DXIL bytecode, or WGSL text).
     class ShaderModule
     {
     public:
         virtual ~ShaderModule() = default;
+        /// The entry point the module was compiled for (ShaderModuleDesc::entryPoint); empty for a
+        /// module whose stages name their entries. Set by the device that creates it.
+        String entryPoint;
     };
+
+    /// A stage that runs its module's own entry point (the one the module was compiled for).
+    [[nodiscard]] inline ProgrammableStage StageOf(ShaderModule* module, ShaderStage stage) noexcept
+    {
+        return ProgrammableStage{module, StringView{}, stage};
+    }
+
+    /// The entry point a stage runs: the one it names, else its module's own. Empty when neither
+    /// says, which a backend refuses (a module of several entries needs the stage to choose).
+    [[nodiscard]] inline StringView EntryPointOf(const ProgrammableStage& stage) noexcept
+    {
+        if (!stage.entryPoint.IsEmpty())
+        {
+            return stage.entryPoint;
+        }
+        return stage.module != nullptr ? stage.module->entryPoint.AsView() : StringView{};
+    }
 
     /// Presentation surface created from a native window handle.
     class Surface

@@ -181,3 +181,53 @@ TEST_CASE("rhi.validation: a device destroyed with live textures names them by t
     janitor->Destroy();
     vb->Destroy();
 }
+
+// A stage runs the entry it names, else its module's (ShaderModuleDesc::entryPoint). With neither,
+// no backend can build it, so the validation layer refuses it before the driver does.
+TEST_CASE("rhi.validation: a pipeline stage with no entry point anywhere is refused")
+{
+    Backend* inner = nullptr;
+    REQUIRE(null::CreateNullBackend(inner).IsOk());
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
+    Device* device = nullptr;
+    REQUIRE(vb->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+
+    const u8 code[4] = {1, 2, 3, 4};
+    ShaderModuleDesc named{};
+    named.code = Span<const u8>(code, 4);
+    named.entryPoint = u8"VSMain";
+    ShaderModuleDesc unnamed{};
+    unnamed.code = Span<const u8>(code, 4);
+    ShaderModule* withEntry = nullptr;
+    ShaderModule* withoutEntry = nullptr;
+    REQUIRE(device->CreateShaderModule(named, withEntry).IsOk());
+    REQUIRE(device->CreateShaderModule(unnamed, withoutEntry).IsOk());
+    CHECK(withEntry->entryPoint.AsView() == StringView(u8"VSMain"));
+
+    PipelineLayout* layout = nullptr;
+    REQUIRE(device->CreatePipelineLayout(PipelineLayoutDesc{}, layout).IsOk());
+
+    const auto build = [&](ProgrammableStage stage) -> bool
+    {
+        RenderPipelineDesc desc{};
+        desc.layout = layout;
+        desc.vertex.shader = stage;
+        RenderPipeline* pipeline = nullptr;
+        const bool ok = device->CreateRenderPipeline(desc, pipeline).IsOk();
+        if (pipeline != nullptr)
+        {
+            device->DestroyRenderPipeline(pipeline);
+        }
+        return ok;
+    };
+    CHECK(build(StageOf(withEntry, ShaderStage::Vertex)));
+    CHECK(build(ProgrammableStage{withoutEntry, u8"main", ShaderStage::Vertex}));
+    CHECK_FALSE(build(StageOf(withoutEntry, ShaderStage::Vertex)));
+
+    device->DestroyPipelineLayout(layout);
+    device->DestroyShaderModule(withEntry);
+    device->DestroyShaderModule(withoutEntry);
+    device->Destroy();
+    vb->Destroy();
+}

@@ -390,9 +390,10 @@ export namespace foundation::rhi::null
             out = s;
             return ErrorCode::Ok;
         }
-        Status CreateShaderModule(const ShaderModuleDesc&, ShaderModule*& out) override
+        Status CreateShaderModule(const ShaderModuleDesc& d, ShaderModule*& out) override
         {
             out = m_allocator.New<NullShaderModule>();
+            out->entryPoint = String(d.entryPoint);
             return ErrorCode::Ok;
         }
         Status CreateBindGroupLayout(const BindGroupLayoutDesc&, BindGroupLayout*& out) override

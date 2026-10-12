@@ -27,7 +27,7 @@ namespace shaders = foundation::shaders;
 namespace
 {
     // One placeholder variant per stage, under every cooked format so the pack answers
-    // whatever format the device reports.
+    // whatever format the device reports, with the entry point the cook records.
     void AddPlaceholder(shaders::CookedShaderPack& pack, StringView name,
                         shaders::ShaderStage stage)
     {
@@ -39,6 +39,7 @@ namespace
         {
             pack.Add(name, stage, shaders::ShaderFlags::None, format, Span<const byte>(kBlob, 4));
         }
+        pack.AddEntryPoint(name, stage, shaders::kCorpusEntryPoint); // as the cook records it
     }
 }
 

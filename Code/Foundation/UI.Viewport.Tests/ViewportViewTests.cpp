@@ -31,6 +31,7 @@ namespace
         const u8 dummy[4] = {0, 0, 0, 0};
         rhi::ShaderModuleDesc desc{};
         desc.code = Span<const u8>(dummy, 4);
+        desc.entryPoint = u8"main"; // what the shader system records on a module it compiles
         rhi::ShaderModule* m = nullptr;
         (void)d.CreateShaderModule(desc, m);
         return m;

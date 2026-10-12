@@ -253,6 +253,7 @@ export namespace foundation::shaders
             // Record the declared mask so the dist runtime can canonicalize requests onto the
             // cooked lattice (dev == dist behaviour).
             pack.AddDeclaredMask(stem, stage, directive.mask);
+            pack.AddEntryPoint(stem, stage, kCorpusEntryPoint); // the corpus: a file per stage
 
             Array<ShaderFlags> variants;
             EnumerateVariants(directive.mask, variants);
@@ -327,7 +328,8 @@ export namespace foundation::shaders
     {
         if (format == CookedShaderFormat::Wgsl)
         {
-            const WgslCookResult wr = translator.Translate(source, stage, flags, includePaths);
+            const WgslCookResult wr =
+                translator.Translate(source, stage, kCorpusEntryPoint, flags, includePaths);
             if (!wr.success)
             {
                 report.errors.PushBack(FormatError(fileName, wr.error.AsView()));
@@ -364,7 +366,7 @@ export namespace foundation::shaders
         CompileResult cr{};
         const Status st =
             compiler.compile(reinterpret_cast<const u8*>(source.Data()), source.Size(), stage,
-                             u8"main", target, co, cr);
+                             kCorpusEntryPoint, target, co, cr);
         if (st != ErrorCode::Ok || !cr.success)
         {
             report.errors.PushBack(FormatError(

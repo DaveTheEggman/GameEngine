@@ -37,7 +37,9 @@ export namespace foundation::rhi::vk
             if (!vkMod)
                 return ErrorCode::Unknown;
 
-            String entry = String(desc.compute.entryPoint);
+            String entry = String(EntryPointOf(desc.compute));
+            if (entry.IsEmpty())
+                return ErrorCode::InvalidArgument; // no entry point named by the stage or its module
 
             VkPipelineShaderStageCreateInfo stage{};
             stage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

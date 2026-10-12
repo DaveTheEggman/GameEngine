@@ -58,7 +58,7 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
     rhi::null::NullDevice device{DefaultAllocator()};
     {
         ShaderSystem ss(*compiler, device);
-        ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap);
+        ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap, kCorpusEntryPoint);
 
         // Without the flag, NORMAL_MAP is undefined -> compile error -> null (not cached).
         CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::None) == nullptr);
@@ -132,6 +132,7 @@ TEST_CASE("shader system: cooked pack path - blob lookup + canonicalization, no 
         pack.Add(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned, CookedShaderFormat::SpirV,
                  Span<const byte>(skin.Data(), skin.Size()));
         pack.AddDeclaredMask(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned);
+        pack.AddEntryPoint(u8"vs", ShaderStage::Vertex, kCorpusEntryPoint);
 
         ShaderSystem ss(*compiler, device);
         ss.SetCookedPack(&pack);
@@ -177,7 +178,7 @@ TEST_CASE("shader system: distinct variants cache separately; invalidate recompi
     rhi::null::NullDevice device{DefaultAllocator()};
     {
         ShaderSystem ss(*compiler, device);
-        ss.RegisterSource(u8"vs", ShaderStage::Vertex, kTrivialVertex);
+        ss.RegisterSource(u8"vs", ShaderStage::Vertex, kTrivialVertex, kCorpusEntryPoint);
 
         rhi::ShaderModule* a = ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::None);
         rhi::ShaderModule* b = ss.GetVariant(u8"vs", ShaderStage::Vertex, ShaderFlags::Skinned);
@@ -215,7 +216,7 @@ TEST_CASE("shader system: an explicitly registered source beats the cooked pack"
 
         ShaderSystem ss(*compiler, device);
         ss.SetCookedPack(&pack);
-        ss.RegisterSource(u8"user_shader", ShaderStage::Vertex, kTrivialVertex);
+        ss.RegisterSource(u8"user_shader", ShaderStage::Vertex, kTrivialVertex, kCorpusEntryPoint);
 
         // The registered source compiles even though the system is in pack mode.
         rhi::ShaderModule* m =
@@ -277,7 +278,7 @@ TEST_CASE("shader system: dev mode canonicalizes corpus requests like the cooked
 
         // Explicitly REGISTERED sources are outside the corpus model: raw flags still apply
         // (the NormalMap-guarded source only compiles when the define survives).
-        ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap);
+        ss.RegisterSource(u8"guarded", ShaderStage::Fragment, kNeedsNormalMap, kCorpusEntryPoint);
         CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::NormalMap) !=
               nullptr);
     }
@@ -410,4 +411,57 @@ TEST_CASE("shader system host: a dist data root with ONLY the pack under Shaders
         REQUIRE(host.Initialize(device, dataFs));
         CHECK(host.UsingPack() == !haveCompiler);
     }
+}
+
+// One file can serve both stages as named functions: each registered stage carries its entry,
+// every module made from it records that entry (so a pipeline need not name it), and the cooked
+// path takes the entry from the pack.
+TEST_CASE("shader system: a stage's entry point is registered with it and recorded on its modules")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    constexpr const char8_t* kOneFile =
+        u8"struct VSOut { float4 pos : SV_Position; };\n"
+        u8"VSOut VSMain(uint id : SV_VertexID) { VSOut o; o.pos = float4(0, 0, 0, 1); return o; }\n"
+        u8"float4 PSMain(VSOut input) : SV_Target0 { return float4(1, 0, 0, 1); }\n";
+
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        ShaderSystem ss(*compiler, device);
+        ss.RegisterSource(u8"one", ShaderStage::Vertex, kOneFile, u8"VSMain");
+        ss.RegisterSource(u8"one", ShaderStage::Fragment, kOneFile, u8"PSMain");
+        rhi::ShaderModule* vs = ss.GetVariant(u8"one", ShaderStage::Vertex, ShaderFlags::None);
+        rhi::ShaderModule* ps = ss.GetVariant(u8"one", ShaderStage::Fragment, ShaderFlags::None);
+        REQUIRE(vs != nullptr);
+        REQUIRE(ps != nullptr);
+        CHECK(vs->entryPoint.AsView() == StringView(u8"VSMain"));
+        CHECK(ps->entryPoint.AsView() == StringView(u8"PSMain"));
+        // A stage that names none runs its module's own.
+        CHECK(rhi::EntryPointOf(rhi::StageOf(vs, rhi::ShaderStage::Vertex)) ==
+              StringView(u8"VSMain"));
+        CHECK(rhi::EntryPointOf(rhi::ProgrammableStage{vs, u8"Other", rhi::ShaderStage::Vertex}) ==
+              StringView(u8"Other"));
+
+        // A wrong entry name is a compile failure, not a module named something it lacks.
+        ss.RegisterSource(u8"wrong", ShaderStage::Vertex, kOneFile, u8"NoSuchFunction");
+        CHECK(ss.GetVariant(u8"wrong", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
+    }
+    {
+        // Compiler-free: the cooked pack supplies the entry the cook compiled the stage for.
+        CookedShaderPack pack;
+        const byte blob[] = {byte{1}, byte{2}, byte{3}, byte{4}};
+        pack.Add(u8"cooked", ShaderStage::Fragment, ShaderFlags::None, CookedShaderFormat::SpirV,
+                 Span<const byte>(blob, 4));
+        pack.AddEntryPoint(u8"cooked", ShaderStage::Fragment, u8"PSMain");
+        ShaderSystem ss(device);
+        ss.SetCookedPack(&pack);
+        rhi::ShaderModule* m = ss.GetVariant(u8"cooked", ShaderStage::Fragment, ShaderFlags::None);
+        REQUIRE(m != nullptr);
+        CHECK(m->entryPoint.AsView() == StringView(u8"PSMain"));
+    }
+    compiler->Destroy();
 }

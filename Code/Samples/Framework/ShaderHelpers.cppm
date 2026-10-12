@@ -66,6 +66,7 @@ export namespace samples::framework
         rhi::ShaderModuleDesc desc{};
         desc.code = Span<const u8>(cr.bytecode, cr.bytecodeSize);
         desc.label = label;
+        desc.entryPoint = entryPoint;
         r = device->CreateShaderModule(desc, out);
 
         compiler->freeResult(cr);

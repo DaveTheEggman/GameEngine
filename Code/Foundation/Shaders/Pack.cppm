@@ -76,6 +76,22 @@ export namespace foundation::shaders
                                            static_cast<u32>(mask));
         }
 
+        // Record the entry point a stage was cooked for (its function's name in the source); the
+        // runtime gives it to the module it creates, so pipelines run the function the source
+        // declares. The cook calls this once per stage.
+        void AddEntryPoint(StringView name, ShaderStage stage, StringView entryPoint)
+        {
+            m_entryPoints.InsertOrAssign(MaskKey(ShaderNameHash(name), stage), String(entryPoint));
+        }
+
+        // The entry point (name, stage) was cooked for; empty if the stage is absent. Stable while
+        // the pack is not modified (a loaded pack is read-only).
+        [[nodiscard]] StringView EntryPoint(u64 nameHash, ShaderStage stage) const
+        {
+            const String* e = m_entryPoints.Find(MaskKey(nameHash, stage));
+            return (e != nullptr) ? e->AsView() : StringView{};
+        }
+
         // The declared mask for (name, stage); None if the stage declared none / is absent.
         [[nodiscard]] ShaderFlags DeclaredMask(u64 nameHash, ShaderStage stage) const
         {
@@ -145,6 +161,13 @@ export namespace foundation::shaders
                 w.Write<u32>(kv.value);
             }
 
+            w.Write<u32>(static_cast<u32>(m_entryPoints.Size()));
+            for (const auto& kv : m_entryPoints)
+            {
+                w.Write<u64>(kv.key);
+                w.WriteString(kv.value.AsView());
+            }
+
             w.Write<u32>(static_cast<u32>(m_entries.Size()));
             for (const Entry& e : m_entries)
             {
@@ -164,6 +187,7 @@ export namespace foundation::shaders
             m_index.Clear();
             m_names.Clear();
             m_declaredMasks.Clear();
+            m_entryPoints.Clear();
 
             BinaryReader r(in);
             u32 magic = 0;
@@ -217,6 +241,21 @@ export namespace foundation::shaders
                 m_declaredMasks.InsertOrAssign(maskKey, mask);
             }
 
+            u32 entryPointCount = 0;
+            r.Read(entryPointCount);
+            if (entryPointCount > remaining() / 12) // key(8) + length(4) minimum per record
+            {
+                return Status{ErrorCode::InvalidArgument};
+            }
+            for (u32 i = 0; i < entryPointCount && r.IsOk(); ++i)
+            {
+                u64 key = 0;
+                String entryPoint;
+                r.Read(key);
+                r.ReadString(entryPoint);
+                m_entryPoints.InsertOrAssign(key, Move(entryPoint));
+            }
+
             u32 entryCount = 0;
             r.Read(entryCount);
             if (entryCount > remaining() / 24) // fixed header bytes per entry
@@ -257,7 +296,9 @@ export namespace foundation::shaders
 
     private:
         static constexpr u32 kMagic = 0x4b505344u;   // "DSPK" little-endian
-        static constexpr u32 kVersion = 2u;          // v2 added the declared-mask table
+        // v2 added the declared-mask table; v3 the entry-point table (an older pack is refused:
+        // it would run every stage as `main`, so the export cooks it again).
+        static constexpr u32 kVersion = 3u;
 
         [[nodiscard]] static u64 MaskKey(u64 nameHash, ShaderStage stage) noexcept
         {
@@ -286,5 +327,6 @@ export namespace foundation::shaders
         HashMap<u64, usize> m_index;         // combined key -> index into m_entries
         HashMap<u64, String> m_names;        // nameHash -> name (enumeration)
         HashMap<u64, u32> m_declaredMasks;   // MaskKey(nameHash, stage) -> ShaderFlags bits
+        HashMap<u64, String> m_entryPoints;  // MaskKey(nameHash, stage) -> entry point
     };
 }

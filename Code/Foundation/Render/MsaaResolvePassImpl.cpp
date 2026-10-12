@@ -78,7 +78,7 @@ namespace foundation::render
         targets[2].format = kGMaterialFormat; // SV_Target2 = material
         targets[3].format = kGAlbedoFormat;   // SV_Target3 = albedo
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{targets, 4};
 
         // Depth written via SV_Depth: depth test must be enabled to permit the write (Vulkan gates
@@ -91,7 +91,7 @@ namespace foundation::render
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.depthStencil = ds;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;

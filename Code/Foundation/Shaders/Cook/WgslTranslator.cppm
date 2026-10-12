@@ -75,7 +75,10 @@ export namespace foundation::shaders
         [[nodiscard]] bool HasNaga() const noexcept { return !m_naga.IsEmpty(); }
         [[nodiscard]] bool HasTint() const noexcept { return !m_tint.IsEmpty(); }
 
+        // `entryPoint` is the stage's function in `hlsl`; the WGSL keeps its name (naga carries the
+        // SPIR-V entry name through), so a pipeline asks for the same name on every backend.
         [[nodiscard]] WgslCookResult Translate(StringView hlsl, ShaderStage stage,
+                                               StringView entryPoint,
                                                ShaderFlags flags = ShaderFlags::None,
                                                Span<const StringView> includePaths = {})
         {
@@ -111,7 +114,7 @@ export namespace foundation::shaders
             CompileResult cr{};
             const Status st =
                 m_compiler->compile(reinterpret_cast<const u8*>(hlsl.Data()), hlsl.Size(), stage,
-                                    u8"main", ShaderTarget::SPIRV, opts, cr);
+                                    entryPoint, ShaderTarget::SPIRV, opts, cr);
             if (st != ErrorCode::Ok || !cr.success)
             {
                 result.failedStage = WgslCookStage::Compile;

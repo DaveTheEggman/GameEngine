@@ -451,6 +451,7 @@ export namespace foundation::rhi::vk
                 out = nullptr;
                 return ErrorCode::Unknown;
             }
+            m->entryPoint = String(d.entryPoint);
             out = m;
             return ErrorCode::Ok;
         }

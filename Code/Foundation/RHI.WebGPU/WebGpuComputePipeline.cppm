@@ -32,7 +32,11 @@ export namespace foundation::rhi::webgpu
                 return ErrorCode::InvalidArgument;
             }
 
-            String entry(pipelineDesc.compute.entryPoint);
+            String entry(EntryPointOf(pipelineDesc.compute));
+            if (entry.IsEmpty())
+            {
+                return ErrorCode::InvalidArgument; // no entry named by the stage or its module
+            }
             WGPUComputePipelineDescriptor wgpuDesc = WGPU_COMPUTE_PIPELINE_DESCRIPTOR_INIT;
             wgpuDesc.label = ToWgpuStringView(pipelineDesc.label);
             auto* pipelineLayout = static_cast<WebGpuPipelineLayout*>(pipelineDesc.layout);

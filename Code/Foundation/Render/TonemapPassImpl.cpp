@@ -221,12 +221,12 @@ namespace foundation::render
         rhi::ColorTargetState color{};
         color.format = fmt;
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;

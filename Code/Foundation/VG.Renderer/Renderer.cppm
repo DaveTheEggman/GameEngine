@@ -1058,12 +1058,12 @@ export namespace foundation::vg::renderer
             rhi::RenderPipelineDesc desc{};
             desc.layout = m_pipelineLayout;
             desc.vertex.shader =
-                rhi::ProgrammableStage{&vertShader, u8"main", rhi::ShaderStage::Vertex};
+                rhi::StageOf(&vertShader, rhi::ShaderStage::Vertex);
             desc.vertex.buffers = Span<const rhi::VertexBufferLayout>(vertexBuffers, 1);
 
             rhi::FragmentState fragment{};
             fragment.shader =
-                rhi::ProgrammableStage{&fragShader, u8"main", rhi::ShaderStage::Fragment};
+                rhi::StageOf(&fragShader, rhi::ShaderStage::Fragment);
             fragment.targets = Span<const rhi::ColorTargetState>(colorTargets, 1);
             desc.fragment = fragment;
 

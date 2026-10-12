@@ -391,6 +391,7 @@ export namespace foundation::rhi::dx12
                 out = nullptr;
                 return ErrorCode::Unknown;
             }
+            m->entryPoint = String(d.entryPoint);
             out = m;
             return ErrorCode::Ok;
         }

@@ -31,8 +31,9 @@ namespace rhi = foundation::rhi;
 export namespace foundation::shaders
 {
 
-    // Authored shader: a name + per-stage HLSL. (v1 carries inline source; a path /
-    // cooked-bytecode variant can replace the strings later.)
+    // Authored shader: a name + per-stage HLSL, and the entry point each stage's function is
+    // called in its source. (v1 carries inline source; a path / cooked-bytecode variant can replace
+    // the strings later.)
     class ShaderSource final : public ISerializable
     {
         RTTI_OBJECT(ShaderSource, ISerializable)
@@ -40,12 +41,16 @@ export namespace foundation::shaders
         String name;
         String vertexSource;
         String fragmentSource;
+        String vertexEntryPoint;
+        String fragmentEntryPoint;
 
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "name", name);
             foundation::core::Serialize(ar, "vertexSource", vertexSource);
             foundation::core::Serialize(ar, "fragmentSource", fragmentSource);
+            foundation::core::Serialize(ar, "vertexEntryPoint", vertexEntryPoint);
+            foundation::core::Serialize(ar, "fragmentEntryPoint", fragmentEntryPoint);
         }
     };
 
@@ -111,9 +116,11 @@ export namespace foundation::shaders
             }
 
             m_system->RegisterSource(source->name.AsView(), ShaderStage::Vertex,
-                                     source->vertexSource.AsView());
+                                     source->vertexSource.AsView(),
+                                     source->vertexEntryPoint.AsView());
             m_system->RegisterSource(source->name.AsView(), ShaderStage::Fragment,
-                                     source->fragmentSource.AsView());
+                                     source->fragmentSource.AsView(),
+                                     source->fragmentEntryPoint.AsView());
             m_system->InvalidateShader(source->name.AsView()); // drop stale variants + bump version
 
             RefPtr<ShaderResource> res = MakeRef<ShaderResource>(*m_allocator);

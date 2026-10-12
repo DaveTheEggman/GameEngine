@@ -36,9 +36,10 @@ export namespace foundation::shaders
     public:
         virtual ~IShaderSourceProvider() = default;
 
-        /// HLSL text for (name, stage); false when the provider has no such shader.
-        virtual bool FetchSource(core::StringView name, ShaderStage stage,
-                                 core::String& outSource) = 0;
+        /// HLSL text for (name, stage) and the entry point that stage's function is called in it;
+        /// false when the provider has no such shader.
+        virtual bool FetchSource(core::StringView name, ShaderStage stage, core::String& outSource,
+                                 core::String& outEntryPoint) = 0;
 
         /// Every shader name the provider can serve (tooling: builtin dropdowns).
         virtual void CollectShaderNames(core::Array<core::String>& out) = 0;
@@ -66,8 +67,10 @@ export namespace foundation::shaders
     }
 
     // Compile-on-demand variant cache. The Compiler and Device are borrowed (owned by
-    // the caller). Sources are registered per (name, stage) - vertex and fragment are
-    // separate HLSL with `main` entry points (as in the Sedulous shader set).
+    // the caller). Sources are registered per (name, stage), each with the entry point its
+    // function is called (one file may serve both stages as VSMain and PSMain; the engine's own
+    // shaders are a file per stage with `main`). Every module it creates records that entry
+    // (rhi::ShaderModule::entryPoint), so a pipeline built on it need not name one.
     class ShaderSystem
     {
     public:
@@ -87,14 +90,16 @@ export namespace foundation::shaders
         ShaderSystem(const ShaderSystem&) = delete;
         ShaderSystem& operator=(const ShaderSystem&) = delete;
 
-        // Register a shader's HLSL source for a stage (owned copy). Explicitly registered
-        // sources are compiled with the RAW requested flags (no declared-mask model): they are
-        // outside the corpus/cook lattice by definition, and callers like the NormalMap-guarded
-        // tests rely on every requested define being applied.
-        void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl)
+        // Register a shader's HLSL source for a stage (owned copy), and the entry point that
+        // stage's function is called in it. Explicitly registered sources are compiled with the
+        // RAW requested flags (no declared-mask model): they are outside the corpus/cook lattice
+        // by definition, and callers like the NormalMap-guarded tests rely on every requested
+        // define being applied.
+        void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl,
+                            core::StringView entryPoint)
         {
             const core::u64 key = SourceKey(name, stage);
-            m_sources.InsertOrAssign(key, core::String(hlsl));
+            m_sources.InsertOrAssign(key, Source{core::String(hlsl), core::String(entryPoint)});
             m_declaredMasks.Remove(key); // explicit registration overrides a provider fetch
         }
 
@@ -248,17 +253,17 @@ export namespace foundation::shaders
                                                             ShaderStage stage, ShaderFlags flags)
         {
             const core::u64 srcKey = SourceKey(name, stage);
-            core::String* source = m_sources.Find(srcKey);
+            Source* source = m_sources.Find(srcKey);
             if (source == nullptr && m_provider != nullptr)
             {
-                core::String fetched;
-                if (m_provider->FetchSource(name, stage, fetched))
+                Source fetched;
+                if (m_provider->FetchSource(name, stage, fetched.hlsl, fetched.entryPoint))
                 {
                     m_sources.InsertOrAssign(srcKey, core::Move(fetched));
                     source = m_sources.Find(srcKey);
                     // Corpus sources carry the variant directive; absent means single-variant
                     // (mask None) - the same rule the cook applies.
-                    const VariantDirective directive = ParseVariantDirective(source->AsView());
+                    const VariantDirective directive = ParseVariantDirective(source->hlsl.AsView());
                     m_declaredMasks.InsertOrAssign(
                         srcKey, directive.present ? directive.mask : ShaderFlags::None);
                 }
@@ -279,7 +284,8 @@ export namespace foundation::shaders
                 return *cached;
             }
 
-            rhi::ShaderModule* module = Compile(source->AsView(), stage, canon);
+            rhi::ShaderModule* module =
+                Compile(source->hlsl.AsView(), source->entryPoint.AsView(), stage, canon);
             if (module == nullptr)
             {
                 return nullptr;
@@ -337,9 +343,21 @@ export namespace foundation::shaders
                 return nullptr;
             }
 
+            // The entry the cook compiled this stage for; a pack without one predates entry
+            // names (format v3) and is refused at load, so empty here is a cook bug.
+            const core::StringView entryPoint = m_pack->EntryPoint(nameHash, stage);
+            if (entryPoint.IsEmpty())
+            {
+                rhi::LogErrorf("Cooked shader '%.*s' stage %u has no entry point in the pack",
+                               static_cast<int>(name.Size()),
+                               reinterpret_cast<const char*>(name.Data()),
+                               static_cast<unsigned>(stage));
+                return nullptr;
+            }
             rhi::ShaderModuleDesc desc{};
             desc.code = core::Span<const core::u8>(reinterpret_cast<const core::u8*>(blob->Data()),
                                                    blob->Size());
+            desc.entryPoint = entryPoint;
             rhi::ShaderModule* module = nullptr;
             if (m_device->CreateShaderModule(desc, module) != core::ErrorCode::Ok)
             {
@@ -349,8 +367,8 @@ export namespace foundation::shaders
             return module;
         }
 
-        [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, ShaderStage stage,
-                                                 ShaderFlags flags)
+        [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, core::StringView entryPoint,
+                                                 ShaderStage stage, ShaderFlags flags)
         {
             if (m_compiler == nullptr)
             {
@@ -383,7 +401,7 @@ export namespace foundation::shaders
             CompileResult cr{};
             const core::Status r =
                 m_compiler->compile(reinterpret_cast<const core::u8*>(source.Data()), source.Size(),
-                                    stage, u8"main", target, opts, cr);
+                                    stage, entryPoint, target, opts, cr);
 
             if (r != core::ErrorCode::Ok || !cr.success)
             {
@@ -397,6 +415,7 @@ export namespace foundation::shaders
 
             rhi::ShaderModuleDesc desc{};
             desc.code = core::Span<const core::u8>(cr.bytecode, cr.bytecodeSize);
+            desc.entryPoint = entryPoint;
             rhi::ShaderModule* module = nullptr;
             const core::Status mr = m_device->CreateShaderModule(desc, module);
             m_compiler->freeResult(cr);
@@ -431,11 +450,18 @@ export namespace foundation::shaders
             ++(*v);
         }
 
+        // A stage's source and the name of its function in it.
+        struct Source
+        {
+            core::String hlsl;
+            core::String entryPoint;
+        };
+
         Compiler* m_compiler;                             // borrowed
         rhi::Device* m_device;                            // borrowed
         IShaderSourceProvider* m_provider = nullptr;      // borrowed (may be null)
         const CookedShaderPack* m_pack = nullptr;         // dist mode: cooked blobs (borrowed)
-        core::HashMap<core::u64, core::String> m_sources; // (name,stage) -> HLSL
+        core::HashMap<core::u64, Source> m_sources;       // (name,stage) -> HLSL + entry
         // Declared variant mask per PROVIDER-FETCHED (corpus) source - the dev half of the
         // canonicalization contract. Explicitly registered sources have no entry (raw flags).
         core::HashMap<core::u64, ShaderFlags> m_declaredMasks;

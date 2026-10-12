@@ -262,11 +262,11 @@ namespace foundation::render
         targets[0].format = kHistoryFormat; // resolved
         targets[1].format = kHistoryFormat; // history
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{targets, 2};
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;

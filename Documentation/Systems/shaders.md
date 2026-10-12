@@ -43,12 +43,23 @@ position through an inverse projection is convention-free. See renderer.md 8.1.
 
 ## Variant model + cooked pack
 
-RHI takes BYTECODE only (`ShaderModuleDesc.code` = SPIR-V / DXIL; source never crosses the RHI
-boundary). `ShaderSystem` is a per-(name, stage) source registry + `ShaderFlags` (permutation bits ->
+RHI takes BYTECODE only (`ShaderModuleDesc.code` = SPIR-V / DXIL, or WGSL text; HLSL never crosses
+the RHI boundary). `ShaderSystem` is a per-(name, stage) source registry + `ShaderFlags` (permutation bits ->
 `#define`s) + compile-on-demand caching. Cook: shaders declare their meaningful variant subset of the
 flag space; the cooker compiles each `(name, stage, variant, backend)` to a `ShaderPack` blob (SPIR-V /
 DXIL bytecode, or WGSL text), binary + versioned + self-describing (carries the name table so the
 runtime provider resolves by name). A shipped dist reads the pack and carries no DXC or naga.
+
+**Entry points are data, not an assumption.** Every source is registered per (name, stage) with
+the name of that stage's function in it (`RegisterSource(name, stage, hlsl, entryPoint)`; a
+provider returns it with the text): one file may serve both stages as `VSMain` and `PSMain`, and
+the engine's own corpus states its convention once, a file per stage whose function is `main`
+(`kCorpusEntryPoint`). The compiler, the WGSL translation and the pack carry it (pack format v3
+added a per-stage entry table; an older pack is refused and cooked again), and every module the
+system creates records it (`ShaderModuleDesc::entryPoint` -> `ShaderModule::entryPoint`). A
+pipeline stage runs the entry it names, else its module's (`rhi::EntryPointOf`; `rhi::StageOf`
+builds a stage that runs the module's), so no pass or cache writes `main`; a stage with neither
+is refused by every backend and by the validation layer.
 
 Two source directives, parsed from the stage file by every compile site (the runtime system, the
 pack cooker, the WGSL translator): `// variants: A B C` declares the flag lattice; `//

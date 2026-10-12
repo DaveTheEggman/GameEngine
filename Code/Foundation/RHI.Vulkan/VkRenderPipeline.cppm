@@ -36,8 +36,10 @@ export namespace foundation::rhi::vk
 
             // Shader stages.
             Array<VkPipelineShaderStageCreateInfo> stages;
-            String vsEntry = String(desc.vertex.shader.entryPoint);
+            String vsEntry = String(EntryPointOf(desc.vertex.shader));
             String fsEntry;
+            if (vsEntry.IsEmpty())
+                return ErrorCode::InvalidArgument; // no entry point named by the stage or its module
 
             auto* vsMod = static_cast<VkShaderModuleImpl*>(desc.vertex.shader.module);
             if (!vsMod)
@@ -51,7 +53,9 @@ export namespace foundation::rhi::vk
 
             if (desc.fragment.HasValue())
             {
-                fsEntry = String(desc.fragment->shader.entryPoint);
+                fsEntry = String(EntryPointOf(desc.fragment->shader));
+                if (fsEntry.IsEmpty())
+                    return ErrorCode::InvalidArgument;
                 auto* fsMod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module);
                 if (fsMod)
                 {

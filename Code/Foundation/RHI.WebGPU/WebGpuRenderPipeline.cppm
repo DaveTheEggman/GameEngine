@@ -47,7 +47,11 @@ export namespace foundation::rhi::webgpu
             m_pushConstants = pipelineLayout->EmulationInfo();
 
             // ---- Vertex stage + buffers ----
-            String vertexEntry(pipelineDesc.vertex.shader.entryPoint);
+            String vertexEntry(EntryPointOf(pipelineDesc.vertex.shader));
+            if (vertexEntry.IsEmpty())
+            {
+                return ErrorCode::InvalidArgument; // no entry named by the stage or its module
+            }
             wgpuDesc.vertex.module =
                 static_cast<WebGpuShaderModule*>(pipelineDesc.vertex.shader.module)->Handle();
             wgpuDesc.vertex.entryPoint = ToWgpuStringView(vertexEntry.AsView());
@@ -138,7 +142,11 @@ export namespace foundation::rhi::webgpu
             if (pipelineDesc.fragment.HasValue())
             {
                 const FragmentState& fs = pipelineDesc.fragment.Value();
-                fragmentEntry = String(fs.shader.entryPoint);
+                fragmentEntry = String(EntryPointOf(fs.shader));
+                if (fragmentEntry.IsEmpty())
+                {
+                    return ErrorCode::InvalidArgument;
+                }
                 fragment.module =
                     static_cast<WebGpuShaderModule*>(fs.shader.module)->Handle();
                 fragment.entryPoint = ToWgpuStringView(fragmentEntry.AsView());

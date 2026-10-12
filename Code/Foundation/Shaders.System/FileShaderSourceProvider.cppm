@@ -124,13 +124,14 @@ export namespace foundation::shaders
                    ReadWholeFile(path, outSource);
         }
 
-        bool FetchSource(core::StringView name, ShaderStage stage,
-                         core::String& outSource) override
+        bool FetchSource(core::StringView name, ShaderStage stage, core::String& outSource,
+                         core::String& outEntryPoint) override
         {
             for (const Entry& entry : m_entries)
             {
                 if (entry.stage == stage && entry.name.AsView() == name)
                 {
+                    outEntryPoint = core::String(kCorpusEntryPoint); // a file per stage
                     return ReadWholeFile(entry.path.AsView(), outSource);
                 }
             }

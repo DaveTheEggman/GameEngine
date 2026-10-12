@@ -152,11 +152,11 @@ namespace foundation::render
         rhi::ColorTargetState color{};
         color.format = kHdrFormat;
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;
@@ -183,11 +183,11 @@ namespace foundation::render
         rtargets[0].format = kHdrFormat; // composited HDR
         rtargets[1].format = kHdrFormat; // reflection history
         rhi::FragmentState rfrag{};
-        rfrag.shader = rhi::ProgrammableStage{rps, u8"main", rhi::ShaderStage::Fragment};
+        rfrag.shader = rhi::StageOf(rps, rhi::ShaderStage::Fragment);
         rfrag.targets = Span<const rhi::ColorTargetState>{rtargets, 2};
         rhi::RenderPipelineDesc rpd{};
         rpd.layout = m_resolvePipelineLayout;
-        rpd.vertex.shader = rhi::ProgrammableStage{rvs, u8"main", rhi::ShaderStage::Vertex};
+        rpd.vertex.shader = rhi::StageOf(rvs, rhi::ShaderStage::Vertex);
         rpd.fragment = rfrag;
         rpd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         rpd.primitive.cullMode = rhi::CullMode::None;

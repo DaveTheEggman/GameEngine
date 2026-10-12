@@ -294,7 +294,12 @@ export namespace foundation::rhi::webgpu
         Status CreateShaderModule(const ShaderModuleDesc& moduleDesc, ShaderModule*& out) override
         {
             return CreateResource<WebGpuShaderModule>(
-                out, [&](WebGpuShaderModule& m) { return m.Initialize(*m_api, m_device, moduleDesc); });
+                out,
+                [&](WebGpuShaderModule& m)
+                {
+                    m.entryPoint = String(moduleDesc.entryPoint);
+                    return m.Initialize(*m_api, m_device, moduleDesc);
+                });
         }
         Status CreateBindGroupLayout(const BindGroupLayoutDesc& layoutDesc,
                                      BindGroupLayout*& out) override

@@ -99,8 +99,12 @@ export namespace foundation::rhi
 
     struct ShaderModuleDesc
     {
-        Span<const u8> code; ///< SPIR-V or DXIL bytecode.
+        Span<const u8> code; ///< SPIR-V or DXIL bytecode, or WGSL text.
         StringView label;
+        /// The entry point the code was compiled for (`VSMain`, or `main` for the engine's own
+        /// shaders); a ProgrammableStage that names none uses it. Empty for a module that holds
+        /// several entries: every stage built from it must then name its own.
+        StringView entryPoint;
     };
 
     struct QuerySetDesc
@@ -369,11 +373,12 @@ export namespace foundation::rhi
         bool alphaToCoverageEnabled = false;
     };
 
-    /// Programmable shader stage (vertex, fragment, compute, mesh, task, etc.).
+    /// Programmable shader stage (vertex, fragment, compute, mesh, task, etc.). `entryPoint` empty
+    /// means the module's own (ShaderModuleDesc::entryPoint); see EntryPointOf.
     struct ProgrammableStage
     {
         ShaderModule* module = nullptr;
-        StringView entryPoint = u8"main";
+        StringView entryPoint;
         ShaderStage stage = ShaderStage::None;
     };
 

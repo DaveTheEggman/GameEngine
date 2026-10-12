@@ -178,7 +178,7 @@ namespace foundation::render
         targets[0].format = colorFmt;
         targets[1].format = kGVelocityFormat;
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{targets, 2};
         rhi::DepthStencilState ds{};
         ds.format = depthFmt;
@@ -189,7 +189,7 @@ namespace foundation::render
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.depthStencil = ds;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;

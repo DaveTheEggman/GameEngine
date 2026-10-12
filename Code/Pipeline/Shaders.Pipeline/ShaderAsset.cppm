@@ -23,6 +23,7 @@ export module shaders.pipeline;
 import foundation.core;
 import pipeline.core;
 import foundation.vfs;
+import foundation.shaders;
 import foundation.shaders.resource;
 import foundation.content;
 
@@ -62,6 +63,8 @@ export namespace pipeline{
         {
             return &ShaderSource::StaticType();
         }
+        // v2: the product names each stage's entry point.
+        [[nodiscard]] u32 Version() const override { return 2; }
 
         // The fragment file is a second source input (vertex = the implicit fileName): editing
         // it must dirty this shader's recipe hash.
@@ -88,6 +91,9 @@ export namespace pipeline{
 
             ShaderSource source;
             source.name = sa.name;
+            // A file per stage, each with its `main`: this asset's shape, the corpus's convention.
+            source.vertexEntryPoint = String(kCorpusEntryPoint);
+            source.fragmentEntryPoint = String(kCorpusEntryPoint);
 
             Status read = ReadSourceText(ctx, sa.fileName.View(), source.vertexSource);
             if (!read.IsOk())

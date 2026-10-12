@@ -162,7 +162,7 @@ export namespace foundation::materials
             {
                 buffers[bufferCount++] = VertexLayoutHelper::InstanceOffsetsBufferLayout();
             }
-            desc.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            desc.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             if (bufferCount > 0)
             {
                 desc.vertex.buffers = Span<const rhi::VertexBufferLayout>{buffers, bufferCount};
@@ -199,7 +199,7 @@ export namespace foundation::materials
                                                     : rhi::ColorWriteMask::None;
                 }
                 rhi::FragmentState frag{};
-                frag.shader = rhi::ProgrammableStage{fs, u8"main", rhi::ShaderStage::Fragment};
+                frag.shader = rhi::StageOf(fs, rhi::ShaderStage::Fragment);
                 frag.targets = Span<const rhi::ColorTargetState>{colorTargets, count};
                 desc.fragment = frag;
             }

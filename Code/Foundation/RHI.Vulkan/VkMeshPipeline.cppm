@@ -35,13 +35,15 @@ export namespace foundation::rhi::vk
             m_layout = vkLayout;
 
             Array<VkPipelineShaderStageCreateInfo> stages;
-            String meshEntry = String(desc.mesh.entryPoint);
+            String meshEntry = String(EntryPointOf(desc.mesh));
             String taskEntry, fsEntry;
+            if (meshEntry.IsEmpty())
+                return ErrorCode::InvalidArgument; // no entry named by the stage or its module
 
             // Task shader (optional).
             if (desc.task.HasValue())
             {
-                taskEntry = String(desc.task->entryPoint);
+                taskEntry = String(EntryPointOf(*desc.task));
                 if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.task->module))
                 {
                     VkPipelineShaderStageCreateInfo s{};
@@ -69,7 +71,7 @@ export namespace foundation::rhi::vk
             // Fragment shader (optional).
             if (desc.fragment.HasValue())
             {
-                fsEntry = String(desc.fragment->shader.entryPoint);
+                fsEntry = String(EntryPointOf(desc.fragment->shader));
                 if (auto* mod = static_cast<VkShaderModuleImpl*>(desc.fragment->shader.module))
                 {
                     VkPipelineShaderStageCreateInfo s{};

@@ -167,6 +167,8 @@ TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants 
     CHECK(pack.Find(u8"forward", ShaderStage::Fragment,
                     ShaderFlags::AlphaTest | ShaderFlags::GBuffer,
                     CookedShaderFormat::SpirV) != nullptr);
+    // Every corpus stage records the corpus's entry point, `main`.
+    CHECK(pack.EntryPoint(ShaderNameHash(u8"forward"), ShaderStage::Fragment) == kCorpusEntryPoint);
     // A single-variant shader has only its None variant.
     const Array<byte>* tonemapBlob =
         pack.Find(u8"tonemap", ShaderStage::Fragment, ShaderFlags::None, CookedShaderFormat::SpirV);
@@ -308,6 +310,8 @@ TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
              Span<const byte>(psWgsl, 4));
     pack.AddDeclaredMask(u8"forward", ShaderStage::Fragment,
                          ShaderFlags::AlphaTest | ShaderFlags::GBuffer);
+    pack.AddEntryPoint(u8"forward", ShaderStage::Vertex, u8"main");
+    pack.AddEntryPoint(u8"forward", ShaderStage::Fragment, u8"PSMain");
     CHECK(pack.Count() == 2u);
 
     MemoryStream buffer;
@@ -345,6 +349,31 @@ TEST_CASE("pack: add, serialize, reload, and look up cooked blobs")
           (ShaderFlags::AlphaTest | ShaderFlags::GBuffer));
     CHECK(loaded.DeclaredMask(ShaderNameHash(u8"forward"), ShaderStage::Vertex) ==
           ShaderFlags::None);
+
+    // Each stage's entry point survives too: the runtime gives it to the module it creates.
+    CHECK(loaded.EntryPoint(ShaderNameHash(u8"forward"), ShaderStage::Vertex) ==
+          StringView(u8"main"));
+    CHECK(loaded.EntryPoint(ShaderNameHash(u8"forward"), ShaderStage::Fragment) ==
+          StringView(u8"PSMain"));
+    CHECK(loaded.EntryPoint(ShaderNameHash(u8"nope"), ShaderStage::Vertex).IsEmpty());
+}
+
+// A version 2 pack has no entry points: read as one, every stage would run as `main`, so it is
+// refused and the export cooks it again.
+TEST_CASE("pack: a pack from before entry points is refused")
+{
+    MemoryStream buffer;
+    {
+        BinaryWriter w(buffer);
+        w.Write<u32>(0x4b505344u); // "DSPK"
+        w.Write<u32>(2u);
+        w.Write<u32>(0u); // names
+        w.Write<u32>(0u); // declared masks
+        w.Write<u32>(0u); // entries
+    }
+    REQUIRE(buffer.Seek(0, SeekOrigin::Begin) == 0);
+    CookedShaderPack loaded;
+    CHECK_FALSE(loaded.Read(buffer).IsOk());
 }
 
 // --- Variant model (directive parse / canonicalize / power-set / drift-lint) ---
@@ -497,7 +526,7 @@ TEST_CASE("wgsl cook: HLSL translates to WGSL with the binding shifts preserved"
         return;
     }
 
-    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment, u8"main");
     CHECK(r.success);
     CHECK(r.failedStage == WgslCookStage::Ok);
     // Standard() shift scheme: SRV t0 -> +100, Sampler s0 -> +300, CBV b0 -> 0.
@@ -505,6 +534,114 @@ TEST_CASE("wgsl cook: HLSL translates to WGSL with the binding shifts preserved"
     CHECK(Contains(r.wgsl.AsView(), u8"@binding(300)"));
     CHECK(Contains(r.wgsl.AsView(), u8"@binding(0)"));
 
+    compiler->Destroy();
+}
+
+namespace
+{
+    // One file, both stages, each its own entry point: what a one-file custom shader is.
+    constexpr const char* kTwoEntryHlsl =
+        "cbuffer C : register(b0, space0) { float4 Tint; };\n"
+        "struct VSOut { float4 pos : SV_Position; float2 uv : TEXCOORD0; };\n"
+        "VSOut VSMain(uint id : SV_VertexID) {\n"
+        "    VSOut o;\n"
+        "    o.uv = float2((id << 1) & 2, id & 2);\n"
+        "    o.pos = float4(o.uv * 2.0 - 1.0, 0.0, 1.0);\n"
+        "    return o;\n"
+        "}\n"
+        "float4 PSMain(VSOut input) : SV_Target0 {\n"
+        "    return float4(input.uv, 0.0, 1.0) * Tint;\n"
+        "}\n";
+
+    // The names of a SPIR-V module's OpEntryPoint instructions (opcode 15: execution model, id,
+    // then the name as a nul-terminated literal string).
+    Array<String> SpirvEntryPointNames(const void* code, usize size)
+    {
+        Array<String> names;
+        const usize count = size / 4;
+        Array<u32> words;
+        words.Resize(count);
+        std::memcpy(words.Data(), code, count * 4);
+        for (usize i = 5; i < count;)
+        {
+            const u32 wordCount = words[i] >> 16;
+            const u32 opcode = words[i] & 0xFFFFu;
+            if (wordCount == 0)
+            {
+                break;
+            }
+            if (opcode == 15u && wordCount > 3)
+            {
+                const char* name = reinterpret_cast<const char*>(&words[i + 3]);
+                names.PushBack(String(StringView(reinterpret_cast<const char8_t*>(name),
+                                                 std::strlen(name))));
+            }
+            i += wordCount;
+        }
+        return names;
+    }
+}
+
+// A custom shader is one file whose stages are named functions, not a `main` per file. The name
+// survives every target: SPIR-V carries it as the entry point, DXIL compiles from it, and the WGSL
+// cook keeps it (naga takes SPIR-V's entry name), so a pipeline can ask each backend for the name
+// the source declares.
+TEST_CASE("shaders: one file's VSMain and PSMain keep their names in SPIR-V, DXIL and WGSL")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping");
+        return;
+    }
+    const StringView source = Hlsl(kTwoEntryHlsl);
+    const struct
+    {
+        ShaderStage stage;
+        StringView entry;
+    } stages[2] = {{ShaderStage::Vertex, u8"VSMain"}, {ShaderStage::Fragment, u8"PSMain"}};
+
+    for (const auto& s : stages)
+    {
+        CAPTURE(s.entry);
+        CompileResult spirv{};
+        REQUIRE(compiler
+                    ->compile(reinterpret_cast<const u8*>(source.Data()), source.Size(), s.stage,
+                              s.entry, ShaderTarget::SPIRV, CompileOptions{}, spirv)
+                    .IsOk());
+        REQUIRE(spirv.success);
+        const Array<String> names = SpirvEntryPointNames(spirv.bytecode, spirv.bytecodeSize);
+        REQUIRE(names.Size() == 1u);
+        CHECK(names[0].AsView() == s.entry);
+        compiler->freeResult(spirv);
+
+        CompileResult dxil{};
+        (void)compiler->compile(reinterpret_cast<const u8*>(source.Data()), source.Size(), s.stage,
+                                s.entry, ShaderTarget::DXIL, CompileOptions{}, dxil);
+        CHECK(dxil.success);
+        compiler->freeResult(dxil);
+    }
+
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    if (translator.HasNaga() && translator.HasTint())
+    {
+        for (const auto& s : stages)
+        {
+            CAPTURE(s.entry);
+            const WgslCookResult r = translator.Translate(source, s.stage, s.entry);
+            CHECK_MESSAGE(r.success, r.error); // naga translated it and tint accepted it
+            String fn(u8"fn ");
+            fn += s.entry;
+            fn += u8"(";
+            CHECK(Contains(r.wgsl.AsView(), fn.AsView()));
+            CHECK_FALSE(Contains(r.wgsl.AsView(), u8"fn main("));
+        }
+    }
+    else
+    {
+        MESSAGE("naga or tint not vendored for this host; the WGSL half is skipped");
+    }
     compiler->Destroy();
 }
 
@@ -523,7 +660,8 @@ TEST_CASE("wgsl cook: tint rejects a WGSL uniformity violation")
         return;
     }
 
-    const WgslCookResult r = translator.Translate(Hlsl(kNonUniformPs), ShaderStage::Fragment);
+    const WgslCookResult r = 
+        translator.Translate(Hlsl(kNonUniformPs), ShaderStage::Fragment, u8"main");
     if (translator.HasTint())
     {
         // The conformance gate: tint must reject the non-uniform sample at the Validate stage.
@@ -561,14 +699,16 @@ TEST_CASE("wgsl cook: missing tint fails validation unless explicitly opted out"
     translator.SetTintPath(u8""); // simulate a host with no vendored tint
 
     // Validation requested (the default) but unavailable: loud failure at Validate.
-    const WgslCookResult failed = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    const WgslCookResult failed = 
+        translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment, u8"main");
     CHECK_FALSE(failed.success);
     CHECK(failed.failedStage == WgslCookStage::Validate);
     CHECK_FALSE(failed.error.IsEmpty());
 
     // The explicit opt-out cooks unvalidated WGSL - the caller owns the risk.
     translator.SetValidateWithTint(false);
-    const WgslCookResult optedOut = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    const WgslCookResult optedOut = 
+        translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment, u8"main");
     CHECK(optedOut.success);
     CHECK_FALSE(optedOut.wgsl.IsEmpty());
 
@@ -586,7 +726,7 @@ TEST_CASE("wgsl cook: a missing naga binary is reported, not a crash")
     WgslTranslator translator(*compiler, u8".test-scratch");
     translator.SetNagaPath(u8"scratch_no_such_naga_zzz");
 
-    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment);
+    const WgslCookResult r = translator.Translate(Hlsl(kCleanPs), ShaderStage::Fragment, u8"main");
     CHECK_FALSE(r.success);
     CHECK(r.failedStage == WgslCookStage::Translate);
     CHECK_FALSE(r.error.IsEmpty());

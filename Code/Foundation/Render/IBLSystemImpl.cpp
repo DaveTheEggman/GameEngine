@@ -960,7 +960,7 @@ namespace foundation::render
         }
         rhi::ComputePipelineDesc cpd{};
         cpd.layout = m_shPipelineLayout;
-        cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+        cpd.compute = rhi::StageOf(cs, rhi::ShaderStage::Compute);
         cpd.label = u8"ibl.sh";
         if (!m_device->CreateComputePipeline(cpd, m_shPipeline).IsOk())
         {
@@ -1011,7 +1011,7 @@ namespace foundation::render
 
         rhi::ComputePipelineDesc cpd{};
         cpd.layout = m_shPipelineLayout;
-        cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+        cpd.compute = rhi::StageOf(cs, rhi::ShaderStage::Compute);
         cpd.label = u8"ibl.sh";
         if (!m_device->CreateComputePipeline(cpd, m_shPipeline).IsOk())
         {
@@ -1037,11 +1037,11 @@ namespace foundation::render
         rhi::ColorTargetState color{};
         color.format = fmt;
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
         rhi::RenderPipelineDesc pd{};
         pd.layout = layout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None;

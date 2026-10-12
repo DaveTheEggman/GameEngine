@@ -74,7 +74,7 @@ namespace foundation::render
 
         rhi::ComputePipelineDesc cpd{};
         cpd.layout = m_pipelineLayout;
-        cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+        cpd.compute = rhi::StageOf(cs, rhi::ShaderStage::Compute);
         cpd.label = u8"cluster.build";
         if (!m_device->CreateComputePipeline(cpd, m_pipeline).IsOk())
         {
@@ -101,7 +101,7 @@ namespace foundation::render
                 }
                 rhi::ComputePipelineDesc cpd{};
                 cpd.layout = m_pipelineLayout;
-                cpd.compute = rhi::ProgrammableStage{cs, u8"main", rhi::ShaderStage::Compute};
+                cpd.compute = rhi::StageOf(cs, rhi::ShaderStage::Compute);
                 cpd.label = u8"cluster.build";
                 if (!m_device->CreateComputePipeline(cpd, m_pipeline).IsOk())
                 {

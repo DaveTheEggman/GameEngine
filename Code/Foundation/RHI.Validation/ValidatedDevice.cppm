@@ -221,6 +221,7 @@ export namespace foundation::rhi::validation
             if (!checkAlive("CreateRenderPipeline", out)) return ErrorCode::Unknown;
             if (d.layout == nullptr) { LogError("[Validation] CreateRenderPipeline: layout is null"); out = nullptr; return ErrorCode::InvalidArgument; }
             if (d.vertex.shader.module == nullptr) { LogError("[Validation] CreateRenderPipeline: vertex shader module is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (EntryPointOf(d.vertex.shader).IsEmpty() || (d.fragment.HasValue() && d.fragment->shader.module != nullptr && EntryPointOf(d.fragment->shader).IsEmpty())) { LogError("[Validation] CreateRenderPipeline: a stage names no entry point and its module declares none"); out = nullptr; return ErrorCode::InvalidArgument; }
             Status r = m_inner->CreateRenderPipeline(d, out);
             if (r == ErrorCode::Ok && out) m_liveRenderPipelines.PushBack(out);
             return r;
@@ -231,6 +232,7 @@ export namespace foundation::rhi::validation
             if (!checkAlive("CreateComputePipeline", out)) return ErrorCode::Unknown;
             if (d.layout == nullptr) { LogError("[Validation] CreateComputePipeline: layout is null"); out = nullptr; return ErrorCode::InvalidArgument; }
             if (d.compute.module == nullptr) { LogError("[Validation] CreateComputePipeline: compute shader module is null"); out = nullptr; return ErrorCode::InvalidArgument; }
+            if (EntryPointOf(d.compute).IsEmpty()) { LogError("[Validation] CreateComputePipeline: the stage names no entry point and its module declares none"); out = nullptr; return ErrorCode::InvalidArgument; }
             Status r = m_inner->CreateComputePipeline(d, out);
             if (r == ErrorCode::Ok && out) m_liveComputePipelines.PushBack(out);
             return r;

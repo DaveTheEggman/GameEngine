@@ -329,7 +329,7 @@ namespace foundation::render
         target.blend = additive ? addBlend : rhi::BlendState::AlphaBlend();
 
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
 
         rhi::DepthStencilState ds{};
@@ -340,7 +340,7 @@ namespace foundation::render
 
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_pipelineLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
         pd.fragment = frag;
         pd.depthStencil = ds;

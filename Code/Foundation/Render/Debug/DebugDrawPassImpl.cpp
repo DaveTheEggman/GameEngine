@@ -554,7 +554,7 @@ namespace foundation::render
         color.format = colorFmt;
         color.blend = rhi::BlendState::AlphaBlend();
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
         rhi::DepthStencilState ds{};
         ds.format = depthFmt;
@@ -562,7 +562,7 @@ namespace foundation::render
         ds.depthCompare = rhi::depth::NearerOrEqual(); // the scene hides it, as the lines
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_gridLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;
         pd.primitive.cullMode = rhi::CullMode::None; // seen from above or below
@@ -599,7 +599,7 @@ namespace foundation::render
         color.format = colorFmt;
         color.blend = rhi::BlendState::AlphaBlend();
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
         rhi::DepthStencilState ds{};
         ds.format = depthFmt;
@@ -607,7 +607,7 @@ namespace foundation::render
         ds.depthCompare = cmp;
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_geomLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
         pd.fragment = frag;
         pd.primitive.topology = topo;
@@ -654,11 +654,11 @@ namespace foundation::render
         color.format = colorFmt;
         color.blend = rhi::BlendState::AlphaBlend();
         rhi::FragmentState frag{};
-        frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+        frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
         frag.targets = Span<const rhi::ColorTargetState>{&color, 1};
         rhi::RenderPipelineDesc pd{};
         pd.layout = m_screenLayout;
-        pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+        pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
         pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
         pd.fragment = frag;
         pd.primitive.topology = rhi::PrimitiveTopology::TriangleList;

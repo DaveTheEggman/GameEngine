@@ -1353,7 +1353,7 @@ export namespace engine::terrain
             targets[4].format = render::kGAlbedoFormat;
 
             rhi::FragmentState frag{};
-            frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+            frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
             frag.targets = Span<const rhi::ColorTargetState>{targets, 5};
 
             rhi::DepthStencilState ds{};
@@ -1364,7 +1364,7 @@ export namespace engine::terrain
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = holes ? m_holePipelineLayout : m_pipelineLayout;
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
             pd.depthStencil = ds;
@@ -1451,14 +1451,14 @@ export namespace engine::terrain
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = holes ? m_holeDepthPipelineLayout : m_depthPipelineLayout; // 3 sets (no material)
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             // No fragment stage (Optional left empty) + no color targets = depth-only; the HOLES
             // twin adds the discarding fragment stage, still with no colour target.
             rhi::FragmentState holeFrag{};
             if (holes)
             {
-                holeFrag.shader = rhi::ProgrammableStage{holePs, u8"main", rhi::ShaderStage::Fragment};
+                holeFrag.shader = rhi::StageOf(holePs, rhi::ShaderStage::Fragment);
                 pd.fragment = holeFrag;
             }
             pd.depthStencil = ds;
@@ -1517,12 +1517,12 @@ export namespace engine::terrain
             target.format = colorFormat; // RG32Uint: no blend
             target.writeMask = rhi::ColorWriteMask::All;
             rhi::FragmentState frag{};
-            frag.shader = rhi::ProgrammableStage{fs, u8"main", rhi::ShaderStage::Fragment};
+            frag.shader = rhi::StageOf(fs, rhi::ShaderStage::Fragment);
             frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = holes ? m_holeDepthPipelineLayout : m_depthPipelineLayout;
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
             pd.depthStencil = ds;

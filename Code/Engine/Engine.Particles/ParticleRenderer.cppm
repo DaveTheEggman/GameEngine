@@ -568,7 +568,7 @@ export namespace engine::particles
             target.blend = BlendFor(mode);
 
             rhi::FragmentState frag{};
-            frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+            frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
             frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
 
             rhi::DepthStencilState ds{};
@@ -579,7 +579,7 @@ export namespace engine::particles
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = m_pipelineLayout;
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
             pd.depthStencil = ds;
@@ -685,7 +685,7 @@ export namespace engine::particles
             target.blend = BlendFor(mode);
 
             rhi::FragmentState frag{};
-            frag.shader = rhi::ProgrammableStage{ps, u8"main", rhi::ShaderStage::Fragment};
+            frag.shader = rhi::StageOf(ps, rhi::ShaderStage::Fragment);
             frag.targets = Span<const rhi::ColorTargetState>{&target, 1};
             rhi::DepthStencilState ds{};
             ds.format = m_depthFormat;
@@ -695,7 +695,7 @@ export namespace engine::particles
 
             rhi::RenderPipelineDesc pd{};
             pd.layout = m_trailPipelineLayout;
-            pd.vertex.shader = rhi::ProgrammableStage{vs, u8"main", rhi::ShaderStage::Vertex};
+            pd.vertex.shader = rhi::StageOf(vs, rhi::ShaderStage::Vertex);
             pd.vertex.buffers = Span<const rhi::VertexBufferLayout>{&vbl, 1};
             pd.fragment = frag;
             pd.depthStencil = ds;
