@@ -1,7 +1,7 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
 > Status: DONE 2026-10-12: phases 0 to 6 built (the phase 6 hand-over is the user's to look at). The showcase
-> (7) is the fifth sample's (backlog-0.1); the disassembly view and project includes (8) are in
+> (7) is the Shader Gallery sample (`Specs/shader-gallery.md`, user 2026-10-12); the disassembly view and project includes (8) are in
 > backlog-0.2. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
@@ -156,8 +156,8 @@ switching a material to another shader keeps the values whose names and types ma
 
 ## The showcase
 
-In the fifth sample (user, 2026-10-12): the networking and crowds game, which the backlog
-already schedules after custom shaders, built through the tools. Plus a user docs page, "Custom
+A sample of its own (user, 2026-10-12, replacing the fifth sample's showcase): the Shader Gallery,
+eleven commented lesson shaders in a hall to fly through (`Specs/shader-gallery.md`). Plus a user docs page, "Custom
 shaders", with the lava example.
 
 ## Phases (each a layer with its tests, both compilers; Sedulous ports after each)
@@ -217,7 +217,7 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
    cut-outs shadow correctly); the built-in PBR re-expressed as a surface function renders the
    same as `forward`. The editor's creators gain Lit and Unlit Surface Shader; the docs page gains
    the lava example.
-7. **The showcase**, in the fifth sample (the networking and crowds game).
+7. **The showcase**: the Shader Gallery sample (`Specs/shader-gallery.md`).
 8. After 0.1: the disassembly view and project includes; the node graph generating surface
    functions is 0.2.
 
@@ -347,7 +347,7 @@ the project's own product is untouched; with the preset's switch on, the source 
 **2f. Hand-over for a look: moved to phase 3.** A scratch project with the toon on a few meshes,
 exported for desktop and for the web, for the user to run. No project can make a custom shader
 until phase 3 brings the Create entry and the `.hlsl` importer, so it waits for them. (The
-showcase proper is the fifth sample's.)
+showcase proper is the Shader Gallery's.)
 
 Built 2026-10-12: 2a to 2e. The export test covers an unpruned export; a pruned one keeps a
 material's shader through the cook's closure, which follows `reads` (the closure's own tests), not
@@ -443,7 +443,8 @@ on Vulkan and WebGPU (`Integration.Shaders`).
   surface shaders (5, 6) (user, 2026-10-12).
 - **The properties block** is the single declaration of a shader's parameters, in both kinds
   (user, 2026-10-12).
-- **The showcase goes in the fifth sample** (user, 2026-10-12), the networking and crowds game.
+- **The showcase is a sample of its own**, the Shader Gallery (user, 2026-10-12; it was to go in
+  the fifth sample).
 - **The node graph is 0.2** (user, 2026-10-12; `backlog-0.2.md`).
 - **Set 2 is generated from the properties block in both kinds** (user, 2026-10-12): a low-level
   shader declares the frame (sets 0, 1, 3) and never its material block, so the layout cannot
@@ -464,8 +465,8 @@ on Vulkan and WebGPU (`Integration.Shaders`).
 ## Corrections this plan owed other documents (made 2026-10-12)
 
 - backlog-0.1.md said "custom shaders already work at the engine level" and named "shader include
-  assets": the item is closed, its leftovers moved (the showcase to the fifth sample, the
-  disassembly view and project includes to backlog-0.2).
+  assets": the item is closed, its leftovers moved (the showcase to a sample of its own, the
+  Shader Gallery, the disassembly view and project includes to backlog-0.2).
 - shaders-materials-hot-reload.md described a binding-signature hash and interface validation
   that were never built: it now says what reloads do.
 - shaders.md said nothing of a custom shader in a dist: its custom shaders section covers dists

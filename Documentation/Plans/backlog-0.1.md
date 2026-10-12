@@ -135,10 +135,13 @@ website and the flagship game.
   - **a showcase game**: the engine's flagship, released on Steam. Separate from the sample
     games in this repository and not part of it (its own project and repository); the samples
     stay the engine's examples.
-  The items marked for 0.1 above (the documentation, the fifth sample below) belong to it.
-- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09; it showcases
-  custom shaders too, user 2026-10-11, built 2026-10-12 in `Specs/custom-shaders.md`: a surface
-  shader or two in its look, authored in the editor, its phase 7): no sample
+  The items marked for 0.1 above (the documentation, the shader gallery and the fifth sample
+  below) belong to it.
+- **Shader Gallery, the custom shaders sample, before 0.1** (user 2026-10-12): a sample project
+  of eleven commented lesson shaders, surface and low-level, in a hall to fly through, a list that
+  flies the camera to each. PLAN: `Specs/shader-gallery.md`. It takes the custom shader showcase
+  over from the fifth sample.
+- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09): no sample
   project uses the network stack or crowds yet, so neither has been showcased or stressed in a
   game. The fifth sample in `Data/SampleProjects/` built around both: players over the network
   (the engine's reliable UDP and replication) and a crowd (instanced skinning, navigation
