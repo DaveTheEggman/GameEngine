@@ -296,3 +296,42 @@ TEST_CASE("material resource: the retyped render-state enum fields round-trip by
     CHECK(in.cullMode == CullModeConfig::Front);
     CHECK(in.vertexLayout == VertexLayoutType::SkinnedMesh);
 }
+
+// The one conversion from a cooked source to a runtime material (the factory and the editor's
+// previews): its layout, defaults, render state and sampler addressing, under the shader name
+// given, with no texture bound.
+TEST_CASE("material source: MaterialFromSource carries layout, defaults and render state")
+{
+    MaterialSource src;
+    src.name = String(u8"lava");
+    src.shaderName = String(u8"ignored"); // the caller names the shader it resolved
+    src.blendMode = BlendMode::AlphaBlend;
+    src.cullMode = CullModeConfig::None;
+    src.samplerU = static_cast<u8>(foundation::rhi::AddressMode::MirrorRepeat);
+    src.propertyNames.PushBack(String(u8"Glow"));
+    src.propertyTypes.PushBack(static_cast<u8>(MaterialPropertyType::Float));
+    src.propertyBindings.PushBack(0u);
+    src.propertyOffsets.PushBack(4u);
+    src.propertySizes.PushBack(4u);
+    src.uniformDefaults.Resize(16);
+    for (u8& b : src.uniformDefaults)
+    {
+        b = 0;
+    }
+    const f32 glow = 4.0f;
+    MemCopy(src.uniformDefaults.Data() + 4, &glow, sizeof(glow));
+
+    RefPtr<Material> material = MaterialFromSource(DefaultAllocator(), src, u8"lava_shader");
+    REQUIRE(material.Get() != nullptr);
+    CHECK(material->name == u8"lava");
+    CHECK(material->shaderName == u8"lava_shader");
+    CHECK(material->pipeline.shaderName == u8"lava_shader");
+    CHECK(material->pipeline.blendMode == BlendMode::AlphaBlend);
+    CHECK(material->pipeline.cullMode == CullModeConfig::None);
+    CHECK(material->samplerU == foundation::rhi::AddressMode::MirrorRepeat);
+    const MaterialPropertyDef* def = material->FindProperty(u8"Glow");
+    REQUIRE(def != nullptr);
+    CHECK(def->offset == 4u);
+    REQUIRE(material->DefaultUniformData().Size() >= 8u);
+    CHECK(*reinterpret_cast<const f32*>(material->DefaultUniformData().Data() + 4) == 4.0f);
+}

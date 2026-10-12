@@ -240,3 +240,93 @@ TEST_CASE("material editor: retyped render-state fields reflect as NAMED enums (
     CHECK(IsEnum(*cullProp->type));
     CHECK(Enumerators(*cullProp->type).Size() == 3u); // None/Back/Front
 }
+
+// The layout the cook applies, called directly (the editor previews a shader's material and
+// re-lays a material out when its shader is switched): with nothing authored, every property takes
+// the shader's default; the render state comes from the authored material.
+TEST_CASE("material editor: a shader's table lays out a fresh material with its defaults")
+{
+    const foundation::shaders::ShaderPropertiesBlock block =
+        foundation::shaders::ParseShaderProperties(u8"properties {\n"
+                                                   u8"  Color BaseColor = (1, 0.5, 0.25, 1);\n"
+                                                   u8"  float Roughness = 0.7;\n"
+                                                   u8"  int Steps = 4;\n"
+                                                   u8"  Texture AlbedoMap;\n"
+                                                   u8"  Sampler MainSampler;\n"
+                                                   u8"}\n");
+    REQUIRE(block.IsOk());
+    foundation::shaders::ShaderSource shader;
+    shader.name = String(u8"lava");
+    shader.SetProperties(block);
+
+    MaterialSource authored;
+    authored.name = String(u8"preview");
+    authored.blendMode = BlendMode::AlphaBlend;
+    MaterialSource out;
+    LayOutMaterialByShader(authored, shader, out);
+
+    CHECK(out.name == u8"preview");
+    CHECK(out.shaderName == u8"lava"); // drawn with the shader's name
+    CHECK(out.blendMode == BlendMode::AlphaBlend);
+    REQUIRE(out.propertyNames.Size() == 5u);
+    CHECK(out.propertyNames[3] == u8"AlbedoMap");
+    CHECK(out.textureSlots.IsEmpty()); // nothing bound: the slot takes the system default
+    REQUIRE(out.uniformDefaults.Size() == block.uniformSize);
+    const auto at = [&](u32 offset)
+    { return *reinterpret_cast<const f32*>(out.uniformDefaults.Data() + offset); };
+    CHECK(at(4) == doctest::Approx(0.5f));
+    CHECK(at(16) == doctest::Approx(0.7f));
+    CHECK(*reinterpret_cast<const i32*>(out.uniformDefaults.Data() + 20) == 4);
+}
+
+// A material moved to another shader keeps what still fits: here a PBR material moved to the
+// built-in Unlit keeps its BaseColor and its albedo texture; what Unlit lacks is dropped.
+TEST_CASE("material editor: values carry onto another shader's layout by name, type and size")
+{
+    MaterialAsset pbr;
+    MaterialImporter::Import(*CreatePBR(u8"m"), Guid{}, pbr);
+    MaterialAsset unlit;
+    MaterialImporter::Import(*CreateUnlit(u8"m"), Guid{}, unlit);
+
+    const Float4 red{1.0f, 0.0f, 0.0f, 1.0f};
+    const isize base = [&]
+    {
+        for (usize i = 0; i < pbr.source.propertyNames.Size(); ++i)
+        {
+            if (pbr.source.propertyNames[i] == u8"BaseColor")
+            {
+                return static_cast<isize>(i);
+            }
+        }
+        return isize{-1};
+    }();
+    REQUIRE(base >= 0);
+    MemCopy(pbr.source.uniformDefaults.Data() + pbr.source.propertyOffsets[static_cast<usize>(base)],
+            &red, sizeof(red));
+    const Guid albedo{0x5ull, 0x6ull};
+    pbr.source.textureSlots.PushBack(String(u8"AlbedoMap"));
+    pbr.source.textureIds.PushBack(albedo);
+    pbr.source.textureSlots.PushBack(String(u8"NormalMap")); // Unlit has none
+    pbr.source.textureIds.PushBack(Guid{0x7ull, 0x8ull});
+
+    CarryMaterialValues(pbr.source, unlit.source);
+
+    usize at = 0;
+    bool found = false;
+    for (usize i = 0; i < unlit.source.propertyNames.Size(); ++i)
+    {
+        if (unlit.source.propertyNames[i] == u8"BaseColor")
+        {
+            at = unlit.source.propertyOffsets[i];
+            found = true;
+        }
+    }
+    REQUIRE(found);
+    Float4 carried{};
+    MemCopy(&carried, unlit.source.uniformDefaults.Data() + at, sizeof(carried));
+    CHECK(carried.x == 1.0f);
+    CHECK(carried.y == 0.0f);
+    REQUIRE(unlit.source.textureSlots.Size() == 1u);
+    CHECK(unlit.source.textureSlots[0] == u8"AlbedoMap");
+    CHECK(unlit.source.textureIds[0] == albedo);
+}

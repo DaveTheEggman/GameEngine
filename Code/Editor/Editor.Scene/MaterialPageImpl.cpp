@@ -287,33 +287,8 @@ namespace editor
         }
         const materials::MaterialSource& src = m_asset->source;
 
-        RefPtr<materials::Material> material = MakeRef<materials::Material>(Allocator());
-        material->name = String(src.name.AsView());
-        material->shaderName = String(src.shaderName.AsView());
-        material->shaderFlags = static_cast<foundation::shaders::ShaderFlags>(src.shaderFlags);
-        for (usize i = 0; i < src.propertyNames.Size(); ++i)
-        {
-            materials::MaterialPropertyDef d{};
-            d.name = src.propertyNames[i].AsView();
-            d.type = static_cast<materials::MaterialPropertyType>(src.propertyTypes[i]);
-            d.binding = (i < src.propertyBindings.Size()) ? src.propertyBindings[i] : 0u;
-            d.offset = (i < src.propertyOffsets.Size()) ? src.propertyOffsets[i] : 0u;
-            d.size = (i < src.propertySizes.Size()) ? src.propertySizes[i] : 0u;
-            material->AddProperty(d);
-        }
-        material->AllocateDefaultUniformData();
-        material->SetRawDefaultUniformData(
-            Span<const u8>{src.uniformDefaults.Data(), src.uniformDefaults.Size()});
-        material->pipeline = materials::PipelineConfig{};
-        material->pipeline.shaderName = material->shaderName.AsView();
-        material->pipeline.shaderFlags = material->shaderFlags;
-        material->pipeline.blendMode = static_cast<materials::BlendMode>(src.blendMode);
-        material->pipeline.depthMode = static_cast<materials::DepthMode>(src.depthMode);
-        material->pipeline.cullMode = static_cast<materials::CullModeConfig>(src.cullMode);
-        material->pipeline.vertexLayout =
-            static_cast<materials::VertexLayoutType>(src.vertexLayout);
-        material->samplerU = static_cast<rhi::AddressMode>(src.samplerU);
-        material->samplerV = static_cast<rhi::AddressMode>(src.samplerV);
+        RefPtr<materials::Material> material =
+            materials::MaterialFromSource(Allocator(), src, src.shaderName.AsView());
 
         m_previewTextures.Clear();
         m_previewTextureViews.Clear();

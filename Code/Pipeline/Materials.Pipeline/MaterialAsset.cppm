@@ -49,6 +49,172 @@ export namespace pipeline{
         }
     };
 
+    namespace detail
+    {
+        [[nodiscard]] inline MaterialPropertyType MaterialTypeOf(
+            foundation::shaders::ShaderPropertyType type) noexcept
+        {
+            using T = foundation::shaders::ShaderPropertyType;
+            switch (type)
+            {
+            case T::Float: return MaterialPropertyType::Float;
+            case T::Float2: return MaterialPropertyType::Float2;
+            case T::Float3: return MaterialPropertyType::Float3;
+            case T::Float4: return MaterialPropertyType::Float4;
+            case T::Int: return MaterialPropertyType::Int;
+            case T::Color: return MaterialPropertyType::Color;
+            case T::ColorHdr: return MaterialPropertyType::ColorHdr;
+            case T::Texture: return MaterialPropertyType::Texture2D;
+            case T::TextureCube: return MaterialPropertyType::TextureCube;
+            case T::Sampler: return MaterialPropertyType::Sampler;
+            }
+            return MaterialPropertyType::Float;
+        }
+
+        [[nodiscard]] inline isize IndexOf(const Array<String>& names, StringView name) noexcept
+        {
+            for (usize i = 0; i < names.Size(); ++i)
+            {
+                if (names[i].AsView() == name)
+                {
+                    return static_cast<isize>(i);
+                }
+            }
+            return -1;
+        }
+
+        // The shader's default for a uniform, written as the shader reads it (an int as an int).
+        inline void WriteDefault(const foundation::shaders::ShaderProperty& p, u8* at) noexcept
+        {
+            if (p.type == foundation::shaders::ShaderPropertyType::Int)
+            {
+                const i32 value = static_cast<i32>(p.value.x);
+                MemCopy(at, &value, sizeof(value));
+                return;
+            }
+            const f32 values[4] = {p.value.x, p.value.y, p.value.z, p.value.w};
+            MemCopy(at, values, p.size);
+        }
+    }
+
+    // Carries a material's values onto another layout of it (`to`: its properties, offsets and
+    // defaults already in place, no texture bound): each uniform whose name, type and size match
+    // keeps its value, each texture binding whose slot `to` still has as a texture keeps its
+    // texture, and the rest of `to` keeps its defaults. What does not carry is dropped with a
+    // warning. A material re-laid by its shader's table (the cook) and switched to another shader
+    // (the material page) keeps its values so.
+    inline void CarryMaterialValues(const MaterialSource& from, MaterialSource& to)
+    {
+        const auto isTexture = [](u8 type)
+        {
+            const auto t = static_cast<MaterialPropertyType>(type);
+            return t == MaterialPropertyType::Texture2D || t == MaterialPropertyType::TextureCube;
+        };
+        to.textureSlots.Clear();
+        to.textureIds.Clear();
+        for (usize i = 0; i < to.propertyNames.Size(); ++i)
+        {
+            const StringView name = to.propertyNames[i].AsView();
+            const u8 type = i < to.propertyTypes.Size() ? to.propertyTypes[i] : 0u;
+            const u32 size = i < to.propertySizes.Size() ? to.propertySizes[i] : 0u;
+            if (size == 0u)
+            {
+                const isize slot = detail::IndexOf(from.textureSlots, name);
+                if (isTexture(type) && slot >= 0 &&
+                    static_cast<usize>(slot) < from.textureIds.Size())
+                {
+                    to.textureSlots.PushBack(String(name));
+                    to.textureIds.PushBack(from.textureIds[static_cast<usize>(slot)]);
+                }
+                continue;
+            }
+            const isize index = detail::IndexOf(from.propertyNames, name);
+            if (index < 0)
+            {
+                continue;
+            }
+            const usize k = static_cast<usize>(index);
+            const bool sameKind = k < from.propertyTypes.Size() && k < from.propertyOffsets.Size() &&
+                                  k < from.propertySizes.Size() && from.propertyTypes[k] == type &&
+                                  from.propertySizes[k] == size;
+            const u32 at = i < to.propertyOffsets.Size() ? to.propertyOffsets[i] : 0u;
+            if (sameKind && from.propertyOffsets[k] + size <= from.uniformDefaults.Size() &&
+                at + size <= to.uniformDefaults.Size())
+            {
+                MemCopy(to.uniformDefaults.Data() + at,
+                        from.uniformDefaults.Data() + from.propertyOffsets[k], size);
+            }
+        }
+
+        for (usize i = 0; i < from.propertyNames.Size(); ++i)
+        {
+            if (detail::IndexOf(to.propertyNames, from.propertyNames[i].AsView()) < 0)
+            {
+                LOG_WARNING(u8"Materials",
+                            u8"material '{}': '{}' is not a property of shader '{}' - dropped",
+                            from.name, from.propertyNames[i], to.shaderName);
+            }
+        }
+        for (usize i = 0; i < from.textureSlots.Size(); ++i)
+        {
+            if (detail::IndexOf(to.textureSlots, from.textureSlots[i].AsView()) < 0)
+            {
+                LOG_WARNING(u8"Materials",
+                            u8"material '{}': shader '{}' has no texture '{}' - its binding "
+                            u8"is dropped",
+                            from.name, to.shaderName, from.textureSlots[i]);
+            }
+        }
+    }
+
+    // A material on a custom shader, laid out by the shader's property table: each property in
+    // the shader's order and at its offset, at the shader's default, then the authored material's
+    // values carried over (CarryMaterialValues). The cook lays a material out so, and the editor
+    // shows and previews one so.
+    inline void LayOutMaterialByShader(const MaterialSource& authored,
+                                       const foundation::shaders::ShaderSource& shader,
+                                       MaterialSource& out)
+    {
+        namespace sh = foundation::shaders;
+        // Name, shader reference, render state and samplers come from the authored material.
+        out.name = authored.name;
+        out.shaderId = authored.shaderId;
+        out.shaderName = shader.name;
+        out.shaderFlags = authored.shaderFlags;
+        out.blendMode = authored.blendMode;
+        out.depthMode = authored.depthMode;
+        out.cullMode = authored.cullMode;
+        out.vertexLayout = authored.vertexLayout;
+        out.samplerU = authored.samplerU;
+        out.samplerV = authored.samplerV;
+        out.propertyNames.Clear();
+        out.propertyTypes.Clear();
+        out.propertyBindings.Clear();
+        out.propertyOffsets.Clear();
+        out.propertySizes.Clear();
+        out.uniformDefaults.Clear();
+        out.uniformDefaults.Resize(shader.uniformSize);
+        for (u8& b : out.uniformDefaults)
+        {
+            b = 0;
+        }
+        const Array<sh::ShaderProperty> table = shader.Properties();
+        for (usize i = 0; i < table.Size(); ++i)
+        {
+            const sh::ShaderProperty& p = table[i];
+            out.propertyNames.PushBack(p.name);
+            out.propertyTypes.PushBack(static_cast<u8>(detail::MaterialTypeOf(p.type)));
+            out.propertyBindings.PushBack(static_cast<u32>(i));
+            out.propertyOffsets.PushBack(p.offset);
+            out.propertySizes.PushBack(p.size);
+            if (p.size != 0u)
+            {
+                detail::WriteDefault(p, out.uniformDefaults.Data() + p.offset);
+            }
+        }
+        CarryMaterialValues(authored, out);
+    }
+
     // Cooks a MaterialAsset -> MaterialSource in the output DB (the authored source is
     // already the runtime source; writing it is the cook).
     class MaterialAssetBuilder final : public pipeline::DefaultAssetBuilder
@@ -119,160 +285,8 @@ export namespace pipeline{
                 return Status{ErrorCode::NotFound};
             }
             MaterialSource product;
-            LayOutByShader(ma.source, *shader, product);
+            LayOutMaterialByShader(ma.source, *shader, product);
             return ctx.output->WriteObject(product);
-        }
-
-        // A material on a custom shader, laid out by the shader's property table: each property
-        // in the shader's order and at its offset, its value taken from the authored material by
-        // name where the type matches, else the shader's default. An authored value the shader no
-        // longer declares is dropped with a warning; so is a texture binding to a slot it lacks.
-        static void LayOutByShader(const MaterialSource& authored,
-                                   const foundation::shaders::ShaderSource& shader,
-                                   MaterialSource& out)
-        {
-            namespace sh = foundation::shaders;
-            // Name, shader reference, render state and samplers come from the authored material.
-            out.name = authored.name;
-            out.shaderId = authored.shaderId;
-            out.shaderName = shader.name;
-            out.shaderFlags = authored.shaderFlags;
-            out.blendMode = authored.blendMode;
-            out.depthMode = authored.depthMode;
-            out.cullMode = authored.cullMode;
-            out.vertexLayout = authored.vertexLayout;
-            out.samplerU = authored.samplerU;
-            out.samplerV = authored.samplerV;
-            out.propertyNames.Clear();
-            out.propertyTypes.Clear();
-            out.propertyBindings.Clear();
-            out.propertyOffsets.Clear();
-            out.propertySizes.Clear();
-            out.textureSlots.Clear();
-            out.textureIds.Clear();
-            out.uniformDefaults.Clear();
-            out.uniformDefaults.Resize(shader.uniformSize);
-            for (u8& b : out.uniformDefaults)
-            {
-                b = 0;
-            }
-
-            const Array<sh::ShaderProperty> table = shader.Properties();
-            for (usize i = 0; i < table.Size(); ++i)
-            {
-                const sh::ShaderProperty& p = table[i];
-                const MaterialPropertyType type = MaterialTypeOf(p.type);
-                out.propertyNames.PushBack(p.name);
-                out.propertyTypes.PushBack(static_cast<u8>(type));
-                out.propertyBindings.PushBack(static_cast<u32>(i));
-                out.propertyOffsets.PushBack(p.offset);
-                out.propertySizes.PushBack(p.size);
-
-                const isize authoredIndex = IndexOf(authored.propertyNames, p.name.AsView());
-                if (p.size == 0u)
-                {
-                    // A texture keeps its authored binding when the slot is still a texture.
-                    if (p.type == sh::ShaderPropertyType::Sampler)
-                    {
-                        continue;
-                    }
-                    const isize slot = IndexOf(authored.textureSlots, p.name.AsView());
-                    if (slot >= 0 && static_cast<usize>(slot) < authored.textureIds.Size())
-                    {
-                        out.textureSlots.PushBack(p.name);
-                        out.textureIds.PushBack(authored.textureIds[static_cast<usize>(slot)]);
-                    }
-                    continue;
-                }
-                const bool sameKind =
-                    authoredIndex >= 0 &&
-                    static_cast<usize>(authoredIndex) < authored.propertyTypes.Size() &&
-                    static_cast<usize>(authoredIndex) < authored.propertyOffsets.Size() &&
-                    static_cast<usize>(authoredIndex) < authored.propertySizes.Size() &&
-                    authored.propertyTypes[static_cast<usize>(authoredIndex)] ==
-                        static_cast<u8>(type) &&
-                    authored.propertySizes[static_cast<usize>(authoredIndex)] == p.size;
-                const u32 from =
-                    sameKind ? authored.propertyOffsets[static_cast<usize>(authoredIndex)] : 0u;
-                if (sameKind && from + p.size <= authored.uniformDefaults.Size())
-                {
-                    MemCopy(out.uniformDefaults.Data() + p.offset,
-                            authored.uniformDefaults.Data() + from, p.size);
-                    continue;
-                }
-                WriteDefault(p, out.uniformDefaults.Data() + p.offset);
-            }
-
-            for (usize i = 0; i < authored.propertyNames.Size(); ++i)
-            {
-                bool kept = false;
-                for (const sh::ShaderProperty& p : table)
-                {
-                    kept = kept || p.name == authored.propertyNames[i];
-                }
-                if (!kept)
-                {
-                    LOG_WARNING(u8"Materials",
-                                u8"material '{}': '{}' is not a property of shader '{}' - dropped",
-                                authored.name, authored.propertyNames[i], shader.name);
-                }
-            }
-            for (usize i = 0; i < authored.textureSlots.Size(); ++i)
-            {
-                if (IndexOf(out.textureSlots, authored.textureSlots[i].AsView()) < 0)
-                {
-                    LOG_WARNING(u8"Materials",
-                                u8"material '{}': shader '{}' has no texture '{}' - its binding "
-                                u8"is dropped",
-                                authored.name, shader.name, authored.textureSlots[i]);
-                }
-            }
-        }
-
-    private:
-        [[nodiscard]] static MaterialPropertyType MaterialTypeOf(
-            foundation::shaders::ShaderPropertyType type) noexcept
-        {
-            using T = foundation::shaders::ShaderPropertyType;
-            switch (type)
-            {
-            case T::Float: return MaterialPropertyType::Float;
-            case T::Float2: return MaterialPropertyType::Float2;
-            case T::Float3: return MaterialPropertyType::Float3;
-            case T::Float4: return MaterialPropertyType::Float4;
-            case T::Int: return MaterialPropertyType::Int;
-            case T::Color: return MaterialPropertyType::Color;
-            case T::ColorHdr: return MaterialPropertyType::ColorHdr;
-            case T::Texture: return MaterialPropertyType::Texture2D;
-            case T::TextureCube: return MaterialPropertyType::TextureCube;
-            case T::Sampler: return MaterialPropertyType::Sampler;
-            }
-            return MaterialPropertyType::Float;
-        }
-
-        [[nodiscard]] static isize IndexOf(const Array<String>& names, StringView name) noexcept
-        {
-            for (usize i = 0; i < names.Size(); ++i)
-            {
-                if (names[i].AsView() == name)
-                {
-                    return static_cast<isize>(i);
-                }
-            }
-            return -1;
-        }
-
-        // The shader's default for a uniform, written as the shader reads it (an int as an int).
-        static void WriteDefault(const foundation::shaders::ShaderProperty& p, u8* at) noexcept
-        {
-            if (p.type == foundation::shaders::ShaderPropertyType::Int)
-            {
-                const i32 value = static_cast<i32>(p.value.x);
-                MemCopy(at, &value, sizeof(value));
-                return;
-            }
-            const f32 values[4] = {p.value.x, p.value.y, p.value.z, p.value.w};
-            MemCopy(at, values, p.size);
         }
     };
 

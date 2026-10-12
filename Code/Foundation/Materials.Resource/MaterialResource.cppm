@@ -204,6 +204,46 @@ export namespace foundation::materials
         return true;
     }
 
+    /// A runtime material from a cooked source, drawn with `shaderName`: its property layout,
+    /// default values, render state and sampler addressing; its textures are left unbound (the
+    /// factory resolves them through the resource manager, an editor preview through its own).
+    /// The one conversion, so a preview draws what a loaded material draws.
+    [[nodiscard]] inline RefPtr<Material> MaterialFromSource(IAllocator& allocator,
+                                                             const MaterialSource& src,
+                                                             StringView shaderName)
+    {
+        RefPtr<Material> material = MakeRef<Material>(allocator);
+        material->name = String(src.name.AsView());
+        material->shaderName = String(shaderName);
+        material->shaderFlags = static_cast<shaders::ShaderFlags>(src.shaderFlags);
+
+        const usize count = src.propertyNames.Size();
+        for (usize i = 0; i < count; ++i)
+        {
+            MaterialPropertyDef d{};
+            d.name = src.propertyNames[i].AsView();
+            d.type = static_cast<MaterialPropertyType>(src.propertyTypes[i]);
+            d.binding = (i < src.propertyBindings.Size()) ? src.propertyBindings[i] : 0u;
+            d.offset = (i < src.propertyOffsets.Size()) ? src.propertyOffsets[i] : 0u;
+            d.size = (i < src.propertySizes.Size()) ? src.propertySizes[i] : 0u;
+            material->AddProperty(d);
+        }
+        material->AllocateDefaultUniformData();
+        material->SetRawDefaultUniformData(
+            Span<const u8>{src.uniformDefaults.Data(), src.uniformDefaults.Size()});
+
+        material->pipeline = PipelineConfig{};
+        material->pipeline.shaderName = material->shaderName.AsView();
+        material->pipeline.shaderFlags = material->shaderFlags;
+        material->pipeline.blendMode = src.blendMode;
+        material->pipeline.depthMode = src.depthMode;
+        material->pipeline.cullMode = src.cullMode;
+        material->pipeline.vertexLayout = src.vertexLayout;
+        material->samplerU = static_cast<rhi::AddressMode>(src.samplerU);
+        material->samplerV = static_cast<rhi::AddressMode>(src.samplerV);
+        return material;
+    }
+
     class MaterialFactory final : public IResourceFactory
     {
     public:
@@ -252,35 +292,8 @@ export namespace foundation::materials
                 shaderName = String(src->shaderName.AsView());
             }
 
-            RefPtr<Material> material = MakeRef<Material>(DefaultAllocator());
-            material->name = String(src->name.AsView());
-            material->shaderName = Move(shaderName);
-            material->shaderFlags = static_cast<shaders::ShaderFlags>(src->shaderFlags);
-
-            const usize count = src->propertyNames.Size();
-            for (usize i = 0; i < count; ++i)
-            {
-                MaterialPropertyDef d{};
-                d.name = src->propertyNames[i].AsView();
-                d.type = static_cast<MaterialPropertyType>(src->propertyTypes[i]);
-                d.binding = (i < src->propertyBindings.Size()) ? src->propertyBindings[i] : 0u;
-                d.offset = (i < src->propertyOffsets.Size()) ? src->propertyOffsets[i] : 0u;
-                d.size = (i < src->propertySizes.Size()) ? src->propertySizes[i] : 0u;
-                material->AddProperty(d);
-            }
-            material->AllocateDefaultUniformData();
-            material->SetRawDefaultUniformData(
-                Span<const u8>{src->uniformDefaults.Data(), src->uniformDefaults.Size()});
-
-            material->pipeline = PipelineConfig{};
-            material->pipeline.shaderName = material->shaderName.AsView();
-            material->pipeline.shaderFlags = material->shaderFlags;
-            material->pipeline.blendMode = src->blendMode;
-            material->pipeline.depthMode = src->depthMode;
-            material->pipeline.cullMode = src->cullMode;
-            material->pipeline.vertexLayout = src->vertexLayout;
-            material->samplerU = static_cast<rhi::AddressMode>(src->samplerU);
-            material->samplerV = static_cast<rhi::AddressMode>(src->samplerV);
+            RefPtr<Material> material =
+                MaterialFromSource(DefaultAllocator(), *src, shaderName.AsView());
 
             // Default texture bindings: resolve each through the manager (the Bind records the
             // material->texture edge, so a texture reload rebuilds this material) and install as
