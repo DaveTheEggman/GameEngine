@@ -629,6 +629,8 @@ TEST_CASE("texture import: usage inference from texture-pack name tokens")
     // The universal suffixes, matched mid-stem with the boundary rule.
     CHECK(InferTextureUsage(u8"foo_nor_gl_4k") == texcomp::TextureUsage::Normal);
     CHECK(InferTextureUsage(u8"brick_NORMAL") == texcomp::TextureUsage::Normal);
+    CHECK(InferTextureUsage(u8"Rock030_NormalGL") == texcomp::TextureUsage::Normal); // ambientCG
+    CHECK(InferTextureUsage(u8"Rock030_1K-JPG_NormalDX") == texcomp::TextureUsage::Normal);
     CHECK(InferTextureUsage(u8"bar_disp_2k") == texcomp::TextureUsage::Mask);
     CHECK(InferTextureUsage(u8"ground_rough_1k") == texcomp::TextureUsage::Mask);
     CHECK(InferTextureUsage(u8"kit_orm") == texcomp::TextureUsage::Mask);

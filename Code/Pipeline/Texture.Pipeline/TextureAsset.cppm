@@ -1051,8 +1051,10 @@ export namespace pipeline{
             }
             return false;
         };
-        for (StringView t :
-             {u8"_normal", u8"_norm", u8"_nrm", u8"_nor", u8"_ddn", u8"normalmap"})
+        // ambientCG glues the map's convention on ("Rock030_NormalGL", "_NormalDX"), which the
+        // boundary rule would otherwise read as an ordinary word.
+        for (StringView t : {u8"_normal", u8"_normalgl", u8"_normaldx", u8"_norm", u8"_nrm",
+                             u8"_nor", u8"_ddn", u8"normalmap"})
         {
             if (hasToken(t))
             {
