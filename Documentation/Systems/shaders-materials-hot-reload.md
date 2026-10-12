@@ -30,9 +30,10 @@ downstream is resource->resource propagation.
 
 ## Modules
 
-- **`foundation.shaders.resource`** - `ShaderResource`: a `(stage, featureFlags) -> ShaderModule`
-  variant map compiled on demand via DXC, a binding-signature hash (distinguishes a MATH edit from an
-  INTERFACE edit), a version counter (bumped on successful reload), transactional reload.
+- **`foundation.shaders.resource`** - `ShaderResource`: a shader's name in the `ShaderSystem` (its
+  `(stage, flags) -> ShaderModule` variants compiled on demand via DXC, or served from the cooked
+  pack), a version counter (bumped by every reload, `InvalidateShader`), and for a custom shader the
+  depth and pick programs a material on it uses.
 - **`foundation.materials`** - the data-driven material core: `PipelineConfig`, `MaterialBuilder`,
   `MaterialInstance`, the bind-group-inferring `MaterialSystem`.
 - **`foundation.materials.pipelinecache`** - the PSO cache (the lone render-side standalone piece).
@@ -53,11 +54,13 @@ defer-destroys the old. Two INDEPENDENT paths meet at the per-frame draw:
 | Asset reload | edit material / texture / mesh | resource products + bind groups | PARTICIPATES (its instances rebuild bind groups) |
 | Shader/PSO reload | edit `.hlsl` shading math | PSOs only (version-driven) | does NOT participate (its set-2 layout is property-derived, stable across math edits) |
 
-- Edit shader MATH -> `ShaderResource` reloads, signature hash unchanged -> only PSOs rebuild; material
-  + bind groups untouched (the 95% case stays cheap).
-- Edit shader INTERFACE (add/remove a texture or cbuffer field) -> signature hash changed -> the shader
-  and the material's declared layout diverged; this is a VALIDATION error (reflect + diff + warn), not a
-  silent auto-reload.
+- Edit shader MATH -> `ShaderResource` reloads (its version bumps) -> only PSOs rebuild; material +
+  bind groups untouched (the common case stays cheap).
+- Edit a custom shader's INTERFACE (its properties block: a parameter added, removed or retyped) ->
+  the shader re-cooks, and every material on it re-cooks through the recorded `reads` edge, laid
+  out by the new table (values kept by name and type), so the layouts cannot diverge. The engine's
+  own shaders have fixed layouts (`MaterialBuilder`'s templates). No binding-signature hash or
+  reflection diff exists; the single declaration (the properties block) is what keeps them in step.
 
 ## File watching + GPU safety
 
@@ -66,14 +69,17 @@ queue via an O(files) stat-sweep (deterministic + portable, NO inotify/ReadDirec
 throttled once per ~second (fits the pull model). GPU safety: old modules / pipelines / bind groups may
 be in flight, so they queue for deferred destruction `framesInFlight` frames later via the
 `GraphicsDevice` ring; never tear down the old until the new succeeded AND the old is out of flight.
-Compile errors surface (console now, editor panel later) and the old product keeps running - never crash
-on a bad edit.
+Compile errors surface (the console; for a custom shader, the shader page and `shader_validate`) and the
+last good product keeps running: a failing cook keeps the old product, and a variant that fails at run time
+is remembered (not recompiled every frame) until its source changes - never a crash on a bad edit.
 
 ## Deferred
 
-- **`ShaderIncludeResource`** - editing a shader BODY reloads; editing a shared `.hlsli` does not
-  (shared headers change rarely). An include-as-explicit-resource (a normal resource->resource edge,
-  no custom include handler) lands if/when shared-header iteration becomes painful.
+- **`ShaderIncludeResource`** - editing a shared `.hlsli` of the engine's library reloads every shader
+  the file provider serves (it does not know a header's includers) and retries every remembered
+  failure, a registered custom shader's too; a custom shader's own product is not re-cooked by it. An
+  include-as-explicit-resource (a normal resource->resource edge, no custom include handler) lands
+  with project include files (backlog-0.2) or when the blanket reload becomes painful.
 
 ---
 

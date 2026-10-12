@@ -11,6 +11,13 @@ surface output) that GENERATE a surface shader, fed through the same cook (varia
 points, bytecode packs), on the NodeGraph UI and the AnimationGraphPage pattern. It builds on
 0.1's surface shaders (`Specs/custom-shaders.md`): a graph is a surface function written for you.
 
+## The shader page: the cooked code, and project include files (2026-10-12; after 0.1)
+
+What custom shaders left after 0.1 (`Specs/custom-shaders.md`, phase 8): a toggle on the shader
+page showing the cooked SPIR-V or WGSL of a chosen variant (the parity doc's "live disassembly",
+from the cook's own output), and a project's own `.hlsli` include files with their dependency
+tracking (today `#include` reaches the engine's shader library only).
+
 ## Android: a native player and its export (user 2026-10-11)
 
 Games run on phones today through the web export (touch drives the game UI, touch controls with

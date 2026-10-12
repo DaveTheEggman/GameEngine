@@ -21,41 +21,6 @@
   defaults, set in the project settings, so the lookup goes scene, then project, then the
   hard-coded default. Survey which domains have scene settings, and how a project default
   relates to the profiles (a project default could simply name a profile).
-- **Custom shaders through the editor, before the 0.1 release** (user 2026-10-09, ready and
-  showcased for 0.1; merged 2026-10-10 with the planning seed of 2026-08-26, "in-editor shader
-  editing + material/shader node-graph editor"). PLAN: `Specs/custom-shaders.md` (2026-10-12):
-  two kinds, low-level shaders (proven at the engine level by `Samples/CustomShader`, the toon)
-  and surface shaders on top; one `.hlsl` per shader with named entries (`VSMain`/`PSMain`;
-  entry points are carried as data, user 2026-10-12, built); the node graph moved to 0.2. (The
-  original note said "shader include assets" exist: none does; includes resolve against
-  `Data/Shaders` in dev builds.) Expose the pipeline in
-  the editor (author a shader asset, a material that uses it, see it cook, compile and draw, with
-  its errors shown), and showcase it: a sample project or a demo game's effect built on a custom
-  shader.
-  - **Origin of the seed**: the parity doc, "MATERIALS: par - both shader-ref + property-set with
-    editor pages, NO node graph either side" and "SHADERS: ... Lumix-ahead on one nicety:
-    in-editor shader editor WITH LIVE DISASSEMBLY."
-  - **What it builds on**: the offline shader cook to a versioned SPIR-V / DXIL / WGSL pack with
-    a variant lint (so "live disassembly" is our cook output, already produced); `CodeEditView`
-    and its per-language lexer registry (a shader code page with an HLSL lexer, save re-cooks and
-    hot-reloads); `MaterialEditorPage` (shader ref, property set, preview), the page a graph would
-    feed; the `NodeGraph` UI and `AnimationGraphPage` (three panes, persisted node positions) as
-    the precedent for a graph editor; custom materials without renderer changes.
-  - **Two tiers to weigh and sequence**:
-    1. In-editor shader source editing, the cheaper win: open a shader in a `CodeEditView` page
-       with the HLSL lexer; saving re-runs the cook and hot-reloads, and the page shows the cooked
-       SPIR-V / WGSL disassembly (from our cooked pack, not a runtime compiler).
-    2. A material / shader node graph, the big feature (neither engine compared has one): visual
-       nodes (texture sample, math, blend, ... to a surface output) that generate HLSL fed through
-       the existing cook, so the variant lint and the compiler-free dist still apply. Authors
-       custom materials without hand-written shaders, on the NodeGraph UI and the
-       AnimationGraphPage pattern.
-  - **The design doc decides** (in `Documentation/Specs/`, before any graph code): tier 1 first
-    with tier 2 as the follow-on, or the graph directly; the graph's data model (nodes to
-    generated HLSL, how variants and features interact, the material property surface it
-    exposes); how generated shaders ride the variant cook and lint; the graph's serialization and
-    editor shape (reusing AnimationGraphPage's spine). For 0.1, tier 1 and the showcase; the graph
-    is 0.2 (user 2026-10-12, `backlog-0.2.md`).
 - **Vertex snap, the next steps** (from the seeded item, 2026-08-26; the pivot-onto-vertex snap
   is built, week 2026-10-10): pick a SOURCE vertex on the moved object (Blender-style, any corner
   as the anchor, not only the pivot); snap to edges, faces and the grid as well as vertices; a
@@ -170,10 +135,10 @@ website and the flagship game.
   - **a showcase game**: the engine's flagship, released on Steam. Separate from the sample
     games in this repository and not part of it (its own project and repository); the samples
     stay the engine's examples.
-  The items marked for 0.1 above (custom shaders through the editor, the documentation, the
-  fifth sample below) belong to it.
-- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09; after custom
-  shaders, which it showcases too, user 2026-10-11): no sample
+  The items marked for 0.1 above (the documentation, the fifth sample below) belong to it.
+- **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09; it showcases
+  custom shaders too, user 2026-10-11, built 2026-10-12 in `Specs/custom-shaders.md`: a surface
+  shader or two in its look, authored in the editor, its phase 7): no sample
   project uses the network stack or crowds yet, so neither has been showcased or stressed in a
   game. The fifth sample in `Data/SampleProjects/` built around both: players over the network
   (the engine's reliable UDP and replication) and a crowd (instanced skinning, navigation

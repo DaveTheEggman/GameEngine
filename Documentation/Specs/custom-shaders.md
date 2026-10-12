@@ -1,9 +1,11 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 6 built (6 but its hand-over). Spiked:
+> Status: DONE 2026-10-12: phases 0 to 6 built (the phase 6 hand-over is the user's to look at). The showcase
+> (7) is the fifth sample's (backlog-0.1); the disassembly view and project includes (8) are in
+> backlog-0.2. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
-> Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
+> Track: was the 0.1 backlog's "Custom shaders through the editor" (closed 2026-10-12).
 > Mirror: Sedulous ports each phase after it lands.
 > Read CONVENTIONS.md first.
 
@@ -459,10 +461,12 @@ on Vulkan and WebGPU (`Integration.Shaders`).
 - **The creators**: Lit Surface Shader, Unlit Surface Shader, and the existing one renamed
   Low-Level Shader (user, 2026-10-12).
 
-## Corrections this plan owes other documents
+## Corrections this plan owed other documents (made 2026-10-12)
 
-- backlog-0.1.md: "custom shaders already work at the engine level" and "shader include assets"
-  are not so (above).
-- shaders-materials-hot-reload.md: no signature hash, no interface validation, and the old product
-  is not kept on a failed compile.
-- shaders.md: user shader assets have no path into a dist today.
+- backlog-0.1.md said "custom shaders already work at the engine level" and named "shader include
+  assets": the item is closed, its leftovers moved (the showcase to the fifth sample, the
+  disassembly view and project includes to backlog-0.2).
+- shaders-materials-hot-reload.md described a binding-signature hash and interface validation
+  that were never built: it now says what reloads do.
+- shaders.md said nothing of a custom shader in a dist: its custom shaders section covers dists
+  and surface shaders.

@@ -108,20 +108,32 @@ validation ON and counts `rhi::vk::ValidationErrorCount()` around the render for
 
 ## Custom shaders (a project's own)
 
-A custom shader is a `ShaderAsset`: ONE `.hlsl` with both stages (entry points as asset fields,
-`VSMain` / `PSMain` by default), a `properties { ... }` block declaring its material parameters,
-and a variant lattice per stage (`// variants(vertex): ...`, `// variants(fragment): ...`). The
-cook (`ShaderAssetBuilder`) replaces the block with the generated set-2 declarations (the
-`Material` cbuffer by HLSL packing, `PackCbufferMember`, then the textures and samplers), keeps
-the author's line numbers with `#line`, and COMPILES every declared variant of both stages with
-the engine's library (`<data root>/Shaders`) on the include path: a failure fails the cook with
-`File.hlsl:line: message`, and the cook keeps the last good product. The product (`ShaderSource`)
-carries the expanded source, the entries, the lattices and the property table; the runtime
-registers each stage with its lattice, so requests canonicalize as the corpus's do, and a failed
-runtime compile is remembered until the source changes. A material on a custom shader is cooked
-by the shader's table (its order and offsets; values by name where the type matches, else the
-shader's default) and re-cooks when the shader does. The plan and its later phases (dists, the
-editor, surface shaders) are `Documentation/Specs/custom-shaders.md`.
+A custom shader is a `ShaderAsset`: ONE `.hlsl` with a `properties { ... }` block declaring its
+material parameters, of one of two kinds (`Documentation/Specs/custom-shaders.md`):
+
+- **Low-level**: both stages written out (entry points as asset fields, `VSMain` / `PSMain` by
+  default) with a variant lattice per stage (`// variants(vertex): ...`,
+  `// variants(fragment): ...`), keeping the forward contract with the library above.
+- **Surface** (`// surface: lit` or `unlit`): a `Surface()` and an optional `Vertex()`, which
+  the cook wraps in the `surface/` templates as three programs (forward, `.depth`, `.pick`) with
+  the templates' lattices.
+
+The cook (`ShaderAssetBuilder`, through `CheckShaderSource`) replaces the block with the generated
+set-2 declarations (the `Material` cbuffer by HLSL packing, `PackCbufferMember`, then the textures
+and samplers), keeps the author's line numbers with `#line`, and COMPILES every program's every
+variant with the engine's library (`<data root>/Shaders`) on the include path: a failure fails
+the cook with `File.hlsl:line: message`, and the cook keeps the last good product. The product
+(`ShaderSource`) carries each program's expanded source, entries and lattices and the property
+table; the runtime registers each program with its lattices, so requests canonicalize as the
+corpus's do, and a failed runtime compile is remembered until the source changes (or a reload).
+A material on a custom shader is cooked by the shader's table (its order and offsets; values by
+name where the type matches, else the shader's default) and re-cooks when the shader does; it
+draws the depth-like passes with the shader's own programs when the shader has a `Vertex()` or
+the material is masked.
+
+**In a dist**: the export cooks every program to the preset's formats into the dist's pack beside
+the corpus, and strips the products' HLSL (the preset's `includeShaderSource` keeps it); a dist
+serves a registered shader from its pack when it has no compiler or the source is empty.
 
 ## WGSL target (naga)
 
