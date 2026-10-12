@@ -404,6 +404,7 @@ namespace engine::render
         builder.Value("CameraFacing", SpriteOrientation::CameraFacing);
         builder.Value("CameraFacingY", SpriteOrientation::CameraFacingY);
         builder.Value("WorldAligned", SpriteOrientation::WorldAligned);
+        builder.Value("EntityOriented", SpriteOrientation::EntityOriented);
     }
 
     REFLECT_VALUE(SpriteComponent, "rtti::engine::render")

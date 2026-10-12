@@ -1744,3 +1744,15 @@ TEST_CASE("render: the debug lists empty at every iteration's end, a frame rende
     CHECK_FALSE(sub.DebugView(&viewKey).HasAnyDraws());
     CHECK_FALSE(sub.DebugScreen().HasAnyDraws());
 }
+
+// The inspector offers an enum's REGISTERED values only: EntityOriented, the one orientation that
+// turns with its entity, was missing from the reflection, so no authored sprite could use it.
+TEST_CASE("components: every sprite orientation is offered to the editor")
+{
+    RegisterRenderComponentReflection();
+    const TypeInfo& type = TypeOf<SpriteOrientation>();
+    CHECK(EnumeratorCount(type) == 4u);
+    const char* name = EnumValueName(type, static_cast<i64>(SpriteOrientation::EntityOriented));
+    REQUIRE(name != nullptr);
+    CHECK(StringView(reinterpret_cast<const utf8char*>(name)) == StringView(u8"EntityOriented"));
+}
