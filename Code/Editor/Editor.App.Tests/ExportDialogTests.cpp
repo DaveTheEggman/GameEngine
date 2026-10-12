@@ -47,10 +47,12 @@ namespace
             linuxPreset.name = String(u8"Linux");
             linuxPreset.platform = String(u8"Linux64");
             (void)presets.Add(linuxPreset);
-            ExportPreset windows;
-            windows.name = String(u8"Windows");
-            windows.platform = String(u8"Win64");
-            (void)presets.Add(windows);
+            // A platform no machine running the tests hosts (the registry always adds the running
+            // build as a template, so a Win64 preset finds one on a Windows runner).
+            ExportPreset web;
+            web.name = String(u8"Web");
+            web.platform = String(u8"Web");
+            (void)presets.Add(web);
         }
         ~Fixture() { (void)RemoveDirectoryRecursive(root.AsView()); }
 
@@ -86,13 +88,13 @@ TEST_CASE("export dialog: the presets, their tabs, and the template each exports
     CHECK(dialog->TabIndexOf(u8"Display") == 2);
     CHECK(dialog->NameField().Text() == StringView(u8"Linux"));
 
-    // Linux resolves to the installed template; Windows has none here, and says so.
+    // Linux resolves to the installed template; Web has none here, and says so.
     REQUIRE(dialog->Resolved() != nullptr);
     CHECK(dialog->Resolved()->id == StringView(u8"t-linux"));
     CHECK(dialog->ResolveText() == StringView(u8"Exports with Linux Release"));
     dialog->Select(1);
     CHECK(dialog->Resolved() == nullptr);
-    CHECK(dialog->ResolveText() == StringView(u8"No template for Win64 Release here"));
+    CHECK(dialog->ResolveText() == StringView(u8"No template for Web Release here"));
 
     // A template picked by name decides the platform and config.
     dialog->Select(1);
