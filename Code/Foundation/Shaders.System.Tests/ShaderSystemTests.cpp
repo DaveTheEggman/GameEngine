@@ -46,7 +46,7 @@ namespace
     }
 }
 
-TEST_CASE("shader system: flags become defines; failures aren't cached")
+TEST_CASE("shader system: flags become defines; a failure is remembered until the source changes")
 {
     Compiler* compiler = MakeCompiler();
     if (compiler == nullptr)
@@ -77,6 +77,14 @@ TEST_CASE("shader system: flags become defines; failures aren't cached")
         // Unknown shader / wrong stage -> null.
         CHECK(ss.GetVariant(u8"missing", ShaderStage::Fragment, ShaderFlags::NormalMap) == nullptr);
         CHECK(ss.GetVariant(u8"guarded", ShaderStage::Vertex, ShaderFlags::NormalMap) == nullptr);
+
+        // A failed variant is not compiled again until its source changes; a fixed source
+        // registered under the same name compiles.
+        CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::None) == nullptr);
+        ss.RegisterSource(u8"guarded", ShaderStage::Fragment,
+                          u8"float4 main() : SV_Target { return float4(0, 1, 0, 1); }",
+                          kCorpusEntryPoint);
+        CHECK(ss.GetVariant(u8"guarded", ShaderStage::Fragment, ShaderFlags::None) != nullptr);
     }
 
     compiler->Destroy();
@@ -462,6 +470,36 @@ TEST_CASE("shader system: a stage's entry point is registered with it and record
         rhi::ShaderModule* m = ss.GetVariant(u8"cooked", ShaderStage::Fragment, ShaderFlags::None);
         REQUIRE(m != nullptr);
         CHECK(m->entryPoint.AsView() == StringView(u8"PSMain"));
+    }
+    compiler->Destroy();
+}
+
+// A cooked shader asset registers each stage with the lattice its cook compiled: a request
+// canonicalizes onto it (flags the stage never declared share the declared variant), as the
+// corpus's requests do, so the variants a dist will look up are the ones the cook proved.
+TEST_CASE("shader system: a registered source with a declared mask canonicalizes requests")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        ShaderSystem ss(*compiler, device);
+        ss.RegisterSource(u8"asset", ShaderStage::Vertex, kTrivialVertex, kCorpusEntryPoint,
+                          ShaderFlags::Skinned);
+        rhi::ShaderModule* plain = ss.GetVariant(u8"asset", ShaderStage::Vertex, ShaderFlags::None);
+        rhi::ShaderModule* skinned =
+            ss.GetVariant(u8"asset", ShaderStage::Vertex, ShaderFlags::Skinned);
+        REQUIRE(plain != nullptr);
+        REQUIRE(skinned != nullptr);
+        CHECK(plain != skinned);
+        // Wind was never declared: the request is the declared variant it reduces to.
+        CHECK(ss.GetVariant(u8"asset", ShaderStage::Vertex, ShaderFlags::Wind) == plain);
+        CHECK(ss.GetVariant(u8"asset", ShaderStage::Vertex,
+                            ShaderFlags::Skinned | ShaderFlags::Wind) == skinned);
     }
     compiler->Destroy();
 }

@@ -91,16 +91,25 @@ export namespace foundation::shaders
         ShaderSystem& operator=(const ShaderSystem&) = delete;
 
         // Register a shader's HLSL source for a stage (owned copy), and the entry point that
-        // stage's function is called in it. Explicitly registered sources are compiled with the
-        // RAW requested flags (no declared-mask model): they are outside the corpus/cook lattice
-        // by definition, and callers like the NormalMap-guarded tests rely on every requested
-        // define being applied.
+        // stage's function is called in it. With a declared variant mask (a cooked shader asset's
+        // lattice) requests canonicalize onto it, as the corpus's do; without one the RAW
+        // requested flags compile (callers like the NormalMap-guarded tests rely on every
+        // requested define being applied). Registering forgets the stage's failed variants.
         void RegisterSource(core::StringView name, ShaderStage stage, core::StringView hlsl,
-                            core::StringView entryPoint)
+                            core::StringView entryPoint,
+                            core::Optional<ShaderFlags> declaredMask = {})
         {
             const core::u64 key = SourceKey(name, stage);
             m_sources.InsertOrAssign(key, Source{core::String(hlsl), core::String(entryPoint)});
-            m_declaredMasks.Remove(key); // explicit registration overrides a provider fetch
+            if (declaredMask.HasValue())
+            {
+                m_declaredMasks.InsertOrAssign(key, declaredMask.Value());
+            }
+            else
+            {
+                m_declaredMasks.Remove(key); // explicit registration overrides a provider fetch
+            }
+            ForgetFailures(ShaderNameHash(name));
         }
 
         // The source-pull seam (borrowed; may be null - see IShaderSourceProvider).
@@ -162,9 +171,10 @@ export namespace foundation::shaders
             return m_includeResolver;
         }
 
-        // Get (compile-on-demand + cache) the GPU module for a variant. Returns null
-        // if the source is unknown or compilation fails (failures are NOT cached, so a
-        // later request retries - e.g. after a fix).
+        // Get (compile-on-demand + cache) the GPU module for a variant. Returns null if the
+        // source is unknown or compilation fails. A failed variant is remembered until its source
+        // changes (RegisterSource, InvalidateShader, a reload), so a broken shader is compiled
+        // and reported once, not every frame the renderer asks for it.
         [[nodiscard]] rhi::ShaderModule* GetVariant(core::StringView name, ShaderStage stage,
                                                     ShaderFlags flags)
         {
@@ -222,6 +232,7 @@ export namespace foundation::shaders
             {
                 m_cache.Remove(k);
             }
+            ForgetFailures(nameHash);
             BumpVersion(nameHash);
             return toRemove.Size();
         }
@@ -283,11 +294,16 @@ export namespace foundation::shaders
             {
                 return *cached;
             }
+            if (m_failedVariants.Find(key) != nullptr)
+            {
+                return nullptr; // compiled and reported already; waits for the source to change
+            }
 
             rhi::ShaderModule* module =
                 Compile(source->hlsl.AsView(), source->entryPoint.AsView(), stage, canon);
             if (module == nullptr)
             {
+                m_failedVariants.InsertOrAssign(key, true);
                 return nullptr;
             }
 
@@ -367,8 +383,9 @@ export namespace foundation::shaders
             return module;
         }
 
-        [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source, core::StringView entryPoint,
-                                                 ShaderStage stage, ShaderFlags flags)
+        [[nodiscard]] rhi::ShaderModule* Compile(core::StringView source,
+                                                 core::StringView entryPoint, ShaderStage stage,
+                                                 ShaderFlags flags)
         {
             if (m_compiler == nullptr)
             {
@@ -439,6 +456,23 @@ export namespace foundation::shaders
             return (ShaderNameHash(name) * 1099511628211ull) ^ static_cast<core::u64>(stage);
         }
 
+        // Drops the remembered failures of a shader's variants (its source changed).
+        void ForgetFailures(core::u64 nameHash)
+        {
+            core::Array<ShaderVariantKey> forget;
+            for (auto& e : m_failedVariants)
+            {
+                if (e.key.nameHash == nameHash)
+                {
+                    forget.PushBack(e.key);
+                }
+            }
+            for (const ShaderVariantKey& k : forget)
+            {
+                m_failedVariants.Remove(k);
+            }
+        }
+
         void BumpVersion(core::u64 nameHash)
         {
             core::u64* v = m_versions.Find(nameHash);
@@ -466,6 +500,8 @@ export namespace foundation::shaders
         // canonicalization contract. Explicitly registered sources have no entry (raw flags).
         core::HashMap<core::u64, ShaderFlags> m_declaredMasks;
         core::HashMap<core::u64, bool> m_loggedFailures; // once-per-key error throttling
+        // Variants that compiled and failed (see GetVariant); forgotten when the source changes.
+        core::HashMap<ShaderVariantKey, bool> m_failedVariants;
         core::HashMap<ShaderVariantKey, rhi::ShaderModule*>
             m_cache;                                    // variant -> GPU module (owned)
         core::HashMap<core::u64, core::u64> m_versions; // nameHash -> version
