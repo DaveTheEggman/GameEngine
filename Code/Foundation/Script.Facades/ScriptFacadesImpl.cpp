@@ -302,10 +302,23 @@ namespace foundation::script
                 work.PushBack(t);
             }
         };
-        // Seeds: script-constructable types + the registered factory-return roots.
+        // Seeds: script-constructable types, types with statics (a script names them to call
+        // one, as Math.Sin does, with nothing to construct), and the registered factory-return
+        // roots.
+        const auto hasStatic = [](const TypeInfo& t) -> bool
+        {
+            for (usize i = 0; i < MethodCount(t); ++i)
+            {
+                if (MethodAt(t, i).isStatic)
+                {
+                    return true;
+                }
+            }
+            return false;
+        };
         for (const TypeInfo* t : allTypes)
         {
-            if (t != nullptr && ConstructorCount(*t) > 0)
+            if (t != nullptr && (ConstructorCount(*t) > 0 || hasStatic(*t)))
             {
                 push(t);
             }

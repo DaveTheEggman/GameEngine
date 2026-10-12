@@ -1073,10 +1073,13 @@ TEST_CASE("angelscript: reflected math ops (Math statics, Float3/Quaternion vect
     RefPtr<IScriptContext> ctx = manager->CreateContext();
 
     REQUIRE(ctx->Load(u8"double R = 0;\n"
+                      u8"double K = 0;\n"
                       u8"double CZ = 0;\n"
                       u8"double RX = 0;\n"
                       u8"void main() {\n"
                       u8"  R = Math::Sqrt(16.0f);\n"                                // -> 4
+                      u8"  K = Math::Clamp(5.0f, 0.0f, 1.0f) + Math::Min(2.0f, -3.0f) * 10.0f +\n"
+                      u8"      Math::Max(2.0f, -3.0f) * 100.0f;\n"                      // -> 1 - 30 + 200
                       u8"  Float3@ c = Float3::Cross(Float3(1, 0, 0), Float3(0, 1, 0));\n" // -> +Z
                       u8"  CZ = c.z;\n"
                       // 90 degrees about +Y rotates +Z to +X.
@@ -1087,6 +1090,7 @@ TEST_CASE("angelscript: reflected math ops (Math statics, Float3/Quaternion vect
                       u8"main")
                 .IsOk());
     CHECK(ctx->GetGlobal(u8"R").Get<f64>() == 4.0);
+    CHECK(ctx->GetGlobal(u8"K").Get<f64>() == 171.0);
     CHECK(ctx->GetGlobal(u8"CZ").Get<f64>() == 1.0);
     CHECK(ctx->GetGlobal(u8"RX").Get<f64>() == doctest::Approx(1.0));
 }

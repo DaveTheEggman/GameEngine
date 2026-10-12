@@ -1357,3 +1357,33 @@ function Ops:qw() return (Quaternion.new(0, 0, 0, 1) * Quaternion.new(0, 0, 0, 1
     }
     CHECK(listed);
 }
+
+// The script Math's Min, Max and Clamp: reflected statics like Sin, so Luau reaches them as
+// Math.Clamp(x, lo, hi) without a local helper.
+TEST_CASE("script.luau: Math carries Min, Max and Clamp")
+{
+    RegisterCoreTypes();
+    RefPtr<IScriptManager> manager = CreateLuauScriptManager(DefaultAllocator());
+    RegisterReflectedTypes(*manager); // as a game does: every reflected type
+    RefPtr<IScriptContext> context = manager->CreateContext();
+    REQUIRE(context->Load(u8R"lua(
+Limits = {}
+Limits.__index = Limits
+function Limits.new() return setmetatable({}, Limits) end
+function Limits:low() return Math.Clamp(-2, 0, 1) end
+function Limits:high() return Math.Clamp(5, 0, 1) end
+function Limits:inside() return Math.Clamp(0.25, 0, 1) end
+function Limits:least() return Math.Min(2, -3) end
+function Limits:most() return Math.Max(2, -3) end
+)lua",
+                          u8"luau.limits")
+                .IsOk());
+    RefPtr<ScriptObject> limits = context->CreateInstance(u8"Limits", Span<Variant>{});
+    REQUIRE(limits.Get() != nullptr);
+    const auto call = [&](StringView method) { return limits->Invoke(method, Span<Variant>{}).Value().Get<f64>(); };
+    CHECK(call(u8"low") == doctest::Approx(0.0));
+    CHECK(call(u8"high") == doctest::Approx(1.0));
+    CHECK(call(u8"inside") == doctest::Approx(0.25));
+    CHECK(call(u8"least") == doctest::Approx(-3.0));
+    CHECK(call(u8"most") == doctest::Approx(2.0));
+}

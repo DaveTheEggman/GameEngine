@@ -346,6 +346,24 @@ TEST_CASE("core-reflection: Math scalar functions reflect as statics on the Math
     Variant lerpArgs[] = {Variant::From(0.0f), Variant::From(10.0f), Variant::From(0.5f)};
     CHECK(NearlyEqual(InvokeStatic(*lerp, Span<Variant>{lerpArgs, 3}).Value().Get<f32>(), 5.0f));
 
+    const auto call2 = [&](const char* name, f32 a, f32 b) {
+        const MethodInfo* m = FindMethod(math, name);
+        REQUIRE(m != nullptr);
+        Variant args[] = {Variant::From(a), Variant::From(b)};
+        return InvokeStatic(*m, Span<Variant>{args, 2}).Value().Get<f32>();
+    };
+    CHECK(NearlyEqual(call2("Min", 3.0f, -2.0f), -2.0f));
+    CHECK(NearlyEqual(call2("Max", 3.0f, -2.0f), 3.0f));
+    const MethodInfo* clamp = FindMethod(math, "Clamp");
+    REQUIRE(clamp != nullptr);
+    const auto clamped = [&](f32 x) {
+        Variant args[] = {Variant::From(x), Variant::From(0.0f), Variant::From(1.0f)};
+        return InvokeStatic(*clamp, Span<Variant>{args, 3}).Value().Get<f32>();
+    };
+    CHECK(NearlyEqual(clamped(-0.5f), 0.0f));
+    CHECK(NearlyEqual(clamped(0.25f), 0.25f));
+    CHECK(NearlyEqual(clamped(7.0f), 1.0f));
+
     // Reflected constants.
     CHECK(NearlyEqual(FindConstant(math, "Pi")->value.Get<f32>(), kPi));
     CHECK(NearlyEqual(FindConstant(math, "TwoPi")->value.Get<f32>(), kTwoPi));

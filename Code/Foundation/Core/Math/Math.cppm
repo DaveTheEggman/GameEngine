@@ -66,6 +66,15 @@ export namespace foundation::core
 
     [[nodiscard]] constexpr f32 Lerp(f32 a, f32 b, f32 t) noexcept { return a + (b - a) * t; }
 
+    // By value, for the script Math: Base's Min/Max/Clamp templates return a reference, which the
+    // reflected statics cannot carry. An exact f32 match, so C++ callers pick these too.
+    [[nodiscard]] constexpr f32 Min(f32 a, f32 b) noexcept { return b < a ? b : a; }
+    [[nodiscard]] constexpr f32 Max(f32 a, f32 b) noexcept { return a < b ? b : a; }
+    [[nodiscard]] constexpr f32 Clamp(f32 x, f32 lo, f32 hi) noexcept
+    {
+        return x < lo ? lo : (hi < x ? hi : x);
+    }
+
     [[nodiscard]] inline bool NearlyEqual(f32 a, f32 b, f32 epsilon = kEpsilon) noexcept
     {
         return Abs(a - b) <= epsilon;
