@@ -18,6 +18,7 @@ target_sources(Shaders
             Types.cppm
             Flags.cppm
             Variants.cppm
+            Properties.cppm
             Pack.cppm
             Compiler.cppm
             Cook/WgslTranslator.cppm

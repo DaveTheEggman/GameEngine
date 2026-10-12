@@ -215,3 +215,36 @@ TEST_CASE("pipeline config: content hash + equality distinguish render state")
     CHECK(VertexLayoutHelper::Stride(VertexLayoutType::Mesh) == 52); // Float4 tangent
     CHECK(VertexLayoutHelper::Attributes(VertexLayoutType::Mesh).Size() == 5);
 }
+
+// A material built in code and a shader's properties block lay the same list out the same way:
+// HLSL's cbuffer packing, the offsets the shader reads. MaterialBuilder used to give a float3 a
+// whole row and let a float2 straddle one, which a shader reads elsewhere.
+TEST_CASE("material builder: lays uniforms out as a properties block (HLSL packing)")
+{
+    RefPtr<Material> mat = MaterialBuilder(u8"packed")
+                               .Shader(u8"custom")
+                               .Float3(u8"Direction", Float3{0, 1, 0})
+                               .Float(u8"Strength", 2.0f)
+                               .Float2(u8"Scroll", Float2{1, 0})
+                               .Float(u8"A", 0.0f)
+                               .Float2(u8"Wobble", Float2{0, 0})
+                               .Color(u8"Tint", Float4{1, 1, 1, 1})
+                               .Build();
+    const shaders::ShaderPropertiesBlock block = shaders::ParseShaderProperties(
+        u8"properties {\n"
+        u8"  float3 Direction;\n  float Strength;\n  float2 Scroll;\n  float A;\n"
+        u8"  float2 Wobble;\n  Color Tint;\n}\n");
+    REQUIRE(block.IsOk());
+    REQUIRE(block.properties.Size() == mat->PropertyCount());
+    for (const shaders::ShaderProperty& p : block.properties)
+    {
+        CAPTURE(p.name);
+        const MaterialPropertyDef* def = mat->FindProperty(p.name.AsView());
+        REQUIRE(def != nullptr);
+        CHECK(def->offset == p.offset);
+        CHECK(def->size == p.size);
+    }
+    CHECK(mat->FindProperty(u8"Strength")->offset == 12u); // in the float3's last lane
+    CHECK(mat->FindProperty(u8"Wobble")->offset == 32u);   // at 28 it would straddle a row
+    CHECK(mat->UniformDataSize() == block.uniformSize);
+}

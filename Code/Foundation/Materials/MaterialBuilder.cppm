@@ -93,29 +93,28 @@ export namespace foundation::materials
         // --- uniform properties (laid out into the material uniform buffer) ---
         MaterialBuilder& Float(StringView name, f32 v = 0.0f)
         {
-            AddUniform(name, MaterialPropertyType::Float, 4, /*align16*/ false);
+            AddUniform(name, MaterialPropertyType::Float, 4);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat(name, v);
             return *this;
         }
         MaterialBuilder& Float2(StringView name, core::Float2 v = {})
         {
-            AddUniform(name, MaterialPropertyType::Float2, 8, false);
+            AddUniform(name, MaterialPropertyType::Float2, 8);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat2(name, v);
             return *this;
         }
         MaterialBuilder& Float3(StringView name, core::Float3 v = {})
         {
-            AddUniform(name, MaterialPropertyType::Float3, 12,
-                       /*align16*/ true); // float3 occupies 16 (std140)
+            AddUniform(name, MaterialPropertyType::Float3, 12);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat3(name, v);
             return *this;
         }
         MaterialBuilder& Float4(StringView name, core::Float4 v = {})
         {
-            AddUniform(name, MaterialPropertyType::Float4, 16, true);
+            AddUniform(name, MaterialPropertyType::Float4, 16);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat4(name, v);
             return *this;
@@ -123,7 +122,7 @@ export namespace foundation::materials
         // An authored colour (sRGB rgba); the GPU sees it linear.
         MaterialBuilder& Color(StringView name, core::Float4 v = core::Float4{1, 1, 1, 1})
         {
-            AddUniform(name, MaterialPropertyType::Color, 16, true);
+            AddUniform(name, MaterialPropertyType::Color, 16);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat4(name, v);
             return *this;
@@ -131,7 +130,7 @@ export namespace foundation::materials
         // An authored colour with an intensity: sRGB rgb, linear intensity in w.
         MaterialBuilder& ColorHdr(StringView name, core::Float4 colorAndIntensity)
         {
-            AddUniform(name, MaterialPropertyType::ColorHdr, 16, true);
+            AddUniform(name, MaterialPropertyType::ColorHdr, 16);
             m_material->AllocateDefaultUniformData();
             m_material->SetDefaultFloat4(name, colorAndIntensity);
             return *this;
@@ -177,15 +176,13 @@ export namespace foundation::materials
         }
 
     private:
-        void AddUniform(StringView name, MaterialPropertyType type, u32 size, bool align16)
+        // Lays a uniform out by HLSL's cbuffer packing (shaders::PackCbufferMember, the rule a
+        // properties block's generated cbuffer follows too), so the offsets are where the shader
+        // reads: a float after a float3 shares its row, a float2 never straddles one.
+        void AddUniform(StringView name, MaterialPropertyType type, u32 size)
         {
-            if (align16)
-            {
-                m_uniformOffset = (m_uniformOffset + 15u) & ~15u;
-            }
-            m_material->AddProperty(
-                MaterialPropertyDef{name, type, m_binding, m_uniformOffset, size});
-            m_uniformOffset += align16 ? 16u : size; // float3/float4 consume a 16-byte slot
+            const u32 offset = shaders::PackCbufferMember(m_uniformOffset, size);
+            m_material->AddProperty(MaterialPropertyDef{name, type, m_binding, offset, size});
             ++m_binding;
         }
 

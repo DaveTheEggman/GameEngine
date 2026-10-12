@@ -2,7 +2,8 @@
 
 add_executable(Shaders.Tests
     TestsMain.cpp
-    ShadersTests.cpp)
+    ShadersTests.cpp
+    PropertiesTests.cpp)
 
 # Foundation::VFS: the cook test finds the engine corpus via the discovered data root.
 target_link_libraries(Shaders.Tests PRIVATE Foundation::Shaders Foundation::VFS doctest::doctest)

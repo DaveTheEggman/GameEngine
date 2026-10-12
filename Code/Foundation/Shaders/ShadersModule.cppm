@@ -6,6 +6,7 @@ export module foundation.shaders;
 export import :types;
 export import :flags;
 export import :variants;
+export import :properties;
 export import :pack;
 export import :compiler;
 export import :wgsl_cook;
