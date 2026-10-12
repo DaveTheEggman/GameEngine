@@ -617,7 +617,7 @@ export namespace engine::render
         f32 skyIntensity = 1.0f;
         // Display-only backdrop dimmer: an EXTRA multiplier on the VISIBLE sky (main view + probe
         // reflections of it) layered on top of skyIntensity. Does NOT touch IBL lighting - use it
-        // to calm a too-bright sky while keeping the scene lit. Default 0.7 (Unity-like backdrop).
+        // to calm a too-bright sky while keeping the scene lit. Default 0.5.
         f32 skyBackgroundIntensity = 0.5f;
         f32 skyRotation = 0.0f; // yaw (radians) for HDR/cubemap
         // The textured modes' source: HDREquirect = a 2D .hdr texture asset; Cubemap = a

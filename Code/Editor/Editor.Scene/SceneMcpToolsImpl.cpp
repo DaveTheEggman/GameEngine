@@ -764,7 +764,8 @@ namespace editor
         server.RegisterTool(
             u8"navigation_bake",
             u8"Bake a scene page's navigation zone, as the inspector's Bake Navigation button does: "
-            u8"collect the static Mesh geometry inside the zone's box and write the navmesh into "
+            u8"collect the static geometry inside the zone's box (static rigid bodies and terrain; "
+            u8"render meshes are not read) and write the navmesh into "
             u8"the zone's Navigation Zone asset (the zone component's `zone`; assign one first, "
             u8"with component_set). `entity` names the zone's entity; without it, the scene's only "
             u8"zone. The scene is not changed; cook (asset_cook) for the game to see the new "

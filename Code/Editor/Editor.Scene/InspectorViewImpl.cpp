@@ -1125,9 +1125,10 @@ namespace editor
         }
 
         // NavMeshZoneComponent: a one-shot Bake button.
-        // Collects the in-zone static-mesh geometry, bakes it via Recast, and writes the zone's
-        // NavigationZoneAsset sidecar; the outcome is flashed (no silent success). The user then
-        // saves + cooks to apply the new navmesh. Requires an assigned Navigation Zone asset.
+        // Collects the in-zone static geometry (static rigid bodies and terrain, never render
+        // meshes), bakes it via Recast, and writes the zone's NavigationZoneAsset sidecar; the
+        // outcome is flashed (no silent success). The user then cooks to apply the new navmesh.
+        // Requires an assigned Navigation Zone asset.
         if (type == &TypeOf<engine::navigation::NavMeshZoneComponent>())
         {
             auto bake = MakeRef<ui::toolkit::ButtonEditor>(
