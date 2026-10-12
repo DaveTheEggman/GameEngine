@@ -3,11 +3,12 @@
 add_executable(Shaders.Pipeline.Tests
     TestsMain.cpp
     ShaderCheckTests.cpp
+    ShaderCreatorTests.cpp
     ShaderEditorTests.cpp
     ShaderReflectionTests.cpp)
 
 target_link_libraries(Shaders.Pipeline.Tests PRIVATE
-    Pipeline::Shaders Foundation::Shaders Foundation::VFS doctest::doctest)
+    Pipeline::Shaders Pipeline::Importer Foundation::Shaders Foundation::VFS doctest::doctest)
 
 target_compile_definitions(Shaders.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

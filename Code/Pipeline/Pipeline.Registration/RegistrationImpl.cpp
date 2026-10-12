@@ -200,6 +200,7 @@ namespace pipeline
         AddImporter<UIFileImporter>(registry);
         AddImporter<AudioFileImporter>(registry);
         AddImporter<ScriptFileImporter>(registry);
+        AddImporter<ShaderFileImporter>(registry);
         AddImporter<FontAssetImporter>(registry);
         AddImporter<ImageFileImporter>(registry);
         AddImporter<HeightfieldFileImporter>(registry);
@@ -224,6 +225,7 @@ namespace pipeline
         RegisterParticleCreators(registry);
         RegisterGeometryCreators(registry);
         RegisterMaterialCreators(registry);
+        RegisterShaderCreators(registry);
         RegisterPhysicsCreators(registry);
         RegisterRenderCreators(registry);
         RegisterAudioCreators(registry);
