@@ -814,6 +814,8 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Integration/Integration.Runtime            Engine::Animation)
     # BC-texture cook-encoder x render: upload + sample block-compressed textures on real GPUs.
     util_test_suite(Code/Integration/Integration.TextureCompression Pipeline::Texture.Compression)
+    # A surface shader x render: the built-in PBR as a surface shader draws as forward does, on real GPUs.
+    util_test_suite(Code/Integration/Integration.Shaders            Pipeline::Shaders)
 endif()
 
 # Web-only samples, then stop - the rest of Code/Samples is desktop-only. Honor
