@@ -5,7 +5,8 @@ add_executable(Materials.Pipeline.Tests
     MaterialEditorTests.cpp)
 
 target_link_libraries(Materials.Pipeline.Tests PRIVATE
-    Pipeline::Materials Foundation::VFS doctest::doctest)
+    Pipeline::Materials Foundation::VFS Foundation::Shaders Foundation::Shaders.Resource
+    doctest::doctest)
 
 target_compile_definitions(Materials.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

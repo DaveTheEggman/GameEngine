@@ -3,7 +3,8 @@
 util_add_engine_library(Materials.Pipeline ALIAS Pipeline::Materials)
 target_link_libraries(Materials.Pipeline
     PUBLIC Foundation::Core Pipeline::Core Foundation::Content
-           Foundation::Materials Foundation::Materials.Resource Foundation::Policy)
+           Foundation::Materials Foundation::Materials.Resource Foundation::Shaders
+           Foundation::Shaders.Resource Foundation::Policy)
 
 target_sources(Materials.Pipeline
     PRIVATE

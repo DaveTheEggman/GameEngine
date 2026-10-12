@@ -94,16 +94,16 @@ page's picker and rows. A surface shader is a low-level shader the engine writes
 
 ### Properties: declared in the shader
 
-The `properties` block is the one place a parameter is declared, in either kind. In a surface shader
+The `properties` block is the one place a parameter is declared, in either kind, and in either kind
 the engine generates from it the material cbuffer (16-byte packed), the texture and sampler
 declarations at the set-2 slots `MaterialSystem` assigns, and the material's property table: names,
 types, defaults, ranges for the editor's sliders. No reflection of compiled shaders is needed, and
 the layout cannot drift from the code because both come from one declaration. Types: `float`,
 `float2..4`, `int`, `Color` (sRGB, linear in the shader), `ColorHdr` (with an intensity, as the PBR
-emissive is), `Texture` (2D), `TextureCube`. A low-level shader carries the same block (it replaces
-the `MaterialBuilder` calls the toon sample makes in code) and declares its own set-2 block to
-match; the cook checks the two agree. A material on either shows exactly these rows; switching a
-material to another shader keeps the values whose names and types match.
+emissive is), `Texture` (2D), `TextureCube`, `Sampler` (declared explicitly). A low-level shader
+carries the same block (it replaces the `MaterialBuilder` calls the toon sample makes in code) and
+declares only the frame's sets, never set 2. A material on either shows exactly these rows;
+switching a material to another shader keeps the values whose names and types match.
 
 ## How it compiles, ships and reloads
 
@@ -173,7 +173,7 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
 1. **The shader asset compiles at cook time.** The low-level asset (its stages, its `properties`
    block) cooks every variant for the editor's backend, fails the cook with errors mapped to the
    file and line, keeps the last good product, and carries the property table; a material on it
-   takes its layout from that table, and the cook checks the declared set-2 block agrees. A
+   takes its layout from that table, and set 2 is generated from it. A
    failed runtime compile is cached, not retried every frame. Tests: a good shader cooks its
    variants; a broken one fails with its line and the old product stays.
 2. **Export.** Project shaders cooked to the preset's formats (SPIR-V, DXIL, WGSL) into the dist
@@ -196,6 +196,86 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
 8. After 0.1: the disassembly view and project includes; the node graph generating surface
    functions is 0.2.
 
+## Phase 1 in detail: the shader asset compiles at cook time
+
+Planned 2026-10-12 from the code (no build). Layers in order, each with its tests; the editor
+page and export are phases 3 and 2.
+
+**1a. Errors name the file.** `CompileOptions` gains `sourceName`, passed to DXC as the source's
+file name, so a message reads `Toon.hlsl:12:5: error: ...` instead of DXC's placeholder name.
+Test: a broken source compiled under a name reports that name and the line.
+
+**1b. The properties block** (`Foundation/Shaders`, a parser beside the variant directives).
+```hlsl
+properties
+{
+    Color    BaseColor   = (1, 1, 1, 1);
+    Color    ShadowColor = (0.3, 0.1, 0.1, 1);
+    float    Bands       = 3       [1, 8];
+    ColorHdr Glow        = (1, 0.5, 0, 1);
+    Texture  AlbedoMap;
+    Sampler  MainSampler;
+}
+```
+One declaration per line: a type (`float`, `float2`, `float3`, `float4`, `int`, `Color`,
+`ColorHdr`, `Texture`, `TextureCube`, `Sampler`), a name, an optional default and an optional
+`[min, max]` range for the editor's slider. Parse errors carry the line. The parser yields the
+property table in declaration order. The cbuffer layout follows HLSL's packing rules, through
+ONE packer in `foundation.shaders` that `MaterialBuilder` uses too: a value is aligned to its own
+size and never crosses a 16-byte row. (`MaterialBuilder` packs a `float3` as 16 bytes and lets a
+`float2` straddle a row, where HLSL packs a following `float` into the `float3`'s last lane and
+moves the `float2` to the next row: a latent mismatch with what a shader reads. Nothing calls its
+`Float2` or `Float3` today, so no layout changes.) Textures and samplers are numbered t0.., s0..
+in order, as `MaterialSystem::GetOrCreateLayout` assigns them. Tests: each type and its default,
+ranges, the packer against HLSL's rules (float3 then float, float2 at 12), `MaterialBuilder` on the
+same list, every malformed line reported with its line number.
+
+**1c. Set 2 is generated from the block, in both kinds** (decided 2026-10-12). The block is
+replaced in place by the generated `cbuffer Material : register(b0, space2)` and the texture and
+sampler declarations, followed by `#line <next line> "<file>"`, so every later line keeps its
+number in DXC's messages. A low-level shader then declares sets 0, 1 and 3 (the frame) and never
+set 2. Test: the generated declarations compile, and an error after the block reports the line
+the author sees.
+
+**1d. Per-stage variant directives.** A one-file shader declares each stage's variant lattice:
+`// variants(vertex): SKINNED INSTANCED WIND` and `// variants(fragment): ALPHA_TEST GBUFFER
+DITHER`. The corpus's untagged `// variants:` keeps meaning every stage of its file. The drift lint
+checks a one-file shader against the union of its stages' lattices (which code belongs to which
+stage is the preprocessor's to know): a flag used anywhere must be declared for some stage.
+Tests: tagged and untagged forms, a flag used but not declared fails.
+
+**1e. The shader asset's new shape.** `ShaderAsset`: `name`, `fileName` (the one `.hlsl`),
+`vertexEntryPoint` (default `VSMain`) and `fragmentEntryPoint` (default `PSMain`), visible and
+editable in the asset's inspector. `fragmentFile` goes (no project uses the two-file shape); the
+data version is bumped.
+
+**1f. The cook compiles.** `ShaderAssetBuilder` reads the file, parses the block, generates set 2,
+and compiles every declared variant of both stages to SPIR-V with the engine's shader library on the
+include path (`<data root>/Shaders`: every tool passes the data root it resolved, `--data-root`
+included, to `RegisterAllBuilders`). Any failure fails the cook with `File.hlsl:line: message` lines
+in the log; the cook driver keeps the last good product, so a broken edit never reaches a running
+game. The product (`ShaderSource`) carries the generated source, both entry points, both declared
+masks and the property table. Builder version 3. Tests: a good shader cooks with its table; a broken
+one fails with its file and line and the previous product survives; an undeclared flag fails the
+cook.
+
+**1g. The runtime registers what the cook proved.** `ShaderFactory` registers each stage with its
+entry point and declared mask, so requests canonicalize as the corpus's do (and as the dist
+lookup will in phase 2). A runtime compile failure is cached per variant until the shader is
+invalidated, instead of recompiled and logged every frame. Tests: canonicalization of a
+registered source with a mask; a failing variant compiles once.
+
+**1h. Materials take their layout from their shader.** `MaterialAssetBuilder`: when `shaderId` is
+set, it declares a `reads` dependency on the shader (a shader edit re-cooks its materials), reads
+the cooked `ShaderSource`'s table, lays the product out by it, and takes each value from the asset
+by name where the type matches, else the shader's default. A value whose name the shader no
+longer has is dropped with a warning. Built-in materials (`shaderName`) are unchanged. Tests: a
+material on a shader gets its layout and values; a shader edit that adds, removes and retypes
+properties re-cooks the material as described.
+
+**Out of phase 1:** project `.hlsli` includes (engine library only), the editor's shader page and
+material picker (phase 3), bytecode in dists (phase 2).
+
 ## Decided
 
 - **Two kinds, both supported** (user, 2026-10-12): low-level shaders and surface shaders.
@@ -203,10 +283,17 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
   data rather than assumed (user, 2026-10-12). Built (phase 0).
 - **The order**: low-level shaders through the editor and into dists first (phases 1 to 4), then
   surface shaders (5, 6) (user, 2026-10-12).
-- **The properties block** is the single declaration of a shader's parameters, in both kinds; a
-  low-level shader also declares its cbuffer, and the cook checks they agree (user, 2026-10-12).
+- **The properties block** is the single declaration of a shader's parameters, in both kinds
+  (user, 2026-10-12).
 - **The showcase goes in the fifth sample** (user, 2026-10-12), the networking and crowds game.
 - **The node graph is 0.2** (user, 2026-10-12; `backlog-0.2.md`).
+- **Set 2 is generated from the properties block in both kinds** (user, 2026-10-12): a low-level
+  shader declares the frame (sets 0, 1, 3) and never its material block, so the layout cannot
+  disagree with the block and the cook needs no reflection. A hand-packed material block is not
+  supported.
+- **Entry points are asset fields**, defaulting to `VSMain` and `PSMain` (user, 2026-10-12).
+- **Samplers are declared explicitly** in the block (user, 2026-10-12): the material layout is
+  exactly the block.
 
 ## Corrections this plan owes other documents
 

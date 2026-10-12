@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Source-side material cook: author a Material in code, capture it into a MaterialAsset
-// referencing a shader id, cook through MaterialAssetBuilder into an output content DB,
-// and verify the cooked MaterialSource carries the shader id, declared properties, and
-// default uniforms. No GPU/DXC - pure authoring data.
+// Source-side material cook: author a Material in code, capture it into a MaterialAsset, cook
+// through MaterialAssetBuilder into an output content DB, and verify the cooked MaterialSource.
+// On a built-in shader the authored layout is the product's; on a custom shader the shader's
+// cooked property table lays the product out and the authored material supplies the values. No
+// GPU/DXC - pure authoring data.
 #include <doctest/doctest.h>
 #include "Core/Prelude.h"
 #include "Core/Reflection/Reflect.h"
@@ -16,6 +17,8 @@ import pipeline.core;
 import foundation.materials;
 import foundation.materials.resource;
 import materials.pipeline;
+import foundation.shaders;
+import foundation.shaders.resource;
 
 using namespace foundation::core;
 using namespace pipeline;
@@ -31,7 +34,7 @@ namespace
     }
 }
 
-TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
+TEST_CASE("material editor: cooks a MaterialAsset on a built-in shader -> MaterialSource")
 {
     GlobalTypeRegistry().Register(MaterialSource::StaticType());
     RegisterSerializable<MaterialSource>();
@@ -39,7 +42,6 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
 
     RemoveTree();
 
-    Guid shaderId{0x1122334455667788ull, 0x99aabbccddeeff00ull};
     NativeFileSystem outMount(u8"scratch_mat_edit_db", DefaultAllocator());
     Guid id;
 
@@ -59,7 +61,7 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
                                         .Build();
 
         MaterialAsset asset;
-        MaterialImporter::Import(*authored, shaderId, asset);
+        MaterialImporter::Import(*authored, Guid{}, asset); // a built-in shader, by name
 
         MaterialAssetBuilder builder;
         REQUIRE(builder.AssetType() == &MaterialAsset::StaticType());
@@ -76,7 +78,8 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
         MaterialSource* cooked = Cast<MaterialSource>(object.Get());
         REQUIRE(cooked != nullptr);
         CHECK(cooked->name == u8"litMat");
-        CHECK(cooked->shaderId == shaderId);
+        CHECK(cooked->shaderId.IsNil());
+        CHECK(cooked->shaderName == u8"lit");
         CHECK(cooked->blendMode == BlendMode::AlphaBlend); // .Transparent()
         CHECK(cooked->depthMode == DepthMode::ReadOnly);
         REQUIRE(cooked->propertyNames.Size() == 3);
@@ -90,6 +93,101 @@ TEST_CASE("material editor: cooks a MaterialAsset -> MaterialSource")
     }
 
     RemoveTree();
+}
+
+// A material on a custom shader takes its layout from the shader's cooked property table: the
+// shader's order and offsets, each value from the authored material by name where the type still
+// matches, else the shader's default; a property or texture the shader no longer has is dropped.
+// The material reads the shader's content, so a shader edit re-cooks it.
+TEST_CASE("material editor: a material on a custom shader is laid out by the shader's table")
+{
+    GlobalTypeRegistry().Register(MaterialSource::StaticType());
+    RegisterSerializable<MaterialSource>();
+    GlobalTypeRegistry().Register(foundation::shaders::ShaderSource::StaticType());
+    RegisterSerializable<foundation::shaders::ShaderSource>();
+    RegisterMaterialAsset();
+    FileDelete(u8"scratch_mat_shader_db/toon.rasset");
+    FileDelete(u8"scratch_mat_shader_db/mat.rasset");
+
+    NativeFileSystem mount(u8"scratch_mat_shader_db", DefaultAllocator());
+    foundation::content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(),
+                                            u8".rasset");
+
+    // The cooked shader: Bands moved after a new RimColor, Tint retyped to float, ShadowColor
+    // unchanged, and AlbedoMap still a texture.
+    const foundation::shaders::ShaderPropertiesBlock block =
+        foundation::shaders::ParseShaderProperties(u8"properties {\n"
+                                                   u8"  Color ShadowColor = (0, 0, 1, 1);\n"
+                                                   u8"  Color RimColor = (1, 1, 0, 1);\n"
+                                                   u8"  float Bands = 3;\n"
+                                                   u8"  float Tint = 0.25;\n"
+                                                   u8"  Texture AlbedoMap;\n"
+                                                   u8"  Sampler MainSampler;\n"
+                                                   u8"}\n");
+    REQUIRE(block.IsOk());
+    foundation::shaders::ShaderSource shader;
+    shader.name = String(u8"toon");
+    shader.SetProperties(block);
+    auto* shaderInst = db.RootGroup()->CreateInstance(
+        u8"toon", foundation::shaders::ShaderSource::StaticType());
+    REQUIRE(shaderInst->WriteObject(shader).IsOk());
+
+    // The authored material, from an older version of the shader.
+    RefPtr<Material> authored = MaterialBuilder(u8"toonMat")
+                                    .Shader(u8"toon")
+                                    .Color(u8"Tint", Float4{0.5f, 0.5f, 0.5f, 1.0f}) // now a float
+                                    .Color(u8"ShadowColor", Float4{0.2f, 0.1f, 0.3f, 1.0f})
+                                    .Float(u8"Bands", 5.0f)
+                                    .Float(u8"Gone", 1.0f) // no longer declared
+                                    .Texture(u8"AlbedoMap")
+                                    .Texture(u8"Removed")
+                                    .Build();
+    MaterialAsset asset;
+    MaterialImporter::Import(*authored, shaderInst->Id(), asset);
+    const Guid albedo{0x1ull, 0x2ull};
+    const Guid removed{0x3ull, 0x4ull};
+    asset.source.textureSlots.PushBack(String(u8"AlbedoMap"));
+    asset.source.textureIds.PushBack(albedo);
+    asset.source.textureSlots.PushBack(String(u8"Removed"));
+    asset.source.textureIds.PushBack(removed);
+
+    MaterialAssetBuilder builder;
+    pipeline::AssetDependencies deps;
+    pipeline::AssetBuildContext ctx{DefaultAllocator()};
+    builder.ScanDependencies(asset, ctx, deps);
+    REQUIRE(deps.reads.Size() == 1u);
+    CHECK(deps.reads[0] == shaderInst->Id()); // a shader edit re-cooks the material
+
+    auto* matInst = db.RootGroup()->CreateInstance(u8"mat", MaterialSource::StaticType());
+    ctx.db = &db;
+    ctx.output = matInst;
+    REQUIRE(builder.Build(asset, ctx).IsOk());
+
+    RefPtr<ISerializable> object = db.ReadObject(matInst->Id());
+    const MaterialSource* cooked = Cast<MaterialSource>(object.Get());
+    REQUIRE(cooked != nullptr);
+    REQUIRE(cooked->propertyNames.Size() == 6u);
+    CHECK(cooked->propertyNames[0] == u8"ShadowColor");
+    CHECK(cooked->propertyNames[1] == u8"RimColor");
+    CHECK(cooked->propertyNames[2] == u8"Bands");
+    CHECK(cooked->propertyNames[3] == u8"Tint");
+    CHECK(cooked->propertyTypes[3] == static_cast<u8>(MaterialPropertyType::Float));
+    CHECK(cooked->propertyOffsets[2] == 32u);
+    REQUIRE(cooked->uniformDefaults.Size() == block.uniformSize);
+    const auto at = [&](u32 offset)
+    { return *reinterpret_cast<const f32*>(cooked->uniformDefaults.Data() + offset); };
+    CHECK(at(0) == doctest::Approx(0.2f));  // ShadowColor: the authored value
+    CHECK(at(8) == doctest::Approx(0.3f));
+    CHECK(at(16) == doctest::Approx(1.0f)); // RimColor: new, the shader's default
+    CHECK(at(32) == doctest::Approx(5.0f)); // Bands: the authored value at its new offset
+    CHECK(at(36) == doctest::Approx(0.25f)); // Tint: retyped, the shader's default
+    REQUIRE(cooked->textureSlots.Size() == 1u);
+    CHECK(cooked->textureSlots[0] == u8"AlbedoMap");
+    CHECK(cooked->textureIds[0] == albedo);
+
+    FileDelete(u8"scratch_mat_shader_db/toon.rasset");
+    FileDelete(u8"scratch_mat_shader_db/mat.rasset");
+    RemoveDirectory(u8"scratch_mat_shader_db");
 }
 
 TEST_CASE("material editor: MaterialAsset exposes MaterialSource as a NESTED property (recurse)")

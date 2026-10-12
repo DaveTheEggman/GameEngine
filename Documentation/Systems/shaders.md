@@ -72,6 +72,23 @@ stage interface by location and treats a shorter input list as an error (or, whe
 happen to line up, a silent garbage read), never as a subset; the terrain holes probe runs with
 validation ON and counts `rhi::vk::ValidationErrorCount()` around the render for exactly this.
 
+## Custom shaders (a project's own)
+
+A custom shader is a `ShaderAsset`: ONE `.hlsl` with both stages (entry points as asset fields,
+`VSMain` / `PSMain` by default), a `properties { ... }` block declaring its material parameters,
+and a variant lattice per stage (`// variants(vertex): ...`, `// variants(fragment): ...`). The
+cook (`ShaderAssetBuilder`) replaces the block with the generated set-2 declarations (the
+`Material` cbuffer by HLSL packing, `PackCbufferMember`, then the textures and samplers), keeps
+the author's line numbers with `#line`, and COMPILES every declared variant of both stages with
+the engine's library (`<data root>/Shaders`) on the include path: a failure fails the cook with
+`File.hlsl:line: message`, and the cook keeps the last good product. The product (`ShaderSource`)
+carries the expanded source, the entries, the lattices and the property table; the runtime
+registers each stage with its lattice, so requests canonicalize as the corpus's do, and a failed
+runtime compile is remembered until the source changes. A material on a custom shader is cooked
+by the shader's table (its order and offsets; values by name where the type matches, else the
+shader's default) and re-cooks when the shader does. The plan and its later phases (dists, the
+editor, surface shaders) are `Documentation/Specs/custom-shaders.md`.
+
 ## WGSL target (naga)
 
 `WgslTranslator` cooks HLSL -> (DXC, vulkan1.1 target env + engine Standard binding shifts) -> SPIR-V ->
