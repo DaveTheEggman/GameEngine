@@ -145,6 +145,9 @@ export namespace foundation::shaders
                 RemoveSource(name.AsView()); // refetched lazily on next GetVariant
                 InvalidateShader(name.AsView());
             }
+            // A registered shader (a project's) may include a changed library file; the provider
+            // cannot say which, so every remembered failure gets another compile.
+            m_failedVariants.Clear();
             return changed.Size();
         }
 

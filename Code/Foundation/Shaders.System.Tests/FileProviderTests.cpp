@@ -210,9 +210,18 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
 
         ShaderSystem ss(*compiler, device);
         ss.SetSourceProvider(&provider);
+        ss.SetIncludeResolver(&provider);
 
         CHECK(ss.GetVariant(u8"hot", ShaderStage::Fragment, ShaderFlags::None) != nullptr);
         CHECK(ss.Version(u8"hot") == 0);
+
+        // A registered (project) shader that includes the library file, which does not yet
+        // define what it needs: it fails, and the failure is remembered.
+        ss.RegisterSource(u8"user", ShaderStage::Fragment,
+                          u8"#include \"reload_common.hlsli\"\n"
+                          u8"float4 main() : SV_Target { return float4(COMMON_RED, 0, 0, 1); }\n",
+                          kCorpusEntryPoint);
+        CHECK(ss.GetVariant(u8"user", ShaderStage::Fragment, ShaderFlags::None) == nullptr);
 
         // No edits -> a full throttle window of pumps reloads nothing.
         CHECK(SpinReloads(ss) == 0);
@@ -230,10 +239,14 @@ TEST_CASE("shader system: PumpReloads picks up file edits and .hlsli edits")
         CHECK(fetched.AsView() == StringView(reinterpret_cast<const char8_t*>(kGreenPS)));
 
         // Edit a .hlsli: includers are unknown, so EVERY served shader reloads.
-        WriteFile(root / "reload_common.hlsli", "// v2 - bigger than before\n");
+        WriteFile(root / "reload_common.hlsli",
+                  "// v2 - bigger than before\n#define COMMON_RED 1\n");
         CHECK(SpinReloads(ss) == 2);
         CHECK(ss.Version(u8"hot") == 2);
         CHECK(ss.Version(u8"cold") == 1);
+        // ... and a remembered failure gets another compile: the registered shader that needed
+        // the fixed library file now compiles.
+        CHECK(ss.GetVariant(u8"user", ShaderStage::Fragment, ShaderFlags::None) != nullptr);
     }
     compiler->Destroy();
 }

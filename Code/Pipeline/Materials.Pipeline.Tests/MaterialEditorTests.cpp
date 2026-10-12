@@ -121,6 +121,7 @@ TEST_CASE("material editor: a material on a custom shader is laid out by the sha
                                                    u8"  Color RimColor = (1, 1, 0, 1);\n"
                                                    u8"  float Bands = 3;\n"
                                                    u8"  float Tint = 0.25;\n"
+                                                   u8"  int Steps = 7;\n"
                                                    u8"  Texture AlbedoMap;\n"
                                                    u8"  Sampler MainSampler;\n"
                                                    u8"}\n");
@@ -138,7 +139,8 @@ TEST_CASE("material editor: a material on a custom shader is laid out by the sha
                                     .Color(u8"Tint", Float4{0.5f, 0.5f, 0.5f, 1.0f}) // now a float
                                     .Color(u8"ShadowColor", Float4{0.2f, 0.1f, 0.3f, 1.0f})
                                     .Float(u8"Bands", 5.0f)
-                                    .Float(u8"Gone", 1.0f) // no longer declared
+                                    .Float(u8"Steps", 2.0f) // now an int, the same size
+                                    .Float(u8"Gone", 1.0f)  // no longer declared
                                     .Texture(u8"AlbedoMap")
                                     .Texture(u8"Removed")
                                     .Build();
@@ -166,7 +168,7 @@ TEST_CASE("material editor: a material on a custom shader is laid out by the sha
     RefPtr<ISerializable> object = db.ReadObject(matInst->Id());
     const MaterialSource* cooked = Cast<MaterialSource>(object.Get());
     REQUIRE(cooked != nullptr);
-    REQUIRE(cooked->propertyNames.Size() == 6u);
+    REQUIRE(cooked->propertyNames.Size() == 7u);
     CHECK(cooked->propertyNames[0] == u8"ShadowColor");
     CHECK(cooked->propertyNames[1] == u8"RimColor");
     CHECK(cooked->propertyNames[2] == u8"Bands");
@@ -181,6 +183,8 @@ TEST_CASE("material editor: a material on a custom shader is laid out by the sha
     CHECK(at(16) == doctest::Approx(1.0f)); // RimColor: new, the shader's default
     CHECK(at(32) == doctest::Approx(5.0f)); // Bands: the authored value at its new offset
     CHECK(at(36) == doctest::Approx(0.25f)); // Tint: retyped, the shader's default
+    // Steps: retyped float -> int at the same size, so the shader's default, written as an int.
+    CHECK(*reinterpret_cast<const i32*>(cooked->uniformDefaults.Data() + 40) == 7);
     REQUIRE(cooked->textureSlots.Size() == 1u);
     CHECK(cooked->textureSlots[0] == u8"AlbedoMap");
     CHECK(cooked->textureIds[0] == albedo);

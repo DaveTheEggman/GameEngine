@@ -181,15 +181,21 @@ TEST_CASE("properties: the expanded source compiles, and keeps the author's line
                   "    return AlbedoMap.Sample(MainSampler, uv) * Tint * Strength;\n" // 9
                   "}\n",
                   messages));
-    CHECK(compile("properties\n"
-                  "{\n"
-                  "    float Strength = 2;\n"
-                  "}\n"                                       // 4
-                  "float4 PSMain() : SV_Target0 {\n"          // 5
-                  "    return float4(1, 1, 1, 1) * Strenght;\n" // 6: the mistake
+    // A block whose generated declarations take a different number of lines than it does (eight
+    // lines become five), so a missing #line would shift the reported line.
+    CHECK(compile("properties\n"                               // 1
+                  "{\n"                                        // 2
+                  "    float Strength = 2;\n"                  // 3
+                  "    // a comment\n"                         // 4
+                  "\n"                                         // 5
+                  "    float Other = 1;\n"                     // 6
+                  "    Color Tint;\n"                          // 7
+                  "}\n"                                        // 8
+                  "float4 PSMain() : SV_Target0 {\n"           // 9
+                  "    return Tint * Other * Strenght;\n"       // 10: the mistake
                   "}\n",
                   messages) == false);
-    CAPTURE(messages);
-    CHECK(Contains(messages.AsView(), u8"Toon.hlsl:6:"));
+    INFO(doctest::String(reinterpret_cast<const char*>(messages.CStr())));
+    CHECK(Contains(messages.AsView(), u8"Toon.hlsl:10:"));
     compiler->Destroy();
 }
