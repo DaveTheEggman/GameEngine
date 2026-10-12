@@ -313,10 +313,17 @@ void ApplyPropertyPresentation(ui::toolkit::PropertyGrid& grid,
         }
     }
 
-    // A settings block's section name: its type's name minus a trailing "Settings"
-    // ("EnvironmentSettings" -> "Environment").
+    // A settings block's section name: the displayName its type declares ("Post Processing"),
+    // else its type's name minus a trailing "Settings" ("EnvironmentSettings" -> "Environment").
     [[nodiscard]] inline StringView SettingsCategoryName(const TypeInfo& type)
     {
+        if (const Variant* display = FindAttribute(type, "displayName"))
+        {
+            if (const String* name = display->TryGet<String>(); name != nullptr && !name->IsEmpty())
+            {
+                return name->AsView();
+            }
+        }
         StringView category(reinterpret_cast<const utf8char*>(type.name));
         const StringView suffix = u8"Settings";
         if (category.Size() > suffix.Size() &&

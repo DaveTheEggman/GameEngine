@@ -16,6 +16,9 @@ import foundation.content;
 import foundation.scene;
 import foundation.render;
 import engine.render;
+import engine.physics;
+import engine.navigation;
+import engine.script;
 import pipeline.core;
 import render.pipeline;
 import editor.core;
@@ -382,4 +385,25 @@ TEST_CASE("settings profiles: a scene's world bounds merge every measured entity
     CHECK(bounds.min.y == doctest::Approx(-2.0f));
     CHECK(bounds.max.x == doctest::Approx(5.0f));
     CHECK(bounds.max.z == doctest::Approx(3.0f));
+}
+
+// The Scene tab titles each settings section with the displayName its type declares, not its C++
+// name ("PhysicsScene", "PostProcess" read as code to a user); a type without one keeps its name
+// minus "Settings".
+TEST_CASE("inspector: a scene settings section is titled with its type's display name")
+{
+    RegisterRenderComponentReflection();
+    engine::physics::RegisterPhysicsComponentReflection();
+    engine::navigation::RegisterNavigationComponentReflection();
+    engine::script::RegisterScriptComponentReflection();
+
+    CHECK(editor::SettingsCategoryName(TypeOf<EnvironmentSettings>()) == StringView(u8"Environment"));
+    CHECK(editor::SettingsCategoryName(TypeOf<PostProcessSettings>()) ==
+          StringView(u8"Post Processing"));
+    CHECK(editor::SettingsCategoryName(TypeOf<engine::physics::PhysicsSceneSettings>()) ==
+          StringView(u8"Physics"));
+    CHECK(editor::SettingsCategoryName(TypeOf<engine::navigation::NavigationSceneSettings>()) ==
+          StringView(u8"Navigation"));
+    CHECK(editor::SettingsCategoryName(TypeOf<engine::script::SceneScriptSettings>()) ==
+          StringView(u8"Scene Script"));
 }

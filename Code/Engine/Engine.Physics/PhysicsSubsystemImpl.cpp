@@ -625,6 +625,7 @@ namespace engine::physics
 
     REFLECT_VALUE(PhysicsSceneSettings, "rtti::engine::physics")
     {
+        builder.Attribute("displayName", String(u8"Physics")); // the Scene tab's section
         builder.DataVersion(1);
         builder.Property<&PhysicsSceneSettings::gravity>("gravity");
         builder.Property<&PhysicsSceneSettings::collisionSteps>("collisionSteps");

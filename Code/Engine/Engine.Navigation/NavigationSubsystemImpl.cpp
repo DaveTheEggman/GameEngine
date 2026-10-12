@@ -233,6 +233,7 @@ namespace engine::navigation
 
     REFLECT_VALUE(NavigationSceneSettings, "rtti::engine::navigation")
     {
+        builder.Attribute("displayName", String(u8"Navigation")); // the Scene tab's section
         builder.DataVersion(2); // v2: debugDrawBakeStages
         builder.Property<&NavigationSceneSettings::debugDraw>("debugDraw");
         builder.Property<&NavigationSceneSettings::debugDrawPaths>("debugDrawPaths");
