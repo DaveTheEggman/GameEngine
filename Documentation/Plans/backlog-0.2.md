@@ -4,6 +4,13 @@
 > `weekly_backlog.md`; `backlog-0.1.md` holds the release's work. Pull an item out of here into
 > the current weekly when it is started; delete it here when done.
 
+## A material / shader node graph (user 2026-10-12; moved from 0.1)
+
+The tier-2 half of the 0.1 custom-shader item: visual nodes (texture sample, math, blend, ... to a
+surface output) that GENERATE a surface shader, fed through the same cook (variants, entry
+points, bytecode packs), on the NodeGraph UI and the AnimationGraphPage pattern. It builds on
+0.1's surface shaders (`Specs/custom-shaders.md`): a graph is a surface function written for you.
+
 ## Android: a native player and its export (user 2026-10-11)
 
 Games run on phones today through the web export (touch drives the game UI, touch controls with

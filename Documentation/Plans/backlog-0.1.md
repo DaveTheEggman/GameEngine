@@ -23,10 +23,12 @@
   relates to the profiles (a project default could simply name a profile).
 - **Custom shaders through the editor, before the 0.1 release** (user 2026-10-09, ready and
   showcased for 0.1; merged 2026-10-10 with the planning seed of 2026-08-26, "in-editor shader
-  editing + material/shader node-graph editor"): custom shaders already work at the engine level,
-  and there are shader and shader include assets, but nothing outside the unit tests has used them
-  (the shader asset is `Pipeline/Shaders.Pipeline/ShaderAsset.cppm`; includes resolve in
-  `Shaders.System`; confirm where the include asset lives when this starts). Expose the pipeline in
+  editing + material/shader node-graph editor"). PLAN: `Specs/custom-shaders.md` (2026-10-12):
+  two kinds, low-level shaders (proven at the engine level by `Samples/CustomShader`, the toon)
+  and surface shaders on top; one `.hlsl` per shader with named entries (`VSMain`/`PSMain`;
+  entry points are carried as data, user 2026-10-12, built); the node graph moved to 0.2. (The
+  original note said "shader include assets" exist: none does; includes resolve against
+  `Data/Shaders` in dev builds.) Expose the pipeline in
   the editor (author a shader asset, a material that uses it, see it cook, compile and draw, with
   its errors shown), and showcase it: a sample project or a demo game's effect built on a custom
   shader.
@@ -52,8 +54,8 @@
     with tier 2 as the follow-on, or the graph directly; the graph's data model (nodes to
     generated HLSL, how variants and features interact, the material property surface it
     exposes); how generated shaders ride the variant cook and lint; the graph's serialization and
-    editor shape (reusing AnimationGraphPage's spine). For 0.1, tier 1 and the showcase are the
-    likely scope; whether the graph is in 0.1 is part of the decision.
+    editor shape (reusing AnimationGraphPage's spine). For 0.1, tier 1 and the showcase; the graph
+    is 0.2 (user 2026-10-12, `backlog-0.2.md`).
 - **Vertex snap, the next steps** (from the seeded item, 2026-08-26; the pivot-onto-vertex snap
   is built, week 2026-10-10): pick a SOURCE vertex on the moved object (Blender-style, any corner
   as the anchor, not only the pivot); snap to edges, faces and the grid as well as vertices; a
