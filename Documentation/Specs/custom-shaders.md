@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 5 built; the hand-over awaits the user. Surface shaders (6) next. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 6 built (6 but its hand-over). Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -351,6 +351,87 @@ Built 2026-10-12: 2a to 2e. The export test covers an unpruned export; a pruned 
 material's shader through the cook's closure, which follows `reads` (the closure's own tests), not
 through a test of its own.
 
+## Phase 6 in detail: surface shaders (plan, 2026-10-12)
+
+**What the engine does today, that this builds on** (surveyed 2026-10-12). No material supplies
+its own depth, shadow or pick shader: every mesh caster goes through `shadow_depth` (the camera
+depth prepass, the cascades, the local-light atlas) or `pick_ids`, chosen by name in
+`ShadowConfigFor`/`PickConfigFor` (`MeshRendererImpl.cpp`), with SKINNED, INSTANCED, ALPHA_TEST
+and WIND variants. A masked caster cuts at a hard-coded 0.5 on set 2's first texture, which is
+the albedo only for the built-in layouts; WIND reads the forward PBR cbuffer at fixed offsets.
+So a vertex displacement or a cut-out of a custom shader never reaches the shadows, and a
+low-level custom shader with a different first texture shadows wrongly when masked. Those depth
+and pick pipelines also leave four vertex attributes unread (the owed Vulkan warnings).
+
+**The authoring.** A surface shader is a shader asset whose `.hlsl` says so on a directive line,
+like the variant lines: `// surface: lit` or `// surface: unlit`. It holds a `properties` block,
+`Surface()`, and optionally `Vertex()`:
+
+```hlsl
+// surface: lit
+properties { ... }
+void Surface(SurfaceInput input, inout SurfaceOutput surface) { ... }
+void Vertex(inout VertexInput v) { ... }   // optional: world space, before projection
+```
+
+- `SurfaceInput`: world position, world normal and tangent, uv, vertex colour, view direction,
+  screen position. `SurfaceOutput`: albedo, alpha, normal (tangent space), metallic, roughness,
+  occlusion, emissive, starting at the defaults of a plain white surface.
+- `VertexInput`: world position, normal and tangent, uv, colour; `Vertex()` may move the position
+  and turn the normal and tangent. It runs in every pass, so displacement shadows, picks and
+  writes depth where the surface is drawn. `Time()` is the view's clock in every pass (forward:
+  `IblParams.z`; depth and pick: their view's time), and the previous frame's clock where the
+  forward pass computes motion vectors, so a moving surface reprojects.
+- The variants are the template's, not the author's: SKINNED, INSTANCED, ALPHA_TEST, GBUFFER and
+  DITHER are compiled for every surface shader; no `variants` lines. ALPHA_TEST cuts at the
+  material's `AlphaCutoff` when the block declares one (0.5 otherwise) on `surface.alpha`.
+- Lit shades with `DirectLight` and `AmbientLight`; unlit writes albedo plus emissive. Both write
+  the five GBUFFER targets.
+
+**The cook.** The builder sees the directive and assembles three programs from one file, each
+`#include`ing the engine's templates around the author's text with `#line` kept, so an error
+names the author's file and line: the forward program (`surface/forward.hlsli`), the depth
+program (`surface/depth.hlsli`: the shadow view's set 0, the Vertex hook, under ALPHA_TEST the
+whole `Surface()` for its alpha) and the pick program (`surface/pick.hlsli`). `Vertex()` is
+optional: the cook finds it in the text and defines `SURFACE_HAS_VERTEX`. Each program compiles in
+every variant, through `CheckShaderSource`, which gains the surface mode, so the page, the cook
+and `shader_validate` keep one check.
+
+**A shader with several passes.** `ShaderSource` carries a list of programs (a name suffix,
+both stages' source, entries and lattices): a low-level shader has one, a surface shader three
+(`<name>`, `<name>.depth`, `<name>.pick`). The factory registers each; the export cooks each into
+the pack; the product's version bumps. A material on a shader with its own depth program records
+the names (`Material::depthShaderName`, `pickShaderName`; empty = the built-in), and
+`ShadowConfigFor`/`PickConfigFor` use them with the material's set 2, as the masked path does
+today. A surface shader without `Vertex()` that is opaque keeps the built-in depth (no set 2,
+shared pipelines); with `Vertex()`, or masked, it uses its own.
+
+**Proof.** The built-in PBR written as a lit surface shader (a test asset, wind in its `Vertex()`)
+renders as `forward` does: compared on the cooked corpus as phase 5 was (WGSL modulo names), and
+where the code order differs, by a GPU image of both side by side in Render.Backend.Tests.
+
+**Built** (2026-10-12): layers 1 to 5 below. On the way: a surface property named like an engine
+declaration (`Tint`, in the vertex stage) is reported at the property's line (a property is a
+global name in the generated code); `VertexInput` carries the mesh's local position (forward's
+wind needs it, so `wind_sway.hlsli` holds the sway apart from the PBR cbuffer); the pass vertex
+stages became libraries (`shadow_depth_vs.hlsli`, `pick_ids_vs.hlsli`) with the hook in an
+`#ifdef`, the engine's corpus byte-identical; the forward family's pixel stages keep their inputs
+(`preserve-interface`), ending the last validation warnings. The proof measured identical images
+on Vulkan and WebGPU (`Integration.Shaders`).
+
+**Layers**, each with its tests:
+1. The depth and pick passes per material: `depthShaderName`/`pickShaderName`, the config
+   functions using them, `preserve-interface` on `shadow_depth.vs`/`pick_ids.vs` (the owed
+   warnings).
+2. `ShaderSource` with several programs: factory, export and pack.
+3. The surface templates and the cook's surface mode (`CheckShaderSource` with it).
+4. The PBR as a surface shader, proven against `forward`.
+5. The editor: Create > Materials > Lit Surface Shader and Unlit Surface Shader (the lava as the
+   lit starter); the existing creator renamed Low-Level Shader; the docs page's surface section
+   and McpGuide.
+6. The hand-over: a scratch project with the lava and a displaced (waves) surface casting
+   shadows, desktop and web, for the user.
+
 ## Decided
 
 - **Two kinds, both supported** (user, 2026-10-12): low-level shaders and surface shaders.
@@ -371,6 +452,12 @@ through a test of its own.
   exactly the block.
 - **A dist ships no shader source** by default (user, 2026-10-12); an export preset's "Include
   shader source" keeps it.
+- **A surface shader declares itself** on a directive line, `// surface: lit` or `// surface:
+  unlit`, like the variant lines (user, 2026-10-12).
+- **Its own depth, shadow and pick programs only when needed** (user, 2026-10-12): with
+  `Vertex()` or on a masked material; an opaque one without `Vertex()` keeps the built-in depth.
+- **The creators**: Lit Surface Shader, Unlit Surface Shader, and the existing one renamed
+  Low-Level Shader (user, 2026-10-12).
 
 ## Corrections this plan owes other documents
 

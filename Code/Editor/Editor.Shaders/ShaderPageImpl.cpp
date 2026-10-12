@@ -345,8 +345,11 @@ namespace editor
         m_errorView->SetText(detail.AsView());
         if (check.IsOk())
         {
-            m_status->SetText(Format(u8"Compiles ({} properties). Save checks every variant.",
-                                     check.block.properties.Size())
+            const StringView kind = check.surface == pipeline::SurfaceModel::Lit     ? StringView(u8"Lit surface shader")
+                                    : check.surface == pipeline::SurfaceModel::Unlit ? StringView(u8"Unlit surface shader")
+                                                                                     : StringView(u8"Low-level shader");
+            m_status->SetText(Format(u8"{}: compiles ({} properties). Save checks every variant.",
+                                     kind, check.block.properties.Size())
                                   .AsView());
             UpdatePreview(check);
             return;
@@ -364,12 +367,14 @@ namespace editor
         {
             return;
         }
-        // The text as the cook would ship it, under the page's own name, with its lattices.
+        // The main program as the cook would ship it (a surface shader's forward program),
+        // under the page's own name, with its entries and lattices.
+        const pipeline::ShaderCheckProgram& main = check.programs[0];
         const StringView name = m_previewName.AsView();
-        m_shaders->RegisterSource(name, shaders::ShaderStage::Vertex, check.expanded.AsView(),
-                                  m_asset->vertexEntryPoint.AsView(), check.vertexMask);
-        m_shaders->RegisterSource(name, shaders::ShaderStage::Fragment, check.expanded.AsView(),
-                                  m_asset->fragmentEntryPoint.AsView(), check.fragmentMask);
+        m_shaders->RegisterSource(name, shaders::ShaderStage::Vertex, main.text.AsView(),
+                                  main.vertexEntryPoint.AsView(), main.vertexMask);
+        m_shaders->RegisterSource(name, shaders::ShaderStage::Fragment, main.text.AsView(),
+                                  main.fragmentEntryPoint.AsView(), main.fragmentMask);
         m_shaders->InvalidateShader(name);
 
         // A material laid out by the block as a cooked material on this shader is, at its

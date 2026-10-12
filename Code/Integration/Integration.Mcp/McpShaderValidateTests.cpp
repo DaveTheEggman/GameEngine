@@ -81,6 +81,16 @@ TEST_CASE("integration.mcp: shader_validate - the starter checks clean; a broken
     CHECK(properties.At(1).Get(u8"range").Count() == 2); // Roughness [0, 1]
     CHECK(good.Get(u8"vertexVariants").Count() == 2);    // SKINNED INSTANCED
     CHECK(good.Get(u8"fragmentVariants").Count() == 3);  // ALPHA_TEST GBUFFER DITHER
+    CHECK(good.Get(u8"kind").AsString() == StringView(u8"lowLevel"));
+
+    // A surface shader: its kind and its Vertex().
+    JsonValue surface = JsonValue::MakeObject();
+    surface.Set(u8"source", JsonValue::MakeString(String(pipeline::kLitSurfaceShaderStarter)));
+    const JsonValue lava = ShaderValidate(server, Move(surface));
+    CHECK(lava.Get(u8"valid").AsBool());
+    CHECK(lava.Get(u8"kind").AsString() == StringView(u8"lit"));
+    CHECK_FALSE(lava.Get(u8"hasVertex").AsBool());
+    CHECK(lava.Get(u8"properties").Count() == 5);
 
     JsonValue broken = JsonValue::MakeObject();
     broken.Set(u8"source",

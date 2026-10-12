@@ -44,73 +44,6 @@ using namespace foundation::core;
 using namespace foundation::shaders;
 
 export namespace pipeline{
-    // The starter a new shader asset's .hlsl holds (RegisterShaderCreators): lit by the engine's
-    // lighting library, every pass contract kept, its parameters in a properties block.
-    inline constexpr StringView kShaderStarter = u8R"hlsl(// A low-level shader: the whole pixel stage is yours. This one shades the engine's way, with
-// every light, shadow and reflection probe; change the pixel stage to make it your own.
-// variants(vertex): SKINNED INSTANCED
-// variants(fragment): ALPHA_TEST GBUFFER DITHER
-// preserve-interface (the pixel stage keeps VSOutput's fade input when DITHER is off)
-
-// The vertex stage: the engine's, under the name VSMain.
-#define FORWARD_VS_ENTRY VSMain
-#include "forward_vs.hlsli"
-
-// The frame's lights, shadows and image-based light, and what the forward pass writes.
-#include "lighting.hlsli"
-#include "forward_ps.hlsli"
-
-// The material's parameters: the material page shows these as its rows.
-properties
-{
-    Color   BaseColor   = (1, 1, 1, 1);
-    float   Roughness   = 0.5 [0, 1];
-    float   Metallic    = 0   [0, 1];
-    float   AlphaCutoff = 0.5 [0, 1];   // the ALPHA_TEST threshold
-    Texture AlbedoMap;
-    Sampler MainSampler;
-}
-
-#ifdef GBUFFER
-GBufferOutput PSMain(VSOutput input) {
-#else
-float4 PSMain(VSOutput input) : SV_Target0 {
-#endif
-#ifdef DITHER
-    ScreenDoorFade(input.clip.xy, input.fade);
-#endif
-    float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
-    float3 albedo = input.color.rgb * BaseColor.rgb * albedoTex.rgb;
-    float  alpha  = saturate(input.color.a * BaseColor.a * albedoTex.a);
-#ifdef ALPHA_TEST
-    if (alpha < AlphaCutoff) { discard; }
-#endif
-    float3 N = normalize(input.normalWS);
-    float3 V = normalize(CameraPos - input.worldPos);
-    float  viewDepth = -mul(float4(input.worldPos, 1.0), View).z;
-    float  roughness = clamp(Roughness, 0.045, 1.0);
-    float  metallic  = saturate(Metallic);
-    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
-
-    uint lightCount;
-    float3 color = DirectLight(input.clip.xy, input.worldPos, viewDepth, N, V, albedo, roughness,
-                               metallic, F0, lightCount)
-                 + AmbientLight(input.worldPos, N, V, albedo, roughness, metallic, F0, 1.0);
-
-#ifdef GBUFFER
-    GBufferOutput o;
-    o.color    = float4(color, alpha);
-    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));
-    o.velocity = MotionVector(input.curClip, input.prevClip);
-    o.material = float2(roughness, metallic);
-    o.albedo   = float4(albedo * (1.0 - metallic), 1.0);
-    return o;
-#else
-    return float4(color, alpha);
-#endif
-}
-)hlsl";
-
     // The starter a new low-level shader's .hlsl holds (RegisterShaderCreators): lit by the
     // engine's lighting library, every pass contract kept, its parameters in a properties block.
     inline constexpr StringView kShaderStarter = u8R"hlsl(// A low-level shader: the whole pixel stage is yours. This one shades the engine's way, with
@@ -380,8 +313,9 @@ void Surface(SurfaceInput input, inout SurfaceOutput surface)
         }
     };
 
-    // Registers the Shader creator (File > New, asset_create): kShaderStarter in a new .hlsl in
-    // Sources/, linked to a shader asset named like its instance.
+    // Registers the shader creators (File > New, asset_create): Lit Surface Shader, Unlit Surface
+    // Shader and Low-Level Shader, each its starter in a new .hlsl in Sources/, linked to a shader
+    // asset named like its instance.
     void RegisterShaderCreators(AssetCreatorRegistry& registry);
 
     /// Drag-drop importer for `.hlsl` files: the file is STAGED into the project's Sources/ tree

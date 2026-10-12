@@ -68,5 +68,5 @@ export namespace pipeline
     inline constexpr usize kBuilderCount = 31;
     inline constexpr usize kImporterCount = 11;
     /// The creators every build has; the scripts add three per language with a cook on top.
-    inline constexpr usize kCreatorCount = 29;
+    inline constexpr usize kCreatorCount = 31;
 }

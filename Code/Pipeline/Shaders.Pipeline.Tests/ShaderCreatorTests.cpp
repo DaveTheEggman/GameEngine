@@ -82,7 +82,7 @@ TEST_CASE("shader creator: a new shader links its starter file and takes its ins
                                                 u8".rasset");
         AssetCreatorRegistry creators{DefaultAllocator()};
         RegisterShaderCreators(creators);
-        const AssetCreator* creator = creators.FindByLabel(u8"Shader");
+        const AssetCreator* creator = creators.FindByLabel(u8"Low-Level Shader");
         REQUIRE(creator != nullptr);
         CHECK(creator->category == u8"Materials");
 
@@ -147,4 +147,43 @@ TEST_CASE("shader importer: a dropped .hlsl is staged into Sources and linked, n
     }
     (void)RemoveDirectoryRecursive(kRoot);
     (void)RemoveDirectoryRecursive(kDb);
+}
+
+// The surface creators: Lit and Unlit Surface Shader beside Low-Level Shader, each starter a
+// surface shader that compiles, every program and variant, against the engine's library.
+TEST_CASE("shader creator: the surface starters compile as surface shaders")
+{
+    AssetCreatorRegistry creators{DefaultAllocator()};
+    RegisterShaderCreators(creators);
+    CHECK(creators.FindByLabel(u8"Lit Surface Shader") != nullptr);
+    CHECK(creators.FindByLabel(u8"Unlit Surface Shader") != nullptr);
+    CHECK(creators.FindByLabel(u8"Low-Level Shader") != nullptr);
+    CHECK(creators.FindByLabel(u8"Shader") == nullptr); // renamed
+    if (!HaveCompiler())
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    const String library = DataPath(FindDataRoot().AsView(), u8"Shaders");
+    ShaderCheckOptions options;
+    options.shaderLibrary = library.AsView();
+    const struct
+    {
+        StringView text;
+        SurfaceModel model;
+    } starters[2] = {{kLitSurfaceShaderStarter, SurfaceModel::Lit},
+                     {kUnlitSurfaceShaderStarter, SurfaceModel::Unlit}};
+    for (const auto& starter : starters)
+    {
+        const ShaderCheck check = CheckShaderSource(starter.text, u8"Starter.hlsl", options);
+        for (const ShaderDiagnostic& d : check.errors)
+        {
+            INFO(doctest::String(reinterpret_cast<const char*>(FormatShaderDiagnostic(d).CStr())));
+            CHECK(false);
+        }
+        CHECK(check.IsOk());
+        CHECK(check.surface == starter.model);
+        CHECK_FALSE(check.hasVertex); // the lava's Vertex() is a commented example
+        CHECK(check.programs.Size() == 3u);
+    }
 }

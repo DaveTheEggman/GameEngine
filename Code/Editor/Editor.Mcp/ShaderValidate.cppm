@@ -4,8 +4,9 @@
 // Editor::Mcp - :shader_validate partition
 //
 // shader_validate: check a custom shader's source WITHOUT saving it, through CheckShaderSource,
-// the check the shader cook runs (the properties block expanded, every flag tested declared,
-// every variant of both stages compiled with DXC against the engine's shader library). Returns
+// the check the shader cook runs (the properties block expanded, a surface shader assembled into
+// its programs, every flag tested declared, every program's every variant compiled with DXC
+// against the engine's shader library). Returns
 // the errors with file, line and column, and on success the parsed properties and each stage's
 // variant flags, so the agent sees what a material on it will show.
 
@@ -73,12 +74,14 @@ export namespace editor::mcp
         server.RegisterTool(
             u8"shader_validate",
             u8"CHECK a custom shader's .hlsl source without saving: the exact check the shader "
-            u8"cook runs (its properties block expanded, every #ifdef flag declared on a "
-            u8"// variants(vertex): or // variants(fragment): line, every variant of both stages "
-            u8"compiled against the engine's shader library). Returns errors with file, line and "
-            u8"column (an error under one flag says so), and on success the parsed properties "
-            u8"(name, type, default, range) and each stage's variant flags. Use as the loop while "
-            u8"writing a shader, BEFORE cooking it.",
+            u8"cook runs (its properties block expanded; a surface shader, `// surface: lit` or "
+            u8"`unlit`, assembled into its forward, depth and pick programs; a low-level shader's "
+            u8"#ifdef flags declared on its // variants(vertex): or // variants(fragment): lines; "
+            u8"every program's every variant compiled against the engine's shader library). "
+            u8"Returns errors with file, line and column (an error under one flag says so), the "
+            u8"kind (lit, unlit or lowLevel) and whether it has a Vertex(), and on success the "
+            u8"parsed properties (name, type, default, range) and the main program's variant "
+            u8"flags. Use as the loop while writing a shader, BEFORE cooking it.",
             SchemaBuilder()
                 .Str(u8"source", u8"the full .hlsl source text", true)
                 .Str(u8"name", u8"the file name errors carry (default 'shader.hlsl')")
@@ -150,6 +153,11 @@ export namespace editor::mcp
                     properties.Add(Move(entry));
                 }
                 out.Set(u8"properties", Move(properties));
+                out.Set(u8"kind", JsonValue::MakeString(
+                                      check.surface == pipeline::SurfaceModel::Lit     ? String(u8"lit")
+                                      : check.surface == pipeline::SurfaceModel::Unlit ? String(u8"unlit")
+                                                                                       : String(u8"lowLevel")));
+                out.Set(u8"hasVertex", JsonValue::MakeBool(check.hasVertex));
                 out.Set(u8"vertexVariants", detail::ShaderFlagNames(check.vertexMask));
                 out.Set(u8"fragmentVariants", detail::ShaderFlagNames(check.fragmentMask));
                 return out;
