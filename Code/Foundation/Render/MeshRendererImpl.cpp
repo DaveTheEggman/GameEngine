@@ -136,9 +136,11 @@ namespace foundation::render
 
         // Shadow depth-only path: a vertex-only shader + a 2-set pipeline layout
         // (set 0 = light view UBO, set 1 = the SAME object/instance layouts as forward, so the
-        // object/instance bind groups are reused). No material/cluster sets.
-        rhi::BindGroupLayoutEntry shadowViewEntry =
-            rhi::BindGroupLayoutEntry::UniformBuffer(0, rhi::ShaderStage::Vertex);
+        // object/instance bind groups are reused). No material/cluster sets. The view is the
+        // pixel stage's too: a masked surface's depth and pick pixel stages run its Surface()
+        // at the view's camera position and time (ShadowCamera/ShadowWind, PickCamera/WindTime).
+        rhi::BindGroupLayoutEntry shadowViewEntry = rhi::BindGroupLayoutEntry::UniformBuffer(
+            0, rhi::ShaderStage::Vertex | rhi::ShaderStage::Fragment);
         shadowViewEntry.hasDynamicOffset = true;
         // set 0 also carries the skinning bone-matrix pool (t4) so skinned casters deform their shadow.
         rhi::BindGroupLayoutEntry shadowBoneEntry = rhi::BindGroupLayoutEntry::StorageBuffer(

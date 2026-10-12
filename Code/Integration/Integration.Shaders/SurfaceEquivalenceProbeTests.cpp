@@ -53,7 +53,10 @@ namespace
         Array<pipeline::ShaderCheckProgram> programs;
     };
 
-    SurfacePrograms CookSurfacePbr()
+    // `timedAlpha`: the cut-out also reads Time() (the depth and pick views' clock), through a
+    // factor that is always 1 but that the compiler cannot fold, as a dissolve does; otherwise the
+    // depth pixel stage reads nothing of the view's buffer and its layout goes untested.
+    SurfacePrograms CookSurfacePbr(bool timedAlpha = false)
     {
         SurfacePrograms out;
         const String dataRoot = foundation::vfs::FindDataRoot();
@@ -62,11 +65,31 @@ namespace
             foundation::vfs::DataPath(dataRoot.AsView(), u8"Assets/shaders/surface_pbr/surface_pbr.hlsl")
                 .AsView());
         REQUIRE(text.HasValue());
+        String source(StringView(reinterpret_cast<const char8_t*>(text.Value().Data()), text.Value().Size()));
+        if (timedAlpha)
+        {
+            const StringView alphaLine = u8"surface.alpha  = input.color.a * BaseColor.a * albedoTex.a;";
+            String edited;
+            const StringView all = source.AsView();
+            usize at = 0;
+            for (; at + alphaLine.Size() <= all.Size(); ++at)
+            {
+                if (all.SubStr(at, alphaLine.Size()) == alphaLine)
+                {
+                    break;
+                }
+            }
+            REQUIRE(at + alphaLine.Size() <= all.Size());
+            edited.Append(all.SubStr(0, at));
+            edited.Append(StringView(u8"surface.alpha  = input.color.a * BaseColor.a * albedoTex.a * "
+                                     u8"step(-1.0, Time());"));
+            edited.Append(all.SubStr(at + alphaLine.Size(), all.Size() - at - alphaLine.Size()));
+            source = Move(edited);
+        }
         pipeline::ShaderCheckOptions options;
         options.shaderLibrary = library.AsView();
-        pipeline::ShaderCheck check = pipeline::CheckShaderSource(
-            StringView(reinterpret_cast<const char8_t*>(text.Value().Data()), text.Value().Size()),
-            u8"surface_pbr.hlsl", options);
+        pipeline::ShaderCheck check =
+            pipeline::CheckShaderSource(source.AsView(), u8"surface_pbr.hlsl", options);
         for (const pipeline::ShaderDiagnostic& d : check.errors)
         {
             INFO(doctest::String(reinterpret_cast<const char*>(
@@ -101,7 +124,10 @@ namespace
         return m;
     }
 
-    Array<u8> RenderScene(rhi::Device& device, const SurfacePrograms& cooked, bool surface)
+    // `cutOut` makes the ball a masked material whose alpha is under its cut-off everywhere, so
+    // its depth and shadow draws run the surface's own pixel stage and cut the whole ball away.
+    Array<u8> RenderScene(rhi::Device& device, const SurfacePrograms& cooked, bool surface,
+                          bool cutOut = false)
     {
         Array<u8> pixels;
         shaders::ShaderSystemHost host{DefaultAllocator()};
@@ -130,6 +156,12 @@ namespace
                                               shaders::ShaderFlags::GBuffer) != nullptr);
                 CHECK(shaderSystem.GetVariant(u8"surface_pbr.depth", shaders::ShaderStage::Vertex,
                                               shaders::ShaderFlags::None) != nullptr);
+                if (cutOut)
+                {
+                    // The cut-out's own depth pixel stage: what the shadow and the prepass run.
+                    CHECK(shaderSystem.GetVariant(u8"surface_pbr.depth", shaders::ShaderStage::Fragment,
+                                                  shaders::ShaderFlags::AlphaTest) != nullptr);
+                }
             }
             materials::PipelineStateCache psoCache(shaderSystem, device);
             materials::MaterialSystem materialSystem;
@@ -139,7 +171,10 @@ namespace
             REQUIRE(meshRenderer.Initialize().IsOk());
             RendererRegistry registry;
             registry.Register(&meshRenderer);
-            RenderFrame frame(DefaultAllocator(), device, registry, 2);
+            // The shadow maps: without them the frame records no shadow pass at all.
+            ShadowSystem shadows(device, 2u);
+            REQUIRE(shadows.Initialize().IsOk());
+            RenderFrame frame(DefaultAllocator(), device, registry, 2, nullptr, nullptr, &shadows);
 
             RefPtr<geometry::StaticMesh> sphere = geometry::Primitives::Sphere(DefaultAllocator(), 1.0f, 48, 24);
             RefPtr<geometry::StaticMesh> ground = geometry::Primitives::Plane(DefaultAllocator(), 8.0f, 8.0f);
@@ -149,6 +184,11 @@ namespace
                 PbrMaterial(u8"floor", Float4{0.7f, 0.7f, 0.7f, 1.0f}, 0.0f, 0.8f, surface);
             floor->SetDefaultFloat(u8"WindStrength", 0.0f); // the ground stays put
             ball->SetDefaultFloat4(u8"EmissiveColor", Float4{0.05f, 0.02f, 0.0f, 1.0f});
+            if (cutOut)
+            {
+                ball->SetDefaultFloat4(u8"BaseColor", Float4{0.8f, 0.3f, 0.2f, 0.1f});
+                ball->pipeline.blendMode = materials::BlendMode::Masked;
+            }
 
             ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{0.15f, 0.15f, 0.18f});
@@ -158,13 +198,15 @@ namespace
             b->worldRadius = 1.5f;
             b->mesh = sphere.Get();
             b->material = ball.Get();
-            b->category = RenderCategories::Opaque;
+            b->sortBatchKey = BatchKey(sphere.Get(), ball.Get()); // as extraction sets it
+            b->category = cutOut ? RenderCategories::Masked : RenderCategories::Opaque;
             MeshRenderData* g = scene.Add<MeshRenderData>();
             g->world = Float4x4::Translation(Float3{0.0f, 0.0f, -6.0f});
             g->worldCenter = Float3{0.0f, 0.0f, -6.0f};
             g->worldRadius = 6.0f;
             g->mesh = ground.Get();
             g->material = floor.Get();
+            g->sortBatchKey = BatchKey(ground.Get(), floor.Get());
             g->category = RenderCategories::Opaque;
             GpuLight sun;
             sun.type = 0.0f;
@@ -356,3 +398,59 @@ TEST_CASE("surface shader: the built-in PBR as a surface renders as forward does
     ForEachBackend(&Probe);
     g_cooked = nullptr;
 }
+
+// A masked surface's depth and pick pixel stages run its Surface() at the view's camera and time,
+// read from the shadow view's buffer: the layout must give that buffer to the pixel stage too.
+// Vulkan with validation on, as the gallery's dissolve found it (a validation error, tolerated by
+// the driver; WebGPU refuses such a pipeline). The cut ball is gone, and so is its shadow.
+TEST_CASE("surface shader: a masked surface's shadow runs its cut-out, under validation")
+{
+#ifdef OPTION_HAS_VULKAN
+    shaders::Compiler* compiler = nullptr;
+    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk() || compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    compiler->Destroy();
+    const SurfacePrograms cooked = CookSurfacePbr(true);
+    REQUIRE(cooked.ok);
+    rhi::Backend* vulkan = nullptr;
+    (void)rhi::vk::CreateBackend(rhi::vk::VkBackendDesc{.enableValidation = true}, vulkan);
+    if (rhi::Device* device = vulkan != nullptr ? testsupport::MakeTestDevice(vulkan) : nullptr)
+    {
+        const u32 errorsBefore = rhi::vk::ValidationErrorCount();
+        const Array<u8> whole = RenderScene(*device, cooked, true);
+        const Array<u8> cut = RenderScene(*device, cooked, true, true);
+        device->Destroy();
+        CHECK(rhi::vk::ValidationErrorCount() == errorsBefore);
+        REQUIRE(whole.Size() == kSize * kSize * 4u);
+        REQUIRE(cut.Size() == whole.Size());
+        // The ball covers a good part of the frame; cut away, the ground shows there instead.
+        u32 changed = 0;
+        for (usize i = 0; i < whole.Size(); i += 4)
+        {
+            i32 d = 0;
+            for (u32 c = 0; c < 3; ++c)
+            {
+                const i32 diff = static_cast<i32>(whole[i + c]) - static_cast<i32>(cut[i + c]);
+                d = Max(d, diff < 0 ? -diff : diff);
+            }
+            changed += d > 8 ? 1u : 0u;
+        }
+        MESSAGE("pixels the cut changes: ", changed);
+        CHECK(changed > kSize * kSize / 20u);
+    }
+    else
+    {
+        MESSAGE("Vulkan unavailable - skipped");
+    }
+    if (vulkan != nullptr)
+    {
+        vulkan->Destroy();
+    }
+#else
+    MESSAGE("no Vulkan backend in this build - skipped");
+#endif
+}
+
