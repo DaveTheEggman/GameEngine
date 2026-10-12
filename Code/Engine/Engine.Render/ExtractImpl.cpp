@@ -738,6 +738,7 @@ namespace engine::render
                 p.priority = pc.priority;
                 p.update = pc.update;
                 p.parallax = pc.parallax;
+                p.captureRequest = pc.captureRequests;
                 out.AddReflectionProbe(p);
                 ++count;
             });

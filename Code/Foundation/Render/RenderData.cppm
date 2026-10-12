@@ -578,6 +578,9 @@ export namespace foundation::render
         u32 priority = 0;         // tie-break when volumes overlap (higher wins)
         ProbeUpdateMode update = ProbeUpdateMode::Static;
         bool parallax = true; // box-project the reflection ray (vs infinite env)
+        // Counts capture requests (a Manual probe's capture()); a value the system has not seen
+        // recaptures the probe once, in any update mode.
+        u32 captureRequest = 0;
     };
 
     // Reflection-probe budget per frame (bounds the prefiltered cube-array slices + the metadata buffer).

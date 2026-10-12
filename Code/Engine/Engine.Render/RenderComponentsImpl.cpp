@@ -557,6 +557,7 @@ namespace engine::render
                               u8"reflections to surfaces in its box."))
             .Method<&foundation::script::ComponentOf<ReflectionProbeComponent>, ReflectionProbeComponent>(
                 "of")
+            .Method<&ReflectionProbeComponent::capture>("capture")
             .Property<&ReflectionProbeComponent::halfExtents>("halfExtents")
             .Property<&ReflectionProbeComponent::blendDistance>("blendDistance")
             .PropAttribute("range", Float4{0.0f, 10.0f, 0.1f, 0.0f})

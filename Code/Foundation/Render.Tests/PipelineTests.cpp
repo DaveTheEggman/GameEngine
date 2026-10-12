@@ -760,6 +760,22 @@ TEST_CASE("ReflectionProbeSystem accumulates per-scene ranges (multi-scene frame
     CHECK(warmupFrames < 64u); // and it DRAINS - static probes go quiet
     CHECK(probes.Captures().Size() == 0u);
     CHECK(probes.RangeFor(&sceneB).base == 1u); // ranges rebuilt identically
+
+    // A capture request (a Manual probe's capture()) recaptures that probe once, then it is
+    // quiet again: Manual captured only at the start, with no way to ask again.
+    pa.update = ProbeUpdateMode::Manual;
+    ++pa.captureRequest;
+    listA[0] = pa;
+    probes.BeginFrame();
+    probes.Assign(&sceneA, Span<const ReflectionProbe>{listA, 1});
+    probes.Assign(&sceneB, Span<const ReflectionProbe>{listB, 2});
+    REQUIRE(probes.Captures().Size() == 1u);
+    CHECK(probes.Captures()[0].scene == &sceneA);
+    probes.MarkCaptured(probes.Captures()[0].slot);
+    probes.BeginFrame();
+    probes.Assign(&sceneA, Span<const ReflectionProbe>{listA, 1});
+    probes.Assign(&sceneB, Span<const ReflectionProbe>{listB, 2});
+    CHECK(probes.Captures().Size() == 0u);
 }
 
 TEST_CASE("IBLSystem: per-scene contexts; env rebuilds when a scene's sky-texture product changes")

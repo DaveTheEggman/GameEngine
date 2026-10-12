@@ -162,6 +162,7 @@ export namespace foundation::render
             u64 signature = 0;
             bool captured = false; // a full cube has been captured + prefiltered at least once
             bool dirty = false;    // needs (re)capture this frame
+            u32 captureRequest = 0; // the probe's request count when last seen
         };
 
         // Stable slot for a probe key: reuse if seen, else claim the next free slot (up to kMaxProbes).

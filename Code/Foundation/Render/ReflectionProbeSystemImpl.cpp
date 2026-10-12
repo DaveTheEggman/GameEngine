@@ -122,11 +122,12 @@ namespace foundation::render
             // be dropped (expired canvas texture), which would silently lose this one-shot bake
             // while `captured` says done - the same window IBLSystem uses for the env bake.
             if (!st.captured || st.signature != sig || p.update == ProbeUpdateMode::Realtime ||
-                m_captureWarmup > 0)
+                st.captureRequest != p.captureRequest || m_captureWarmup > 0)
             {
                 st.dirty = true;
             }
             st.signature = sig;
+            st.captureRequest = p.captureRequest;
             st.probeKey = p.key;
             if (st.dirty)
             {

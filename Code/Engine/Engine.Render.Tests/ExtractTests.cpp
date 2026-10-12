@@ -1756,3 +1756,24 @@ TEST_CASE("components: every sprite orientation is offered to the editor")
     REQUIRE(name != nullptr);
     CHECK(StringView(reinterpret_cast<const utf8char*>(name)) == StringView(u8"EntityOriented"));
 }
+
+// A script asks a probe to capture with ReflectionProbeComponent.of(entity).capture(); the request
+// count rides the extracted probe to the probe system, which recaptures on a count it has not seen.
+TEST_CASE("extract: a reflection probe's capture requests reach the extracted probe")
+{
+    scene::Scene scene(DefaultAllocator(), u8"probe-capture");
+    auto* probes = scene.AddSystem<ReflectionProbeComponentManager>();
+    scene::EntityHandle e = scene.CreateEntity(u8"probe");
+    ReflectionProbeComponent& probe = probes->Add(e);
+    probe.update = ProbeUpdateMode::Manual;
+    scene.UpdateTransforms();
+
+    ExtractedScene before{DefaultAllocator()};
+    ExtractReflectionProbesInto(scene, before);
+    REQUIRE(before.ReflectionProbes().Size() == 1u);
+    probe.capture();
+    ExtractedScene after{DefaultAllocator()};
+    ExtractReflectionProbesInto(scene, after);
+    REQUIRE(after.ReflectionProbes().Size() == 1u);
+    CHECK(after.ReflectionProbes()[0].captureRequest != before.ReflectionProbes()[0].captureRequest);
+}

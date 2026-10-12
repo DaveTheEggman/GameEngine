@@ -382,6 +382,10 @@ export namespace engine::render
         ProbeUpdateMode update = ProbeUpdateMode::Static;
         bool parallax = true; // box-project the reflection ray (vs infinite env)
         bool enabled = true;
+        // Runtime: capture requests made so far (never serialized). A Manual probe captures only
+        // when asked; any probe recaptures once when asked (after its room changed).
+        u32 captureRequests = 0;
+        void capture() { ++captureRequests; }
     };
 
     // MeshComponent persists (scene round-trip): refs serialize their Guids; the direct
