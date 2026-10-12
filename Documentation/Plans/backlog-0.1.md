@@ -94,6 +94,14 @@
   payloads, on both languages; the fifth sample needs it. The networking docs page's "What is
   missing" list then loses its first line.
 
+- **Smoother shadow edges** (user 2026-10-12; found checking the toon's shadows): a directional
+  shadow is filtered by a fixed 3x3 PCF grid (`SampleCascade` in `Data/Shaders/lighting.hlsli`),
+  at 1024 texels per cascade (`kShadowResolution`, `ShadowSystem.cppm`). Soft shading hides the
+  grid; a hard edge (a toon's) traces it as a wavy outline. Filter with a disk of 12 to 16 taps
+  rotated per pixel, and make the resolution a render setting (1024, 2048, 4096); local-light
+  shadows (`SampleLocalShadow`) the same. Contact hardening (PCSS) after, if wanted. Changes every
+  game's shadows slightly: the full lanes and a visual check on the sample games.
+
 - **Scene facades as scene properties, as Sedulous has them? Decide before 0.1** (user
   2026-10-09): Sedulous binds a scene facade as a property of the scene (`scene.Physics.RayCast`,
   its SceneFacade role); ours are reached through the facade type (`ScenePhysics::of(scene)`,
