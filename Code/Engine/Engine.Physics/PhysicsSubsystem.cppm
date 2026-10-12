@@ -195,6 +195,8 @@ export namespace engine::physics
                         // The queue is RUN-scoped: an impulse queued in the last frame before Stop
                         // must not fire as an unexplained kick at the next Play.
                         c.pendingImpulse = Float3{0, 0, 0};
+                        c.hasPendingVelocity = false;
+                        c.heldForce = Float3{0, 0, 0};
                     });
             }
             if (auto* joints = m_scene->GetSystem<JointComponentManager>())
@@ -254,6 +256,18 @@ export namespace engine::physics
                     if (Decompose(scene.GetWorldMatrix(e), position, rotation, scale))
                     {
                         m_world->MoveKinematic(c.body, position, rotation, fixedDeltaTime);
+                    }
+                });
+
+            // Held forces (ScenePhysics.setForce): Jolt clears a force after each step, so a force
+            // a script holds is added again before every step it should act in.
+            bodies->ForEach(
+                [&](RigidBodyComponent& c, scene::EntityHandle)
+                {
+                    if (c.body.IsValid() && c.motion == MotionKind::Dynamic &&
+                        (c.heldForce.x != 0.0f || c.heldForce.y != 0.0f || c.heldForce.z != 0.0f))
+                    {
+                        m_world->AddForce(c.body, c.heldForce);
                     }
                 });
 
@@ -655,6 +669,7 @@ export namespace engine::physics
                             if (!c.body.IsValid())
                             {
                                 c.pendingImpulse = Float3{0, 0, 0};
+                                c.hasPendingVelocity = false;
                             }
                             return;
                         }
@@ -669,6 +684,7 @@ export namespace engine::physics
                             // Impulses queued while active die with the body; re-activation must
                             // not launch a sum accumulated across the inactive window.
                             c.pendingImpulse = Float3{0, 0, 0};
+                            c.hasPendingVelocity = false;
                         }
                         else if (!c.body.IsValid())
                         {
@@ -890,6 +906,11 @@ export namespace engine::physics
                     {
                         m_world->AddImpulse(c.body, c.pendingImpulse);
                         c.pendingImpulse = Float3{0, 0, 0};
+                    }
+                    if (c.body.IsValid() && c.hasPendingVelocity)
+                    {
+                        m_world->SetLinearVelocity(c.body, c.pendingVelocity);
+                        c.hasPendingVelocity = false;
                     }
                     if (!c.body.IsValid())
                     {
@@ -1382,6 +1403,55 @@ export namespace engine::physics
             }
         }
 
+        // Set `entity`'s body moving at `velocity` (m/s) now: a launch, a dash, a hard stop. A body
+        // not built yet (spawned this frame) takes it when it is, as an impulse does.
+        void setVelocity(foundation::script::Entity entity, f32 x, f32 y, f32 z)
+        {
+            setVelocity(entity, Float3{x, y, z});
+        }
+        void setVelocity(foundation::script::Entity entity, Float3 velocity)
+        {
+            RigidBodyComponent* body = Body(entity);
+            PhysicsWorld* world = World();
+            if (body == nullptr || world == nullptr)
+            {
+                return;
+            }
+            if (body->body.IsValid())
+            {
+                world->SetLinearVelocity(body->body, velocity);
+            }
+            else
+            {
+                body->pendingVelocity = velocity;
+                body->hasPendingVelocity = true;
+            }
+        }
+        // The body's velocity in m/s; zero without a built dynamic or kinematic body.
+        [[nodiscard]] Float3 velocity(foundation::script::Entity entity) const
+        {
+            const RigidBodyComponent* body = Body(entity);
+            PhysicsWorld* world = World();
+            return (body != nullptr && world != nullptr && body->body.IsValid())
+                       ? world->LinearVelocity(body->body)
+                       : Float3{0, 0, 0};
+        }
+
+        // Hold a steady force (newtons) on `entity`'s dynamic body, every physics step until it is
+        // set again (zero lets go): thrust, wind, a tractor beam. Holding it is what makes it right
+        // at any frame rate; a per-frame push would land on whichever step came next, or none.
+        void setForce(foundation::script::Entity entity, f32 x, f32 y, f32 z)
+        {
+            setForce(entity, Float3{x, y, z});
+        }
+        void setForce(foundation::script::Entity entity, Float3 force)
+        {
+            if (RigidBodyComponent* body = Body(entity))
+            {
+                body->heldForce = force;
+            }
+        }
+
         // ---- the entity's character, as Sedulous's PhysicsFacade has it (the same ops as
         // CharacterComponent.of(entity); no-ops for an entity without a character) ----
         void moveCharacter(foundation::script::Entity entity, f32 velocityX, f32 velocityZ) const
@@ -1425,6 +1495,15 @@ export namespace engine::physics
             }
             auto* characters = scene->GetSystem<CharacterComponentManager>();
             return characters != nullptr ? characters->Get(entity.Handle()) : nullptr;
+        }
+        [[nodiscard]] RigidBodyComponent* Body(foundation::script::Entity entity) const
+        {
+            if (scene == nullptr || entity.scene != scene)
+            {
+                return nullptr;
+            }
+            auto* bodies = scene->GetSystem<RigidBodyComponentManager>();
+            return bodies != nullptr ? bodies->Get(entity.Handle()) : nullptr;
         }
 
         // The OPTION 1 factory: ScenePhysics.of(scene). Argument is the bound Scene facade.

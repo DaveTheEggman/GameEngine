@@ -695,6 +695,15 @@ namespace engine::physics
             "applyImpulse", {"entity", "impulse"});
         builder.Method<static_cast<void (ScenePhysics::*)(Entity, f32, f32, f32)>(
             &ScenePhysics::applyImpulse)>("applyImpulse", {"entity", "x", "y", "z"});
+        builder.Method<static_cast<void (ScenePhysics::*)(Entity, Float3)>(&ScenePhysics::setVelocity)>(
+            "setVelocity", {"entity", "velocity"});
+        builder.Method<static_cast<void (ScenePhysics::*)(Entity, f32, f32, f32)>(
+            &ScenePhysics::setVelocity)>("setVelocity", {"entity", "x", "y", "z"});
+        builder.Method<&ScenePhysics::velocity>("velocity", {"entity"});
+        builder.Method<static_cast<void (ScenePhysics::*)(Entity, Float3)>(&ScenePhysics::setForce)>(
+            "setForce", {"entity", "force"});
+        builder.Method<static_cast<void (ScenePhysics::*)(Entity, f32, f32, f32)>(
+            &ScenePhysics::setForce)>("setForce", {"entity", "x", "y", "z"});
         // The entity's character, as Sedulous's PhysicsFacade.
         builder.Method<&ScenePhysics::moveCharacter>("moveCharacter",
                                                      {"entity", "velocityX", "velocityZ"});

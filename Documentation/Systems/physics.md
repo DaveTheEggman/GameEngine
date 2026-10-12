@@ -100,11 +100,18 @@ Component gizmos draw the shape wires.
 
 ## Script facade
 
-`ScenePhysics.of(scene)` - a reflected, backend-neutral scene-bound value handle:
-`rayCast(...)` + `hitX/Y/Z` + `hitNormalX/Y/Z`, `gravityY` / `setGravity(...)`, and
-`applyImpulse(entity, x, y, z)`. Physics ops that need world context are keyed on the scene handle
+`ScenePhysics.of(scene)` - a reflected, backend-neutral scene-bound value handle: queries
+(`rayCast`, `sphereCast`, `nearestOverlap`, `overlapSphere`, each with an optional group mask; a hit
+is a `RayCastHit` with `hit`, `distance`, `position`, `normal`, `surface`, `entity()`,
+`material()`), gravity (`setGravity`, `gravity`, `gravityY`), and the body ops keyed by entity:
+`applyImpulse`, `setVelocity` / `velocity`, and `setForce`, a HELD force applied every fixed step
+until set again (Jolt clears a force after each step and behaviors run per frame, so a per-frame
+AddForce would land on whichever step came next, or none). An impulse or velocity given to a body
+not built yet (a prefab spawned this frame) waits on the component for its creation; queues and
+held forces are run-scoped. Physics ops that need world context are keyed on the scene handle
 (the component data cannot reach the world); per-character control is on `CharacterComponent`
-directly. Certified on Wren (`Engine.Script.Tests/ScriptSceneTests`).
+directly. Certified on AngelScript and Luau (`Engine.Script.Tests/ScriptSceneTests`); the body
+ops natively in `Engine.Physics.Tests/PhysicsSceneTests`.
 
 ## Portability
 

@@ -692,6 +692,61 @@ TEST_CASE("physics.scene: the impulse queue is RUN-scoped and cannot accumulate 
           1.0f); // NOT the 60x5000 launch
 }
 
+TEST_CASE("physics.scene: setVelocity sets a body moving now, or as soon as it is built")
+{
+    PlayScene play;
+    const scene::EntityHandle box = play.AddBox(5.0f);
+    play.Start();
+    ScenePhysics physics{&play.scene};
+    physics.setGravity(0.0f, 0.0f, 0.0f);
+    const foundation::script::Entity entity = foundation::script::WrapEntity(&play.scene, box);
+
+    physics.setVelocity(entity, 3.0f, 0.0f, 0.0f);
+    CHECK(physics.velocity(entity).x == doctest::Approx(3.0f));
+    const f32 x0 = play.scene.GetWorldPosition(box).x;
+    play.Step(30); // half a second at 3 m/s, less the default damping
+    play.physics->ApplyInterpolation(1.0f); // write the final pose to the scene
+    play.scene.UpdateTransforms();
+    CHECK(play.scene.GetWorldPosition(box).x - x0 == doctest::Approx(1.5f).epsilon(0.05));
+
+    // A body added after Start is built at the next step: the velocity waits for it, as an
+    // impulse does (spawn a prefab and throw it in the same frame).
+    const scene::EntityHandle late = play.AddBox(8.0f);
+    play.scene.UpdateTransforms();
+    const foundation::script::Entity lateEntity = foundation::script::WrapEntity(&play.scene, late);
+    physics.setVelocity(lateEntity, Float3{0.0f, 0.0f, -2.0f});
+    CHECK(physics.velocity(lateEntity).z == 0.0f); // nothing to read before the body exists
+    play.Step(1);
+    CHECK(physics.velocity(lateEntity).z == doctest::Approx(-2.0f).epsilon(0.01));
+}
+
+TEST_CASE("physics.scene: setForce holds a force on the body every step until released")
+{
+    PlayScene play;
+    const scene::EntityHandle box = play.AddBox(5.0f); // a 1 m cube of 1000 kg
+    play.Start();
+    ScenePhysics physics{&play.scene};
+    physics.setGravity(0.0f, 0.0f, 0.0f);
+    const foundation::script::Entity entity = foundation::script::WrapEntity(&play.scene, box);
+
+    // 1000 N on 1000 kg for one second: 1 m/s (a little less with the default damping). A force
+    // added once would act for one step only: 1/60 m/s.
+    physics.setForce(entity, 1000.0f, 0.0f, 0.0f);
+    play.Step(60);
+    const f32 held = physics.velocity(entity).x;
+    CHECK(held == doctest::Approx(1.0f).epsilon(0.05));
+
+    physics.setForce(entity, Float3{0.0f, 0.0f, 0.0f}); // let go: it coasts
+    play.Step(30);
+    CHECK(physics.velocity(entity).x <= held);
+    CHECK(physics.velocity(entity).x > 0.9f * held);
+
+    // Held forces are run-scoped: Stop lets go, so the next Play does not start pushed.
+    physics.setForce(entity, 500.0f, 0.0f, 0.0f);
+    play.scene.Stop();
+    CHECK(play.scene.GetSystem<RigidBodyComponentManager>()->Get(box)->heldForce.x == 0.0f);
+}
+
 TEST_CASE("physics.scene: shape queries reject non-positive sizes as a clean miss")
 {
     // Query dimensions come straight off the script surface; radius <= 0 (or NaN)

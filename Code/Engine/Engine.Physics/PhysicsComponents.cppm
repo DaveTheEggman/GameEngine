@@ -68,6 +68,14 @@ export namespace engine::physics
         // and launches it the same frame - e.g. a thrown paper). Accumulated by ScenePhysics.applyImpulse
         // when `body` is invalid, then flushed once in CreateBodyForEntity. Runtime only, never serialized.
         Float3 pendingImpulse{0, 0, 0};
+        // A velocity set BEFORE the body existed (ScenePhysics.setVelocity on a prefab spawned this
+        // frame), set once in CreateBodyForEntity; dropped wherever the impulse queue is.
+        Float3 pendingVelocity{0, 0, 0};
+        bool hasPendingVelocity = false;
+        // A steady force a script holds on the body (ScenePhysics.setForce), in newtons, applied
+        // every fixed step until set back to zero: Jolt clears a force after each step, and a
+        // behavior runs per frame, not per step. Run-scoped (Stop clears it), never serialized.
+        Float3 heldForce{0, 0, 0};
         // Entity-active latch: the effective-active state this
         // domain last reconciled against. Runtime only, never serialized.
         bool simActive = false;
