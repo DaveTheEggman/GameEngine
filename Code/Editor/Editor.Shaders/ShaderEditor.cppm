@@ -5,7 +5,7 @@
 //
 // The editor side of custom shaders (Specs/custom-shaders.md, phase 3): the HLSL syntax tables
 // CodeEditView highlights a shader with, registered into the toolkit's CodeLexerRegistry under
-// "hlsl" and "hlsli".
+// "hlsl" and "hlsli", and the shader page (:shader_page).
 
 module;
 #include "Core/Prelude.h"
@@ -13,6 +13,7 @@ module;
 export module editor.shaders;
 
 import foundation.core;
+export import :shader_page;
 
 export namespace editor
 {

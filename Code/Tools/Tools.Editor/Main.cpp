@@ -38,6 +38,8 @@ import engine.scene;
 import engine.render;
 import engine.project; // kEngineVersionString (the CMake project(VERSION))
 import foundation.content;
+import foundation.vfs;            // DataPath (the shader page's include path)
+import foundation.shaders.system; // kShaderFolder
 import foundation.animation.resource;
 import engine.animation;
 import foundation.particles.resource;
@@ -310,6 +312,10 @@ int main(int argc, char** argv)
         editor::RegisterSceneEditor(app.Context(), host, uiHost,
                                               app.EmbeddedApplication());
         editor::RegisterMaterialEditor(app.Context(), host, uiHost);
+        editor::RegisterShaderEditor(
+            app.Context(), host, uiHost,
+            foundation::vfs::DataPath(g_dataRoot.AsView(), foundation::shaders::kShaderFolder)
+                .AsView());
         editor::RegisterSettingsProfileEditor(app.Context(), host, uiHost);
         editor::RegisterMeshEditor(app.Context(), host, uiHost);
         editor::RegisterParticleEditor(app.Context(), host, uiHost);
