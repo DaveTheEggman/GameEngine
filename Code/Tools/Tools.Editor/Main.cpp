@@ -94,6 +94,7 @@ import editor.fonts;
 import editor.physics;
 import editor.generic;
 import editor.script;
+import editor.shaders;
 import engine.physics;
 import modelimporter;
 import foundation.audio;
@@ -151,6 +152,7 @@ namespace
         // (no device/GPU/world), idempotent.
         engine::RegisterAllScriptFacades();
         // Per-language EDITOR-UI services (CodeEditView lexers; completion providers later).
+        editor::RegisterHlslEditorUI(editor::EditorRootAllocator());
 #ifdef OPTION_HAS_ANGELSCRIPT
         editor::RegisterAngelScriptEditorUI();
 #endif
