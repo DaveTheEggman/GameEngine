@@ -1348,8 +1348,12 @@ export namespace pipeline{
             static_cast<const RenderTextureAsset&>(asset).Cook(cooked);
             if (!cooked.IsValid())
             {
+                // A copy: the log takes its arguments by reference, and a reference to another
+                // library's static constexpr member needs its address, which a shared build on
+                // MSVC does not export (an unresolved external there).
+                const u32 maxSize = RenderTextureResource::kMaxSize;
                 LOG_ERROR(u8"Cook", u8"render texture {}x{}: each side must be 1 to {}",
-                          cooked.width, cooked.height, RenderTextureResource::kMaxSize);
+                          cooked.width, cooked.height, maxSize);
                 return Status{ErrorCode::InvalidArgument};
             }
             return ctx.output->WriteObject(cooked);
