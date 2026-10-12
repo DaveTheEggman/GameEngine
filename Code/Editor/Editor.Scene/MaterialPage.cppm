@@ -42,6 +42,7 @@ import materials.pipeline;
 import foundation.texture.resource;
 import foundation.resource;
 import foundation.shaders;
+import foundation.shaders.resource; // a material on a shader asset: its resource and property table
 import foundation.render;
 import engine.render;
 import foundation.ui;
@@ -76,9 +77,12 @@ export namespace editor
     // choice is testable without a live host.
     enum class MaterialPropertyRow : u8
     {
-        None, // not shown (samplers, ints, matrices until a preset needs them)
+        None, // not shown (samplers, matrices)
         Number,
+        Numbers2,
+        Numbers3,
         Numbers4,
+        Integer,
         Color,
         ColorWithIntensity,
         Texture,
@@ -90,8 +94,14 @@ export namespace editor
         {
         case materials::MaterialPropertyType::Float:
             return MaterialPropertyRow::Number;
+        case materials::MaterialPropertyType::Float2:
+            return MaterialPropertyRow::Numbers2;
+        case materials::MaterialPropertyType::Float3:
+            return MaterialPropertyRow::Numbers3;
         case materials::MaterialPropertyType::Float4:
             return MaterialPropertyRow::Numbers4;
+        case materials::MaterialPropertyType::Int:
+            return MaterialPropertyRow::Integer;
         case materials::MaterialPropertyType::Color:
             return MaterialPropertyRow::Color;
         case materials::MaterialPropertyType::ColorHdr:
@@ -200,6 +210,18 @@ export namespace editor
 
         void RebuildGrid();
 
+        // === the material's shader ===
+
+        // The shader asset's cooked source (its property table), or null before it has cooked.
+        [[nodiscard]] RefPtr<foundation::shaders::ShaderSource> ReadShader(const Guid& shader) const;
+        // Moves the material onto a shader asset, or back to a built-in (nil), as one undoable
+        // edit: re-laid by the new shader's table, every value that still fits kept.
+        void SwitchShader(const Guid& shader);
+        void SwitchToBuiltIn(bool unlit);
+        // Binds the material's shader asset (its resource registers it for the preview) and
+        // re-lays the material by its current table: on opening, and whenever it recooks.
+        void BindShader();
+
         // A pipeline-state dropdown writing one of the source's u8 mode fields.
         void AddPipelineEnumRow(StringView label, Span<const StringView> items,
                                 u8& (*field)(materials::MaterialSource&));
@@ -232,6 +254,15 @@ export namespace editor
         Guid m_previewMeshGuid; // nil = primitive shape
         Array<foundation::resource::Proxy<foundation::texture::Texture>> m_previewTextures;
         Array<rhi::TextureView*> m_previewTextureViews; // views captured into the material
+
+        // The material's shader asset, when it is on one: its resource (the version says when it
+        // recooked) and its property table (the rows' ranges).
+        foundation::resource::Proxy<foundation::shaders::ShaderResource> m_shader;
+        u64 m_shaderVersion = 0;
+        Array<foundation::shaders::ShaderProperty> m_shaderTable;
+        // The rows change with the layout (a shader switched, undone or recooked): rebuilt on the
+        // next update, never inside the grid callback that caused it.
+        bool m_gridDirty = false;
 
         RefPtr<foundation::ui::toolkit::PropertyGrid> m_grid;
         RefPtr<foundation::ui::View> m_content;

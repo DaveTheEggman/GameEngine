@@ -40,6 +40,7 @@ import materials.pipeline;
 import foundation.texture.resource;
 import foundation.resource;
 import foundation.shaders;
+import foundation.shaders.resource;
 import foundation.render;
 import engine.render;
 import foundation.ui;
@@ -86,6 +87,7 @@ namespace editor
         {
             LOG_ERROR(u8"Editor", u8"material '{}' failed to read - page opens empty", m_title);
         }
+        BindShader(); // a material on a shader asset shows the shader's current properties
 
         // Shared preview substrate (viewport + preview scene + fly camera + render loop).
         m_preview =
@@ -155,6 +157,18 @@ namespace editor
             }
         }
 
+        // The shader asset recooked (its properties may have changed): re-lay the material by it.
+        if (m_shader && m_shader->Version() != m_shaderVersion)
+        {
+            BindShader();
+            RebuildPreviewMaterial();
+        }
+        if (m_gridDirty)
+        {
+            m_gridDirty = false;
+            RebuildGrid();
+        }
+
         for (const Function<void()>& refresher : m_refreshers)
         {
             refresher();
@@ -210,8 +224,25 @@ namespace editor
         MemoryStream stream;
         (void)stream.Write(blob.Data(), blob.Size());
         (void)stream.Seek(0, SeekOrigin::Begin);
+        const Guid shaderBefore = m_asset->source.shaderId;
+        Array<String> namesBefore;
+        for (const String& name : m_asset->source.propertyNames)
+        {
+            namesBefore.PushBack(String(name.AsView()));
+        }
         BinarySerializer ar(stream, SerializeMode::Read);
         m_asset->source.Serialize(ar);
+        // A shader switched (or its switch undone) changes the rows and what the preview binds.
+        if (m_asset->source.shaderId != shaderBefore)
+        {
+            BindShader();
+        }
+        bool sameRows = namesBefore.Size() == m_asset->source.propertyNames.Size();
+        for (usize i = 0; sameRows && i < namesBefore.Size(); ++i)
+        {
+            sameRows = namesBefore[i].AsView() == m_asset->source.propertyNames[i].AsView();
+        }
+        m_gridDirty = m_gridDirty || !sameRows;
         RebuildPreviewMaterial();
     }
 
@@ -287,8 +318,11 @@ namespace editor
         }
         const materials::MaterialSource& src = m_asset->source;
 
+        // A shader asset draws under its resource's name (binding it registered the source).
+        const StringView shaderName =
+            m_shader ? m_shader->Name() : src.shaderName.AsView();
         RefPtr<materials::Material> material =
-            materials::MaterialFromSource(Allocator(), src, src.shaderName.AsView());
+            materials::MaterialFromSource(Allocator(), src, shaderName);
 
         m_previewTextures.Clear();
         m_previewTextureViews.Clear();
@@ -453,12 +487,32 @@ namespace editor
         const materials::MaterialSource& src = m_asset->source;
 
         // --- Material: shader + pipeline state ---
-        const StringView shaderShown =
-            src.shaderName.IsEmpty() ? StringView(u8"(shader asset)") : src.shaderName.AsView();
-        auto shader = MakeRef<ui::toolkit::StringEditor>(Allocator(), StringView(u8"Shader"),
-                                                         shaderShown, Function<void(StringView)>{},
-                                                         StringView(u8"Material"));
-        m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(shader.Get()));
+        // The shader: a shader asset, or nil for a built-in (PBR or Unlit, picked below).
+        {
+            const StringView shaderTypes[] = {u8"ShaderAsset"};
+            auto shader = MakeRef<ResourceRefEditor>(Allocator(), StringView(u8"Shader"),
+                                                     AssetNameFor(src.shaderId),
+                                                     StringView(u8"Material"),
+                                                     Span<const StringView>{shaderTypes, 1});
+            shader->SetEmptyText(u8"(built-in)");
+            ResourceRefEditor* raw = shader.Get();
+            raw->BindAsset(
+                *m_context,
+                [self]() -> Guid
+                { return self->m_asset.Get() != nullptr ? self->m_asset->source.shaderId : Guid{}; },
+                [self](const Guid& picked) { self->SwitchShader(picked); });
+            AddEditor(raw, [raw]() { raw->Refresh(); });
+        }
+        if (src.shaderId.IsNil())
+        {
+            static constexpr StringView kBuiltIns[] = {u8"PBR", u8"Unlit"};
+            auto builtIn = MakeRef<ui::toolkit::EnumEditor>(
+                Allocator(), StringView(u8"Built-in"),
+                src.shaderName.AsView() == u8"unlit" ? 1 : 0, Span<const StringView>{kBuiltIns, 2},
+                Function<void(i32)>{[self](i32 index) { self->SwitchToBuiltIn(index == 1); }},
+                StringView(u8"Material"));
+            m_grid->AddProperty(RefPtr<ui::toolkit::PropertyEditor>(builtIn.Get()));
+        }
 
         // --- Preview: geometry the material is shown on (page-local, not saved) ---
         {
@@ -541,15 +595,31 @@ namespace editor
                 };
                 // The standard PBR factors are all 0..1 - slider+field like the scene
                 // inspector's range rows; unknown floats keep the unbounded field.
+                // A shader asset's property declares its own range.
+                f32 lo = 0.0f;
+                f32 hi = 1.0f;
+                bool ranged = false;
+                for (const foundation::shaders::ShaderProperty& p : m_shaderTable)
+                {
+                    if (p.name.AsView() == name.AsView() && p.hasRange)
+                    {
+                        lo = p.rangeMin;
+                        hi = p.rangeMax;
+                        ranged = true;
+                    }
+                }
                 const bool zeroToOne =
                     name.AsView() == u8"Metallic" || name.AsView() == u8"Roughness" ||
                     name.AsView() == u8"OcclusionStrength" || name.AsView() == u8"AlphaCutoff";
                 const bool zeroToTwo = name.AsView() == u8"NormalScale";
-                if (zeroToOne || zeroToTwo)
+                if (!ranged && zeroToTwo)
+                {
+                    hi = 2.0f;
+                }
+                if (ranged || zeroToOne || zeroToTwo)
                 {
                     auto editor = MakeRef<ui::toolkit::RangeEditor>(
-                        Allocator(), name.AsView(), static_cast<f32>(value()), 0.0f,
-                        zeroToTwo ? 2.0f : 1.0f, 0.01f,
+                        Allocator(), name.AsView(), static_cast<f32>(value()), lo, hi, 0.01f,
                         Function<void(f32)>{[write](f32 v) { write(v); }},
                         StringView(u8"Properties"));
                     editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
@@ -566,6 +636,84 @@ namespace editor
                     AddEditor(editor.Get(),
                               [value, raw = editor.Get()]() { raw->SetValue(value()); });
                 }
+            }
+            else if (row == MaterialPropertyRow::Numbers2)
+            {
+                auto read = [self, name]() -> Float2
+                {
+                    Float2 v{0, 0};
+                    self->ReadUniform(name.AsView(), &v, sizeof(v));
+                    return v;
+                };
+                auto editor = MakeRef<ui::toolkit::Float2Editor>(
+                    Allocator(), name.AsView(), read(), -100000.0f, 100000.0f, 0.01f,
+                    Function<void(Float2)>{[self, name](Float2 v)
+                                           {
+                                               self->ApplyEdit(
+                                                   name.AsView(),
+                                                   Function<void(materials::MaterialSource&)>{
+                                                       [self, name, v](materials::MaterialSource&)
+                                                       { self->WriteUniform(name.AsView(), &v, sizeof(v)); }});
+                                           }},
+                    StringView(u8"Properties"));
+                editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                AddEditor(editor.Get(), [read, raw = editor.Get()]() { raw->SetValue(read()); });
+            }
+            else if (row == MaterialPropertyRow::Numbers3)
+            {
+                auto read = [self, name]() -> Float3
+                {
+                    Float3 v{0, 0, 0};
+                    self->ReadUniform(name.AsView(), &v, sizeof(v));
+                    return v;
+                };
+                auto editor = MakeRef<ui::toolkit::Float3Editor>(
+                    Allocator(), name.AsView(), read(), -100000.0f, 100000.0f, 0.01f,
+                    Function<void(Float3)>{[self, name](Float3 v)
+                                           {
+                                               self->ApplyEdit(
+                                                   name.AsView(),
+                                                   Function<void(materials::MaterialSource&)>{
+                                                       [self, name, v](materials::MaterialSource&)
+                                                       { self->WriteUniform(name.AsView(), &v, sizeof(v)); }});
+                                           }},
+                    StringView(u8"Properties"));
+                editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                AddEditor(editor.Get(), [read, raw = editor.Get()]() { raw->SetValue(read()); });
+            }
+            else if (row == MaterialPropertyRow::Integer)
+            {
+                auto read = [self, name]() -> i64
+                {
+                    i32 v = 0;
+                    self->ReadUniform(name.AsView(), &v, sizeof(v));
+                    return static_cast<i64>(v);
+                };
+                // A shader asset's int may declare its range.
+                i64 lo = static_cast<i64>(-2147483647 - 1);
+                i64 hi = static_cast<i64>(2147483647);
+                for (const foundation::shaders::ShaderProperty& p : m_shaderTable)
+                {
+                    if (p.name.AsView() == name.AsView() && p.hasRange)
+                    {
+                        lo = static_cast<i64>(p.rangeMin);
+                        hi = static_cast<i64>(p.rangeMax);
+                    }
+                }
+                auto editor = MakeRef<ui::toolkit::IntEditor>(
+                    Allocator(), name.AsView(), read(), lo, hi,
+                    Function<void(i64)>{[self, name](i64 value)
+                                        {
+                                            const i32 v = static_cast<i32>(value);
+                                            self->ApplyEdit(
+                                                name.AsView(),
+                                                Function<void(materials::MaterialSource&)>{
+                                                    [self, name, v](materials::MaterialSource&)
+                                                    { self->WriteUniform(name.AsView(), &v, sizeof(v)); }});
+                                        }},
+                    StringView(u8"Properties"));
+                editor->SetDisplayName(PrettifyPropertyName(name.AsView()).AsView());
+                AddEditor(editor.Get(), [read, raw = editor.Get()]() { raw->SetValue(read()); });
             }
             else if (row == MaterialPropertyRow::Numbers4 || row == MaterialPropertyRow::Color ||
                      row == MaterialPropertyRow::ColorWithIntensity)
@@ -632,7 +780,7 @@ namespace editor
             {
                 AddTextureRow(name);
             }
-            // Sampler/Int/Matrix rows: extend when a preset needs them.
+            // A sampler has no value to edit (the material system binds it); no matrix rows.
         }
     }
 
@@ -774,6 +922,130 @@ namespace editor
             }
             return;
         }
+    }
+
+    namespace
+    {
+        // Replaces `to` with `from`, every field (MaterialSource is not copyable; its
+        // serialization is the complete list of what it holds).
+        void AssignSource(materials::MaterialSource& to, materials::MaterialSource& from)
+        {
+            MemoryStream stream;
+            {
+                BinarySerializer write(stream, SerializeMode::Write);
+                from.Serialize(write);
+            }
+            (void)stream.Seek(0, SeekOrigin::Begin);
+            BinarySerializer read(stream, SerializeMode::Read);
+            to.Serialize(read);
+        }
+    }
+
+    RefPtr<foundation::shaders::ShaderSource> MaterialEditorPage::ReadShader(const Guid& shader) const
+    {
+        if (m_context->Project() == nullptr || shader.IsNil())
+        {
+            return {};
+        }
+        foundation::content::Instance* product = m_context->Project()->CookedDb().GetInstance(shader);
+        RefPtr<ISerializable> object =
+            product != nullptr ? product->ReadObject() : RefPtr<ISerializable>{};
+        return RefPtr<foundation::shaders::ShaderSource>(
+            Cast<foundation::shaders::ShaderSource>(object.Get()));
+    }
+
+    void MaterialEditorPage::SwitchShader(const Guid& shader)
+    {
+        if (m_asset.Get() == nullptr || shader == m_asset->source.shaderId)
+        {
+            return;
+        }
+        if (shader.IsNil())
+        {
+            SwitchToBuiltIn(false);
+            return;
+        }
+        RefPtr<foundation::shaders::ShaderSource> table = ReadShader(shader);
+        if (table.Get() == nullptr)
+        {
+            m_context->Notify(NoticeKind::Warning,
+                              u8"That shader has not cooked yet - save it (or fix its errors), "
+                              u8"then pick it again");
+            return;
+        }
+        ApplyEdit(u8"Shader", Function<void(materials::MaterialSource&)>{
+                                  [table, shader](materials::MaterialSource& s)
+                                  {
+                                      s.shaderId = shader;
+                                      materials::MaterialSource laid;
+                                      pipeline::LayOutMaterialByShader(s, *table, laid);
+                                      AssignSource(s, laid);
+                                  }});
+    }
+
+    void MaterialEditorPage::SwitchToBuiltIn(bool unlit)
+    {
+        if (m_asset.Get() == nullptr)
+        {
+            return;
+        }
+        const materials::MaterialSource& current = m_asset->source;
+        if (current.shaderId.IsNil() && (current.shaderName.AsView() == u8"unlit") == unlit)
+        {
+            return;
+        }
+        // The built-in's own layout (what Create > Materials makes), the material's values and
+        // render state carried onto it.
+        RefPtr<materials::Material> built = unlit ? materials::CreateUnlit(current.name.AsView())
+                                                  : materials::CreatePBR(current.name.AsView());
+        RefPtr<pipeline::MaterialAsset> preset = MakeRef<pipeline::MaterialAsset>(Allocator());
+        pipeline::MaterialImporter::Import(*built, Guid{}, *preset);
+        ApplyEdit(u8"Shader", Function<void(materials::MaterialSource&)>{
+                                  [preset](materials::MaterialSource& s)
+                                  {
+                                      materials::MaterialSource& to = preset->source;
+                                      to.name = s.name;
+                                      to.blendMode = s.blendMode;
+                                      to.depthMode = s.depthMode;
+                                      to.cullMode = s.cullMode;
+                                      to.vertexLayout = s.vertexLayout;
+                                      to.samplerU = s.samplerU;
+                                      to.samplerV = s.samplerV;
+                                      pipeline::CarryMaterialValues(s, to);
+                                      AssignSource(s, to);
+                                  }});
+    }
+
+    void MaterialEditorPage::BindShader()
+    {
+        m_shader = {};
+        m_shaderVersion = 0;
+        m_shaderTable.Clear();
+        if (m_asset.Get() == nullptr || m_asset->source.shaderId.IsNil())
+        {
+            return;
+        }
+        const Guid id = m_asset->source.shaderId;
+        if (m_context->Resources() != nullptr)
+        {
+            m_shader = m_context->Resources()->Bind<foundation::shaders::ShaderResource>(id);
+            m_shaderVersion = m_shader ? m_shader->Version() : 0;
+        }
+        RefPtr<foundation::shaders::ShaderSource> table = ReadShader(id);
+        if (table.Get() == nullptr)
+        {
+            LOG_WARNING(u8"Editor",
+                        u8"material '{}': its shader has not cooked - its rows are its own until "
+                        u8"it does",
+                        m_title);
+            return;
+        }
+        m_shaderTable = table->Properties();
+        // Not an edit: the material follows its shader, as the cook lays it out.
+        materials::MaterialSource laid;
+        pipeline::LayOutMaterialByShader(m_asset->source, *table, laid);
+        AssignSource(m_asset->source, laid);
+        m_gridDirty = true;
     }
 
     const TypeInfo* MaterialEditorPageFactory::PrimaryType() const

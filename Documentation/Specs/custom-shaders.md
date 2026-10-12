@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1, 2 and 5 built; phase 3 under way. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1, 2, 3 (but its hand-over) and 5 built. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -179,9 +179,19 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
 2. **Export.** Project shaders cooked to the preset's formats (SPIR-V, DXIL, WGSL) into the dist
    pack; the player resolves them compiler-free; the material-to-shader dependency survives
    pruning. Tested on a desktop dist and the web build.
-3. **Editor.** HLSL lexer; Create > Materials > Shader (the toon as the starter) and a `.hlsl`
-   importer; the shader page with live errors and a preview; the material page's shader picker,
-   shader-driven rows and a preview that resolves the shader asset.
+3. **Editor** (built 2026-10-12 but the hand-over). `CheckShaderSource` (`shaders.pipeline:check`):
+   what the cook proves, as data (file, line, column, message), which the cook, the page and
+   the MCP tool share. The HLSL lexer (`editor.shaders`, "hlsl" and "hlsli"). Create > Materials
+   > Shader (a short starter on the lighting library, not the toon: the toon forks the lighting,
+   which is the advanced case) and a `.hlsl` importer, each naming the shader after its asset.
+   The shader page: the code, checked a pause after typing on each stage's base variant (Save
+   cooks every variant), errors as markers, a list and a status line; a sphere drawn with the
+   text being edited under a name of the page's own; the name and entry points. The material
+   page: the Shader row picks a shader asset or, cleared, a built-in (PBR or Unlit), as one
+   undoable edit that keeps every value whose name, type and size still fit
+   (`CarryMaterialValues`); its rows are the shader's, with the block's ranges and rows for
+   float2, float3 and int; it follows the shader when it recooks; its preview draws with it.
+   Owed: the hand-over (a scratch project exported for desktop and web, for the user to run).
 4. **Agents and docs.** `shader_validate`, McpGuide, the tool count; a user docs page,
    "Custom shaders", on the low-level kind.
 5. **The lighting library** (done 2026-10-12, ahead of phase 3 so the editor's starter is
