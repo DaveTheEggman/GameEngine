@@ -92,6 +92,9 @@ namespace editor
         // Shared preview substrate (viewport + preview scene + fly camera + render loop).
         m_preview =
             MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"material.preview");
+        // The scene's clock runs only while it simulates: a material on a shader that animates
+        // with Time() (a scrolling surface, moving vertices, wind) moves in its preview.
+        m_preview->SetSimulationEnabled(true);
         m_preview->Camera().position = Float3{0.0f, 0.9f, 2.6f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
 

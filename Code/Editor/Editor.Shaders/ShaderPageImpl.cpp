@@ -134,6 +134,9 @@ namespace editor
 
         // Right: the preview over the asset's fields.
         m_preview = MakeUnique<PreviewViewport>(Allocator(), host, uiHost, u8"shader.preview");
+        // The scene's clock runs only while it simulates, and Time() reads it: a surface that
+        // scrolls or a Vertex() that moves would stand still otherwise.
+        m_preview->SetSimulationEnabled(true);
         m_preview->Camera().position = Float3{0.0f, 0.9f, 2.6f};
         m_preview->Camera().LookAt(Float3{0.0f, 0.0f, 0.0f});
         BuildPreviewScene();
