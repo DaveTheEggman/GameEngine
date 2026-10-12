@@ -41,6 +41,26 @@ to the closest, biases a shadow compare or linearizes explicitly includes it and
 (`IsBackgroundDepth`, `NearerOf`, `BiasTowardViewer`, `LinearizeDepth`); one that reconstructs
 position through an inverse projection is convention-free. See renderer.md 8.1.
 
+## The forward library
+
+The forward pass is built from includes a custom shader uses too (`Specs/custom-shaders.md`):
+
+- `view.hlsli`: the frame's View constants (set 0, b0), the one declaration of their layout.
+  Mirrors the CPU view block.
+- `forward_vs.hlsli`: the whole vertex stage (skinning, instancing, wind, the motion-vector clip
+  positions), `main` unless the includer names it (`#define FORWARD_VS_ENTRY VSMain`).
+- `lighting.hlsli`: the lights, shadows, image-based light, reflection probes and clusters
+  (sets 0 and 3) and the functions over them: `DirectLight` (every light reaching a pixel,
+  Cook-Torrance shaded and shadowed), `AmbientLight` (IBL, probes and the flat ambient),
+  `EvaluateLight`, `ShadowFactor`, and for a shader that shades lights its own way
+  `LightsAt`/`LightAt` (the pixel's cluster list, or every light), `LightDirection` (direction
+  and falloff) and `ShadowOf`.
+- `forward_ps.hlsli`: the pixel stage's contract: `GBufferOutput` (the five targets),
+  `ScreenDoorFade` (DITHER), `OctEncode` and `MotionVector`.
+
+`forward.ps.hlsl` is these plus its material and its surface code; the split (2026-10-12) left
+its compiled WGSL the same but for names and one constant's placement.
+
 ## Variant model + cooked pack
 
 RHI takes BYTECODE only (`ShaderModuleDesc.code` = SPIR-V / DXIL, or WGSL text; HLSL never crosses

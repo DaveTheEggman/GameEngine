@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1 and 2 built. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1, 2 and 5 built; phase 3 under way. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -18,7 +18,7 @@ properties, in order, lay out the shader's set-2 block, and nothing in the rende
 it. It draws distinct and instanced meshes, a masked material, the skinned Fox, receives the
 sun's cascades and a point light's cube shadow, and writes the motion vectors TAA reprojects
 with. The contract a low-level shader keeps: the mesh vertex in, `forward_vs.hlsli`'s VSOutput
-(or its own equivalent), sets 0, 1 and 3 declared as `forward.ps.hlsl` declares them, its own set
+(or its own equivalent), sets 0, 1 and 3 as `lighting.hlsli` declares them, its own set
 2, the SKINNED / INSTANCED / WIND and ALPHA_TEST / GBUFFER / DITHER variants, and under GBUFFER
 the five targets. It forks the whole lighting; that is the point of this kind.
 
@@ -184,9 +184,16 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
    shader-driven rows and a preview that resolves the shader asset.
 4. **Agents and docs.** `shader_validate`, McpGuide, the tool count; a user docs page,
    "Custom shaders", on the low-level kind.
-5. **The lighting library.** Split `forward.ps.hlsl`'s BRDF, light loops, shadows and IBL into
-   `lighting.hlsli` (forward renders pixel-identically). Low-level shaders can include it too, so
-   a toon shader need not copy the shadow sampling.
+5. **The lighting library** (done 2026-10-12, ahead of phase 3 so the editor's starter is
+   short). `view.hlsli` (the View constants, once), `lighting.hlsli` (lights, shadows, IBL,
+   probes, clusters; `DirectLight`, `AmbientLight`, and `LightsAt`/`LightAt`/`ShadowOf` for a
+   shader that shades lights its own way) and `forward_ps.hlsli` (`GBufferOutput`,
+   `ScreenDoorFade`, `OctEncode`, `MotionVector`). `forward.ps.hlsl`, `unlit.ps.hlsl` and the toon
+   include them; the toon fell from 344 lines to 102. Verified on the compiled corpus: every WGSL
+   entry is the old one but for SSA names and one constant initialised a line earlier; the
+   vertex stages are byte-identical; unlit's View struct gained the two trailing members it never
+   reads. One shape matters to that: a helper that returns early from inside a branch makes DXC
+   lay the code out differently, so the helpers keep the original branch and a single return.
 6. **Surface shaders.** The templates around `Surface()` and `Vertex()`, the generated
    declarations with `#line` mapping, generated depth/shadow/pick variants (so displacement and
    cut-outs shadow correctly); the built-in PBR re-expressed as a surface function renders the

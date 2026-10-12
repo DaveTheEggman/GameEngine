@@ -422,7 +422,7 @@ export namespace foundation::render
     static_assert(sizeof(GpuLight) == 64);
 
     // The share of a light's intensity that reaches `point`, before any shadow: the forward
-    // shader's range falloff and spot cone (forward.ps.hlsl Attenuation and SpotAttenuation, kept
+    // shader's range falloff and spot cone (lighting.hlsli Attenuation and SpotAttenuation, kept
     // the same), on the CPU, for a game asking how lit a place is. 1 for a directional light.
     [[nodiscard]] inline f32 LightFalloff(const GpuLight& light, Float3 point) noexcept
     {
