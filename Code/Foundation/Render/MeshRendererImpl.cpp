@@ -1487,15 +1487,8 @@ namespace foundation::render
         bool skinned = md.boneMatrices != nullptr && md.boneCount > 0 && md.mesh != nullptr &&
                        md.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
         // Masked casters cast holey shadows via the alpha-test fragment (needs the material set 2).
-        const bool masked = md.material != nullptr &&
-                            md.material->pipeline.blendMode == materials::BlendMode::Masked;
-        const bool wind = MaterialWantsWind(md.material); // set 2 too
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ false, masked, wind)
-                                                : ShadowConfigFor(ctx, /*instanced*/ false, masked, wind);
-        if (pick && md.material != nullptr)
-        {
-            config.cullMode = md.material->pipeline.cullMode; // a two-sided material picks both faces
-        }
+        const DepthLikeChoice choice = DepthLikeFor(ctx, md.material, /*instanced*/ false, pick);
+        materials::PipelineConfig config = choice.config;
         if (skinned)
         {
             const BoneSlot* s = m_boneStart.Find(md.boneMatrices);
@@ -1512,7 +1505,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutSingle;
-        if (masked || wind)
+        if (choice.materialSet)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*md.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ false);
@@ -1552,7 +1545,7 @@ namespace foundation::render
         d.drawSet = m_objectBG;
         d.drawOffset = obj.byteOffset;
         d.drawDynamic = true;   // set 1: object UBO
-        d.materialSet = matSet; // set 2: material (masked casters only - for the alpha-test sample)
+        d.materialSet = matSet; // set 2: the material (a cut-out, wind, or its own program)
         d.vertexBuffer0 = mesh.vertexBuffer;
         d.vertexOffset0 = mesh.vertexOffset;
         if (skinned)
@@ -1592,15 +1585,8 @@ namespace foundation::render
         const auto& head = *static_cast<const MeshRenderData*>(items[first].data);
         const bool skinned = head.boneMatrices != nullptr && head.mesh != nullptr &&
                              head.mesh->IsSkinned() && mesh.skinBuffer != nullptr;
-        const bool masked = head.material != nullptr &&
-                            head.material->pipeline.blendMode == materials::BlendMode::Masked;
-        const bool wind = MaterialWantsWind(head.material); // set 2 too
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked, wind)
-                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked, wind);
-        if (pick && head.material != nullptr)
-        {
-            config.cullMode = head.material->pipeline.cullMode;
-        }
+        const DepthLikeChoice choice = DepthLikeFor(ctx, head.material, /*instanced*/ true, pick);
+        materials::PipelineConfig config = choice.config;
         if (skinned)
         {
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
@@ -1608,7 +1594,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
-        if (masked || wind)
+        if (choice.materialSet)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*head.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
@@ -1676,7 +1662,7 @@ namespace foundation::render
         d.viewDynamic = true; // set 0: light view
         d.drawSet = m_instanceBG;
         d.drawDynamic = false;  // set 1: instances (whole)
-        d.materialSet = matSet; // set 2: material (masked casters only - alpha-test sample)
+        d.materialSet = matSet; // set 2: the material (a cut-out, wind, or its own program)
         d.vertexBuffer0 = mesh.vertexBuffer;
         d.vertexOffset0 = mesh.vertexOffset;
         if (skinned)
@@ -1883,15 +1869,8 @@ namespace foundation::render
                 shadowViewOffset = sv.byteOffset;
             }
         }
-        const bool masked = mm.material != nullptr &&
-                            mm.material->pipeline.blendMode == materials::BlendMode::Masked;
-        const bool wind = MaterialWantsWind(mm.material); // set 2 too
-        materials::PipelineConfig config = pick ? PickConfigFor(ctx, /*instanced*/ true, masked, wind)
-                                                : ShadowConfigFor(ctx, /*instanced*/ true, masked, wind);
-        if (pick && mm.material != nullptr)
-        {
-            config.cullMode = mm.material->pipeline.cullMode;
-        }
+        const DepthLikeChoice choice = DepthLikeFor(ctx, mm.material, /*instanced*/ true, pick);
+        materials::PipelineConfig config = choice.config;
         if (skinned)
         {
             config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
@@ -1899,7 +1878,7 @@ namespace foundation::render
         }
         rhi::BindGroup* matSet = nullptr;
         rhi::PipelineLayout* layout = m_shadowPipelineLayoutInstanced;
-        if (masked || wind)
+        if (choice.materialSet)
         {
             rhi::BindGroupLayout* set2 = m_materials->GetOrCreateLayout(*mm.material);
             layout = GetOrCreateShadowMaskedLayout(set2, /*instanced*/ true);
@@ -1965,6 +1944,34 @@ namespace foundation::render
             return;
         }
         out.PushBack(d);
+    }
+
+    MeshRenderer::DepthLikeChoice MeshRenderer::DepthLikeFor(const RenderRecordContext& ctx,
+                                                             const materials::Material* material,
+                                                             bool instanced, bool pick)
+    {
+        const bool masked =
+            material != nullptr && material->pipeline.blendMode == materials::BlendMode::Masked;
+        const bool wind = MaterialWantsWind(material);
+        DepthLikeChoice choice;
+        choice.config = pick ? PickConfigFor(ctx, instanced, masked, wind)
+                             : ShadowConfigFor(ctx, instanced, masked, wind);
+        // The material's shader has its own program for this pass (it moves its vertices, or cuts
+        // out with its own alpha): drawn with it, over the material's set 2 it was generated for.
+        const StringView own =
+            material == nullptr ? StringView{}
+                                : (pick ? material->pickShaderName.AsView()
+                                        : material->depthShaderName.AsView());
+        if (!own.IsEmpty())
+        {
+            choice.config.shaderName = own;
+        }
+        if (pick && material != nullptr)
+        {
+            choice.config.cullMode = material->pipeline.cullMode; // a two-sided material picks both faces
+        }
+        choice.materialSet = masked || wind || !own.IsEmpty();
+        return choice;
     }
 
     materials::PipelineConfig MeshRenderer::ShadowConfigFor(const RenderRecordContext& ctx,

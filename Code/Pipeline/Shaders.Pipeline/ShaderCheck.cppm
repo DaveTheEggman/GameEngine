@@ -220,6 +220,7 @@ export namespace pipeline
             return check;
         }
 
+        const bool preserveInterface = ParsePreserveInterfaceDirective(text);
         const StringView includePaths[] = {options.shaderLibrary};
         const struct
         {
@@ -251,6 +252,7 @@ export namespace pipeline
                 compile.bindingShifts = BindingShifts::Standard();
                 compile.bindingShiftSets = 4;
                 compile.sourceName = file;
+                compile.preserveInterface = preserveInterface; // as the runtime compiles it
                 CompileResult result{};
                 (void)compiler->compile(reinterpret_cast<const u8*>(check.expanded.Data()),
                                         check.expanded.Size(), stage.stage, stage.entryPoint,

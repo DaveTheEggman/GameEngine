@@ -67,3 +67,42 @@ TEST_CASE("wind: the snapshot carries its scene's clock; a reset clears it (the 
     CHECK(!scene.HasTime());
     CHECK(scene.TimeSeconds() == 0.0f);
 }
+
+// The depth-like passes (the depth prepass, the shadow maps, the pick): the built-in programs, or
+// a material's own when its shader has them, which then bind the material's set 2 they were
+// generated for.
+TEST_CASE("depth passes: a material's own depth and pick programs replace the built-ins")
+{
+    RenderRecordContext ctx{};
+    RefPtr<materials::Material> plain = materials::CreatePBR(u8"plain");
+    const MeshRenderer::DepthLikeChoice builtIn =
+        MeshRenderer::DepthLikeFor(ctx, plain.Get(), /*instanced*/ false, /*pick*/ false);
+    CHECK(builtIn.config.shaderName == u8"shadow_depth");
+    CHECK_FALSE(builtIn.materialSet); // opaque, still: no set 2
+    CHECK(builtIn.config.depthOnly);
+
+    RefPtr<materials::Material> waves = materials::CreatePBR(u8"waves");
+    waves->depthShaderName = String(u8"waves.depth");
+    waves->pickShaderName = String(u8"waves.pick");
+    waves->pipeline.cullMode = materials::CullModeConfig::None;
+    const MeshRenderer::DepthLikeChoice depth =
+        MeshRenderer::DepthLikeFor(ctx, waves.Get(), /*instanced*/ true, /*pick*/ false);
+    CHECK(depth.config.shaderName == u8"waves.depth");
+    CHECK(depth.materialSet);
+    CHECK(shaders::HasFlag(depth.config.shaderFlags, shaders::ShaderFlags::Instanced));
+    CHECK(depth.config.depthOnly); // opaque: its vertex stage alone
+    const MeshRenderer::DepthLikeChoice pick =
+        MeshRenderer::DepthLikeFor(ctx, waves.Get(), /*instanced*/ false, /*pick*/ true);
+    CHECK(pick.config.shaderName == u8"waves.pick");
+    CHECK(pick.config.cullMode == materials::CullModeConfig::None); // as the material draws
+
+    // Masked: the cut-out's fragment runs, over the material's set 2.
+    waves->pipeline.blendMode = materials::BlendMode::Masked;
+    const MeshRenderer::DepthLikeChoice masked =
+        MeshRenderer::DepthLikeFor(ctx, waves.Get(), false, false);
+    CHECK_FALSE(masked.config.depthOnly);
+    CHECK(shaders::HasFlag(masked.config.shaderFlags, shaders::ShaderFlags::AlphaTest));
+
+    // No material: the built-in.
+    CHECK(MeshRenderer::DepthLikeFor(ctx, nullptr, false, true).config.shaderName == u8"pick_ids");
+}

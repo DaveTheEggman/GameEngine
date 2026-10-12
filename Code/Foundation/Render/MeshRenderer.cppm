@@ -172,6 +172,18 @@ export namespace foundation::render
         // a scene without wind materials renders byte-identical to before the flag existed.
         [[nodiscard]] static bool MaterialWantsWind(const materials::Material* material) noexcept;
 
+        // The depth-like pipeline (depth prepass and shadows, or `pick`) for a draw of `material`:
+        // the built-in program, or the material's own when its shader has one; `materialSet` when
+        // the draw binds the material's set 2 (a masked cut-out, wind, or the material's program).
+        struct DepthLikeChoice
+        {
+            materials::PipelineConfig config;
+            bool materialSet = false;
+        };
+        [[nodiscard]] static DepthLikeChoice DepthLikeFor(const RenderRecordContext& ctx,
+                                                          const materials::Material* material,
+                                                          bool instanced, bool pick);
+
         // The depth a blended material's pipeline uses in the transparent pass, which reads the
         // depth buffer but never writes it (its bundle is depth-read-only): a writing mode becomes
         // ReadOnly. MaterialBuilder::Transparent pairs the two, but a material authored as data (a

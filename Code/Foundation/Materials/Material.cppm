@@ -46,6 +46,11 @@ export namespace foundation::materials
 
         String name;
         String shaderName;
+        // The shader's own programs for the depth-like passes (the camera depth prepass, the shadow
+        // maps, the editor's pick), when it has them (a surface shader that moves its vertices or
+        // cuts out with its own alpha); empty = the built-in `shadow_depth` and `pick_ids`.
+        String depthShaderName;
+        String pickShaderName;
         shaders::ShaderFlags shaderFlags = shaders::ShaderFlags::None;
         PipelineConfig pipeline;
 
