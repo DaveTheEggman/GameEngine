@@ -6,10 +6,12 @@ API surface (every bound type, method, and facade, per backend) comes from the M
 
 ## Backends
 
-Two script languages are supported: **AngelScript** and **Luau**. A project can mix them -
-each script asset declares its language. The bound engine surface is the same
-across backends; syntax and idioms differ (e.g. Luau uses colon calls for instance methods,
-dot calls for static facades).
+Two script languages are supported: **AngelScript** and **Luau**. Each script asset declares
+its language, but a run has ONE gameplay context: the first behavior loaded fixes the language,
+and a behavior in the other language stays disabled (logged once, category Script). Write a
+game's scripts in one language. The bound engine surface is the same across backends; syntax
+and idioms differ (e.g. Luau uses colon calls for instance methods, dot calls for static
+facades).
 
 ## The three script tiers
 
@@ -40,9 +42,13 @@ Handlers dispatch **by presence** - implement only what you need:
 
 ## Editor properties
 
-Fields initialized in a behavior's constructor become editor-visible properties (numbers,
-booleans, strings, and vectors are harvested). Keep constructors to plain field
-initialization - they also run during cooking.
+- **Luau**: every field the constructor sets to a number, boolean, string or Float3 becomes a
+  property (numbers as float). The cook builds the class with a nil entity, so keep the
+  constructor to plain field initialization.
+- **AngelScript**: only member fields with `[default, "description"]` metadata are properties,
+  e.g. `[3.0, "Spin rate"] float spinSpeed;`. Types: float, double, the int types, bool,
+  string, `Color@`, `Float3@`, `Entity@`, and `Guid@` tagged `"asset:<Type>"`
+  (`["asset:Prefab", "What to spawn"] Guid@ prefab;`). Fields without metadata are not.
 
 ## Saving
 
@@ -79,5 +85,5 @@ Save.setFloat("time.level2", 41.5)              -- Luau
   misbehave.
 - Some engine properties are read-only on purpose (a network identity's `authority`, for
   one): every backend reads them, none assigns. AngelScript refuses the assignment at
-  compile time, Luau raises at the assignment, and the `.d.luau` declarations carry them as
-  `read` for luau-analyze.
+  compile time, and Luau raises at the assignment. (The Luau declaration emitter marks them
+  `read`, but nothing writes a `.d.luau` for a project yet: luau-analyze support is deferred.)

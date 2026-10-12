@@ -2818,7 +2818,7 @@ namespace foundation::script
         for (const TypeInfo* type : emittable)
         {
             ScriptApiType api;
-            api.scriptName = String(ViewOf(type->name));
+            api.scriptName = String(ViewOf(ScriptTypeName(*type))); // the alias scripts use (`run`)
             api.typeId = type->id;
 
             ScriptApiMember ctor;
@@ -2978,7 +2978,7 @@ export namespace foundation::script
                 continue;
             }
             out += u8"declare ";
-            out += ViewOf(type->name);
+            out += ViewOf(ScriptTypeName(*type));
             out += u8": {\n";
             for (const EnumValue& value : Enumerators(*type))
             {
@@ -2992,7 +2992,7 @@ export namespace foundation::script
         // Object types: the instance TYPE (`declare class`) + the VALUE table (`new` + statics).
         for (const TypeInfo* type : declared)
         {
-            const StringView name = ViewOf(type->name);
+            const StringView name = ViewOf(ScriptTypeName(*type)); // the global it binds as
 
             // --- instance type: properties + colon methods (self-first) ---
             out += u8"declare class ";

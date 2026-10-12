@@ -106,7 +106,7 @@ export namespace pipeline{
         u8"end\n"
         u8"\n"
         u8"-- Runs once at start. Load the opening scene here via the run facade:\n"
-        u8"--   run.loadScene(\"Main\")\n"
+        u8"--   run.loadScene(Guid.new(\"<the scene's id>\"))\n"
         u8"function Game:launch()\n"
         u8"    Log.info(\"Game launched\")\n"
         u8"end\n"

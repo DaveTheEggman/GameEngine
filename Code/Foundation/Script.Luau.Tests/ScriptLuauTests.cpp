@@ -476,6 +476,33 @@ TEST_CASE("script.luau: a scriptName alias installs the class table under the al
     // The C++ name is NOT installed (the alias replaces it): indexing `LuauAliasProbe` (nil) errors.
     RefPtr<IScriptContext> context2 = manager->CreateContext();
     CHECK_FALSE(context2->Load(u8"Got = LuauAliasProbe.answer()\n", u8"luau.alias2").IsOk());
+
+    // script_api reads DescribeBoundApi: it lists the type by the name a script writes.
+    bool listedByAlias = false;
+    for (const ScriptApiType& type : manager->DescribeBoundApi())
+    {
+        CHECK(type.scriptName != u8"LuauAliasProbe");
+        listedByAlias = listedByAlias || type.scriptName == u8"aka";
+    }
+    CHECK(listedByAlias);
+
+    // So do the declarations: `declare class aka`, never the C++ name.
+    const TypeInfo* probe[] = {&LuauAliasProbe::StaticType()};
+    const String decls = EmitLuauDeclarations(Span<const TypeInfo* const>{probe, 1});
+    const StringView text = decls.AsView();
+    auto has = [text](StringView needle)
+    {
+        for (usize i = 0; i + needle.Size() <= text.Size(); ++i)
+        {
+            if (text.SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    };
+    CHECK(has(u8"declare class aka"));
+    CHECK_FALSE(has(u8"LuauAliasProbe"));
 }
 
 TEST_CASE("script.luau: native-vector construct+access throughput (perf case)")
