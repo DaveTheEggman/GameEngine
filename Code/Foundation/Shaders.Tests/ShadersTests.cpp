@@ -392,6 +392,24 @@ TEST_CASE("variants: directive parse maps flag names to a mask")
     CHECK(none.mask == ShaderFlags::None);
 }
 
+// One file, two stages, two lattices: each stage takes its tagged line; a stage with none takes
+// the untagged form (the corpus's), else no variants.
+TEST_CASE("variants: a one-file shader declares each stage's variants")
+{
+    const StringView oneFile = u8"// variants(vertex): SKINNED INSTANCED\n"
+                               u8"// variants(fragment): GBUFFER ALPHA_TEST\n";
+    CHECK(ParseStageVariantDirective(oneFile, ShaderStage::Vertex).mask ==
+          (ShaderFlags::Skinned | ShaderFlags::Instanced));
+    CHECK(ParseStageVariantDirective(oneFile, ShaderStage::Fragment).mask ==
+          (ShaderFlags::GBuffer | ShaderFlags::AlphaTest));
+    CHECK_FALSE(ParseStageVariantDirective(oneFile, ShaderStage::Compute).present);
+    // The untagged corpus form is not mistaken for a tagged one, and serves every stage.
+    CHECK_FALSE(ParseVariantDirective(oneFile).present);
+    const StringView corpus = u8"// variants: WIND\n";
+    CHECK(ParseStageVariantDirective(corpus, ShaderStage::Vertex).mask == ShaderFlags::Wind);
+    CHECK(ParseStageVariantDirective(corpus, ShaderStage::Fragment).mask == ShaderFlags::Wind);
+}
+
 TEST_CASE("variants: the preserve-interface directive is a per-stage flag")
 {
     CHECK(ParsePreserveInterfaceDirective(Hlsl("// variants: HOLES\n// preserve-interface\nvoid main(){}\n")));

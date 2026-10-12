@@ -52,10 +52,11 @@ export namespace foundation::shaders
     // Parse the `// variants: A B C` directive from a stage's HLSL source. The tag may sit
     // anywhere on a line (after `//`); tokens are whitespace-separated flag #define names. Unknown
     // tokens are ignored (a shader may name a not-yet-defined flag without breaking the cook). Absent
-    // directive => {None, present=false} = single-variant.
-    [[nodiscard]] inline VariantDirective ParseVariantDirective(StringView source)
+    // directive => {None, present=false} = single-variant. `tag` is the directive's text
+    // (ParseStageVariantDirective passes a stage's tagged form).
+    [[nodiscard]] inline VariantDirective ParseVariantDirective(StringView source,
+                                                                StringView tag = u8"variants:")
     {
-        constexpr StringView kTag = u8"variants:";
         VariantDirective out;
 
         const usize n = source.Size();
@@ -64,10 +65,10 @@ export namespace foundation::shaders
         while (i < n)
         {
             // Find the tag.
-            if (i + kTag.Size() <= n && source.SubStr(i, kTag.Size()) == kTag)
+            if (i + tag.Size() <= n && source.SubStr(i, tag.Size()) == tag)
             {
                 out.present = true;
-                usize j = i + kTag.Size();
+                usize j = i + tag.Size();
                 // Consume tokens to end of line.
                 while (j < n && d[j] != u8'\n')
                 {
@@ -91,6 +92,38 @@ export namespace foundation::shaders
             ++i;
         }
         return out;
+    }
+
+    // A one-file shader declares each stage's lattice: `// variants(vertex): SKINNED INSTANCED`
+    // and `// variants(fragment): GBUFFER ALPHA_TEST` (also `compute`). A stage with no tagged line
+    // takes the untagged `// variants:` (the corpus's form, every stage of its file), else none.
+    [[nodiscard]] inline VariantDirective ParseStageVariantDirective(StringView source,
+                                                                     ShaderStage stage)
+    {
+        StringView tag;
+        switch (stage)
+        {
+        case ShaderStage::Vertex:
+            tag = u8"variants(vertex):";
+            break;
+        case ShaderStage::Fragment:
+            tag = u8"variants(fragment):";
+            break;
+        case ShaderStage::Compute:
+            tag = u8"variants(compute):";
+            break;
+        default:
+            break;
+        }
+        if (!tag.IsEmpty())
+        {
+            const VariantDirective tagged = ParseVariantDirective(source, tag);
+            if (tagged.present)
+            {
+                return tagged;
+            }
+        }
+        return ParseVariantDirective(source);
     }
 
     // `// preserve-interface`: the stage keeps EVERY declared stage-input / output in its SPIR-V
