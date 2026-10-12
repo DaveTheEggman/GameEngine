@@ -16,6 +16,7 @@
 
 import foundation.core;
 import foundation.vfs; // ResolveDataRoot (--data-root / the Data/.dataroot walk)
+import foundation.shaders.system; // kShaderFolder (shader_validate's include path)
 import foundation.json;
 import foundation.content; // the after-import seam's primary
 import foundation.mcp;
@@ -114,6 +115,8 @@ int main(int argc, char** argv)
     editor::mcp::EngineToolPaths paths;
     const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
     editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+    // shader_validate compiles against the engine's shader library under the data root.
+    paths.shaderLibrary = foundation::vfs::DataPath(dataRoot.AsView(), foundation::shaders::kShaderFolder);
     // This host runs the cook / import / export INLINE: the export stages the player from
     // beside this executable and cooks shaders from the data root.
     editor::mcp::InlineProjectOperations operations(session, builders, GetExecutableDirectory(),

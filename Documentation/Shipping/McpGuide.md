@@ -209,6 +209,15 @@ never trust memorized signatures. A member with `readOnly: true` (a network iden
 (behavior | level | game tier), then edit the returned source FILE, loop on
 `script_validate`, and `asset_cook` to make the class attachable.
 
+**Shaders**: a custom shader is one `.hlsl` (both stages, `VSMain` and `PSMain`) with a
+`properties` block declaring its materials' parameters. `asset_create` with the `Shader`
+creator writes a starter lit by the engine's library (`forward_vs.hlsli`, `lighting.hlsli`,
+`forward_ps.hlsli`) to Sources/ and links it; edit that FILE, loop on `shader_validate` (every
+variant, as the cook compiles them; each error with its file, line and column, plus the parsed
+properties and the variant flags each stage declares), then `asset_cook`. A material goes on it
+by `asset_data_write`: its `shaderId` the shader asset's guid; the cook lays the material out by
+the shader's properties, keeping the values whose name and type match.
+
 **Diagnostics**: `log_write` a marker -> do the risky thing -> `log_read` with
 `sinceSequence` = the marker's sequence to see exactly what the engine said after it.
 
@@ -260,6 +269,8 @@ the preset's `includeShaderSource` is set.
 - `script_validate` is a COMPILE check (`checkLevel: "compile"`): a call the language cannot
   see through, a misspelled member on a handle say, compiles and fails at runtime. Cross
   check against `script_api`.
+- `shader_validate` compiles every variant, the cook's check; an error under one flag says so
+  (`(under ALPHA_TEST)`). An error in an engine include names that file, not yours.
 - `scene_validate` warnings mean component records of a type the engine does not know, or
   prefab instances whose prefab is not in the project - they would be SKIPPED on load. Treat
   warnings as breakage to fix, not noise.

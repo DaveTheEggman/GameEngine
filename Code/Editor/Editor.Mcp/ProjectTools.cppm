@@ -29,6 +29,7 @@ export import :project_health;
 export import :log_tools;
 export import :resources;
 export import :script_validate;
+export import :shader_validate;
 export import :script_create;
 export import :project_export;
 export import :scene_reference;
@@ -668,13 +669,14 @@ export namespace editor::mcp
     {
         String knownIssues;     ///< the curated KnownIssues.md (Documentation/Shipping)
         String shippingDocsDir; ///< the curated shipping docs directory (docs://<name>)
+        String shaderLibrary;   ///< the engine's Shaders/ folder (shader_validate's include path)
     };
 
     // The number of tools RegisterEngineTools registers. A new engine tool bumps this
     // DELIBERATELY; a lost registration then fails the test loudly (the Pipeline::Registration
     // pattern). host_info and the stdio host's project_create / project_open are NOT in it -
     // each host registers its own.
-    inline constexpr usize kEngineToolCount = 30;
+    inline constexpr usize kEngineToolCount = 31;
 
     // Every *.md in `docsDir` as a read-only `docs://<FileName>` resource: the CURATED,
     // distribution-facing docs set (internal design/spec/process docs are never exposed).
@@ -726,7 +728,7 @@ export namespace editor::mcp
     // export_preset_set, the asset tools (list / info / import / cook / uses /
     // creators / create / data read and write),
     // project_health, the log tools (log_read / log_write / known_issues), the scene and prefab
-    // tools, script_validate / script_create, project_export, and the docs:// + project://
+    // tools, script_validate / script_create, shader_validate, project_export, and the docs:// + project://
     // resources. A host adds what only it can serve on top (the stdio host: project_create /
     // project_open; the editor: its live tools) and its own host_info. `operations` is how
     // THIS host runs the cook / import / export behind their tools (IProjectOperations).
@@ -768,6 +770,7 @@ export namespace editor::mcp
         }
         RegisterProjectResources(server, session);
         RegisterScriptValidateTool(server);
+        RegisterShaderValidateTool(server, paths.shaderLibrary.AsView());
         RegisterScriptCreateTool(server, session);
         RegisterProjectExportTool(server, session, operations);
     }

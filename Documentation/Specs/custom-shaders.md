@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 3 and 5 built; the hand-over awaits the user. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 5 built; the hand-over awaits the user. Surface shaders (6) next. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -196,8 +196,10 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
    the desktop dist found a phase 2 gap: a Debug player carries DXC, so a project shader's
    stripped (empty) source compiled and failed; an empty registered source is now served from
    the pack whether or not a compiler is present.
-4. **Agents and docs.** `shader_validate`, McpGuide, the tool count; a user docs page,
-   "Custom shaders", on the low-level kind.
+4. **Agents and docs** (built 2026-10-12). `shader_validate` (the cook's check over every
+   variant; errors with file, line and column; the parsed properties and each stage's variant
+   flags), the include path from each host's `EngineToolPaths::shaderLibrary`, `kEngineToolCount`
+   31; McpGuide's Shaders workflow; the docs site's "Custom shaders" page.
 5. **The lighting library** (done 2026-10-12, ahead of phase 3 so the editor's starter is
    short). `view.hlsli` (the View constants, once), `lighting.hlsli` (lights, shadows, IBL,
    probes, clusters; `DirectLight`, `AmbientLight`, and `LightsAt`/`LightAt`/`ShadowOf` for a

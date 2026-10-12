@@ -42,6 +42,7 @@ import foundation.ui.runtime;
 import foundation.ui.application;
 import foundation.content;
 import foundation.vfs;
+import foundation.shaders.system; // kShaderFolder (shader_validate's include path)
 import foundation.resource;
 import pipeline.core;
 import editor.core;
@@ -2481,6 +2482,8 @@ namespace editor::app
         editor::mcp::EngineToolPaths paths;
         const String starts[] = {GetExecutableDirectory(), GetCurrentDirectory()};
         editor::mcp::LocateShippingDocs(Span<const String>(starts, 2), paths);
+        // shader_validate compiles against the engine's shader library under the data root.
+        paths.shaderLibrary = foundation::vfs::DataPath(m_config.dataRoot.AsView(), foundation::shaders::kShaderFolder);
         m_mcpSession.project = m_project.Get();
         // The operations run on THIS application's services, so an agent's cook, import or
         // export takes the same background paths the menus do and the editor stays live.

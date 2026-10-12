@@ -9,6 +9,7 @@ target_link_libraries(Editor.Mcp PUBLIC
     Foundation::Resource # factory-less ResourceManager = the scene-Ref collector (asset_uses)
     Pipeline::Script Foundation::Script.Resource # script_validate: the language-cook registry
     Foundation::Script # script_create: backend registry (language -> file extension)
+    Pipeline::Shaders Foundation::Shaders # shader_validate: the shader cook's check
     Engine::Composition # the FULL manager set for scene_validate's scratch (full payload validation)
                          # and the scene format reference's composed example (every manager + settings block)
     Engine::Script # the reference example's script behaviour (one override per property kind)
@@ -33,6 +34,7 @@ target_sources(Editor.Mcp
             LogTools.cppm
             McpResources.cppm
             ScriptValidate.cppm
+            ShaderValidate.cppm
             ScriptCreate.cppm
             ProjectExport.cppm
             SceneReference.cppm
