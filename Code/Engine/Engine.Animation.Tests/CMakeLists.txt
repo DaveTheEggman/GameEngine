@@ -5,6 +5,7 @@ add_executable(Engine.Animation.Tests
     IkComponentTests.cpp
     RootMotionApplyTests.cpp
     PropertyAnimatorTests.cpp
+    GraphParameterTests.cpp
     TestsMain.cpp)
 
 target_link_libraries(Engine.Animation.Tests PRIVATE

@@ -729,6 +729,13 @@ export namespace engine::animation
                 p->SetFloat(name.AsView(), value);
             }
         }
+        void setInt(foundation::script::Entity entity, String name, i32 value) const
+        {
+            if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))
+            {
+                p->SetInt(name.AsView(), value);
+            }
+        }
         void setBool(foundation::script::Entity entity, String name, bool value) const
         {
             if (animation::AnimationGraphPlayer* p = GraphPlayer(entity))

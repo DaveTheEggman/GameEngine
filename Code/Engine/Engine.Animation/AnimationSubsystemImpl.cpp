@@ -70,7 +70,7 @@ namespace engine::animation
             .DataVersion(2) // v1: meshEntities persist; v2: rootMotion
             .ReadsDataVersionsFrom(1) // a v1 record reads with root motion off
             // Script (Track A): AnimationGraphComponent.of(entity) -> live `active`; graph params
-            // (setFloat/setBool/setTrigger) are player ops -> SceneAnimation.of(scene).
+            // (setFloat/setInt/setBool/setTrigger) are player ops -> SceneAnimation.of(scene).
             .Method<&foundation::script::ComponentOf<AnimationGraphComponent>, AnimationGraphComponent>(
                 "of")
             .Property<&AnimationGraphComponent::skeleton>("skeleton")
@@ -89,9 +89,9 @@ namespace engine::animation
     }
 
     // The scene-bound animation handle: SceneAnimation.of(scene).play/stop/setClip (single clip) +
-    // setFloat/setBool/setTrigger (graph params). `of` returns SceneAnimation by value (concrete
-    // cross-backend return), like ScenePhysics. All world ops keyed by entity - they reach the
-    // manager-owned runtime player.
+    // setFloat/setInt/setBool/setTrigger (graph params). `of` returns SceneAnimation by value
+    // (concrete cross-backend return), like ScenePhysics. All world ops keyed by entity - they reach
+    // the manager-owned runtime player.
     REFLECT_VALUE(SceneAnimation, "rtti::engine::animation")
     {
         builder.Method<&SceneAnimation::play>("play", {"entity"});
@@ -103,6 +103,7 @@ namespace engine::animation
         builder.Method<&SceneAnimation::setTime>("setTime", {"entity", "seconds"});
         builder.Method<&SceneAnimation::setClip>("setClip", {"entity", "resourceId"});
         builder.Method<&SceneAnimation::setFloat>("setFloat", {"entity", "name", "value"});
+        builder.Method<&SceneAnimation::setInt>("setInt", {"entity", "name", "value"});
         builder.Method<&SceneAnimation::setBool>("setBool", {"entity", "name", "value"});
         builder.Method<&SceneAnimation::setTrigger>("setTrigger", {"entity", "name"});
         builder.Method<&SceneAnimation::setIkTarget>("setIkTarget", {"entity", "worldPosition"});
