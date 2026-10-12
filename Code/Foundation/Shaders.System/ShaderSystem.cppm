@@ -185,9 +185,12 @@ export namespace foundation::shaders
             {
                 // A registered source (a project's shader, a bespoke inline one) compiles while a
                 // compiler is here: the editor's source is newer than any pack. Without one (a
-                // dist) the pack serves it like the corpus: the export cooked the project's
-                // shaders into it, with their entry points and lattices.
-                if (m_compiler != nullptr && m_sources.Find(SourceKey(name, stage)) != nullptr)
+                // dist), or when the source is empty (an export stripped it, and cooked the
+                // shader into the pack instead: a dist's player can still carry a compiler, a
+                // dev build does), the pack serves it like the corpus, with its entry points and
+                // lattices.
+                const Source* registered = m_sources.Find(SourceKey(name, stage));
+                if (m_compiler != nullptr && registered != nullptr && !registered->hlsl.IsEmpty())
                 {
                     return GetCompiledVariant(name, stage, flags);
                 }

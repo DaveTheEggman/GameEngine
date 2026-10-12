@@ -531,3 +531,32 @@ TEST_CASE("shader system: without a compiler, a registered shader is served from
     // A stage the pack never cooked is a miss.
     CHECK(ss.GetVariant(u8"toon", ShaderStage::Vertex, ShaderFlags::None) == nullptr);
 }
+
+// A dist's player can carry a compiler (a dev build exported as a host template does), but the
+// export stripped the project shader's source: an empty registered source is served from the pack,
+// never compiled (DXC would report a missing entry point).
+TEST_CASE("shader system: with a compiler, a stripped registered shader is served from the pack")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    rhi::null::NullDevice device{DefaultAllocator()};
+    {
+        CookedShaderPack pack;
+        const byte blob[] = {byte{1}, byte{2}, byte{3}, byte{4}};
+        pack.Add(u8"toon", ShaderStage::Fragment, ShaderFlags::None, CookedShaderFormat::SpirV,
+                 Span<const byte>(blob, 4));
+        pack.AddEntryPoint(u8"toon", ShaderStage::Fragment, u8"PSMain");
+
+        ShaderSystem ss(*compiler, device);
+        ss.SetCookedPack(&pack);
+        ss.RegisterSource(u8"toon", ShaderStage::Fragment, u8"", u8"PSMain", ShaderFlags::None);
+        rhi::ShaderModule* m = ss.GetVariant(u8"toon", ShaderStage::Fragment, ShaderFlags::None);
+        REQUIRE(m != nullptr);
+        CHECK(m->entryPoint.AsView() == StringView(u8"PSMain"));
+    }
+    compiler->Destroy();
+}

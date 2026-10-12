@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1, 2, 3 (but its hand-over) and 5 built. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0 to 3 and 5 built; the hand-over awaits the user. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -179,7 +179,7 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
 2. **Export.** Project shaders cooked to the preset's formats (SPIR-V, DXIL, WGSL) into the dist
    pack; the player resolves them compiler-free; the material-to-shader dependency survives
    pruning. Tested on a desktop dist and the web build.
-3. **Editor** (built 2026-10-12 but the hand-over). `CheckShaderSource` (`shaders.pipeline:check`):
+3. **Editor** (built 2026-10-12). `CheckShaderSource` (`shaders.pipeline:check`):
    what the cook proves, as data (file, line, column, message), which the cook, the page and
    the MCP tool share. The HLSL lexer (`editor.shaders`, "hlsl" and "hlsli"). Create > Materials
    > Shader (a short starter on the lighting library, not the toon: the toon forks the lighting,
@@ -191,7 +191,11 @@ closer to an editor user and a shipped game. Surface shaders then build on the s
    undoable edit that keeps every value whose name, type and size still fit
    (`CarryMaterialValues`); its rows are the shader's, with the block's ranges and rows for
    float2, float3 and int; it follows the shader when it recooks; its preview draws with it.
-   Owed: the hand-over (a scratch project exported for desktop and web, for the user to run).
+   The hand-over (2026-10-12): a scratch project with the toon imported as a `.hlsl` and the
+   starter, a material on each, exported for desktop and the web, for the user to run. Running
+   the desktop dist found a phase 2 gap: a Debug player carries DXC, so a project shader's
+   stripped (empty) source compiled and failed; an empty registered source is now served from
+   the pack whether or not a compiler is present.
 4. **Agents and docs.** `shader_validate`, McpGuide, the tool count; a user docs page,
    "Custom shaders", on the low-level kind.
 5. **The lighting library** (done 2026-10-12, ahead of phase 3 so the editor's starter is
