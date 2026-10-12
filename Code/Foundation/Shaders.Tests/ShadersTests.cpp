@@ -185,6 +185,85 @@ TEST_CASE("cook: the engine corpus cooks to a SPIR-V pack (lint clean, variants 
     compiler->Destroy();
 }
 
+// A project's shader cooks into a dist pack the way the corpus does: each stage under its own
+// entry point and lattice, every variant, for every requested format. The toon sample's shader
+// (a properties block, VSMain from the engine's vertex library, PSMain) is the real case; WGSL
+// passing naga and tint is the web build's proof.
+TEST_CASE("cook: a one-file project shader cooks both stages into the pack")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping");
+        return;
+    }
+    const String dataRoot = foundation::vfs::FindDataRoot();
+    REQUIRE_FALSE(dataRoot.IsEmpty());
+    const String shaderDir = foundation::vfs::DataPath(dataRoot.AsView(), u8"Shaders");
+    const Result<Array<byte>> bytes = ReadFile(
+        foundation::vfs::DataPath(dataRoot.AsView(), u8"Assets/shaders/toon/toon.hlsl").AsView());
+    REQUIRE(bytes.HasValue());
+    const StringView text(reinterpret_cast<const char8_t*>(bytes.Value().Data()),
+                          bytes.Value().Size());
+    String expanded;
+    REQUIRE(ExpandShaderProperties(text, u8"toon.hlsl", expanded).IsOk());
+
+    (void)CreateDirectory(u8".test-scratch");
+    WgslTranslator translator(*compiler, u8".test-scratch");
+    Array<CookedShaderFormat> formats;
+    formats.PushBack(CookedShaderFormat::SpirV);
+    if (translator.HasNaga() && translator.HasTint())
+    {
+        formats.PushBack(CookedShaderFormat::Wgsl);
+    }
+    ShaderCookOptions opts;
+    opts.shaderDir = shaderDir.AsView();
+    opts.scratchDir = u8".test-scratch";
+    opts.formats = Span<const CookedShaderFormat>(formats.Data(), formats.Size());
+    const StringView includePaths[] = {shaderDir.AsView()};
+
+    CookedShaderPack pack;
+    ShaderCookReport report;
+    const ShaderFlags vertexMask =
+        ParseStageVariantDirective(text, ShaderStage::Vertex).mask;
+    const ShaderFlags fragmentMask =
+        ParseStageVariantDirective(text, ShaderStage::Fragment).mask;
+    const bool vertexOk =
+        CookShaderStage(*compiler, translator, u8"toon", ShaderStage::Vertex, expanded.AsView(),
+                        u8"VSMain", vertexMask, u8"toon.hlsl", opts,
+                        Span<const StringView>(includePaths, 1), pack, report);
+    const bool fragmentOk =
+        CookShaderStage(*compiler, translator, u8"toon", ShaderStage::Fragment, expanded.AsView(),
+                        u8"PSMain", fragmentMask, u8"toon.hlsl", opts,
+                        Span<const StringView>(includePaths, 1), pack, report);
+    for (const String& e : report.errors)
+    {
+        MESSAGE(doctest::String(reinterpret_cast<const char*>(e.CStr())));
+    }
+    CHECK(vertexOk);
+    CHECK(fragmentOk);
+
+    const u64 toon = ShaderNameHash(u8"toon");
+    CHECK(pack.EntryPoint(toon, ShaderStage::Vertex) == StringView(u8"VSMain"));
+    CHECK(pack.EntryPoint(toon, ShaderStage::Fragment) == StringView(u8"PSMain"));
+    CHECK(pack.DeclaredMask(toon, ShaderStage::Fragment) == fragmentMask);
+    // Every variant of every stage, in every format: 4 vertex + 8 fragment per format.
+    CHECK(report.variantsCooked == 12u * formats.Size());
+    for (const CookedShaderFormat format : formats)
+    {
+        CHECK(pack.Find(toon, ShaderStage::Vertex, ShaderFlags::Skinned | ShaderFlags::Instanced,
+                        format) != nullptr);
+        CHECK(pack.Find(toon, ShaderStage::Fragment,
+                        ShaderFlags::GBuffer | ShaderFlags::AlphaTest | ShaderFlags::Dither,
+                        format) != nullptr);
+    }
+    if (formats.Size() == 1u)
+    {
+        MESSAGE("naga or tint not vendored for this host; the WGSL half is skipped");
+    }
+    compiler->Destroy();
+}
+
 TEST_CASE("cook: drift-lint fails a shader that #ifdefs an undeclared flag")
 {
     Compiler* compiler = MakeCompiler();

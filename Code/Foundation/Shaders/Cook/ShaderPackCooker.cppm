@@ -52,9 +52,20 @@ export namespace foundation::shaders
                                       StringView& outStem);
     [[nodiscard]] String FormatError(StringView file, StringView msg);
     bool CookOne(Compiler& compiler, WgslTranslator& translator, StringView source,
-                 ShaderStage stage, ShaderFlags flags, CookedShaderFormat format,
-                 const ShaderCookOptions& opts, Span<const StringView> includePaths, StringView stem,
-                 StringView fileName, CookedShaderPack& pack, ShaderCookReport& report);
+                 ShaderStage stage, StringView entryPoint, ShaderFlags flags,
+                 CookedShaderFormat format, const ShaderCookOptions& opts,
+                 Span<const StringView> includePaths, StringView stem, StringView fileName,
+                 CookedShaderPack& pack, ShaderCookReport& report);
+
+    // Cook one shader stage into the pack: record its lattice and entry point, then emit every
+    // (declared variant x requested format) blob. What the corpus cook does per stage file, and
+    // what an export does per stage of a project's shader (its expanded source, VSMain/PSMain).
+    // `sourceName` names the source in errors. Returns false (errors in the report) if any fails.
+    bool CookShaderStage(Compiler& compiler, WgslTranslator& translator, StringView name,
+                         ShaderStage stage, StringView source, StringView entryPoint,
+                         ShaderFlags mask, StringView sourceName, const ShaderCookOptions& opts,
+                         Span<const StringView> includePaths, CookedShaderPack& pack,
+                         ShaderCookReport& report);
 
     // Inline-expand `#include "file"` directives against the shader root, so the drift-lint
     // sees the .hlsli bodies where the real flag #ifdefs live (a stage file is often just the
@@ -250,29 +261,10 @@ export namespace foundation::shaders
                 continue;
             }
 
-            // Record the declared mask so the dist runtime can canonicalize requests onto the
-            // cooked lattice (dev == dist behaviour).
-            pack.AddDeclaredMask(stem, stage, directive.mask);
-            pack.AddEntryPoint(stem, stage, kCorpusEntryPoint); // the corpus: a file per stage
-
-            Array<ShaderFlags> variants;
-            EnumerateVariants(directive.mask, variants);
-
             ++report.filesCooked;
-            for (usize v = 0; v < variants.Size(); ++v)
-            {
-                const ShaderFlags flags = variants[v];
-                for (usize f = 0; f < opts.formats.Size(); ++f)
-                {
-                    const CookedShaderFormat format = opts.formats[f];
-                    if (CookOne(compiler, translator, source, stage, flags, format, opts,
-                                Span<const StringView>(includePaths, 1), stem, fileName.AsView(),
-                                pack, report))
-                    {
-                        ++report.variantsCooked;
-                    }
-                }
-            }
+            (void)CookShaderStage(compiler, translator, stem, stage, source, kCorpusEntryPoint,
+                                  directive.mask, fileName.AsView(), opts,
+                                  Span<const StringView>(includePaths, 1), pack, report);
         }
 
         report.success = report.errors.IsEmpty();
@@ -318,18 +310,50 @@ export namespace foundation::shaders
         return s;
     }
 
+    inline bool CookShaderStage(Compiler& compiler, WgslTranslator& translator, StringView name,
+                                ShaderStage stage, StringView source, StringView entryPoint,
+                                ShaderFlags mask, StringView sourceName,
+                                const ShaderCookOptions& opts, Span<const StringView> includePaths,
+                                CookedShaderPack& pack, ShaderCookReport& report)
+    {
+        // The lattice and entry, so the dist runtime canonicalizes requests onto the cooked
+        // variants (dev == dist behaviour) and its modules run the stage's function.
+        pack.AddDeclaredMask(name, stage, mask);
+        pack.AddEntryPoint(name, stage, entryPoint);
+
+        Array<ShaderFlags> variants;
+        EnumerateVariants(mask, variants);
+        bool ok = true;
+        for (const ShaderFlags flags : variants)
+        {
+            for (const CookedShaderFormat format : opts.formats)
+            {
+                if (CookOne(compiler, translator, source, stage, entryPoint, flags, format, opts,
+                            includePaths, name, sourceName, pack, report))
+                {
+                    ++report.variantsCooked;
+                }
+                else
+                {
+                    ok = false;
+                }
+            }
+        }
+        return ok;
+    }
+
     // Compile/translate one (variant, format) blob and Add it to the pack. Returns false + records an
     // error on failure.
     inline bool CookOne(Compiler& compiler, WgslTranslator& translator, StringView source,
-                        ShaderStage stage, ShaderFlags flags, CookedShaderFormat format,
-                        const ShaderCookOptions& opts, Span<const StringView> includePaths,
-                        StringView stem, StringView fileName, CookedShaderPack& pack,
-                        ShaderCookReport& report)
+                        ShaderStage stage, StringView entryPoint, ShaderFlags flags,
+                        CookedShaderFormat format, const ShaderCookOptions& opts,
+                        Span<const StringView> includePaths, StringView stem,
+                        StringView fileName, CookedShaderPack& pack, ShaderCookReport& report)
     {
         if (format == CookedShaderFormat::Wgsl)
         {
             const WgslCookResult wr =
-                translator.Translate(source, stage, kCorpusEntryPoint, flags, includePaths);
+                translator.Translate(source, stage, entryPoint, flags, includePaths);
             if (!wr.success)
             {
                 report.errors.PushBack(FormatError(fileName, wr.error.AsView()));
@@ -350,6 +374,7 @@ export namespace foundation::shaders
         co.defines = Span<const ShaderDefine>(defines.Data(), defines.Size());
         co.includePaths = includePaths;
         co.preserveInterface = ParsePreserveInterfaceDirective(source);
+        co.sourceName = fileName;
 
         ShaderTarget target = ShaderTarget::SPIRV;
         if (format == CookedShaderFormat::SpirV)
@@ -366,7 +391,7 @@ export namespace foundation::shaders
         CompileResult cr{};
         const Status st =
             compiler.compile(reinterpret_cast<const u8*>(source.Data()), source.Size(), stage,
-                             kCorpusEntryPoint, target, co, cr);
+                             entryPoint, target, co, cr);
         if (st != ErrorCode::Ok || !cr.success)
         {
             report.errors.PushBack(FormatError(
