@@ -645,8 +645,12 @@ namespace editor::app
         {
             return;
         }
+        // Bound only once cooked: a new project's first open asks before its first cook has
+        // made them, and a bind of a product that is not there warns of a broken reference.
+        foundation::content::ContentDatabase& cooked = m_project->CookedDb();
+        const auto ready = [&cooked](const Guid& id) { return !id.IsNil() && cooked.GetInstance(id) != nullptr; };
         const Guid themeId = m_project->Settings().defaultUiThemeId;
-        if (!themeId.IsNil())
+        if (ready(themeId))
         {
             if (auto themeProxy = m_resources->Bind<foundation::ui::UITheme>(themeId))
             {
@@ -654,7 +658,7 @@ namespace editor::app
             }
         }
         const Guid fontId = m_project->Settings().defaultUiFontId;
-        if (!fontId.IsNil())
+        if (ready(fontId))
         {
             if (auto fontProxy = m_resources->Bind<foundation::fonts::Font>(fontId))
             {
@@ -666,6 +670,10 @@ namespace editor::app
         Array<const foundation::fonts::Font*> extras;
         for (const Guid& id : m_project->Settings().uiFontIds)
         {
+            if (!ready(id))
+            {
+                continue;
+            }
             if (auto extra = m_resources->Bind<foundation::fonts::Font>(id))
             {
                 extras.PushBack(extra.Get());

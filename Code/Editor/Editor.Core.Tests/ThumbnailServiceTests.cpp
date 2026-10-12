@@ -349,11 +349,13 @@ namespace
         EditorJobService jobs{DefaultAllocator()};
         ThumbnailService service;
         Guid known{0x3333, 0x4444};
+        u64 hash; // the content hash the service sees (0: not cooked yet)
 
-        explicit GpuFixture(StringView cacheDir, u64 hash = 0x99)
+        explicit GpuFixture(StringView cacheDir, u64 contentHash = 0x99)
             : db(DefaultAllocator(), Fixture::NullMount(), nullptr, u8"asset"),
               instance(db, *db.RootGroup(), Guid{0x3333, 0x4444}, u8"StubGpu", u8"tests",
-                       u8"StubGpuAsset")
+                       u8"StubGpuAsset"),
+              hash(contentHash)
         {
             (void)CreateDirectory(cacheDir);
             service.RegisterSceneGenerator(MakeUnique<StubSceneGenerator>(DefaultAllocator()));
@@ -364,7 +366,7 @@ namespace
                 Function<content::Instance*(const Guid&)>{
                     [inst, knownId](const Guid& id)
                     { return id == knownId ? inst : nullptr; }},
-                &jobs, Function<u64(const Guid&)>{[hash](const Guid&) { return hash; }},
+                &jobs, Function<u64(const Guid&)>{[this](const Guid&) { return hash; }},
                 u8"thumbs_empty_mount");
         }
     };
@@ -408,6 +410,24 @@ TEST_CASE("thumbnails: a scene-generated type queues ONE GPU job on miss (dedupe
         }
     }
     CHECK(fileExists);
+}
+
+// A new project's first open: its meshes are not cooked yet (no content hash), so a scene
+// thumbnail would bind a missing product and fail, warning twice per asset. It waits quietly
+// instead, and the cook finishing (InvalidateAll) lets the next Get queue it.
+TEST_CASE("thumbnails: a scene-generated type waits for its cook rather than failing")
+{
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_uncooked");
+    GpuFixture fx(u8"thumbs_gpu_uncooked", /*contentHash*/ 0);
+    CHECK(fx.service.Get(fx.known).Get() == nullptr);
+    CHECK(fx.service.QueuedSceneJobs() == 0u); // nothing to stage yet
+    CHECK(fx.service.Get(fx.known).Get() == nullptr);
+    CHECK(fx.service.QueuedSceneJobs() == 0u); // and no retry every frame
+    fx.hash = 0x77;                            // the cook finished
+    fx.service.InvalidateAll();
+    CHECK(fx.service.Get(fx.known).Get() == nullptr);
+    CHECK(fx.service.QueuedSceneJobs() == 1u); // now it renders
+    (void)RemoveDirectoryRecursive(u8"thumbs_gpu_uncooked");
 }
 
 TEST_CASE("thumbnails: a failed stage result caches a negative and never re-queues")

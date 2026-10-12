@@ -75,6 +75,14 @@ namespace editor
             if (!diskHit)
             {
                 editor::EditorRootAllocator().Delete(slot);
+                if (hash == 0)
+                {
+                    // Not cooked yet (a new project's first cook still running): the stage would
+                    // bind a product that is not there and fail. Wait quietly; the cook-finished
+                    // InvalidateAll drops this entry and the next Get queues the job.
+                    m_entries.InsertOrAssign(id, Entry{});
+                    return;
+                }
                 if (m_activeSceneJob == id)
                 {
                     return; // being rendered right now
