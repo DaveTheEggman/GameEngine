@@ -311,6 +311,10 @@ int main(int argc, char** argv)
         {
             rebuild = true;
         }
+        else if (std::strcmp(argv[i], "--data-root") == 0 && i + 1 < argc)
+        {
+            ++i; // ResolveDataRoot reads it below; the loop only has to step over it
+        }
         else
         {
             std::fprintf(stderr, "unknown option: %s\n", argv[i]);

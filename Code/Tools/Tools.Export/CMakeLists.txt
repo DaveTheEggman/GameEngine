@@ -20,3 +20,11 @@ target_link_libraries(Tools.Export PRIVATE
     Pipeline::Script
     Foundation::UI.Resource Pipeline::UI)
 
+
+# The command line parses: --data-root (named in the usage and the no-data-root error) is accepted,
+# so a missing project is the failure reported, not an unknown option.
+add_test(NAME Tools.Export.Arguments
+         COMMAND Tools.Export ${CMAKE_BINARY_DIR}/no-such-project --data-root ${CMAKE_SOURCE_DIR}/Data)
+set_tests_properties(Tools.Export.Arguments PROPERTIES
+                     PASS_REGULAR_EXPRESSION "failed to open project"
+                     FAIL_REGULAR_EXPRESSION "unknown option")

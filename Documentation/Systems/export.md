@@ -53,7 +53,7 @@ warns and still exports (soft-match). Scene/prefab source streams pre-transcode 
 target platform from the caller's data root (`ExportOne` / `ExportAll` take `dataRoot`; the editor,
 `Tools.Export` and the MCP tool resolve it the one way - `Documentation/Systems/data-root.md`) and
 stages `Data/.dataroot` + `Data/Shaders/shaders.dpak` beside the player (`StageShaderPack` -
-Vulkan/DXIL for desktop, WGSL for Web): the data-root layout the player's discovery walk finds, so a
+SPIR-V on Linux, SPIR-V and DXIL on Windows, WGSL for Web): the data-root layout the player's discovery walk finds, so a
 dist renders with no external dependency (engine shaders are cooked `.hlsl`, not baked into the binary).
 
 - **CLI** (`Tools.Export`): `<project> [--out --preset | --all --rebuild]`, `--template list|import|

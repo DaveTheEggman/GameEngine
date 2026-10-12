@@ -37,7 +37,7 @@ config axis makes this a non-special-case (the host template carries whatever co
 
 ## Identity + resolution
 
-Identity = `platform x config x engineVersion` (e.g. `draconic-win64-release-0.1.0`); `compiler` is
+Identity = `platform x config x engineVersion` (e.g. `gameengine-win64-release-0.1.0`); `compiler` is
 METADATA for traceability, not a selector; `arch` folds into the platform tag. A preset selects
 `(platform, config)` (config defaulting to Release), resolved by `TemplateRegistry::FindBy(platform,
 config)` with an explicit `templateId` winning and a platform-only fallback (nearest config, preferring
