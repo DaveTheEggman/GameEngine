@@ -79,6 +79,19 @@
   "property is read-only" (`LuauScript.cppm`, NewIndexThunk). Say what failed: the property takes
   a value of type X, not Y; keep "read-only" for a property that has no setter.
 
+- **Players rebind their controls** (user 2026-10-12; found writing the input docs): a player's
+  rebinding has a home, `InputBindingOverrides` in the user settings (`Foundation/Input/
+  InputMap.cppm`), but nothing outside its tests reads or writes it, so a game cannot offer
+  rebinding. Apply the overrides when the input map binds at startup, and give scripts what a
+  controls menu needs: list an action's bindings with their display names, listen for the next
+  input to rebind one, reset to the map's own, and save. Then the input docs page gains a section.
+- **Scripts receive network messages** (user 2026-10-12; found writing the networking docs):
+  `Net.rpc`/`rpcNumber`/`rpcText` send, but nothing receives: `RpcTable::On` is registered only
+  in tests, and networking.md calls the receive side (`Net.on(name, fn)`) P3 slice 1 of the
+  commands plan (`Plans/networking-commands.md`). Build that slice, with its number and text
+  payloads, on both languages; the fifth sample needs it. The networking docs page's "What is
+  missing" list then loses its first line.
+
 - **Scene facades as scene properties, as Sedulous has them? Decide before 0.1** (user
   2026-10-09): Sedulous binds a scene facade as a property of the scene (`scene.Physics.RayCast`,
   its SceneFacade role); ours are reached through the facade type (`ScenePhysics::of(scene)`,
