@@ -93,6 +93,7 @@ Code/Pipeline/Script.Luau.Pipeline/LuauScriptCookImpl.cpp
 Code/Samples/AnimatedCrowd/main.cpp
 Code/Samples/AnimStressTest/main.cpp
 Code/Samples/AudioPlayground/main.cpp
+Code/Samples/CustomShader/main.cpp
 Code/Samples/Framework/SampleApp.cppm
 Code/Samples/GameUiSandbox/main.cpp
 Code/Experimental/GUI.Sandbox/Main.cpp

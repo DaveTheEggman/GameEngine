@@ -34,6 +34,7 @@ if(TARGET Foundation::Shell.Desktop AND TARGET Foundation::Runtime.Desktop AND T
         add_subdirectory(AnimStressTest)     # animation/skinning benchmark (Sandbox copy, stripped toward a grid)
         add_subdirectory(AnimatedCrowd)      # skinned-crowd instancing (InstancedMeshComponent + InstancedSkinning)
         add_subdirectory(ParticleFX)         # particle-system showcase (CPU sim + dedicated ParticleRenderer)
+        add_subdirectory(CustomShader)       # a low-level custom shader (toon) through the material-driven renderer
     endif()
 else()
     message(STATUS "Samples: skipping HelloWindow/MultiWindow (need desktop shell + Vulkan GPU factory)")
