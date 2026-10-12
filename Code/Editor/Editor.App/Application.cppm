@@ -116,6 +116,9 @@ export namespace editor::app
         // --screenshot <png> --screenshot-after <s>`; the same ScreenshotCapture as the runtime's.
         String screenshotPath;
         f32 screenshotAfterSeconds = 0.0f;
+        // `--screenshot-exit`: request the clean shutdown once that capture is written (or has
+        // failed), the player's flag of the same name, so a capture run needs no --exit-after guess.
+        bool screenshotExit = false;
         // The MCP host for THIS run: `--mcp` enables it regardless of the preference and
         // `--mcp-port <n>` picks its port (0 = the preference's), so an agent that launches
         // the editor itself needs no UI. EditorMcpSettings is the persisted preference.

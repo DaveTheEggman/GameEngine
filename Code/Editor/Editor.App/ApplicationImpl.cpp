@@ -890,6 +890,13 @@ namespace editor::app
                     m_windowCapture.Request(Span<const WindowShotRequest>(&request, 1));
                 }
             }
+            // The capture settles a frame or two after it fires (record, then map and write);
+            // Busy clears whether the file was written or the capture failed.
+            if (screenshotRequested && m_config.screenshotExit && m_screenshotFired &&
+                !m_windowCapture.Busy())
+            {
+                host.Shell()->RequestExit();
+            }
         }
         // Headless-debug hook: ENV_TEST_OPEN=<guid> opens that instance's page ~2s in
         // and opens it AGAIN ~4s in (the focus-existing branch) - reproduces the asset

@@ -14,8 +14,9 @@
 //   Smoke-test aids: [--exit-after <s>] [--rebuild-after <s>]
 //   [--mcp] [--mcp-port <n>] (the MCP host for this run: agent access to the open project over
 //     127.0.0.1; the persisted preference is in Preferences)
-//   [--screenshot <png> [--screenshot-after <s>]] (the main window, UI included, as a PNG -
-//   a run proves what it drew) [--seed] [--seed-primitives] [--version].
+//   [--screenshot <png> [--screenshot-after <s>] [--screenshot-exit]] (the main window, UI
+//   included, as a PNG - a run proves what it drew; --screenshot-exit quits once it is written)
+//   [--seed] [--seed-primitives] [--version].
 //   GPU: [--vulkan|--dx12|--webgpu|--null-gpu] [--gpu-validation|--no-gpu-validation]
 //   (validation defaults ON in Debug, OFF in RelWithDebInfo / Release).
 
@@ -264,6 +265,10 @@ int main(int argc, char** argv)
         if (std::strcmp(argv[i], "--seed") == 0)
         {
             config.seedOnScaffold = true; // a scaffolded project also gets the starter content
+        }
+        if (std::strcmp(argv[i], "--screenshot-exit") == 0)
+        {
+            config.screenshotExit = true;
         }
         if (std::strcmp(argv[i], "--mcp") == 0)
         {
