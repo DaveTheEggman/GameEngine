@@ -82,6 +82,7 @@ export namespace editor::app
         [[nodiscard]] ui::EditText& NameField() const noexcept { return *m_name; }
         [[nodiscard]] ui::ComboBox& TemplateField() const noexcept { return *m_template; }
         [[nodiscard]] ui::CheckBox& PruneField() const noexcept { return *m_prune; }
+        [[nodiscard]] ui::CheckBox& ShaderSourceField() const noexcept { return *m_shaderSource; }
         [[nodiscard]] ui::CheckBox& OrientationOverrideField() const noexcept { return *m_overridesOrientation; }
         [[nodiscard]] ui::ComboBox& OrientationField() const noexcept { return *m_orientation; }
 
@@ -131,6 +132,7 @@ export namespace editor::app
         ui::EditText* m_files = nullptr;
         ui::CheckBox* m_symbols = nullptr;
         ui::CheckBox* m_prune = nullptr;
+        ui::CheckBox* m_shaderSource = nullptr;
         // Display.
         ui::CheckBox* m_overridesRender = nullptr;
         ui::NumericField* m_renderWidth = nullptr;

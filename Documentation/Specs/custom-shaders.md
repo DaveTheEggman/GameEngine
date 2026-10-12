@@ -1,6 +1,6 @@
 # Custom shaders - a game's own surfaces, written in the editor
 
-> Status: APPROVED 2026-10-12 (the decisions below). Phase 0 built. Spiked:
+> Status: APPROVED 2026-10-12 (the decisions below). Phases 0, 1 and 2 built. Spiked:
 > `Code/Samples/CustomShader` (2026-10-12) proves the low-level kind at the engine level. Two
 > kinds are supported (user, 2026-10-12): low-level shaders and surface shaders.
 > Track: 0.1 backlog, "Custom shaders through the editor, before the 0.1 release".
@@ -276,6 +276,58 @@ properties re-cooks the material as described.
 **Out of phase 1:** project `.hlsli` includes (engine library only), the editor's shader page and
 material picker (phase 3), bytecode in dists (phase 2).
 
+## Phase 2 in detail: project shaders ship as bytecode
+
+Planned 2026-10-12 from the code (no build). Today a dist resolves only the engine corpus from its
+pack (`CookEngineShaders`, at export); a project's shader reaches a dist as source, which a
+compiler-free player refuses ("cannot be compiled in compiler-free pack mode") and draws nothing.
+
+**2a. The pack cooker cooks any shader stage.** `CookOne` takes the stage's entry point instead
+of `kCorpusEntryPoint`, and a public `CookShaderStage(compiler, translator, name, stage, source,
+entryPoint, mask, sourceName, includePaths, formats, pack, report)` records the stage's lattice
+and entry in the pack and cooks every (variant, format) blob: SPIR-V and DXIL through DXC, WGSL
+through naga and tint. The corpus loop calls it per file. Test: the toon's two stages cook to
+SPIR-V and WGSL under `VSMain` and `PSMain` (tint accepting them is the web build's proof).
+
+**2b. Export cooks the project's shaders into the dist pack.** After the content cook, every
+`ShaderSource` the dist ships (all of them, or the reachable ones when pruning: a material `reads`
+its shader, so the closure already keeps it) is cooked for the preset's formats into the same pack
+as the corpus, with the engine library on the include path. A failure fails the export, naming
+the shader's file. Tests (Integration.Mcp export): a project with a custom shader and a material
+on it exports; the dist pack holds the shader's variants and entries in the preset's format; a
+pruned export keeps them.
+
+**2c. A dist resolves them without a compiler.** `ShaderSystem::GetVariant`: a registered source
+compiles when a compiler is present (the editor, dev); without one the pack serves it, registered
+or not, with the pack's entry and lattice; only a variant the pack lacks is the loud cook-coverage
+error. Test: a compiler-free system with a registered source and a pack holding it gets the pack's
+module, entry and canonicalization.
+
+**2d. A custom shader cannot take an engine shader's name.** One name keys a shader in the pack
+and in the shader system, so a project shader named `forward` would silently replace the engine's.
+The cook refuses a name the engine library already uses (a `<name>.vs/ps/cs.hlsl` in
+`<data root>/Shaders`). Test: the refusal, with its message.
+
+**2e. Ship bytecode, not source, unless the preset asks** (decided 2026-10-12): the dist's
+`ShaderSource` products are written without their HLSL (the pack carries the shader), as the
+engine corpus ships none. An export preset's "Include shader source" (`includeShaderSource`, off
+by default; `export_preset_set` takes it, so McpGuide names it) keeps it, for a game that wants
+modders to read its shaders. Export
+packs the cooked files byte for byte (`PackTree`, from the project's `Cooked/` and a staging
+folder), and the project's own products must keep their source for the editor, so the shader
+products are left out of the raw copy and a stripped copy of each is staged at the same path.
+Tests: an exported product has empty sources and keeps its entries, lattices and property table;
+the project's own product is untouched; with the preset's switch on, the source ships.
+
+**2f. Hand-over for a look: moved to phase 3.** A scratch project with the toon on a few meshes,
+exported for desktop and for the web, for the user to run. No project can make a custom shader
+until phase 3 brings the Create entry and the `.hlsl` importer, so it waits for them. (The
+showcase proper is the fifth sample's.)
+
+Built 2026-10-12: 2a to 2e. The export test covers an unpruned export; a pruned one keeps a
+material's shader through the cook's closure, which follows `reads` (the closure's own tests), not
+through a test of its own.
+
 ## Decided
 
 - **Two kinds, both supported** (user, 2026-10-12): low-level shaders and surface shaders.
@@ -294,6 +346,8 @@ material picker (phase 3), bytecode in dists (phase 2).
 - **Entry points are asset fields**, defaulting to `VSMain` and `PSMain` (user, 2026-10-12).
 - **Samplers are declared explicitly** in the block (user, 2026-10-12): the material layout is
   exactly the block.
+- **A dist ships no shader source** by default (user, 2026-10-12); an export preset's "Include
+  shader source" keeps it.
 
 ## Corrections this plan owes other documents
 

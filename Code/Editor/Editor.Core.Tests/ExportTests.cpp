@@ -29,6 +29,8 @@ import pipeline.core;
 import editor.core;
 import foundation.settings;
 import foundation.shaders; // CookedShaderPack (the web export test reads the staged pack)
+import foundation.shaders.resource; // ShaderSource: a custom shader's product in the dist
+import shaders.pipeline;            // ShaderAsset + its compiling cook
 // Only the two export-driver tests use a script asset; the ~30 template/preset/manifest tests are
 // backend-neutral and build with no script backend at all. So the script imports (and those two
 // tests) are guarded, and the file always compiles.
@@ -462,7 +464,7 @@ TEST_CASE("export: a preset describes its fields through reflection")
         CHECK(engine::project::SettingAttribute(property, engine::project::kSettingLabelAttribute) != nullptr);
         ++labelled;
     }
-    CHECK(labelled == 20u);
+    CHECK(labelled == 21u);
     const PropertyInfo* files = FindProperty(type, "additionalFiles");
     REQUIRE(files != nullptr);
     CHECK(IsContainer(*files->type));
@@ -516,6 +518,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     b.config = String(u8"RelWithDebInfo");
     b.stageSymbols = true;
     b.pruneToReachable = true;
+    b.includeShaderSource = true;
     b.templateId = String(TEMPLATE_ID_PREFIX u8"-win64-0.1.0");
     b.playerName = String(u8"MyGame.exe");
     b.outputSubdir = String(u8"Win64");
@@ -534,6 +537,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     CHECK(loaded.presets[0].playerName.IsEmpty());
 
     CHECK_FALSE(loaded.presets[0].pruneToReachable); // default (unset) stays false
+    CHECK_FALSE(loaded.presets[0].includeShaderSource); // no shader source by default
 
     const editor::ExportPreset* win = loaded.Find(u8"Windows Desktop");
     REQUIRE(win != nullptr);
@@ -541,6 +545,7 @@ TEST_CASE("export: preset set round-trips through export_presets.xml")
     CHECK(win->config == u8"RelWithDebInfo"); // config axis round-trips
     CHECK(win->stageSymbols);                 // symbols opt-in round-trips
     CHECK(win->pruneToReachable);             // pruning opt-in round-trips
+    CHECK(win->includeShaderSource);          // keeping shader source round-trips
     CHECK(win->templateId == TEMPLATE_ID_PREFIX u8"-win64-0.1.0");
     CHECK(win->playerName == u8"MyGame.exe");
     REQUIRE(win->additionalFiles.Size() == 2u);
@@ -857,6 +862,143 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
     // The host template is stamped with this build's engine version, so no soft-mismatch warning.
     CHECK(result.engineVersionWarning.IsEmpty());
 
+    NukeTree(projectDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
+}
+
+// A project's custom shader ships as bytecode: the export cooks both its stages, every declared
+// variant under its entry point, into the dist's shader pack beside the engine's, so a
+// compiler-free player draws it; the dist's product carries no HLSL unless the preset keeps it.
+TEST_CASE("export: a custom shader ships as bytecode in the dist pack, its source left out")
+{
+    GlobalTypeRegistry().Register(foundation::shaders::ShaderSource::StaticType());
+    RegisterSerializable<foundation::shaders::ShaderSource>();
+    pipeline::RegisterShaderAsset();
+    foundation::shaders::Compiler* probe = nullptr;
+    if (!foundation::shaders::createCompiler(foundation::shaders::CompilerDesc{}, probe).IsOk() ||
+        probe == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    probe->Destroy();
+
+    const String projectDir = TempDir(u8"scratch_export_shader_proj");
+    const String toolDir = TempDir(u8"scratch_export_shader_tool");
+    const String outRoot = TempDir(u8"scratch_export_shader_out");
+    NukeTree(projectDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
+
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"Glow")
+                .IsOk());
+    UniquePtr<editor::EditorProject> project =
+        editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    {
+        foundation::vfs::NativeFileSystem sources(project->SourcesRoot().AsView(),
+                                                  DefaultAllocator());
+        SaveText(sources, u8"glow.hlsl",
+                 u8"// variants(fragment): GBUFFER\n"
+                 u8"properties\n{\n    Color Tint = (1, 0.5, 0);\n}\n"
+                 u8"float4 VSMain(uint id : SV_VertexID) : SV_Position {\n"
+                 u8"    return float4(0, 0, 0, 1);\n}\n"
+                 u8"float4 PSMain() : SV_Target0 { return Tint; }\n");
+        pipeline::ShaderAsset asset;
+        pipeline::ShaderImporter::Import(u8"glow", u8"glow.hlsl", asset);
+        foundation::content::Instance* inst = project->SourceDb().RootGroup()->CreateInstance(
+            u8"glow", pipeline::ShaderAsset::StaticType());
+        REQUIRE(inst != nullptr);
+        REQUIRE(inst->WriteObject(asset).IsOk());
+    }
+
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), DefaultAllocator());
+    SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
+    editor::TemplateRegistry registry;
+    registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    builders.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::ShaderAssetBuilder>(TestDataRoot()), DefaultAllocator()));
+
+    const auto exportWith = [&](bool includeSource, StringView subdir) -> String
+    {
+        editor::ExportPreset preset;
+        preset.name = String(subdir);
+        preset.platform = String(GetHostPlatformName());
+        preset.outputSubdir = String(subdir);
+        preset.includeShaderSource = includeSource;
+        editor::ExportResult result;
+        REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(),
+                                  TestDataRoot(), false, &result)
+                    .IsOk());
+        CHECK(result.content.cookFailed == 0u);
+        REQUIRE(result.content.shaders.Size() == 1u);
+        return result.outputDir;
+    };
+
+    // --- the default: bytecode only ---
+    const String stripped = exportWith(false, u8"stripped");
+    {
+        foundation::shaders::CookedShaderPack pack;
+        FileStream in(PathJoin(stripped.AsView(), u8"Data/Shaders/shaders.dpak").AsView(),
+                      FileMode::Read);
+        REQUIRE(in.IsValid());
+        REQUIRE(pack.Read(in).IsOk());
+        const u64 glow = foundation::shaders::ShaderNameHash(u8"glow");
+        CHECK(pack.EntryPoint(glow, foundation::shaders::ShaderStage::Vertex) ==
+              StringView(u8"VSMain"));
+        CHECK(pack.EntryPoint(glow, foundation::shaders::ShaderStage::Fragment) ==
+              StringView(u8"PSMain"));
+        const auto host = foundation::shaders::CookedShaderFormat::SpirV;
+        CHECK(pack.Find(glow, foundation::shaders::ShaderStage::Fragment,
+                        foundation::shaders::ShaderFlags::GBuffer, host) != nullptr);
+        CHECK(pack.Find(glow, foundation::shaders::ShaderStage::Fragment,
+                        foundation::shaders::ShaderFlags::None, host) != nullptr);
+        CHECK(pack.Find(u8"forward", foundation::shaders::ShaderStage::Fragment,
+                        foundation::shaders::ShaderFlags::None, host) != nullptr); // the engine's
+
+        foundation::vfs::PakFileSystem pak(
+            PathJoin(stripped.AsView(), project::kDistContentPak).AsView());
+        REQUIRE(pak.IsValid());
+        foundation::content::ContentDatabase db(DefaultAllocator(), pak, BinarySerializerFactory(),
+                                                project::kCookedAssetExtension);
+        foundation::content::Instance* product = db.GetInstance(u8"glow");
+        REQUIRE(product != nullptr);
+        RefPtr<ISerializable> object = product->ReadObject();
+        const auto* source = Cast<foundation::shaders::ShaderSource>(object.Get());
+        REQUIRE(source != nullptr);
+        CHECK(source->vertexSource.IsEmpty());
+        CHECK(source->fragmentSource.IsEmpty());
+        CHECK(source->fragmentEntryPoint == u8"PSMain"); // the rest of the product stays
+        CHECK(source->fragmentVariantMask ==
+              static_cast<u32>(foundation::shaders::ShaderFlags::GBuffer));
+        CHECK(source->Properties().Size() == 1u);
+    }
+    // The project's own product keeps its source (the editor compiles from it).
+    {
+        RefPtr<ISerializable> object = project->CookedDb().GetInstance(u8"glow")->ReadObject();
+        const auto* source = Cast<foundation::shaders::ShaderSource>(object.Get());
+        REQUIRE(source != nullptr);
+        CHECK_FALSE(source->fragmentSource.IsEmpty());
+    }
+
+    // --- the preset keeps the source ---
+    const String kept = exportWith(true, u8"kept");
+    {
+        foundation::vfs::PakFileSystem pak(
+            PathJoin(kept.AsView(), project::kDistContentPak).AsView());
+        REQUIRE(pak.IsValid());
+        foundation::content::ContentDatabase db(DefaultAllocator(), pak, BinarySerializerFactory(),
+                                                project::kCookedAssetExtension);
+        RefPtr<ISerializable> object = db.GetInstance(u8"glow")->ReadObject();
+        const auto* source = Cast<foundation::shaders::ShaderSource>(object.Get());
+        REQUIRE(source != nullptr);
+        CHECK_FALSE(source->fragmentSource.IsEmpty());
+    }
+
+    project.Reset();
     NukeTree(projectDir.AsView());
     NukeTree(toolDir.AsView());
     NukeTree(outRoot.AsView());

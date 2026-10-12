@@ -32,6 +32,7 @@ import pipeline.core;
 import pipeline.cook;
 import foundation.shaders;
 import foundation.shaders.system; // kShaderFolder / kShaderPackPath (the dist data layout)
+import foundation.shaders.resource; // ShaderSource: a project's custom shader, cooked into the pack
 import :project;
 import :export_preset;
 import :export_roots;
@@ -71,6 +72,8 @@ namespace editor
         label(u8"Stage debug symbols");
         builder.Property<&ExportPreset::pruneToReachable>("pruneToReachable");
         label(u8"Prune to reachable content");
+        builder.Property<&ExportPreset::includeShaderSource>("includeShaderSource");
+        label(u8"Include shader source");
         builder.Property<&ExportPreset::overridesRender>("overridesRender");
         label(u8"Own render size");
         builder.Property<&ExportPreset::renderWidth>("renderWidth");
@@ -151,12 +154,14 @@ namespace editor
             return contains(u8"dxcompiler") || contains(u8"dxil");
         }
 
-        // Cook the built-in shaders (from <dataRoot>/Shaders) for `platform` and write the dist's
-        // Data/Shaders/shaders.dpak plus its Data/.dataroot marker - the layout the player's data-root
-        // discovery finds beside the executable. The dist renders from this pack with no runtime
-        // compiler (see the ShaderSystem cooked path). Returns the variant count via `outVariants`;
-        // Status carries any cook/compile failure.
+        // Cook the built-in shaders (from <dataRoot>/Shaders) and the project's custom shaders the
+        // dist ships (`projectShaders`, their cooked ShaderSource products) for `platform`, and
+        // write the dist's Data/Shaders/shaders.dpak plus its Data/.dataroot marker - the layout the
+        // player's data-root discovery finds beside the executable. The dist renders from this pack
+        // with no runtime compiler (see the ShaderSystem cooked path). Returns the variant count via
+        // `outVariants`; Status carries any cook/compile failure.
         Status StageShaderPack(StringView outputDir, StringView dataRoot, StringView platform,
+                               EditorProject& project, Span<const Guid> projectShaders,
                                u32& outVariants)
         {
             outVariants = 0;
@@ -183,8 +188,39 @@ namespace editor
             opts.formats = Span<const shaders::CookedShaderFormat>(formats.Data(), formats.Size());
 
             shaders::CookedShaderPack pack;
-            const shaders::ShaderCookReport report =
-                shaders::CookEngineShaders(*compiler, opts, pack);
+            shaders::ShaderCookReport report = shaders::CookEngineShaders(*compiler, opts, pack);
+
+            // The project's shaders: each stage under its entry point and lattice, every variant,
+            // with the engine library on the include path (what their cook compiled against).
+            const StringView includePaths[] = {shaderDir.AsView()};
+            shaders::WgslTranslator translator(*compiler, outputDir);
+            translator.SetValidateWithTint(opts.validateWgsl);
+            for (const Guid& id : projectShaders)
+            {
+                foundation::content::Instance* product = project.CookedDb().GetInstance(id);
+                RefPtr<ISerializable> object =
+                    product != nullptr ? product->ReadObject() : RefPtr<ISerializable>{};
+                const auto* source = Cast<shaders::ShaderSource>(object.Get());
+                if (source == nullptr)
+                {
+                    report.errors.PushBack(String(u8"a custom shader's cooked product is missing"));
+                    continue;
+                }
+                const String sourceName = Format(u8"{}.hlsl", source->name);
+                (void)shaders::CookShaderStage(
+                    *compiler, translator, source->name.AsView(), shaders::ShaderStage::Vertex,
+                    source->vertexSource.AsView(), source->vertexEntryPoint.AsView(),
+                    static_cast<shaders::ShaderFlags>(source->vertexVariantMask),
+                    sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
+                    report);
+                (void)shaders::CookShaderStage(
+                    *compiler, translator, source->name.AsView(), shaders::ShaderStage::Fragment,
+                    source->fragmentSource.AsView(), source->fragmentEntryPoint.AsView(),
+                    static_cast<shaders::ShaderFlags>(source->fragmentVariantMask),
+                    sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
+                    report);
+            }
+            report.success = report.errors.IsEmpty();
             compiler->Destroy();
 
             for (usize i = 0; i < report.errors.Size(); ++i)
@@ -511,7 +547,8 @@ namespace editor
                          const ExportProgress& onProgress,
                          const HashMap<Guid, Array<byte>>* sceneStreams,
                          const HashMap<Guid, u8>* reachable, const Array<ExportRoot>* roots,
-                         PruningReport* outReport, Span<const ContentVariant> variants)
+                         PruningReport* outReport, Span<const ContentVariant> variants,
+                         bool includeShaderSource)
     {
 
         // --- stage scenes ---
@@ -527,6 +564,7 @@ namespace editor
         (void)CreateDirectory(stagingDir.AsView());
         foundation::vfs::NativeFileSystem stagingMount(stagingDir.AsView(), editor::EditorRootAllocator());
         Array<String> droppedScenes; // for the pruning report
+        HashMap<String, u8> strippedShaders; // cooked products replaced by a staged, stripped copy
         {
             foundation::content::ContentDatabase staging(editor::EditorRootAllocator(), stagingMount, BinarySerializerFactory(),
                                                        engine::project::kCookedAssetExtension);
@@ -548,6 +586,33 @@ namespace editor
                 ++staged;
             }
             stats.scenesStaged = staged;
+
+            // The project's custom shaders the dist ships: recorded for the shader pack step,
+            // which cooks them to bytecode; staged without their HLSL unless the preset keeps it
+            // (the project's own Cooked/ keeps its source for the editor, so the copy is staged).
+            const StringView shaderType(reinterpret_cast<const utf8char*>(
+                foundation::shaders::ShaderSource::StaticType().name));
+            Array<foundation::content::Instance*> products;
+            detail::CollectAllInstances(*project.CookedDb().RootGroup(), products);
+            for (foundation::content::Instance* product : products)
+            {
+                if (product->TypeName() != shaderType ||
+                    (reachable != nullptr && reachable->Find(product->Id()) == nullptr))
+                {
+                    continue;
+                }
+                stats.shaders.PushBack(product->Id());
+                if (includeShaderSource)
+                {
+                    continue;
+                }
+                if (!detail::StageStrippedShader(*product, staging))
+                {
+                    LOG_ERROR(u8"Export", u8"failed to stage shader '{}'", product->Path());
+                    return Status{ErrorCode::Internal};
+                }
+                strippedShaders.InsertOrAssign(product->Path(), u8(1));
+            }
         }
 
         // --- 3. pack ---
@@ -620,7 +685,7 @@ namespace editor
             foundation::vfs::PakBuilder pak;
             foundation::vfs::NativeFileSystem cookedMount(v.cookedDir.AsView(), editor::EditorRootAllocator());
             if (!detail::PackTree(cookedMount, *cookedMount.AsEnumerable(), u8"", pak,
-                                  stats.filesPacked, reachablePaths.Get()) ||
+                                  stats.filesPacked, reachablePaths.Get(), &strippedShaders) ||
                 !detail::PackTree(stagingMount, *stagingMount.AsEnumerable(), u8"", pak,
                                   stats.filesPacked))
             {
@@ -701,7 +766,7 @@ namespace editor
     Status ExportProject(EditorProject& project, StringView outDir, BuilderRegistry& builders,
                          bool rebuild, ExportStats* outStats, const ExportProgress& onProgress,
                          const HashMap<Guid, Array<byte>>* sceneStreams,
-                         Span<const ContentVariant> variants)
+                         Span<const ContentVariant> variants, bool includeShaderSource)
     {
         ExportStats stats;
 
@@ -762,7 +827,7 @@ namespace editor
         // --- content ---
         const Status s =
             ExportContent(project, outDir, stats, onProgress, sceneStreams, nullptr, nullptr,
-                          nullptr, variants);
+                          nullptr, variants, includeShaderSource);
         if (outStats != nullptr)
         {
             *outStats = stats;
@@ -1199,13 +1264,15 @@ namespace editor
                 }
                 contentStatus =
                     ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                                  sceneStreams, &reachable, &seeds, &result.pruning, variantSpan);
+                                  sceneStreams, &reachable, &seeds, &result.pruning, variantSpan,
+                                  preset.includeShaderSource);
             }
         }
         else if (cook)
         {
             contentStatus = ExportProject(project, result.outputDir.AsView(), builders, rebuild,
-                                          &result.content, onProgress, sceneStreams, variantSpan);
+                                          &result.content, onProgress, sceneStreams, variantSpan,
+                                          preset.includeShaderSource);
         }
         else
         {
@@ -1215,7 +1282,8 @@ namespace editor
             {
                 contentStatus =
                     ExportContent(project, result.outputDir.AsView(), result.content, onProgress,
-                                  sceneStreams, nullptr, nullptr, nullptr, variantSpan);
+                                  sceneStreams, nullptr, nullptr, nullptr, variantSpan,
+                                  preset.includeShaderSource);
             }
         }
         if (!contentStatus.IsOk() || !ApplyPresetDisplay(result.outputDir.AsView(), preset).IsOk())
@@ -1330,8 +1398,10 @@ namespace editor
         }
         {
             u32 shaderVariants = 0;
-            const Status packStatus = StageShaderPack(result.outputDir.AsView(), dataRoot,
-                                                      preset.platform.AsView(), shaderVariants);
+            const Status packStatus = StageShaderPack(
+                result.outputDir.AsView(), dataRoot, preset.platform.AsView(), project,
+                Span<const Guid>(result.content.shaders.Data(), result.content.shaders.Size()),
+                shaderVariants);
             if (!packStatus.IsOk())
             {
                 if (outResult != nullptr)

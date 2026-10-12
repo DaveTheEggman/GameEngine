@@ -252,6 +252,8 @@ export templates this machine has (each preset's `template` is the one it resolv
 when none); `export_preset_set` creates, changes or removes one by `name` - another device's
 target, say, with its own render size or window. Its platform and config must be ones a template
 here has; its templateId need not, since presets travel with the project and templates do not.
+A project's custom shaders ship as bytecode in the dist's shader pack, their HLSL left out unless
+the preset's `includeShaderSource` is set.
 
 ## Per-tool gotchas
 

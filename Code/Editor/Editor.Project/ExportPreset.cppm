@@ -69,6 +69,10 @@ export namespace editor
         // that takes any shape on a desktop is presented turned on a phone held upright).
         bool overridesOrientation = false;
         ScreenOrientation orientation = ScreenOrientation::Any;
+        // The dist keeps its custom shaders' HLSL (a game that wants modders to read them). Off:
+        // the pack carries the shaders as bytecode and the dist ships no shader source, as the
+        // engine's own ship none.
+        bool includeShaderSource = false;
 
         void Serialize(ISerializer& ar)
         {
@@ -96,6 +100,7 @@ export namespace editor
             SerializeAppended(ar, "windowResizable", windowResizable);
             SerializeAppended(ar, "overridesOrientation", overridesOrientation);
             SerializeAppended(ar, "orientation", orientation);
+            SerializeAppended(ar, "includeShaderSource", includeShaderSource);
         }
     };
 

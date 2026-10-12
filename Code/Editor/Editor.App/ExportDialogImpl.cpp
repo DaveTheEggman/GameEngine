@@ -494,6 +494,13 @@ namespace editor::app
         m_prune = prune.Get();
         prune->OnCheckedChanged.Add([stored](ui::CheckBox*, bool) { stored(); });
         column.AddView(prune.Get());
+        auto shaderSource =
+            MakeRef<ui::CheckBox>(allocator, StringView(u8"Include shader source"), false);
+        shaderSource->TooltipText = String(u8"Ship the project's shaders as HLSL too, beside the "
+                                           u8"cooked bytecode (for modders to read)");
+        m_shaderSource = shaderSource.Get();
+        shaderSource->OnCheckedChanged.Add([stored](ui::CheckBox*, bool) { stored(); });
+        column.AddView(shaderSource.Get());
     }
 
     void ExportDialog::BuildDisplay(ui::FlexLayout& column)
@@ -689,6 +696,7 @@ namespace editor::app
             m_files->SetText(JoinFiles(preset.additionalFiles).AsView());
             m_symbols->IsChecked.SetValue(preset.stageSymbols);
             m_prune->IsChecked.SetValue(preset.pruneToReachable);
+            m_shaderSource->IsChecked.SetValue(preset.includeShaderSource);
             m_overridesRender->IsChecked.SetValue(preset.overridesRender);
             m_renderWidth->SetValue(static_cast<f64>(preset.renderWidth));
             m_renderHeight->SetValue(static_cast<f64>(preset.renderHeight));
@@ -737,6 +745,7 @@ namespace editor::app
         SplitFiles(m_files->Text(), preset.additionalFiles);
         preset.stageSymbols = m_symbols->IsChecked.Value();
         preset.pruneToReachable = m_prune->IsChecked.Value();
+        preset.includeShaderSource = m_shaderSource->IsChecked.Value();
         preset.overridesRender = m_overridesRender->IsChecked.Value();
         preset.renderWidth = static_cast<u32>(m_renderWidth->Value());
         preset.renderHeight = static_cast<u32>(m_renderHeight->Value());

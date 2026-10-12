@@ -27,6 +27,7 @@ import foundation.vfs.pak;
 import foundation.content;
 import engine.project;
 import foundation.scene.resource;
+import foundation.shaders.resource; // ShaderSource: a custom shader's product, stripped for a dist
 import pipeline.core;
 import pipeline.cook;
 import :project;
@@ -45,6 +46,9 @@ export namespace editor
         usize cookFailed = 0;
         usize scenesStaged = 0;
         usize filesPacked = 0;
+        // The project's custom shaders the dist ships (their cooked ShaderSource products): the
+        // shader pack step cooks each into the dist's pack, as bytecode.
+        Array<Guid> shaders;
     };
 
     // === Reachability pruning ===
@@ -212,10 +216,12 @@ export namespace editor
         // Recursively add every file under `folder` to the pak (locator = mount-relative path).
         // When `reachablePaths` is non-null, packs ONLY files whose owning instance path is in the
         // set (closure pruning); null packs the whole tree (the default "export everything").
+        // `excludedPaths`: instances whose files are left out (a stripped copy is staged instead).
         bool PackTree(foundation::vfs::IFileSystem& mount,
                       foundation::vfs::IEnumerableFileSystem& enumerable, StringView folder,
                       foundation::vfs::PakBuilder& pak, usize& fileCount,
-                      const HashMap<String, u8>* reachablePaths = nullptr)
+                      const HashMap<String, u8>* reachablePaths = nullptr,
+                      const HashMap<String, u8>* excludedPaths = nullptr)
         {
             Array<foundation::vfs::DirEntry> entries;
             if (!enumerable.Enumerate(folder, entries).IsOk())
@@ -227,7 +233,8 @@ export namespace editor
                 const String path = PathJoin(folder, entry.name.AsView());
                 if (entry.isDirectory)
                 {
-                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount, reachablePaths))
+                    if (!PackTree(mount, enumerable, path.AsView(), pak, fileCount, reachablePaths,
+                                  excludedPaths))
                     {
                         return false;
                     }
@@ -237,6 +244,10 @@ export namespace editor
                     !FileOwnerReachable(path.AsView(), *reachablePaths))
                 {
                     continue; // pruned: not part of the reachable closure
+                }
+                if (excludedPaths != nullptr && FileOwnerReachable(path.AsView(), *excludedPaths))
+                {
+                    continue; // replaced by a staged copy
                 }
                 UniquePtr<IStream> stream = mount.Open(path.AsView(), FileMode::Read);
                 if (!stream)
@@ -253,6 +264,51 @@ export namespace editor
                 ++fileCount;
             }
             return true;
+        }
+
+        // The staging DB's group for `path` ("A/B"), created as needed.
+        [[nodiscard]] inline foundation::content::Group* StagingGroup(
+            foundation::content::ContentDatabase& staging, StringView path)
+        {
+            foundation::content::Group* group = staging.RootGroup();
+            usize start = 0;
+            for (usize i = 0; i <= path.Size(); ++i)
+            {
+                if (i == path.Size() || path[i] == utf8char('/'))
+                {
+                    if (i > start)
+                    {
+                        group = group->CreateGroup(path.SubStr(start, i - start));
+                        if (group == nullptr)
+                        {
+                            return nullptr;
+                        }
+                    }
+                    start = i + 1;
+                }
+            }
+            return group;
+        }
+
+        // A custom shader's cooked product, staged without its HLSL (SAME guid/path): the dist's
+        // pack carries the shader as bytecode; the entries, lattices and property table stay, so
+        // materials and the runtime still resolve it.
+        bool StageStrippedShader(foundation::content::Instance& product,
+                                 foundation::content::ContentDatabase& staging)
+        {
+            RefPtr<ISerializable> object = product.ReadObject();
+            auto* shader = Cast<foundation::shaders::ShaderSource>(object.Get());
+            foundation::content::Group* group =
+                StagingGroup(staging, product.OwningGroup().Path().AsView());
+            if (shader == nullptr || group == nullptr)
+            {
+                return false;
+            }
+            shader->vertexSource = String();
+            shader->fragmentSource = String();
+            foundation::content::Instance* staged = group->CreateInstanceWithId(
+                product.Id(), product.Name(), foundation::shaders::ShaderSource::StaticType());
+            return staged != nullptr && staged->WriteObject(*shader).IsOk();
         }
 
         // Re-encode a scene instance into a binary envelope in the staging DB - SAME guid/path.
@@ -520,7 +576,8 @@ export namespace editor
                                        const HashMap<Guid, u8>* reachable = nullptr,
                                        const Array<ExportRoot>* roots = nullptr,
                                        PruningReport* outReport = nullptr,
-                                       Span<const ContentVariant> variants = {});
+                                       Span<const ContentVariant> variants = {},
+                                       bool includeShaderSource = false);
 
     /// Cook the per-target variant DBs: for each variant with a non-empty key,
     /// run CookForTarget into its cookedDir, carrying platform-invariant products forward from the
@@ -563,7 +620,8 @@ export namespace editor
                                        ExportStats* outStats = nullptr,
                                        const ExportProgress& onProgress = {},
                                        const HashMap<Guid, Array<byte>>* sceneStreams = nullptr,
-                                       Span<const ContentVariant> variants = {});
+                                       Span<const ContentVariant> variants = {},
+                                       bool includeShaderSource = false);
 
     struct ExportResult
     {
