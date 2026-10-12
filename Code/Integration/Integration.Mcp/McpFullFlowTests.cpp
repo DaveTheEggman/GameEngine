@@ -1114,3 +1114,87 @@ TEST_CASE("integration.mcp: export_presets and export_preset_set")
     (void)RemoveDirectoryRecursive(templatesRoot.AsView());
     (void)RemoveDirectoryRecursive(binBase.AsView());
 }
+
+namespace
+{
+    bool Contains(StringView hay, StringView needle)
+    {
+        for (usize i = 0; i + needle.Size() <= hay.Size(); ++i)
+        {
+            if (hay.SubStr(i, needle.Size()) == needle)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+
+// material_set_shader does what the material page's Shader row does: a material put on a cooked
+// custom shader is saved in the shader's layout (so its cook has nothing to drop), and put back
+// on the built-in PBR it has PBR's layout again, a value that fits carried both ways.
+TEST_CASE("integration.mcp: material_set_shader lays a material out by its shader and saves it")
+{
+    std::error_code ec;
+    std::filesystem::remove_all("mcp_material_shader_project", ec);
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    pipeline::ImporterRegistry importers{DefaultAllocator()};
+    pipeline::RegisterPipelineTypes();
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
+    pipeline::RegisterAllImporters(importers);
+
+    McpServer server;
+    editor::EditorLogBuffer logBuffer{DefaultAllocator()};
+    editor::mcp::ProjectSession session;
+    editor::mcp::ProjectOwner owner;
+    editor::mcp::InlineProjectOperations operations(session, builders, String(), String());
+    pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+    editor::mcp::RegisterEngineTools(server, session, builders, importers, creators, logBuffer,
+                                     editor::mcp::EngineToolPaths{}, operations);
+    editor::mcp::RegisterProjectOpenTools(server, session, owner);
+    (void)FfCall(server, u8"project_create",
+                 FfStr(FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_material_shader_project"),
+                       u8"name", u8"Shaded"));
+    (void)FfCall(server, u8"project_open",
+                 FfStr(JsonValue::MakeObject(), u8"directory", u8"mcp_material_shader_project"));
+
+    // A lit surface shader (the lava starter: CrackColor, Speed, Glow, Cracks, MainSampler), cooked.
+    const JsonValue lava = FfCall(server, u8"asset_create",
+                                  FfStr(FfStr(JsonValue::MakeObject(), u8"creator", u8"Lit Surface Shader"),
+                                        u8"name", u8"Lava"));
+    const JsonValue cooked = FfCall(server, u8"asset_cook", JsonValue::MakeObject());
+    if (cooked.Get(u8"failed").AsNumber() != 0.0)
+    {
+        MESSAGE("the shader did not cook here (no DXC?); skipping");
+        std::filesystem::remove_all("mcp_material_shader_project", ec);
+        return;
+    }
+    const JsonValue material = FfCall(server, u8"asset_create",
+                                      FfStr(FfStr(JsonValue::MakeObject(), u8"creator", u8"PBR Material"),
+                                            u8"name", u8"Rock"));
+    const String materialId = material.Get(u8"guid").AsString();
+
+    const JsonValue onLava = FfCall(
+        server, u8"material_set_shader",
+        FfStr(FfStr(JsonValue::MakeObject(), u8"material", materialId.AsView()), u8"shader",
+              lava.Get(u8"guid").AsString().AsView()));
+    REQUIRE(onLava.Get(u8"properties").Count() == 5);
+    CHECK(onLava.Get(u8"shaderName").AsString() == StringView(u8"Lava"));
+    // Saved: the material's own asset holds the shader's layout, none of PBR's.
+    const String xml = FfCall(server, u8"asset_data_read",
+                              FfStr(JsonValue::MakeObject(), u8"guid", materialId.AsView()))
+                           .Get(u8"xml")
+                           .AsString();
+    CHECK(Contains(xml.AsView(), u8"<string>CrackColor</string>"));
+    CHECK_FALSE(Contains(xml.AsView(), u8"<string>BaseColor</string>"));
+
+    // Back on the built-in PBR: PBR's sixteen properties again.
+    const JsonValue onPbr = FfCall(
+        server, u8"material_set_shader",
+        FfStr(FfStr(JsonValue::MakeObject(), u8"material", materialId.AsView()), u8"shader", u8"pbr"));
+    CHECK(onPbr.Get(u8"properties").Count() == 16);
+    CHECK(onPbr.Get(u8"shaderName").AsString() == StringView(u8"forward"));
+
+    std::filesystem::remove_all("mcp_material_shader_project", ec);
+}

@@ -927,23 +927,6 @@ namespace editor
         }
     }
 
-    namespace
-    {
-        // Replaces `to` with `from`, every field (MaterialSource is not copyable; its
-        // serialization is the complete list of what it holds).
-        void AssignSource(materials::MaterialSource& to, materials::MaterialSource& from)
-        {
-            MemoryStream stream;
-            {
-                BinarySerializer write(stream, SerializeMode::Write);
-                from.Serialize(write);
-            }
-            (void)stream.Seek(0, SeekOrigin::Begin);
-            BinarySerializer read(stream, SerializeMode::Read);
-            to.Serialize(read);
-        }
-    }
-
     RefPtr<foundation::shaders::ShaderSource> MaterialEditorPage::ReadShader(const Guid& shader) const
     {
         if (m_context->Project() == nullptr || shader.IsNil())
@@ -978,12 +961,7 @@ namespace editor
         }
         ApplyEdit(u8"Shader", Function<void(materials::MaterialSource&)>{
                                   [table, shader](materials::MaterialSource& s)
-                                  {
-                                      s.shaderId = shader;
-                                      materials::MaterialSource laid;
-                                      pipeline::LayOutMaterialByShader(s, *table, laid);
-                                      AssignSource(s, laid);
-                                  }});
+                                  { pipeline::SetMaterialShader(s, shader, *table); }});
     }
 
     void MaterialEditorPage::SwitchToBuiltIn(bool unlit)
@@ -997,26 +975,9 @@ namespace editor
         {
             return;
         }
-        // The built-in's own layout (what Create > Materials makes), the material's values and
-        // render state carried onto it.
-        RefPtr<materials::Material> built = unlit ? materials::CreateUnlit(current.name.AsView())
-                                                  : materials::CreatePBR(current.name.AsView());
-        RefPtr<pipeline::MaterialAsset> preset = MakeRef<pipeline::MaterialAsset>(Allocator());
-        pipeline::MaterialImporter::Import(*built, Guid{}, *preset);
         ApplyEdit(u8"Shader", Function<void(materials::MaterialSource&)>{
-                                  [preset](materials::MaterialSource& s)
-                                  {
-                                      materials::MaterialSource& to = preset->source;
-                                      to.name = s.name;
-                                      to.blendMode = s.blendMode;
-                                      to.depthMode = s.depthMode;
-                                      to.cullMode = s.cullMode;
-                                      to.vertexLayout = s.vertexLayout;
-                                      to.samplerU = s.samplerU;
-                                      to.samplerV = s.samplerV;
-                                      pipeline::CarryMaterialValues(s, to);
-                                      AssignSource(s, to);
-                                  }});
+                                  [unlit](materials::MaterialSource& s)
+                                  { pipeline::SetMaterialBuiltInShader(s, unlit); }});
     }
 
     void MaterialEditorPage::BindShader()
@@ -1047,7 +1008,7 @@ namespace editor
         // Not an edit: the material follows its shader, as the cook lays it out.
         materials::MaterialSource laid;
         pipeline::LayOutMaterialByShader(m_asset->source, *table, laid);
-        AssignSource(m_asset->source, laid);
+        pipeline::AssignMaterialSource(m_asset->source, laid);
         m_gridDirty = true;
     }
 

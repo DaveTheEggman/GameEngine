@@ -300,6 +300,52 @@ export namespace pipeline{
         }
     };
 
+    // Replaces `to` with `from`, every field (MaterialSource is not copyable; its serialization is
+    // the complete list of what it holds).
+    inline void AssignMaterialSource(MaterialSource& to, MaterialSource& from)
+    {
+        MemoryStream stream;
+        {
+            BinarySerializer write(stream, SerializeMode::Write);
+            from.Serialize(write);
+        }
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        BinarySerializer read(stream, SerializeMode::Read);
+        to.Serialize(read);
+    }
+
+    // Puts a material on a custom shader (`shaderId`, whose cooked `shader` is given): laid out by
+    // the shader's table, every value whose name, type and size still fit kept. What the material
+    // page's Shader row and material_set_shader do, so a saved material is in its shader's layout
+    // (a cook re-lays it anyway, but a material left in another layout warns on every cook).
+    inline void SetMaterialShader(MaterialSource& source, const Guid& shaderId,
+                                  const foundation::shaders::ShaderSource& shader)
+    {
+        source.shaderId = shaderId;
+        MaterialSource laid;
+        LayOutMaterialByShader(source, shader, laid);
+        AssignMaterialSource(source, laid);
+    }
+
+    // Puts a material back on a built-in shader, PBR or Unlit: the built-in's own layout (what
+    // Create > Materials makes), the material's values and render state carried onto it.
+    inline void SetMaterialBuiltInShader(MaterialSource& source, bool unlit)
+    {
+        RefPtr<Material> built = unlit ? CreateUnlit(source.name.AsView())
+                                       : CreatePBR(source.name.AsView());
+        MaterialSource to;
+        MaterialSource::FromMaterial(*built, Guid{}, to);
+        to.name = source.name;
+        to.blendMode = source.blendMode;
+        to.depthMode = source.depthMode;
+        to.cullMode = source.cullMode;
+        to.vertexLayout = source.vertexLayout;
+        to.samplerU = source.samplerU;
+        to.samplerV = source.samplerV;
+        CarryMaterialValues(source, to);
+        AssignMaterialSource(source, to);
+    }
+
     // Registers MaterialAsset for content-DB construction + deserialization.
     inline void RegisterMaterialAsset()
     {
