@@ -509,6 +509,34 @@ TEST_CASE("variants: drift-lint flags an undeclared #ifdef")
     CHECK(clean.IsEmpty());
 }
 
+// A compile error names the file its author knows, with the line, so an editor or a cook log can
+// point at it; without a name DXC reports a placeholder.
+TEST_CASE("shaders: a compile error names the source's file and line")
+{
+    Compiler* compiler = MakeCompiler();
+    if (compiler == nullptr)
+    {
+        MESSAGE("DXC runtime unavailable; skipping");
+        return;
+    }
+    constexpr const char* kBroken = "float4 main() : SV_Target0 {\n"
+                                    "    return float4(1, 0, 0, 1) * Sped;\n"
+                                    "}\n";
+    CompileOptions options{};
+    options.sourceName = u8"Toon.hlsl";
+    CompileResult result{};
+    (void)compiler->compile(reinterpret_cast<const u8*>(kBroken), std::strlen(kBroken),
+                            ShaderStage::Fragment, u8"main", ShaderTarget::SPIRV, options, result);
+    CHECK_FALSE(result.success);
+    REQUIRE(result.messages != nullptr);
+    const StringView messages(reinterpret_cast<const char8_t*>(result.messages));
+    CAPTURE(messages);
+    CHECK(Contains(messages, u8"Toon.hlsl:2:"));
+    CHECK(Contains(messages, u8"Sped"));
+    compiler->freeResult(result);
+    compiler->Destroy();
+}
+
 TEST_CASE("wgsl cook: HLSL translates to WGSL with the binding shifts preserved")
 {
     Compiler* compiler = MakeCompiler();

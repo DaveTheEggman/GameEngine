@@ -382,6 +382,10 @@ namespace foundation::shaders
             }
         }
         push(L"-Wno-ignored-attributes");
+        if (!options.sourceName.IsEmpty())
+        {
+            pushS(widen(options.sourceName)); // the positional argument: the input's file name
+        }
 
         std::vector<LPCWSTR> args;
         args.reserve(argStorage.size());

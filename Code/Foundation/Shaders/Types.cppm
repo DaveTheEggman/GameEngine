@@ -96,6 +96,9 @@ export namespace foundation::shaders
         /// SPIR-V only: keep unused stage-interface variables (-fspv-preserve-interface). Set from
         /// a stage's `// preserve-interface` directive (ParsePreserveInterfaceDirective).
         bool preserveInterface = false;
+        /// The source's file name as its author knows it (`Toon.hlsl`): DXC's messages name it
+        /// (`Toon.hlsl:12:5: error: ...`) instead of a placeholder. Empty = DXC's default.
+        StringView sourceName;
     };
 
     struct CompileResult
