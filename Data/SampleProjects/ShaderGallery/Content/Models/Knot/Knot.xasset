@@ -1,0 +1,64 @@
+<root>
+	<string name="guid">4a3b0f58-f98b-4c32-b66f-c259ba0d6869</string>
+	<string name="typeNamespace">rtti::pipeline::modelimporter</string>
+	<string name="typeName">ModelManifestAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">2440385714661564817</u64>
+		<u32 name="version">3</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">Knot.glb</string>
+		<array name="meshGuids" count="1">
+			<string>789da737-1bfb-4c4a-95d8-042870cb72e2</string>
+		</array>
+		<array name="meshSkinned" count="1">
+			<u8>0</u8>
+		</array>
+		<array name="meshMaterial" count="1">
+			<i32>-1</i32>
+		</array>
+		<array name="meshMaterialSlots" count="1">
+			<object>
+				<array name="slots" count="0"/>
+			</object>
+		</array>
+		<array name="collisionGuids" count="0"/>
+		<array name="materialGuids" count="0"/>
+		<array name="materialAlbedo" count="0"/>
+		<array name="nodes" count="1">
+			<string name="name">Knot</string>
+			<i32 name="parent">-1</i32>
+			<object name="t">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+				<f32 name="w">1</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">0</i32>
+		</array>
+		<string name="skeletonGuid">00000000-0000-0000-0000-000000000000</string>
+		<i32 name="skeletonParentNode">-2</i32>
+		<array name="animationGuids" count="0"/>
+		<object name="boundsMin">
+			<f32 name="x">-0.42375672</f32>
+			<f32 name="y">-0.48301592</f32>
+			<f32 name="z">-0.20499901</f32>
+		</object>
+		<object name="boundsMax">
+			<f32 name="x">0.50499547</f32>
+			<f32 name="y">0.48303264</f32>
+			<f32 name="z">0.204999</f32>
+		</object>
+		<array name="entries" count="0"/>
+	</object>
+</root>

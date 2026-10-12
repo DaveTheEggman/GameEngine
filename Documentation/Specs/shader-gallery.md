@@ -1,7 +1,8 @@
 # Shader Gallery - the custom shaders sample, a lesson per shader
 
-> STATUS: PLAN 2026-10-12, the outline agreed with the user (eleven shaders, a flythrough with a
-> user-controlled camera and a list that flies to each). Replaces the custom shader showcase that
+> STATUS: phases 0 to 2 BUILT 2026-10-12 (the hall, the camera, the list, all eleven lessons);
+> phase 3 (polish and docs) next. The outline was agreed with the user (eleven shaders, a
+> flythrough with a user-controlled camera and a list that flies to each). Replaces the custom shader showcase that
 > was to go in the fifth sample (`Specs/custom-shaders.md`, phase 7); the fifth sample stays a
 > networking and crowds game. Read CONVENTIONS.md first.
 

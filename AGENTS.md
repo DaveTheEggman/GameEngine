@@ -75,7 +75,9 @@ cmake --build build/clang -j4                          # everything
 through the MCP tools, **PaperKid**, rebuilt the same way (its authoring scripts in `Tools/`),
 **Snowline**, a snowboard time trial generated the same way (`Tools/`: terrain, courses, sounds),
 **Lamplight**, a stealth heist generated the same way (`Tools/`: Blender models, the level
-generator, sounds), and **NativeSample**, a game with native code.
+generator, sounds), **Shader Gallery** (`ShaderGallery`), the custom shaders sample, a hall of
+lesson shaders generated the same way (`Tools/`: the lessons table, the hall, the list), and
+**NativeSample**, a game with native code.
 Their `Cooked/`, `.cache/`, `Editor/` and `Dist/` are generated and ignored. Integration.Mcp
 checks that PaperKid, Sky Hopper and Snowline read at the current data versions and cook. Sky Hopper's
 `CREDITS.md` and `Licenses/` must stay in step with its assets, and so must PaperKid's.
