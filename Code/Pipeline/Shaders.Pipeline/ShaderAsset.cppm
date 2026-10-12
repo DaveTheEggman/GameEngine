@@ -91,6 +91,14 @@ export namespace pipeline{
                 return Status{ErrorCode::InvalidArgument};
             }
             const StringView file = sa.fileName.View();
+            if (const String taken = EngineShaderFile(sa.name.AsView()); !taken.IsEmpty())
+            {
+                LOG_ERROR(u8"Shaders",
+                          u8"{}: the name '{}' is the engine's shader ({}): one name keys a shader "
+                          u8"in the shader system and a dist's pack, so rename it - cook failed",
+                          file, sa.name, taken);
+                return Status{ErrorCode::InvalidArgument};
+            }
 
             String text;
             const Status read = ReadSourceText(ctx, file, text);
@@ -151,6 +159,28 @@ export namespace pipeline{
         }
 
     private:
+        // The engine library's file for a shader of this name (`forward` -> forward.ps.hlsl), or
+        // empty when the name is free. A project shader with an engine shader's name would
+        // replace it everywhere the name is looked up.
+        [[nodiscard]] String EngineShaderFile(StringView name) const
+        {
+            if (m_shaderLibrary.IsEmpty() || name.IsEmpty())
+            {
+                return {};
+            }
+            constexpr StringView kSuffixes[] = {u8".vs.hlsl", u8".ps.hlsl", u8".cs.hlsl"};
+            for (const StringView suffix : kSuffixes)
+            {
+                String stageFile(name);
+                stageFile += suffix;
+                if (FileExists(PathJoin(m_shaderLibrary.AsView(), stageFile.AsView()).AsView()))
+                {
+                    return stageFile;
+                }
+            }
+            return {};
+        }
+
         // Compiles both stages' every declared variant to SPIR-V, logging each failure as DXC
         // reports it (`File.hlsl:line:col: error: ...`). True when all compile.
         [[nodiscard]] bool CompileEveryVariant(StringView file, StringView expanded,

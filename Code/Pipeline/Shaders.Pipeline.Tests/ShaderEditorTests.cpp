@@ -150,7 +150,7 @@ namespace
             RemoveDirectory(u8"scratch_shader_cook_db");
         }
 
-        Status Cook(StringView source, StringView dataRoot = {})
+        Status Cook(StringView source, StringView dataRoot = {}, StringView name = u8"custom")
         {
             NativeFileSystem src(u8"scratch_shader_cook", DefaultAllocator());
             REQUIRE(src.Save(u8"shader.hlsl", Span<const byte>(reinterpret_cast<const byte*>(
@@ -164,7 +164,7 @@ namespace
             id = inst->Id();
 
             ShaderAsset asset;
-            ShaderImporter::Import(u8"custom", u8"shader.hlsl", asset);
+            ShaderImporter::Import(name, u8"shader.hlsl", asset);
             ShaderAssetBuilder builder(dataRoot);
             pipeline::AssetBuildContext ctx{DefaultAllocator()};
             ctx.sources = &src;
@@ -314,4 +314,17 @@ TEST_CASE("shader cook: the toon sample's shader cooks against the engine's shad
     CHECK(source->fragmentVariantMask ==
           static_cast<u32>(ShaderFlags::AlphaTest | ShaderFlags::GBuffer | ShaderFlags::Dither));
     CHECK(source->Properties().Size() > 0u);
+}
+
+// One name keys a shader in the shader system and a dist's pack, so a project shader named like an
+// engine shader would replace the engine's everywhere. The cook refuses the name.
+TEST_CASE("shader cook: a project shader cannot take an engine shader's name")
+{
+    const String dataRoot = FindDataRoot();
+    REQUIRE_FALSE(dataRoot.IsEmpty());
+    CookBed bed;
+    ErrorLines errors;
+    CHECK_FALSE(bed.Cook(kGood, dataRoot.AsView(), u8"forward").IsOk());
+    INFO(doctest::String(reinterpret_cast<const char*>(errors.text.CStr())));
+    CHECK(errors.Has(u8"the name 'forward' is the engine's shader"));
 }
