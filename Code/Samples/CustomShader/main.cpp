@@ -72,8 +72,9 @@ namespace
         return core::DefaultAllocator();
     }
 
-    // The toon material: its property ORDER lays out toon.ps.hlsl's set-2 block (a float4 takes a
-    // 16-byte slot, a float 4 bytes), then the albedo map and its sampler, t0 and s0.
+    // The toon material: the properties toon.hlsl's block declares, in its order, so the builder
+    // lays them out where the generated set-2 block puts them (both pack by HLSL's rules), then
+    // the albedo map and its sampler, t0 and s0.
     [[nodiscard]] core::RefPtr<materials::Material> CreateToon(core::StringView name,
                                                                core::Float4 baseColor,
                                                                core::Float4 shadowColor,
@@ -172,11 +173,12 @@ namespace
         }
 
     private:
-        // The shader, one file with both stages (VSMain and PSMain), read from the data root and
-        // registered by name for each stage with its entry point. A registered source wins over the
-        // cooked pack and compiles on first use (DXC, so a dev or editor build: a compiler-free
-        // dist cannot compile it). Every module made from it records its entry, so the renderer's
-        // pipelines run VSMain and PSMain without being told.
+        // The shader, one file with both stages (VSMain and PSMain), read from the data root. Its
+        // properties block becomes the generated set-2 declarations (as a shader asset's cook does
+        // it), and each stage is registered by name with its entry point and the variants it
+        // declares. A registered source wins over the cooked pack and compiles on first use (DXC,
+        // so a dev or editor build: a compiler-free dist cannot compile it). Every module made from
+        // it records its entry, so the renderer's pipelines run VSMain and PSMain unbidden.
         bool RegisterToonShader(shaders::ShaderSystem& shaderSystem)
         {
             const core::String path =
@@ -190,8 +192,23 @@ namespace
             const core::StringView text(
                 reinterpret_cast<const core::utf8char*>(bytes.Value().Data()),
                 bytes.Value().Size());
-            shaderSystem.RegisterSource(u8"toon", shaders::ShaderStage::Vertex, text, u8"VSMain");
-            shaderSystem.RegisterSource(u8"toon", shaders::ShaderStage::Fragment, text, u8"PSMain");
+            core::String expanded;
+            const shaders::ShaderPropertiesBlock block =
+                shaders::ExpandShaderProperties(text, u8"toon.hlsl", expanded);
+            for (const shaders::ShaderPropertyError& e : block.errors)
+            {
+                LOG_ERROR(u8"CustomShader", u8"toon.hlsl:{}: {}", e.line, e.message);
+            }
+            if (!block.IsOk())
+            {
+                return false;
+            }
+            shaderSystem.RegisterSource(
+                u8"toon", shaders::ShaderStage::Vertex, expanded.AsView(), u8"VSMain",
+                shaders::ParseStageVariantDirective(text, shaders::ShaderStage::Vertex).mask);
+            shaderSystem.RegisterSource(
+                u8"toon", shaders::ShaderStage::Fragment, expanded.AsView(), u8"PSMain",
+                shaders::ParseStageVariantDirective(text, shaders::ShaderStage::Fragment).mask);
             return true;
         }
 

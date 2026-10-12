@@ -5,7 +5,7 @@
 add_executable(Integration.Composition TestsMain.cpp CompositionPipelineTests.cpp UpdateOrderTests.cpp)
 target_link_libraries(Integration.Composition PRIVATE
     Engine::Composition Foundation::Resource Pipeline::Registration Pipeline::Core
-    Foundation::Core doctest::doctest)
+    Foundation::Core Foundation::VFS doctest::doctest)
 target_compile_definitions(Integration.Composition PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)
 target_compile_options(Integration.Composition PRIVATE
     "$<$<CXX_COMPILER_ID:Clang>:-Wno-error=#warnings>" "$<$<CXX_COMPILER_ID:GNU>:-Wno-error=cpp>")

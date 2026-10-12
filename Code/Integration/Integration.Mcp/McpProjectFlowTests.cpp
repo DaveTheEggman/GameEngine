@@ -264,7 +264,7 @@ namespace
         // root - asset_cook/asset_import route through these.
         pipeline::RegisterPipelineTypes();
         pipeline::BuilderRegistry builders{DefaultAllocator()};
-        pipeline::RegisterAllBuilders(builders);
+        pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
         pipeline::ImporterRegistry importers{DefaultAllocator()};
         pipeline::RegisterAllImporters(importers);
 
@@ -412,7 +412,7 @@ TEST_CASE("integration.mcp: asset_import names the other claimants of an extensi
     std::filesystem::remove_all("mcp_import_claimants", ec);
     pipeline::RegisterPipelineTypes();
     pipeline::BuilderRegistry builders{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     pipeline::ImporterRegistry importers{DefaultAllocator()};
     pipeline::RegisterAllImporters(importers);
 

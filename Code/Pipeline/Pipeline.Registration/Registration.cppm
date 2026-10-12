@@ -39,8 +39,10 @@ export namespace pipeline
 
     /// Populate `registry` with every asset builder the engine ships. Independent of
     /// RegisterPipelineTypes (constructs builder instances; needs no prior type registration),
-    /// but a cook needs both. Idempotent per registry (a fresh registry each call).
-    void RegisterAllBuilders(BuilderRegistry& registry);
+    /// but a cook needs both. Idempotent per registry (a fresh registry each call). `dataRoot`
+    /// is the engine data root the host resolved (its `--data-root`, else the discovery walk):
+    /// a custom shader's cook compiles against the engine's shader library under it.
+    void RegisterAllBuilders(BuilderRegistry& registry, StringView dataRoot);
 
     /// Populate `registry` with every OS-file importer the engine ships (the drag-drop / MCP
     /// asset_import surface): texture, model, UI, audio, script, font.

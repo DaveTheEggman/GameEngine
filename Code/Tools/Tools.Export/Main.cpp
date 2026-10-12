@@ -334,9 +334,19 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
+    // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
+    const String dataRoot = vfs::ResolveDataRoot(argc, argv);
+    if (dataRoot.IsEmpty())
+    {
+        std::fprintf(stderr, "Tools.Export: no data root (put Data/ with its .dataroot marker "
+                             "beside the tool, or pass --data-root <dir>)\n");
+        return 1;
+    }
+
     pipeline::BuilderRegistry builders{AppRoot()};
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, dataRoot.AsView());
     // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),
     // so the export cook compiles scripts against the same surface a running game has - the
     // foundation-only registration RegisterPipelineTypes performs is missing every Engine-level
@@ -371,15 +381,6 @@ int main(int argc, char** argv)
            editor::SceneReferences& out)
     { (void)engine::ScanSceneReferences(AppRoot(), instance, db, out.resources, out.prefabs); };
 
-    // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
-    // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
-    const String dataRoot = vfs::ResolveDataRoot(argc, argv);
-    if (dataRoot.IsEmpty())
-    {
-        std::fprintf(stderr, "Tools.Export: no data root (put Data/ with its .dataroot marker "
-                             "beside the tool, or pass --data-root <dir>)\n");
-        return 1;
-    }
 
     if (all)
     {

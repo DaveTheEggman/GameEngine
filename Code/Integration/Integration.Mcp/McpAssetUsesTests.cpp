@@ -10,6 +10,7 @@
 #include <filesystem>
 #include "Core/Prelude.h"
 import foundation.core;
+import foundation.vfs; // FindDataRoot: the shader cook's engine library
 import foundation.json;
 import foundation.content;
 import foundation.resource;
@@ -116,7 +117,7 @@ TEST_CASE("integration.mcp: asset_uses - reverse dependencies across all edge ki
     editor::mcp::ProjectSession session;
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     engine::RegisterAllSceneComponentReflection();
     editor::mcp::ProjectOwner owner;
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
@@ -213,7 +214,7 @@ TEST_CASE("integration.mcp: project_health - the soundness sweep finds what brok
     editor::mcp::ProjectSession session;
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     engine::RegisterAllSceneComponentReflection();
     editor::mcp::ProjectOwner owner;
     editor::mcp::RegisterProjectOpenTools(server, session, owner);
@@ -346,7 +347,7 @@ TEST_CASE("integration.mcp: asset_delete - refused while used, unless forced")
     editor::mcp::ProjectSession session;
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     engine::RegisterAllSceneComponentReflection();
     editor::mcp::ProjectOwner owner;
     editor::mcp::InlineProjectOperations operations(session, builders, String(), String());

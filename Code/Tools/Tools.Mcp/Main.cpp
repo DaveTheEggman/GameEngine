@@ -79,19 +79,6 @@ int main(int argc, char** argv)
     // reflected field metadata registered before any scene stream deserializes.
     engine::RegisterAllSceneComponentReflection();
 
-    // The host's builder + importer registries (from the pipeline composition root); populated
-    // once, they outlive the server and back asset_cook / asset_import.
-    pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
-    pipeline::ImporterRegistry importers{foundation::core::DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
-    pipeline::RegisterAllImporters(importers);
-    // File > New's creators, every pipeline domain's (asset_creators / asset_create).
-    pipeline::AssetCreatorRegistry creators{foundation::core::DefaultAllocator()};
-    (void)pipeline::RegisterAllCreators(creators);
-
-    McpServer server;
-    server.SetServerInfo(u8"engine-mcp", u8"0.1.0");
-
     // The engine data root (the shader cook reads <dataRoot>/Shaders): --data-root, else the
     // Data/.dataroot walk from this tool's executable - the same mechanism every executable uses.
     const String dataRoot = foundation::vfs::ResolveDataRoot(argc, argv);
@@ -101,6 +88,20 @@ int main(int argc, char** argv)
                              "beside the tool, or pass --data-root <dir>)\n");
         return 1;
     }
+
+    // The host's builder + importer registries (from the pipeline composition root); populated
+    // once, they outlive the server and back asset_cook / asset_import.
+    pipeline::BuilderRegistry builders{foundation::core::DefaultAllocator()};
+    pipeline::ImporterRegistry importers{foundation::core::DefaultAllocator()};
+    pipeline::RegisterAllBuilders(builders, dataRoot.AsView());
+    pipeline::RegisterAllImporters(importers);
+    // File > New's creators, every pipeline domain's (asset_creators / asset_create).
+    pipeline::AssetCreatorRegistry creators{foundation::core::DefaultAllocator()};
+    (void)pipeline::RegisterAllCreators(creators);
+
+    McpServer server;
+    server.SetServerInfo(u8"engine-mcp", u8"0.1.0");
+
 
     // The session every tool works through; this host OWNS the project it opens (project_open
     // stores it in `owner` and points the session at it). Both outlive the server.

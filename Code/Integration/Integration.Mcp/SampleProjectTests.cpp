@@ -203,7 +203,7 @@ namespace
         // facades) used to race - a double free that aborted Tools.Cook on PaperKid.
         {
             pipeline::BuilderRegistry builders{DefaultAllocator()};
-            pipeline::RegisterAllBuilders(builders);
+            pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
             pipeline::ImporterRegistry importers{DefaultAllocator()};
             pipeline::RegisterAllImporters(importers);
             foundation::mcp::McpServer server;

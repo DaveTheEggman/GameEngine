@@ -65,6 +65,10 @@ TEST_CASE("shader resource: built via the resource manager; reload bumps version
         s.name = String(u8"lit");
         s.vertexSource = String(kVtx);
         s.fragmentSource = String(kFrag);
+        // What a cook writes beside the source: each stage's entry and declared lattice.
+        s.vertexEntryPoint = String(kCorpusEntryPoint);
+        s.fragmentEntryPoint = String(kCorpusEntryPoint);
+        s.fragmentVariantMask = static_cast<u32>(ShaderFlags::NormalMap);
         REQUIRE(inst->WriteObject(s).IsOk());
     }
 

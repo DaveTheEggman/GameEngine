@@ -11,6 +11,7 @@
 #include "Core/Prelude.h"
 
 import foundation.core;
+import foundation.vfs; // FindDataRoot: the shader cook's engine library
 import foundation.resource;
 import engine.composition;    // FullComposition: every factory description
 import pipeline.core;         // BuilderRegistry
@@ -25,7 +26,7 @@ TEST_CASE("integration.composition: every factory the composition describes read
     engine::RegisterAllResourceTypes();
     pipeline::RegisterPipelineTypes();
     pipeline::BuilderRegistry builders{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     REQUIRE(builders.Count() == pipeline::kBuilderCount);
 
     usize checked = 0;

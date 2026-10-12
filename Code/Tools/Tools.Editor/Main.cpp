@@ -131,7 +131,7 @@ namespace
     // RegisterPipelineTypes() + RegisterAllBuilders() below assemble the same set the CLI cooker
     // and export packager use. The editor ADDS its per-language editor-UI services (CodeEditView
     // lexers) on top - those are editor-only and stay host-side.
-    void RegisterEditorBuilders(pipeline::BuilderRegistry& registry)
+    void RegisterEditorBuilders(pipeline::BuilderRegistry& registry, StringView dataRoot)
     {
         // Core reflection FIRST: property bindings (property-animation capture/preview) walk
         // TypeOf<Transform>()'s PATCHED properties. Without this the patch only happened
@@ -143,7 +143,7 @@ namespace
         // file loads in the app ctor; see RegisterNavigationEditorSettingsTypes).
         editor::navigation::RegisterNavigationEditorSettingsTypes();
         editor::RegisterGameAudioEditorSettingsTypes();
-        pipeline::RegisterAllBuilders(registry);
+        pipeline::RegisterAllBuilders(registry, dataRoot);
         // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/...
         // facades), so BOTH the editor's cook AND its live script validation (ScriptApiSurface
         // reads the same global registry) compile against the surface a running game has. The
@@ -358,7 +358,7 @@ int main(int argc, char** argv)
         editor::RegisterScriptEditor(app.Context());
         // File > New: every pipeline domain's creators, the scripts' among them.
         (void)pipeline::RegisterAllCreators(app.Context().Creators());
-        RegisterEditorBuilders(app.Builders()); // the cook service routes through this set
+        RegisterEditorBuilders(app.Builders(), g_dataRoot.AsView()); // the cook service's set
 
         // OS-file importers (drag-drop onto the editor) - the same set the MCP asset_import tool
         // uses, from the composition root.

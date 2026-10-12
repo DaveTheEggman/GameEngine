@@ -5,6 +5,7 @@
 // project, registers every builder, plans + executes the incremental cook.
 //
 // Usage: Tools.Cook <projectDirectory> [--rebuild] [--dry-run] [--target <id>]
+//                   [--data-root <dir>]
 //   --rebuild        force-cook every buildable asset (the "forgot the version bump" big hammer)
 //   --dry-run        print the plan (dirty set + orphans) without cooking
 //   --target <id>    cook a per-target DB under Cooked/<id>/ instead of the host DB (asset-variants).
@@ -45,7 +46,8 @@ int main(int argc, char** argv)
 {
     if (argc < 2)
     {
-        std::fprintf(stderr, "usage: Tools.Cook <projectDirectory> [--rebuild] [--dry-run]\n");
+        std::fprintf(stderr, "usage: Tools.Cook <projectDirectory> [--rebuild] [--dry-run] "
+                             "[--target <id>] [--data-root <dir>]\n");
         return 1;
     }
     bool rebuild = false;
@@ -70,6 +72,10 @@ int main(int argc, char** argv)
             }
             targetId = StringView(reinterpret_cast<const utf8char*>(argv[++i]));
         }
+        else if (std::strcmp(argv[i], "--data-root") == 0 && i + 1 < argc)
+        {
+            ++i; // ResolveDataRoot reads it below; the loop only has to step over it
+        }
         else
         {
             std::fprintf(stderr, "unknown option: %s\n", argv[i]);
@@ -89,9 +95,19 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    // The engine data root (a custom shader's cook compiles against <dataRoot>/Shaders):
+    // --data-root, else the Data/.dataroot walk from this tool's executable.
+    const String dataRoot = foundation::vfs::ResolveDataRoot(argc, argv);
+    if (dataRoot.IsEmpty())
+    {
+        std::fprintf(stderr, "Tools.Cook: no data root (put Data/ with its .dataroot marker "
+                             "beside the tool, or pass --data-root <dir>)\n");
+        return 1;
+    }
+
     pipeline::BuilderRegistry registry{AppRoot()};
     pipeline::RegisterPipelineTypes(); // every asset/product/resource type + script cooks
-    pipeline::RegisterAllBuilders(registry);
+    pipeline::RegisterAllBuilders(registry, dataRoot.AsView());
     // The COMPLETE engine script surface into the global registry (run/ui/physics/audio/... facades),
     // so script cooks compile against the same surface a running game has - the foundation-only
     // registration RegisterPipelineTypes performs is missing every Engine-level facade. Metadata

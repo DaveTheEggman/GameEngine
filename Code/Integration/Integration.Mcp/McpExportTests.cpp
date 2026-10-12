@@ -67,7 +67,7 @@ TEST_CASE("integration.mcp: project_export - a real dist from an authored projec
 
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     engine::RegisterAllSceneComponentReflection();
 
     McpServer server;

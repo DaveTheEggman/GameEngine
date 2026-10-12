@@ -109,7 +109,7 @@ TEST_CASE("integration.mcp: the full agent flow - create, import, cook, author, 
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::ImporterRegistry importers{DefaultAllocator()};
     pipeline::RegisterPipelineTypes();
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     pipeline::RegisterAllImporters(importers);
     engine::RegisterAllSceneComponentReflection();
 
@@ -913,7 +913,7 @@ TEST_CASE("integration.mcp: a headless model import generates its prefab")
     pipeline::BuilderRegistry builders{DefaultAllocator()};
     pipeline::ImporterRegistry importers{DefaultAllocator()};
     pipeline::AssetCreatorRegistry creators{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     pipeline::RegisterAllImporters(importers);
     editor::EditorLogBuffer logBuffer{DefaultAllocator()};
     editor::mcp::ProjectSession session;

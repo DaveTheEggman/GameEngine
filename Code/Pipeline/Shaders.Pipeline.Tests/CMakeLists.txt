@@ -1,4 +1,4 @@
-# Pipeline::Shaders unit tests (doctest; VFS + content DB; no GPU/DXC).
+# Pipeline::Shaders unit tests (doctest; VFS + content DB + DXC; no GPU).
 
 add_executable(Shaders.Pipeline.Tests
     TestsMain.cpp
@@ -6,7 +6,7 @@ add_executable(Shaders.Pipeline.Tests
     ShaderReflectionTests.cpp)
 
 target_link_libraries(Shaders.Pipeline.Tests PRIVATE
-    Pipeline::Shaders doctest::doctest)
+    Pipeline::Shaders Foundation::Shaders Foundation::VFS doctest::doctest)
 
 target_compile_definitions(Shaders.Pipeline.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

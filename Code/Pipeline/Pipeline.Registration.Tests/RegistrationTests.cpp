@@ -26,7 +26,7 @@ TEST_CASE("pipeline.registration: RegisterAllBuilders populates exactly kBuilder
 {
     pipeline::BuilderRegistry registry{DefaultAllocator()};
     CHECK(registry.Count() == 0u);
-    pipeline::RegisterAllBuilders(registry);
+    pipeline::RegisterAllBuilders(registry, foundation::vfs::FindDataRoot());
     CHECK(registry.Count() == pipeline::kBuilderCount);
 }
 
@@ -47,7 +47,7 @@ TEST_CASE("pipeline.registration: RegisterPipelineTypes runs the whole set witho
 
     // Routing still works after registration: a fresh builder set resolves by asset type name.
     pipeline::BuilderRegistry registry{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(registry);
+    pipeline::RegisterAllBuilders(registry, foundation::vfs::FindDataRoot());
     CHECK(registry.Count() == pipeline::kBuilderCount);
 }
 
@@ -109,7 +109,7 @@ TEST_CASE("pipeline.registration: every builder's ProductType is a registered se
     // all builders, including builder N+1.
     pipeline::RegisterPipelineTypes();
     pipeline::BuilderRegistry registry{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(registry);
+    pipeline::RegisterAllBuilders(registry, foundation::vfs::FindDataRoot());
     REQUIRE(registry.Count() == pipeline::kBuilderCount);
 
     registry.ForEach(

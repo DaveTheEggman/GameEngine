@@ -157,7 +157,7 @@ namespace pipeline
         RegisterSerializable<foundation::scene::SceneDocument>();
     }
 
-    void RegisterAllBuilders(BuilderRegistry& registry)
+    void RegisterAllBuilders(BuilderRegistry& registry, StringView dataRoot)
     {
         AddBuilder<TextureAssetBuilder>(registry);
         AddBuilder<RenderTextureAssetBuilder>(registry);
@@ -174,7 +174,8 @@ namespace pipeline
         AddBuilder<AnimationGraphAssetBuilder>(registry);
         AddBuilder<PropertyAnimationClipAssetBuilder>(registry);
         AddBuilder<MaterialAssetBuilder>(registry);
-        AddBuilder<ShaderAssetBuilder>(registry);
+        registry.Register(UniquePtr<IAssetBuilder>(
+            registry.Allocator().New<ShaderAssetBuilder>(dataRoot), registry.Allocator()));
         AddBuilder<ParticleEffectAssetBuilder>(registry);
         AddBuilder<InputMapAssetBuilder>(registry);
         AddBuilder<ModelManifestAssetBuilder>(registry);

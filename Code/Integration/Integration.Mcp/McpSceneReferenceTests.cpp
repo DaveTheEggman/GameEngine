@@ -52,7 +52,7 @@ namespace
         Fixture()
         {
             RemoveDb();
-            pipeline::RegisterAllBuilders(builders);
+            pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
         }
         ~Fixture() { RemoveDb(); }
 
@@ -394,7 +394,7 @@ TEST_CASE("integration.mcp: scene reference - RegisterEngineTools serves both ge
           "and component_schema, generated from the host's own registrations")
 {
     pipeline::BuilderRegistry builders{DefaultAllocator()};
-    pipeline::RegisterAllBuilders(builders);
+    pipeline::RegisterAllBuilders(builders, foundation::vfs::FindDataRoot());
     pipeline::ImporterRegistry importers{DefaultAllocator()};
     editor::EditorLogBuffer logBuffer{DefaultAllocator()};
     editor::mcp::ProjectSession session; // the stdio host's shape: no project open

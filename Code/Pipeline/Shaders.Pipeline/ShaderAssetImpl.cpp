@@ -5,7 +5,7 @@
 //
 // Kept OUT of the ShaderAsset.cppm interface (REFLECT_MEMBERS bodies make GCC emit a gcm cluster;
 // see gcc-module-interface-hygiene). ShaderAsset::StaticType() gains its authored string
-// properties here. No enums, so the type reflection rides StaticType() with no registrar change.
+// properties (name, entry points) here. No enums, so the type reflection rides StaticType() with no registrar change.
 
 module;
 #include "Core/Prelude.h"
@@ -27,8 +27,11 @@ namespace pipeline{
             .Property<&ShaderAsset::name>("name")
             .PropAttribute("displayName", String(u8"Name"))
             .PropAttribute("description", String(u8"Logical name materials reference"))
-            .Property<&ShaderAsset::fragmentFile>("fragmentFile")
-            .PropAttribute("displayName", String(u8"Fragment File"))
-            .PropAttribute("description", String(u8"Fragment-stage HLSL (vertex = the asset file)"));
+            .Property<&ShaderAsset::vertexEntryPoint>("vertexEntryPoint")
+            .PropAttribute("displayName", String(u8"Vertex Entry Point"))
+            .PropAttribute("description", String(u8"The vertex stage's function in the file"))
+            .Property<&ShaderAsset::fragmentEntryPoint>("fragmentEntryPoint")
+            .PropAttribute("displayName", String(u8"Fragment Entry Point"))
+            .PropAttribute("description", String(u8"The fragment stage's function in the file"));
     }
 }
