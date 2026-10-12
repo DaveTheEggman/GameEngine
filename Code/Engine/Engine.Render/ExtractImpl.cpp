@@ -50,7 +50,11 @@ namespace engine::render
         switch (m->pipeline.blendMode)
         {
         case materials::BlendMode::Opaque:
-            return RenderCategories::Opaque;
+            // A material whose shader moves its vertices draws its depth with a program of its own
+            // (Material::depthShaderName), compiled apart from its forward program: the two need not
+            // place a vertex to the last bit, and the forward pass's equal test against the camera
+            // depth prepass would flicker where they differ. Out of the prepass, as a fading mesh is.
+            return m->depthShaderName.IsEmpty() ? RenderCategories::Opaque : RenderCategories::Masked;
         case materials::BlendMode::Masked:
             return RenderCategories::Masked;
         default:

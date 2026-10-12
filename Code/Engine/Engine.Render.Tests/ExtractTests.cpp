@@ -1777,3 +1777,18 @@ TEST_CASE("extract: a reflection probe's capture requests reach the extracted pr
     REQUIRE(after.ReflectionProbes().Size() == 1u);
     CHECK(after.ReflectionProbes()[0].captureRequest != before.ReflectionProbes()[0].captureRequest);
 }
+
+// The camera depth prepass holds only what its forward draw will place on exactly the same depth:
+// an opaque material whose shader moves its vertices with a depth program of its own (a surface
+// shader's Vertex()) is drawn without it, as a fading mesh is; masked and blended keep theirs.
+TEST_CASE("extract: a material with its own depth program stays out of the depth prepass")
+{
+    RefPtr<materials::Material> plain = materials::CreatePBR(u8"plain");
+    CHECK(CategoryForMaterial(plain.Get()) == RenderCategories::Opaque);
+    RefPtr<materials::Material> waves = materials::CreatePBR(u8"waves");
+    waves->depthShaderName = String(u8"waves.depth");
+    CHECK(CategoryForMaterial(waves.Get()) == RenderCategories::Masked);
+    waves->pipeline.blendMode = materials::BlendMode::AlphaBlend;
+    CHECK(CategoryForMaterial(waves.Get()) == RenderCategories::Transparent);
+    CHECK(CategoryForMaterial(nullptr) == RenderCategories::Opaque);
+}
