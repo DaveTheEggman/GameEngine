@@ -304,8 +304,7 @@ export namespace editor
             {
                 return false;
             }
-            shader->vertexSource = String();
-            shader->fragmentSource = String();
+            shader->StripSources(); // every program's HLSL
             foundation::content::Instance* staged = group->CreateInstanceWithId(
                 product.Id(), product.Name(), foundation::shaders::ShaderSource::StaticType());
             return staged != nullptr && staged->WriteObject(*shader).IsOk();

@@ -151,8 +151,9 @@ float4 PSMain(VSOutput input) : SV_Target0 {
             return &ShaderSource::StaticType();
         }
         // v2: the product names each stage's entry point. v3: one file, compiled at cook time;
-        // the product carries the expanded source, the lattices and the property table.
-        [[nodiscard]] u32 Version() const override { return 3; }
+        // the product carries the expanded source, the lattices and the property table. v4: the
+        // product carries programs beside the main one (a surface shader's depth and pick).
+        [[nodiscard]] u32 Version() const override { return 4; }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,
                                    pipeline::AssetBuildContext& ctx) override

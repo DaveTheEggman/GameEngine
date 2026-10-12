@@ -278,6 +278,8 @@ export namespace foundation::materials
             // Resolve the shader: a cooked ShaderResource (by id, recording the material->shader edge)
             // or a builtin shader named directly (shaderName) when no resource id is given.
             String shaderName;
+            String depthName;
+            String pickName;
             if (!src->shaderId.IsNil())
             {
                 Proxy<shaders::ShaderResource> shader =
@@ -285,6 +287,10 @@ export namespace foundation::materials
                 if (shader)
                 {
                     shaderName = String(shader->Name());
+                    // Its own depth and pick programs, where it needs them.
+                    const bool masked = src->blendMode == BlendMode::Masked;
+                    depthName = String(shader->DepthProgram(masked));
+                    pickName = String(shader->PickProgram(masked));
                 }
             }
             if (shaderName.IsEmpty())
@@ -294,6 +300,8 @@ export namespace foundation::materials
 
             RefPtr<Material> material =
                 MaterialFromSource(DefaultAllocator(), *src, shaderName.AsView());
+            material->depthShaderName = Move(depthName);
+            material->pickShaderName = Move(pickName);
 
             // Default texture bindings: resolve each through the manager (the Bind records the
             // material->texture edge, so a texture reload rebuilds this material) and install as

@@ -190,7 +190,8 @@ namespace editor
             shaders::CookedShaderPack pack;
             shaders::ShaderCookReport report = shaders::CookEngineShaders(*compiler, opts, pack);
 
-            // The project's shaders: each stage under its entry point and lattice, every variant,
+            // The project's shaders: each program's stages under their entry points and lattices
+            // (a surface shader's depth and pick beside its main one), every variant,
             // with the engine library on the include path (what their cook compiled against).
             const StringView includePaths[] = {shaderDir.AsView()};
             shaders::WgslTranslator translator(*compiler, outputDir);
@@ -207,18 +208,20 @@ namespace editor
                     continue;
                 }
                 const String sourceName = Format(u8"{}.hlsl", source->name);
-                (void)shaders::CookShaderStage(
-                    *compiler, translator, source->name.AsView(), shaders::ShaderStage::Vertex,
-                    source->vertexSource.AsView(), source->vertexEntryPoint.AsView(),
-                    static_cast<shaders::ShaderFlags>(source->vertexVariantMask),
-                    sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
-                    report);
-                (void)shaders::CookShaderStage(
-                    *compiler, translator, source->name.AsView(), shaders::ShaderStage::Fragment,
-                    source->fragmentSource.AsView(), source->fragmentEntryPoint.AsView(),
-                    static_cast<shaders::ShaderFlags>(source->fragmentVariantMask),
-                    sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
-                    report);
+                for (const shaders::ShaderProgram& program : source->Programs())
+                {
+                    (void)shaders::CookShaderStage(
+                        *compiler, translator, program.name.AsView(), shaders::ShaderStage::Vertex,
+                        program.vertexSource, program.vertexEntryPoint, program.vertexVariantMask,
+                        sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
+                        report);
+                    (void)shaders::CookShaderStage(
+                        *compiler, translator, program.name.AsView(),
+                        shaders::ShaderStage::Fragment, program.fragmentSource,
+                        program.fragmentEntryPoint, program.fragmentVariantMask,
+                        sourceName.AsView(), opts, Span<const StringView>(includePaths, 1), pack,
+                        report);
+                }
             }
             report.success = report.errors.IsEmpty();
             compiler->Destroy();

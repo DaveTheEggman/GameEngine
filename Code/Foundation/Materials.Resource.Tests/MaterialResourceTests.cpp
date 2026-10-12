@@ -106,6 +106,8 @@ TEST_CASE("material resource: built via the manager; resolves shader + records t
     REQUIRE(mat);
     CHECK(mat->name == u8"litMat");
     CHECK(mat->shaderName == u8"lit"); // resolved from the bound ShaderResource
+    CHECK(mat->depthShaderName.IsEmpty()); // no programs of its own: the built-in depth and pick
+    CHECK(mat->pickShaderName.IsEmpty());
     CHECK(mat->PropertyCount() == 3);
     CHECK(mat->UniformDataSize() == 32); // float4 (16) + float (4), 16-byte rounded
 
@@ -334,4 +336,88 @@ TEST_CASE("material source: MaterialFromSource carries layout, defaults and rend
     CHECK(def->offset == 4u);
     REQUIRE(material->DefaultUniformData().Size() >= 8u);
     CHECK(*reinterpret_cast<const f32*>(material->DefaultUniformData().Data() + 4) == 4.0f);
+}
+
+// A material on a shader with its own depth and pick programs draws the depth-like passes with
+// them: always when the shader moves its vertices, else only when the material is masked.
+TEST_CASE("material resource: a material takes its shader's depth and pick programs where needed")
+{
+    shaders::Compiler* compiler = nullptr;
+    if (!shaders::createCompiler(shaders::CompilerDesc{}, compiler).IsOk())
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    GlobalTypeRegistry().Register(shaders::ShaderSource::StaticType());
+    RegisterSerializable<shaders::ShaderSource>();
+    GlobalTypeRegistry().Register(shaders::ShaderResource::StaticType());
+    GlobalTypeRegistry().Register(MaterialSource::StaticType());
+    RegisterSerializable<MaterialSource>();
+    GlobalTypeRegistry().Register(Material::StaticType());
+    RemoveTree();
+    FileDelete(u8"scratch_mat_res_db/opaque_mat.rasset");
+    FileDelete(u8"scratch_mat_res_db/masked_mat.rasset");
+    NativeFileSystem mount(u8"scratch_mat_res_db", DefaultAllocator());
+
+    const auto run = [&](bool always) -> Array<String>
+    {
+        Guid shaderId, opaqueId, maskedId;
+        {
+            foundation::content::ContentDatabase db(DefaultAllocator(), mount,
+                                                    BinarySerializerFactory(), u8".rasset");
+            auto* shaderInst =
+                db.RootGroup()->CreateInstance(u8"lit_shader", shaders::ShaderSource::StaticType());
+            shaderId = shaderInst->Id();
+            shaders::ShaderSource ss;
+            ss.name = String(u8"lit");
+            ss.vertexSource = String(kVtx);
+            ss.fragmentSource = String(kFrag);
+            ss.AddProgram(shaders::kDepthProgramSuffix, kVtx, u8"main", shaders::ShaderFlags::None,
+                          kFrag, u8"main", shaders::ShaderFlags::None);
+            ss.AddProgram(shaders::kPickProgramSuffix, kVtx, u8"main", shaders::ShaderFlags::None,
+                          kFrag, u8"main", shaders::ShaderFlags::None);
+            ss.depthProgramsAlways = always;
+            REQUIRE(shaderInst->WriteObject(ss).IsOk());
+            RefPtr<Material> authored = MaterialBuilder(u8"m").Shader(u8"lit").Float(u8"x", 1.0f).Build();
+            for (int masked = 0; masked < 2; ++masked)
+            {
+                MaterialSource ms;
+                MaterialSource::FromMaterial(*authored, shaderId, ms);
+                ms.blendMode = masked ? BlendMode::Masked : BlendMode::Opaque;
+                auto* inst = db.RootGroup()->CreateInstance(masked ? u8"masked_mat" : u8"opaque_mat",
+                                                            MaterialSource::StaticType());
+                (masked ? maskedId : opaqueId) = inst->Id();
+                REQUIRE(inst->WriteObject(ms).IsOk());
+            }
+        }
+        foundation::content::ContentDatabase db(DefaultAllocator(), mount,
+                                                BinarySerializerFactory(), u8".rasset");
+        rhi::null::NullDevice device{DefaultAllocator()};
+        shaders::ShaderSystem system(*compiler, device);
+        shaders::ShaderFactory shaderFactory(DefaultAllocator(), system);
+        MaterialFactory materialFactory;
+        ResourceManager manager(DefaultAllocator(), db);
+        manager.AddFactory(&shaderFactory);
+        manager.AddFactory(&materialFactory);
+        Proxy<Material> opaque = manager.Bind<Material>(opaqueId);
+        Proxy<Material> masked = manager.Bind<Material>(maskedId);
+        REQUIRE(opaque);
+        REQUIRE(masked);
+        Array<String> names;
+        names.PushBack(String(opaque->depthShaderName.AsView()));
+        names.PushBack(String(masked->depthShaderName.AsView()));
+        names.PushBack(String(masked->pickShaderName.AsView()));
+        FileDelete(u8"scratch_mat_res_db/opaque_mat.rasset");
+        FileDelete(u8"scratch_mat_res_db/masked_mat.rasset");
+        RemoveTree();
+        return names;
+    };
+
+    const Array<String> onlyMasked = run(false);
+    CHECK(onlyMasked[0].IsEmpty()); // opaque, still: the built-in depth
+    CHECK(onlyMasked[1] == u8"lit.depth");
+    CHECK(onlyMasked[2] == u8"lit.pick");
+    const Array<String> always = run(true);
+    CHECK(always[0] == u8"lit.depth"); // it moves its vertices: its own depth, opaque too
+    compiler->Destroy();
 }
