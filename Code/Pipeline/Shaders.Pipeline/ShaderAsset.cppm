@@ -12,6 +12,8 @@
 //     `File.hlsl:line: message` (the cook keeps the last good product); success writes a
 //     ShaderSource carrying the expanded source, both entries, both lattices and the property
 //     table every material on the shader is laid out by.
+//   * CheckShaderSource (:check): what the cook proves, as data - the editor and the MCP tools
+//     check a shader with it without cooking.
 //   * ShaderImporter: an authoring helper that fills a ShaderAsset from a file path.
 //
 // Reads the .hlsl text through the build context's sources mount (all file access via the
@@ -31,6 +33,7 @@ import foundation.shaders;
 import foundation.shaders.system; // kShaderFolder: the engine's shader library under the data root
 import foundation.shaders.resource;
 import foundation.content;
+export import :check;
 
 using namespace foundation::core;
 using namespace foundation::shaders;
@@ -107,54 +110,32 @@ export namespace pipeline{
                 return read;
             }
 
-            // The properties block becomes the set-2 declarations; `#line` keeps the author's
-            // line numbers for everything after it.
-            String expanded;
-            const ShaderPropertiesBlock block =
-                ExpandShaderProperties(text.AsView(), file, expanded);
-            for (const ShaderPropertyError& e : block.errors)
+            // What the cook proves: the block expands, every flag tested is declared, and every
+            // variant of both stages compiles. Each error is logged where it is, and fails it.
+            ShaderCheckOptions options;
+            options.vertexEntryPoint = sa.vertexEntryPoint.AsView();
+            options.fragmentEntryPoint = sa.fragmentEntryPoint.AsView();
+            options.shaderLibrary = m_shaderLibrary.AsView();
+            options.depth = ShaderCheckDepth::EveryVariant;
+            const ShaderCheck check = CheckShaderSource(text.AsView(), file, options);
+            for (const ShaderDiagnostic& d : check.errors)
             {
-                LOG_ERROR(u8"Shaders", u8"{}:{}: {} - cook failed", file, e.line, e.message);
+                LOG_ERROR(u8"Shaders", u8"{} - cook failed", FormatShaderDiagnostic(d));
             }
-            if (!block.IsOk())
-            {
-                return Status{ErrorCode::InvalidArgument};
-            }
-
-            // Each stage's lattice; a flag the file tests but no stage declares would never be
-            // compiled, so it fails the cook (the corpus's drift lint, over both stages).
-            const ShaderFlags vertexMask = ParseStageVariantDirective(text.AsView(),
-                                                                      ShaderStage::Vertex).mask;
-            const ShaderFlags fragmentMask = ParseStageVariantDirective(text.AsView(),
-                                                                        ShaderStage::Fragment).mask;
-            Array<StringView> undeclared;
-            FindUndeclaredFlagUses(text.AsView(), vertexMask | fragmentMask, undeclared);
-            for (const StringView flag : undeclared)
-            {
-                LOG_ERROR(u8"Shaders",
-                          u8"{}: tests {} but no stage declares it (add it to a "
-                          u8"// variants(vertex): or // variants(fragment): line) - cook failed",
-                          file, flag);
-            }
-            if (!undeclared.IsEmpty())
-            {
-                return Status{ErrorCode::InvalidArgument};
-            }
-
-            if (!CompileEveryVariant(file, expanded.AsView(), sa, vertexMask, fragmentMask))
+            if (!check.IsOk())
             {
                 return Status{ErrorCode::InvalidArgument};
             }
 
             ShaderSource source;
             source.name = sa.name;
-            source.vertexSource = expanded;
-            source.fragmentSource = expanded;
+            source.vertexSource = check.expanded;
+            source.fragmentSource = check.expanded;
             source.vertexEntryPoint = sa.vertexEntryPoint;
             source.fragmentEntryPoint = sa.fragmentEntryPoint;
-            source.vertexVariantMask = static_cast<u32>(vertexMask);
-            source.fragmentVariantMask = static_cast<u32>(fragmentMask);
-            source.SetProperties(block);
+            source.vertexVariantMask = static_cast<u32>(check.vertexMask);
+            source.fragmentVariantMask = static_cast<u32>(check.fragmentMask);
+            source.SetProperties(check.block);
             return ctx.output->WriteObject(source);
         }
 
@@ -179,71 +160,6 @@ export namespace pipeline{
                 }
             }
             return {};
-        }
-
-        // Compiles both stages' every declared variant to SPIR-V, logging each failure as DXC
-        // reports it (`File.hlsl:line:col: error: ...`). True when all compile.
-        [[nodiscard]] bool CompileEveryVariant(StringView file, StringView expanded,
-                                               const ShaderAsset& sa, ShaderFlags vertexMask,
-                                               ShaderFlags fragmentMask) const
-        {
-            Compiler* compiler = nullptr;
-            if (!createCompiler(CompilerDesc{}, compiler).IsOk() || compiler == nullptr)
-            {
-                LOG_ERROR(u8"Shaders", u8"{}: the DXC compiler is unavailable - cook failed", file);
-                return false;
-            }
-            const StringView includePaths[] = {m_shaderLibrary.AsView()};
-            const struct
-            {
-                ShaderStage stage;
-                StringView entryPoint;
-                ShaderFlags mask;
-            } stages[2] = {{ShaderStage::Vertex, sa.vertexEntryPoint.AsView(), vertexMask},
-                           {ShaderStage::Fragment, sa.fragmentEntryPoint.AsView(), fragmentMask}};
-
-            bool ok = true;
-            for (const auto& stage : stages)
-            {
-                Array<ShaderFlags> variants;
-                EnumerateVariants(stage.mask, variants);
-                for (const ShaderFlags flags : variants)
-                {
-                    Array<ShaderDefine> defines;
-                    AppendDefines(flags, defines);
-                    CompileOptions options{};
-                    options.defines = Span<const ShaderDefine>(defines.Data(), defines.Size());
-                    options.includePaths = m_shaderLibrary.IsEmpty()
-                                               ? Span<const StringView>{}
-                                               : Span<const StringView>(includePaths, 1);
-                    options.bindingShifts = BindingShifts::Standard();
-                    options.bindingShiftSets = 4;
-                    options.sourceName = file;
-                    CompileResult result{};
-                    (void)compiler->compile(reinterpret_cast<const u8*>(expanded.Data()),
-                                            expanded.Size(), stage.stage, stage.entryPoint,
-                                            ShaderTarget::SPIRV, options, result);
-                    if (!result.success)
-                    {
-                        ok = false;
-                        LOG_ERROR(u8"Shaders", u8"{} ({}, variant flags {}) - cook failed: {}",
-                                  file, stage.entryPoint, static_cast<u32>(flags),
-                                  StringView(reinterpret_cast<const char8_t*>(
-                                      result.messages != nullptr ? result.messages : "")));
-                    }
-                    compiler->freeResult(result);
-                    if (!ok)
-                    {
-                        break; // one stage's first failure says what is wrong; the rest repeat it
-                    }
-                }
-                if (!ok)
-                {
-                    break;
-                }
-            }
-            compiler->Destroy();
-            return ok;
         }
 
         String m_shaderLibrary; // <data root>/Shaders, the include path

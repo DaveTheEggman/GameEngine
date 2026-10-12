@@ -11,5 +11,6 @@ target_sources(Shaders.Pipeline
         ShaderAssetImpl.cpp
     PUBLIC
         FILE_SET shader_editor_modules TYPE CXX_MODULES FILES
-            ShaderAsset.cppm)
+            ShaderAsset.cppm
+            ShaderCheck.cppm)
 

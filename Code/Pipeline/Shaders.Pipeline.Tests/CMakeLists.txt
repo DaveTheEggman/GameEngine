@@ -2,6 +2,7 @@
 
 add_executable(Shaders.Pipeline.Tests
     TestsMain.cpp
+    ShaderCheckTests.cpp
     ShaderEditorTests.cpp
     ShaderReflectionTests.cpp)
 
