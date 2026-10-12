@@ -16,6 +16,7 @@ export module shaders.pipeline:check;
 
 import foundation.core;
 import foundation.shaders;
+import foundation.shaders.resource; // kDepthProgramSuffix, kPickProgramSuffix
 
 using namespace foundation::core;
 using namespace foundation::shaders;
@@ -52,14 +53,38 @@ export namespace pipeline
         Compiler* compiler = nullptr;
     };
 
-    // What a check found. `expanded`, the masks and `block` are valid whenever the properties
-    // block parsed; `errors` empty means the shader compiles at the depth asked.
+    // A surface shader's shading model (its `// surface:` line); None for a low-level shader.
+    enum class SurfaceModel : u8
+    {
+        None,
+        Lit,
+        Unlit,
+    };
+
+    // One program a shader compiles to: what the shader system registers under the shader's name
+    // plus `suffix` (empty for the main one).
+    struct ShaderCheckProgram
+    {
+        String suffix;
+        String text;
+        String vertexEntryPoint;
+        String fragmentEntryPoint;
+        ShaderFlags vertexMask = ShaderFlags::None;
+        ShaderFlags fragmentMask = ShaderFlags::None;
+    };
+
+    // What a check found. `expanded`, the masks, `block` and `programs` are valid whenever the
+    // properties block parsed (`expanded` and the masks are the main program's); `errors` empty
+    // means the shader compiles at the depth asked.
     struct ShaderCheck
     {
         ShaderPropertiesBlock block;
         String expanded;
         ShaderFlags vertexMask = ShaderFlags::None;
         ShaderFlags fragmentMask = ShaderFlags::None;
+        SurfaceModel surface = SurfaceModel::None;
+        bool hasVertex = false; // a surface shader's Vertex(): its depth programs replace the built-ins
+        Array<ShaderCheckProgram> programs;
         Array<ShaderDiagnostic> errors;
 
         [[nodiscard]] bool IsOk() const noexcept { return errors.IsEmpty(); }
@@ -167,7 +192,157 @@ export namespace pipeline
         return found;
     }
 
-    // Checks a shader's text as the cook would, saved as `file` (the name errors carry).
+    // A surface shader's lattices: the template's, the same for every surface shader.
+    inline constexpr ShaderFlags kSurfaceForwardVertexMask = ShaderFlags::Skinned | ShaderFlags::Instanced;
+    inline constexpr ShaderFlags kSurfaceForwardFragmentMask =
+        ShaderFlags::AlphaTest | ShaderFlags::GBuffer | ShaderFlags::Dither;
+    inline constexpr ShaderFlags kSurfaceDepthVertexMask =
+        ShaderFlags::Skinned | ShaderFlags::Instanced | ShaderFlags::AlphaTest;
+    inline constexpr ShaderFlags kSurfaceDepthFragmentMask = ShaderFlags::AlphaTest;
+
+    namespace detail
+    {
+        // The `// surface: lit` (or `unlit`) line, where the file says it is a surface shader. A
+        // `// surface:` line with another word is an error, reported at its line.
+        struct SurfaceDirective
+        {
+            SurfaceModel model = SurfaceModel::None;
+            u32 line = 0;
+            String bad; // the word that is neither lit nor unlit
+        };
+
+        [[nodiscard]] inline SurfaceDirective ParseSurfaceDirective(StringView text)
+        {
+            constexpr StringView kTag = u8"// surface:";
+            SurfaceDirective out;
+            u32 lineNo = 1;
+            usize start = 0;
+            while (start <= text.Size())
+            {
+                usize end = start;
+                while (end < text.Size() && text[end] != u8'\n')
+                {
+                    ++end;
+                }
+                StringView line = Trimmed(text.SubStr(start, end - start));
+                if (line.StartsWith(kTag))
+                {
+                    const StringView word = Trimmed(line.SubStr(kTag.Size(), line.Size() - kTag.Size()));
+                    out.line = lineNo;
+                    if (word == u8"lit")
+                    {
+                        out.model = SurfaceModel::Lit;
+                    }
+                    else if (word == u8"unlit")
+                    {
+                        out.model = SurfaceModel::Unlit;
+                    }
+                    else
+                    {
+                        out.bad = String(word);
+                    }
+                    return out;
+                }
+                if (end >= text.Size())
+                {
+                    break;
+                }
+                start = end + 1;
+                ++lineNo;
+            }
+            return out;
+        }
+
+        // Whether the text defines `void Vertex(` outside a comment (a commented-out example in a
+        // starter is not one).
+        [[nodiscard]] inline bool DefinesVertexFunction(StringView text)
+        {
+            usize i = 0;
+            const usize n = text.Size();
+            const auto isIdent = [](char8_t c)
+            {
+                return (c >= u8'a' && c <= u8'z') || (c >= u8'A' && c <= u8'Z') ||
+                       (c >= u8'0' && c <= u8'9') || c == u8'_';
+            };
+            while (i < n)
+            {
+                if (text[i] == u8'/' && i + 1 < n && text[i + 1] == u8'/')
+                {
+                    while (i < n && text[i] != u8'\n')
+                    {
+                        ++i;
+                    }
+                    continue;
+                }
+                if (text[i] == u8'/' && i + 1 < n && text[i + 1] == u8'*')
+                {
+                    i += 2;
+                    while (i + 1 < n && !(text[i] == u8'*' && text[i + 1] == u8'/'))
+                    {
+                        ++i;
+                    }
+                    i += 2;
+                    continue;
+                }
+                if (text.SubStr(i, Min<usize>(4, n - i)) == u8"void" && (i == 0 || !isIdent(text[i - 1])) &&
+                    i + 4 < n && !isIdent(text[i + 4]))
+                {
+                    usize k = i + 4;
+                    while (k < n && (text[k] == u8' ' || text[k] == u8'\t' || text[k] == u8'\n' || text[k] == u8'\r'))
+                    {
+                        ++k;
+                    }
+                    if (text.SubStr(k, Min<usize>(6, n - k)) == u8"Vertex")
+                    {
+                        k += 6;
+                        while (k < n && (text[k] == u8' ' || text[k] == u8'\t'))
+                        {
+                            ++k;
+                        }
+                        if (k < n && text[k] == u8'(')
+                        {
+                            return true;
+                        }
+                    }
+                }
+                ++i;
+            }
+            return false;
+        }
+
+        // One of a surface shader's programs: the engine's API, the author's (expanded) text with
+        // its own line numbers, the glue and the pass's template.
+        [[nodiscard]] inline String SurfaceProgramText(StringView expanded, StringView file,
+                                                      SurfaceModel model, bool hasVertex,
+                                                      bool hasAlphaCutoff, StringView passTemplate)
+        {
+            String out;
+            out += u8"// preserve-interface\n"; // a variant that does not read an input keeps it
+            out += u8"#define SURFACE_PROGRAM 1\n";
+            out += model == SurfaceModel::Lit ? StringView(u8"#define SURFACE_LIT 1\n")
+                                              : StringView(u8"#define SURFACE_UNLIT 1\n");
+            if (hasVertex)
+            {
+                out += u8"#define SURFACE_HAS_VERTEX 1\n";
+            }
+            if (hasAlphaCutoff)
+            {
+                out += u8"#define SURFACE_HAS_ALPHA_CUTOFF 1\n";
+            }
+            out += u8"#include \"surface/surface.hlsli\"\n";
+            out += Format(u8"#line 1 \"{}\"\n", file);
+            out += expanded;
+            out += u8"\n#include \"surface/glue.hlsli\"\n#include \"surface/";
+            out += passTemplate;
+            out += u8"\"\n";
+            return out;
+        }
+    }
+
+    // Checks a shader's text as the cook would, saved as `file` (the name errors carry). A
+    // low-level shader is one program, its stages' entries and lattices its own; a surface shader
+    // (a `// surface:` line) three, assembled around its Surface() and Vertex() from the engine's
+    // templates: the forward program, `.depth` and `.pick`.
     [[nodiscard]] inline ShaderCheck CheckShaderSource(StringView text, StringView file,
                                                        const ShaderCheckOptions& options = {})
     {
@@ -193,18 +368,84 @@ export namespace pipeline
             return check;
         }
 
-        // Each stage's lattice; a flag the file tests but no stage declares would never be
-        // compiled (the corpus's drift lint, over both stages).
-        check.vertexMask = ParseStageVariantDirective(text, ShaderStage::Vertex).mask;
-        check.fragmentMask = ParseStageVariantDirective(text, ShaderStage::Fragment).mask;
+        const detail::SurfaceDirective directive = detail::ParseSurfaceDirective(text);
+        if (!directive.bad.IsEmpty())
+        {
+            fail(directive.line, Format(u8"'{}' is not a surface model (lit or unlit)",
+                                        directive.bad).AsView());
+            return check;
+        }
+        check.surface = directive.model;
+
+        if (check.surface == SurfaceModel::None)
+        {
+            // Each stage's lattice; a flag the file tests but no stage declares would never be
+            // compiled (the corpus's drift lint, over both stages).
+            check.vertexMask = ParseStageVariantDirective(text, ShaderStage::Vertex).mask;
+            check.fragmentMask = ParseStageVariantDirective(text, ShaderStage::Fragment).mask;
+            ShaderCheckProgram main;
+            main.text = check.expanded;
+            main.vertexEntryPoint = String(options.vertexEntryPoint);
+            main.fragmentEntryPoint = String(options.fragmentEntryPoint);
+            main.vertexMask = check.vertexMask;
+            main.fragmentMask = check.fragmentMask;
+            check.programs.PushBack(Move(main));
+        }
+        else
+        {
+            // The variants are the template's; a variants line would say otherwise.
+            if (ParseStageVariantDirective(text, ShaderStage::Vertex).present ||
+                ParseStageVariantDirective(text, ShaderStage::Fragment).present)
+            {
+                fail(0, u8"a surface shader's variants are the engine's: remove its // variants "
+                        u8"lines");
+                return check;
+            }
+            check.hasVertex = detail::DefinesVertexFunction(text);
+            bool hasAlphaCutoff = false;
+            for (const ShaderProperty& p : check.block.properties)
+            {
+                hasAlphaCutoff = hasAlphaCutoff ||
+                                 (p.name == u8"AlphaCutoff" && p.type == ShaderPropertyType::Float);
+            }
+            const struct
+            {
+                StringView suffix;
+                StringView pass;
+                ShaderFlags vertexMask;
+                ShaderFlags fragmentMask;
+            } passes[3] = {
+                {StringView{}, u8"forward.hlsli", kSurfaceForwardVertexMask, kSurfaceForwardFragmentMask},
+                {kDepthProgramSuffix, u8"depth.hlsli", kSurfaceDepthVertexMask, kSurfaceDepthFragmentMask},
+                {kPickProgramSuffix, u8"pick.hlsli", kSurfaceDepthVertexMask, kSurfaceDepthFragmentMask},
+            };
+            for (const auto& pass : passes)
+            {
+                ShaderCheckProgram program;
+                program.suffix = String(pass.suffix);
+                program.text = detail::SurfaceProgramText(check.expanded.AsView(), file, check.surface,
+                                                          check.hasVertex, hasAlphaCutoff, pass.pass);
+                program.vertexEntryPoint = String(u8"VSMain");
+                program.fragmentEntryPoint = String(u8"PSMain");
+                program.vertexMask = pass.vertexMask;
+                program.fragmentMask = pass.fragmentMask;
+                check.programs.PushBack(Move(program));
+            }
+            check.expanded = check.programs[0].text;
+            check.vertexMask = kSurfaceForwardVertexMask;
+            check.fragmentMask = kSurfaceForwardFragmentMask;
+        }
+
         Array<StringView> undeclared;
         FindUndeclaredFlagUses(text, check.vertexMask | check.fragmentMask, undeclared);
         for (const StringView flag : undeclared)
         {
             String message(u8"tests ");
             message += flag;
-            message += u8" but no stage declares it (add it to a // variants(vertex): or "
-                       u8"// variants(fragment): line)";
+            message += check.surface == SurfaceModel::None
+                           ? StringView(u8" but no stage declares it (add it to a // variants(vertex): "
+                                        u8"or // variants(fragment): line)")
+                           : StringView(u8", which a surface shader does not compile");
             fail(0, message.AsView());
         }
         if (!undeclared.IsEmpty())
@@ -220,15 +461,17 @@ export namespace pipeline
             return check;
         }
 
-        const bool preserveInterface = ParsePreserveInterfaceDirective(text);
         const StringView includePaths[] = {options.shaderLibrary};
+        for (const ShaderCheckProgram& program : check.programs)
+        {
+        const bool preserveInterface = ParsePreserveInterfaceDirective(program.text.AsView());
         const struct
         {
             ShaderStage stage;
             StringView entryPoint;
             ShaderFlags mask;
-        } stages[2] = {{ShaderStage::Vertex, options.vertexEntryPoint, check.vertexMask},
-                       {ShaderStage::Fragment, options.fragmentEntryPoint, check.fragmentMask}};
+        } stages[2] = {{ShaderStage::Vertex, program.vertexEntryPoint.AsView(), program.vertexMask},
+                       {ShaderStage::Fragment, program.fragmentEntryPoint.AsView(), program.fragmentMask}};
         for (const auto& stage : stages)
         {
             Array<ShaderFlags> variants;
@@ -254,8 +497,8 @@ export namespace pipeline
                 compile.sourceName = file;
                 compile.preserveInterface = preserveInterface; // as the runtime compiles it
                 CompileResult result{};
-                (void)compiler->compile(reinterpret_cast<const u8*>(check.expanded.Data()),
-                                        check.expanded.Size(), stage.stage, stage.entryPoint,
+                (void)compiler->compile(reinterpret_cast<const u8*>(program.text.Data()),
+                                        program.text.Size(), stage.stage, stage.entryPoint,
                                         ShaderTarget::SPIRV, compile, result);
                 if (!result.success)
                 {
@@ -296,9 +539,46 @@ export namespace pipeline
                 break;
             }
         }
+        if (!check.errors.IsEmpty())
+        {
+            break; // the next program would report the same error in the author's text
+        }
+        }
         if (options.compiler == nullptr)
         {
             compiler->Destroy();
+        }
+
+        // A property named like one of the engine's own declarations (the vertex stage's `Tint`,
+        // say) is a redefinition DXC reports in the engine's file: report it at the property.
+        for (ShaderDiagnostic& d : check.errors)
+        {
+            constexpr StringView kRedefinition = u8"redefinition of '";
+            if (d.file.AsView() == file || !d.message.AsView().StartsWith(kRedefinition))
+            {
+                continue;
+            }
+            const StringView rest = d.message.AsView().SubStr(
+                kRedefinition.Size(), d.message.Size() - kRedefinition.Size());
+            const Optional<usize> quote = detail::FindIn(rest, u8"'");
+            if (!quote.HasValue())
+            {
+                continue;
+            }
+            const StringView name = rest.SubStr(0, *quote);
+            for (const ShaderProperty& p : check.block.properties)
+            {
+                if (p.name.AsView() == name)
+                {
+                    d.message = Format(u8"property '{}' takes a name the engine's shaders already "
+                                       u8"use ({}:{}); rename it",
+                                       name, d.file, d.line);
+                    d.file = String(file);
+                    d.line = p.line;
+                    d.column = 0;
+                    break;
+                }
+            }
         }
         return check;
     }

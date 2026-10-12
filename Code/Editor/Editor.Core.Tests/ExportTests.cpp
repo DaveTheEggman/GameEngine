@@ -870,6 +870,106 @@ TEST_CASE("export: ExportOne stages the resolved template's player + sidecars al
 // A project's custom shader ships as bytecode: the export cooks both its stages, every declared
 // variant under its entry point, into the dist's shader pack beside the engine's, so a
 // compiler-free player draws it; the dist's product carries no HLSL unless the preset keeps it.
+// A surface shader is three programs: the dist's pack holds the depth and pick programs' variants
+// beside the forward one's, and the dist's product keeps none of their HLSL.
+TEST_CASE("export: a surface shader ships its depth and pick programs in the dist pack")
+{
+    GlobalTypeRegistry().Register(foundation::shaders::ShaderSource::StaticType());
+    RegisterSerializable<foundation::shaders::ShaderSource>();
+    pipeline::RegisterShaderAsset();
+    foundation::shaders::Compiler* probe = nullptr;
+    if (!foundation::shaders::createCompiler(foundation::shaders::CompilerDesc{}, probe).IsOk() ||
+        probe == nullptr)
+    {
+        MESSAGE("DXC unavailable; skipping");
+        return;
+    }
+    probe->Destroy();
+
+    const String projectDir = TempDir(u8"scratch_export_surface_proj");
+    const String toolDir = TempDir(u8"scratch_export_surface_tool");
+    const String outRoot = TempDir(u8"scratch_export_surface_out");
+    NukeTree(projectDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
+    REQUIRE(editor::EditorProject::Create(DefaultAllocator(), projectDir.AsView(), u8"Waves")
+                .IsOk());
+    UniquePtr<editor::EditorProject> project =
+        editor::EditorProject::Open(DefaultAllocator(), projectDir.AsView());
+    REQUIRE(static_cast<bool>(project));
+    {
+        foundation::vfs::NativeFileSystem sources(project->SourcesRoot().AsView(),
+                                                  DefaultAllocator());
+        SaveText(sources, u8"waves.hlsl",
+                 u8"// surface: lit\n"
+                 u8"properties\n{\n    float Height = 0.2;\n}\n"
+                 u8"void Surface(SurfaceInput input, inout SurfaceOutput surface) {\n"
+                 u8"    surface.albedo = float3(0.1, 0.4, 0.8);\n}\n"
+                 u8"void Vertex(inout VertexInput v) {\n"
+                 u8"    v.position.y += sin(v.position.x + Time()) * Height;\n}\n");
+        pipeline::ShaderAsset asset;
+        pipeline::ShaderImporter::Import(u8"waves", u8"waves.hlsl", asset);
+        foundation::content::Instance* inst = project->SourceDb().RootGroup()->CreateInstance(
+            u8"waves", pipeline::ShaderAsset::StaticType());
+        REQUIRE(inst != nullptr);
+        REQUIRE(inst->WriteObject(asset).IsOk());
+    }
+    REQUIRE(CreateDirectory(toolDir.AsView()));
+    foundation::vfs::NativeFileSystem toolFs(toolDir.AsView(), DefaultAllocator());
+    SaveText(toolFs, GetExecutableName(u8"Engine.Player").AsView(), u8"#!player\n");
+    editor::TemplateRegistry registry;
+    registry.Refresh(StringView{}, nullptr, toolDir.AsView(), &toolFs);
+    pipeline::BuilderRegistry builders{DefaultAllocator()};
+    builders.Register(UniquePtr<pipeline::IAssetBuilder>(
+        DefaultAllocator().New<pipeline::ShaderAssetBuilder>(TestDataRoot()), DefaultAllocator()));
+
+    editor::ExportPreset preset;
+    preset.name = String(u8"dist");
+    preset.platform = String(GetHostPlatformName());
+    preset.outputSubdir = String(u8"dist");
+    editor::ExportResult result;
+    REQUIRE(editor::ExportOne(*project, preset, registry, builders, outRoot.AsView(),
+                              TestDataRoot(), false, &result)
+                .IsOk());
+    CHECK(result.content.cookFailed == 0u);
+
+    foundation::shaders::CookedShaderPack pack;
+    FileStream in(PathJoin(result.outputDir.AsView(), u8"Data/Shaders/shaders.dpak").AsView(),
+                  FileMode::Read);
+    REQUIRE(in.IsValid());
+    REQUIRE(pack.Read(in).IsOk());
+    const auto host = foundation::shaders::CookedShaderFormat::SpirV;
+    using foundation::shaders::ShaderFlags;
+    using foundation::shaders::ShaderStage;
+    CHECK(pack.Find(u8"waves", ShaderStage::Fragment, ShaderFlags::GBuffer, host) != nullptr);
+    CHECK(pack.Find(u8"waves.depth", ShaderStage::Vertex, ShaderFlags::Instanced, host) != nullptr);
+    CHECK(pack.Find(u8"waves.depth", ShaderStage::Fragment, ShaderFlags::AlphaTest, host) != nullptr);
+    CHECK(pack.Find(u8"waves.pick", ShaderStage::Vertex, ShaderFlags::Skinned, host) != nullptr);
+
+    foundation::vfs::PakFileSystem pak(
+        PathJoin(result.outputDir.AsView(), project::kDistContentPak).AsView());
+    REQUIRE(pak.IsValid());
+    foundation::content::ContentDatabase db(DefaultAllocator(), pak, BinarySerializerFactory(),
+                                            project::kCookedAssetExtension);
+    foundation::content::Instance* product = db.GetInstance(u8"waves");
+    REQUIRE(product != nullptr);
+    RefPtr<ISerializable> object = product->ReadObject();
+    const auto* source = Cast<foundation::shaders::ShaderSource>(object.Get());
+    REQUIRE(source != nullptr);
+    CHECK(source->depthProgramsAlways); // it moves its vertices
+    for (const foundation::shaders::ShaderProgram& program : source->Programs())
+    {
+        CHECK(program.vertexSource.IsEmpty());
+        CHECK(program.fragmentSource.IsEmpty());
+    }
+    CHECK(source->Programs().Size() == 3u);
+
+    project.Reset();
+    NukeTree(projectDir.AsView());
+    NukeTree(toolDir.AsView());
+    NukeTree(outRoot.AsView());
+}
+
 TEST_CASE("export: a custom shader ships as bytecode in the dist pack, its source left out")
 {
     GlobalTypeRegistry().Register(foundation::shaders::ShaderSource::StaticType());

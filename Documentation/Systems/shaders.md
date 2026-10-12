@@ -58,8 +58,22 @@ The forward pass is built from includes a custom shader uses too (`Specs/custom-
 - `forward_ps.hlsli`: the pixel stage's contract: `GBufferOutput` (the five targets),
   `ScreenDoorFade` (DITHER), `OctEncode` and `MotionVector`.
 
+- `shadow_depth_vs.hlsli`, `pick_ids_vs.hlsli`: the depth and pick vertex stages, which
+  `shadow_depth.vs.hlsl` and `pick_ids.vs.hlsl` are under `main`.
+- `wind_sway.hlsli`: the wind sway as a function of its parameters (`wind.hlsli` binds it to the
+  forward material's).
+
 `forward.ps.hlsl` is these plus its material and its surface code; the split (2026-10-12) left
 its compiled WGSL the same but for names and one constant's placement.
+
+**Surface shaders** (`surface/`, `Specs/custom-shaders.md` phase 6). The cook assembles a
+surface shader's three programs as `surface/surface.hlsli` (its API: `SurfaceInput`,
+`SurfaceOutput`, `VertexInput`, `Time()`), the author's text, `surface/glue.hlsli` (the calls
+into `Surface()` and `Vertex()`), and a pass template: `surface/forward.hlsli`,
+`surface/depth.hlsli` or `surface/pick.hlsli`. The vertex libraries above run `Vertex()` where
+`SURFACE_PROGRAM` is defined (in an `#ifdef`, so the engine's own shaders compile as before); a
+material on a surface shader with `Vertex()`, or masked, draws the depth prepass, the shadows and
+the pick with the shader's `.depth` and `.pick` programs (`Material::depthShaderName`).
 
 ## Variant model + cooked pack
 

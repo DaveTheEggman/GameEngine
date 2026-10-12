@@ -6,8 +6,10 @@
 // Source-side custom shaders + their cook (Specs/custom-shaders.md, phase 1):
 //   * ShaderAsset (pipeline::Asset): a shader name, ONE .hlsl file (the inherited fileName)
 //     holding both stages, and each stage's entry point (VSMain / PSMain by default).
-//   * ShaderAssetBuilder (DefaultAssetBuilder): reads the file, replaces its properties block
-//     with the generated set-2 declarations, and COMPILES every variant both stages declare,
+//   * ShaderAssetBuilder (DefaultAssetBuilder): reads the file (a low-level shader, or a surface
+//     shader assembled from the engine's templates into its forward, depth and pick programs),
+//     replaces its properties block with the generated set-2 declarations, and COMPILES every
+//     variant both stages declare,
 //     with the engine's shader library on the include path. A failure fails the cook with
 //     `File.hlsl:line: message` (the cook keeps the last good product); success writes a
 //     ShaderSource carrying the expanded source, both entries, both lattices and the property
@@ -109,6 +111,127 @@ float4 PSMain(VSOutput input) : SV_Target0 {
 }
 )hlsl";
 
+    // The starter a new low-level shader's .hlsl holds (RegisterShaderCreators): lit by the
+    // engine's lighting library, every pass contract kept, its parameters in a properties block.
+    inline constexpr StringView kShaderStarter = u8R"hlsl(// A low-level shader: the whole pixel stage is yours. This one shades the engine's way, with
+// every light, shadow and reflection probe; change the pixel stage to make it your own.
+// variants(vertex): SKINNED INSTANCED
+// variants(fragment): ALPHA_TEST GBUFFER DITHER
+// preserve-interface (the pixel stage keeps VSOutput's fade input when DITHER is off)
+
+// The vertex stage: the engine's, under the name VSMain.
+#define FORWARD_VS_ENTRY VSMain
+#include "forward_vs.hlsli"
+
+// The frame's lights, shadows and image-based light, and what the forward pass writes.
+#include "lighting.hlsli"
+#include "forward_ps.hlsli"
+
+// The material's parameters: the material page shows these as its rows.
+properties
+{
+    Color   BaseColor   = (1, 1, 1, 1);
+    float   Roughness   = 0.5 [0, 1];
+    float   Metallic    = 0   [0, 1];
+    float   AlphaCutoff = 0.5 [0, 1];   // the ALPHA_TEST threshold
+    Texture AlbedoMap;
+    Sampler MainSampler;
+}
+
+#ifdef GBUFFER
+GBufferOutput PSMain(VSOutput input) {
+#else
+float4 PSMain(VSOutput input) : SV_Target0 {
+#endif
+#ifdef DITHER
+    ScreenDoorFade(input.clip.xy, input.fade);
+#endif
+    float4 albedoTex = AlbedoMap.Sample(MainSampler, input.uv);
+    float3 albedo = input.color.rgb * BaseColor.rgb * albedoTex.rgb;
+    float  alpha  = saturate(input.color.a * BaseColor.a * albedoTex.a);
+#ifdef ALPHA_TEST
+    if (alpha < AlphaCutoff) { discard; }
+#endif
+    float3 N = normalize(input.normalWS);
+    float3 V = normalize(CameraPos - input.worldPos);
+    float  viewDepth = -mul(float4(input.worldPos, 1.0), View).z;
+    float  roughness = clamp(Roughness, 0.045, 1.0);
+    float  metallic  = saturate(Metallic);
+    float3 F0 = lerp(float3(0.04, 0.04, 0.04), albedo, metallic);
+
+    uint lightCount;
+    float3 color = DirectLight(input.clip.xy, input.worldPos, viewDepth, N, V, albedo, roughness,
+                               metallic, F0, lightCount)
+                 + AmbientLight(input.worldPos, N, V, albedo, roughness, metallic, F0, 1.0);
+
+#ifdef GBUFFER
+    GBufferOutput o;
+    o.color    = float4(color, alpha);
+    o.normal   = OctEncode(normalize(mul(float4(N, 0.0), View).xyz));
+    o.velocity = MotionVector(input.curClip, input.prevClip);
+    o.material = float2(roughness, metallic);
+    o.albedo   = float4(albedo * (1.0 - metallic), 1.0);
+    return o;
+#else
+    return float4(color, alpha);
+#endif
+}
+)hlsl";
+
+    // The starter a new lit surface shader's .hlsl holds: the lava of the custom shaders docs.
+    inline constexpr StringView kLitSurfaceShaderStarter = u8R"hlsl(// A surface shader: say what the surface is, and the engine lights it, with every light,
+// shadow and reflection probe, in every pass (shadows and picking included).
+// surface: lit
+
+// The material's parameters: the material page shows these as its rows.
+properties
+{
+    Color   CrackColor = (1.0, 0.35, 0.05, 1.0);
+    float   Speed      = 0.2 [0, 2];
+    float   Glow       = 4.0 [0, 20];
+    Texture Cracks;
+    Sampler MainSampler;
+}
+
+// Glowing cracks scrolling over dark rock. Give the material a Cracks texture (white = crack).
+void Surface(SurfaceInput input, inout SurfaceOutput surface)
+{
+    float2 uv = input.uv + float2(0.0, Time() * Speed);
+    float crack = Cracks.Sample(MainSampler, uv).r;
+    surface.albedo = lerp(float3(0.08, 0.05, 0.04), CrackColor.rgb, crack);
+    surface.roughness = 0.9;
+    surface.emissive = CrackColor.rgb * crack * Glow;
+}
+
+// Optional: move the surface's vertices, in world space (its shadow and depth follow), e.g. waves:
+// void Vertex(inout VertexInput v)
+// {
+//     v.position.y += sin(v.position.x * 2.0 + Time()) * 0.1;
+// }
+)hlsl";
+
+    // The starter a new unlit surface shader's .hlsl holds: a colour and a texture, unaffected
+    // by light.
+    inline constexpr StringView kUnlitSurfaceShaderStarter = u8R"hlsl(// An unlit surface shader: the surface's colour as it is, unaffected by light (it still casts
+// shadows and can be picked).
+// surface: unlit
+
+properties
+{
+    Color   BaseColor   = (1, 1, 1, 1);
+    float   AlphaCutoff = 0.5 [0, 1];   // where a masked material cuts out
+    Texture AlbedoMap;
+    Sampler MainSampler;
+}
+
+void Surface(SurfaceInput input, inout SurfaceOutput surface)
+{
+    float4 c = AlbedoMap.Sample(MainSampler, input.uv) * BaseColor * input.color;
+    surface.albedo = c.rgb;
+    surface.alpha = c.a;
+}
+)hlsl";
+
     // Source asset: a shader's name, its one .hlsl file (the inherited fileName, relative to the
     // sources mount at cook time) and the entry point each stage's function is called in it.
     class ShaderAsset final : public pipeline::Asset
@@ -198,14 +321,24 @@ float4 PSMain(VSOutput input) : SV_Target0 {
                 return Status{ErrorCode::InvalidArgument};
             }
 
+            // The main program, then the others (a surface shader's depth and pick).
+            const ShaderCheckProgram& main = check.programs[0];
             ShaderSource source;
             source.name = sa.name;
-            source.vertexSource = check.expanded;
-            source.fragmentSource = check.expanded;
-            source.vertexEntryPoint = sa.vertexEntryPoint;
-            source.fragmentEntryPoint = sa.fragmentEntryPoint;
-            source.vertexVariantMask = static_cast<u32>(check.vertexMask);
-            source.fragmentVariantMask = static_cast<u32>(check.fragmentMask);
+            source.vertexSource = main.text;
+            source.fragmentSource = main.text;
+            source.vertexEntryPoint = main.vertexEntryPoint;
+            source.fragmentEntryPoint = main.fragmentEntryPoint;
+            source.vertexVariantMask = static_cast<u32>(main.vertexMask);
+            source.fragmentVariantMask = static_cast<u32>(main.fragmentMask);
+            for (usize i = 1; i < check.programs.Size(); ++i)
+            {
+                const ShaderCheckProgram& p = check.programs[i];
+                source.AddProgram(p.suffix.AsView(), p.text.AsView(), p.vertexEntryPoint.AsView(),
+                                  p.vertexMask, p.text.AsView(), p.fragmentEntryPoint.AsView(),
+                                  p.fragmentMask);
+            }
+            source.depthProgramsAlways = check.hasVertex; // it moves its vertices in every pass
             source.SetProperties(check.block);
             return ctx.output->WriteObject(source);
         }

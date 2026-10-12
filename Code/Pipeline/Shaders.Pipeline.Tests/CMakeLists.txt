@@ -4,6 +4,7 @@ add_executable(Shaders.Pipeline.Tests
     TestsMain.cpp
     ShaderCheckTests.cpp
     ShaderCreatorTests.cpp
+    SurfaceShaderTests.cpp
     ShaderEditorTests.cpp
     ShaderReflectionTests.cpp)
 
