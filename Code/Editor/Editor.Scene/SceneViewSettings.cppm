@@ -55,6 +55,7 @@ export namespace editor
         f32 cameraYaw = 0.0f;
         f32 cameraPitch = 0.0f;
         f32 cameraFocusDistance = 12.0f;
+        bool cameraOrthographic = false; // added 2026-10-12 (Specs/orthographic-views.md)
         // The entity selection at close (persistent ids; ids no longer in the scene are dropped).
         Array<Guid> selection;
         // The page's split positions as it last had them (added 2026-10-10): hierarchy | rest,
@@ -97,6 +98,7 @@ export namespace editor
                 foundation::core::SerializeAppended(ar, "bottomDockSplit", bottomDockSplit);
                 foundation::core::SerializeAppended(ar, "gridPlane", gridPlane);
                 foundation::core::SerializeAppended(ar, "gridLines", gridLines);
+                foundation::core::SerializeAppended(ar, "cameraOrthographic", cameraOrthographic);
             }
         }
     };

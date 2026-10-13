@@ -96,7 +96,7 @@ namespace editor
         }
 
         scene::Scene& scene = m_edit->Scene();
-        m_gizmo.SetCamera(in.cameraPosition, in.cameraForward);
+        m_gizmo.SetCamera(in.cameraPosition, in.cameraForward, in.orthoHeight > 0.0f);
 
         // Pose: position always at the entity's world origin. Orientation = entity WORLD
         // rotation in Local space (and always for Scale - non-uniform world scale on a
@@ -121,7 +121,7 @@ namespace editor
         }
 
         const f32 scale = TransformGizmo::ScreenScale(in.cameraPosition, in.cameraForward, in.fovY,
-                                                      m_gizmo.position);
+                                                      m_gizmo.position, 0.3f, in.orthoHeight);
         if (scale <= 0.0001f) // at/behind the camera plane
         {
             AbortDrag();
@@ -310,16 +310,21 @@ namespace editor
             FinishDrag();
         }
     }
-    void TransformGizmo::SetCamera(Float3 cameraPosition, Float3 cameraForward)
+    void TransformGizmo::SetCamera(Float3 cameraPosition, Float3 cameraForward, bool orthographic)
     {
         m_cameraPos = cameraPosition;
         m_cameraForward = Normalized(cameraForward);
+        m_orthographic = orthographic;
     }
 
     f32 TransformGizmo::ScreenScale(Float3 cameraPos, Float3 cameraForward, f32 fovY, Float3 point,
-                                    f32 ratio)
+                                    f32 ratio, f32 orthoHeight)
     {
         const f32 depth = Dot(point - cameraPos, Normalized(cameraForward));
+        if (orthoHeight > 0.0f)
+        {
+            return depth > 0.0f ? 0.5f * orthoHeight * ratio : 0.0f; // the same size at any depth
+        }
         return Tan(fovY * 0.5f) * depth * ratio;
     }
 
@@ -716,7 +721,7 @@ namespace editor
     {
         Float3 u, v;
         PlaneBasis(plane, u, v);
-        const Float3 toCam = m_cameraPos - position;
+        const Float3 toCam = -ViewDirAt(position);
         su = (Dot(u, toCam) >= 0.0f) ? 1.0f : -1.0f;
         sv = (Dot(v, toCam) >= 0.0f) ? 1.0f : -1.0f;
     }
@@ -865,7 +870,7 @@ namespace editor
             return;
         }
         const Float3 mid = (from + to) * 0.5f;
-        Float3 side = Cross(lineDir, mid - m_cameraPos);
+        Float3 side = Cross(lineDir, ViewDirAt(mid));
         const f32 lenSq = Dot(side, side);
         if (lenSq < 0.0001f)
         {
@@ -885,7 +890,7 @@ namespace editor
         DrawThickLine(dd, position, end, color, thickness);
 
         // Screen-facing arrowhead: two barbs in the ribbon plane.
-        const Float3 viewDir = Normalized(end - m_cameraPos);
+        const Float3 viewDir = ViewDirAt(end);
         Float3 side = Cross(dir, viewDir);
         const f32 lenSq = Dot(side, side);
         if (lenSq > 0.0001f)

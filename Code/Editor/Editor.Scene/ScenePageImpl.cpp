@@ -263,10 +263,9 @@ namespace editor
         render::ViewCamera camera;
         camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
                                          m_camera.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.1f, 1000.0f);
+        camera.projection = m_camera.Projection(static_cast<f32>(w) / static_cast<f32>(h));
         camera.position = m_camera.position;
-        camera.farZ = 1000.0f;
+        camera.farZ = m_camera.farZ;
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
@@ -884,11 +883,8 @@ namespace editor
         }
         const f32 ndcX = 2.0f * (mouse->X() / static_cast<f32>(w)) - 1.0f;
         const f32 ndcY = 1.0f - 2.0f * (mouse->Y() / static_cast<f32>(h));
-        const f32 tanY = Tan(kFovY * 0.5f);
-        const f32 tanX = tanY * (static_cast<f32>(w) / static_cast<f32>(h));
-        out.origin = m_camera.position;
-        out.direction = Normalized(m_camera.Forward() + m_camera.Right() * (ndcX * tanX) +
-                                   m_camera.Up() * (ndcY * tanY));
+        m_camera.RayThrough(ndcX, ndcY, static_cast<f32>(w) / static_cast<f32>(h), out.origin,
+                            out.direction);
         return true;
     }
 
@@ -995,7 +991,9 @@ namespace editor
         in.deltaSeconds = deltaSeconds;
         in.cameraPosition = m_camera.position;
         in.cameraForward = m_camera.Forward();
-        in.fovY = kFovY;
+        in.cameraUp = m_camera.Up();
+        in.fovY = m_camera.fovY;
+        in.orthoHeight = m_camera.orthographic ? m_camera.OrthoHeight() : 0.0f;
         // Simulate: edits are refused (the select tool maps this to its read-only gizmo path -
         // pose sync, no drags; drag commands are refused by the locked stack anyway). Selection
         // picking still works: selecting is not an edit.
@@ -1044,14 +1042,21 @@ namespace editor
         {
             const ViewGizmoLayout gizmo = ViewGizmo::LayoutFor(
                 m_camera.Right(), m_camera.Up(), m_camera.Forward(), static_cast<f32>(in.viewportWidth));
-            const i32 hit =
-                ViewGizmo::Hit(gizmo, static_cast<f32>(in.pointerX), static_cast<f32>(in.pointerY));
+            const f32 px = static_cast<f32>(in.pointerX);
+            const f32 py = static_cast<f32>(in.pointerY);
+            const i32 hit = ViewGizmo::Hit(gizmo, px, py);
             if (hit >= 0)
             {
                 f32 yaw = m_camera.yaw;
                 f32 pitch = m_camera.pitch;
                 ViewGizmo::SnapAngles(gizmo.poles[hit].axis, m_camera.yaw, yaw, pitch);
-                m_camera.TurnAboutPivot(yaw, pitch);
+                m_camera.autoOrthographic = AutoOrthographicViews(m_context->UserEditorSettings());
+                m_camera.SnapToAxis(yaw, pitch);
+                m_viewGizmoPressed = true;
+            }
+            else if (ViewGizmo::HitCentre(gizmo, px, py))
+            {
+                m_camera.SetOrthographic(!m_camera.orthographic);
                 m_viewGizmoPressed = true;
             }
         }
@@ -1104,18 +1109,38 @@ namespace editor
             dd.DrawScreenText(pole.screen.x - 0.5f * kGlyph * static_cast<f32>(label.Size()),
                               pole.screen.y - 0.5f * kGlyphHeight, label, ink);
         }
+        // The centre: a click switches the projection; under the tripod, which one is on.
+        const bool overCentre = m_viewport->IsHovered() && m_viewport->Mouse() != nullptr &&
+                                ViewGizmo::HitCentre(gizmo, m_viewport->Mouse()->X(),
+                                                     m_viewport->Mouse()->Y());
+        const f32 c = 0.5f * ViewGizmo::kCentre;
+        const Color centre = overCentre ? Color{1.0f, 1.0f, 1.0f, 1.0f} : Color{0.75f, 0.75f, 0.75f, 1.0f};
+        dd.DrawScreenRect(gizmo.center.x - c, gizmo.center.y - c, ViewGizmo::kCentre,
+                          ViewGizmo::kCentre, centre);
+        const StringView projection = ViewGizmo::ProjectionLabel(m_camera.orthographic);
+        dd.DrawScreenText(gizmo.center.x - 0.5f * kGlyph * static_cast<f32>(projection.Size()),
+                          gizmo.center.y + ViewGizmo::kArm + ViewGizmo::kKnob, projection,
+                          Color{0.85f, 0.85f, 0.85f, 1.0f});
+    }
+
+    f32 SceneEditorPage::GridViewHeight() const
+    {
+        if (m_camera.orthographic)
+        {
+            return m_camera.focusDistance;
+        }
+        return Abs(Dot(m_camera.position, AxesOf(m_gridPlane).normal));
     }
 
     GridSpacing SceneEditorPage::CurrentGridSpacing() const
     {
-        const GridPlaneAxes axes = AxesOf(m_gridPlane);
-        return GridSpacingFor(Abs(Dot(m_camera.position, axes.normal)));
+        return GridSpacingFor(GridViewHeight());
     }
 
     void SceneEditorPage::DrawSceneGrid(render::debug::DebugDraw& dd) const
     {
         const GridPlaneAxes axes = AxesOf(m_gridPlane);
-        const f32 height = Abs(Dot(m_camera.position, axes.normal));
+        const f32 height = GridViewHeight();
         const GridSpacing step = GridSpacingFor(height);
         // The camera's foot on the plane: the grid is centred under it, wherever it flies.
         const Float3 foot = m_camera.position - axes.normal * Dot(m_camera.position, axes.normal);
@@ -1162,7 +1187,7 @@ namespace editor
             return;
         }
         const f32 height = static_cast<f32>(m_viewport->RenderHeight());
-        const ScaleBar bar = ScaleBarAt(m_camera.focusDistance, kFovY, height);
+        const ScaleBar bar = ScaleBarAt(m_camera.focusDistance, m_camera.fovY, height);
         const String focusText = Format(u8"{} to focus", FormatMetres(m_camera.focusDistance));
         // The cell of the grid as drawn; whether the grid shows is the page's toggle.
         const String cellText = Format(u8"grid cell {}", FormatMetres(CurrentGridSpacing().spacing));
@@ -1226,7 +1251,7 @@ namespace editor
                 ? static_cast<f32>(m_viewport->RenderWidth()) /
                       static_cast<f32>(m_viewport->RenderHeight())
                 : 16.0f / 9.0f;
-        gizmoCamera.projection = Float4x4::PerspectiveFovRH(1.0472f, gizmoAspect, 0.1f, 1000.0f);
+        gizmoCamera.projection = m_camera.Projection(gizmoAspect);
         gizmoCamera.position = m_camera.position;
         ctx.viewCamera = &gizmoCamera;
         ctx.lodOverlay = m_showLodOverlay;
@@ -1817,6 +1842,7 @@ namespace editor
         pref.cameraYaw = m_camera.yaw;
         pref.cameraPitch = m_camera.pitch;
         pref.cameraFocusDistance = m_camera.focusDistance;
+        pref.cameraOrthographic = m_camera.orthographic;
         if (m_hierarchySplit && m_inspectorSplit && m_viewportColumn)
         {
             pref.hasSplits = true;
@@ -1856,6 +1882,7 @@ namespace editor
         m_camera.yaw = p.cameraYaw;
         m_camera.pitch = p.cameraPitch;
         m_camera.focusDistance = p.cameraFocusDistance;
+        m_camera.SetOrthographic(p.cameraOrthographic);
         if (m_editContext && m_scene != nullptr && !p.selection.IsEmpty())
         {
             // Only ids still in the scene (deleted since, or a Simulate-spawned entity that
@@ -2012,7 +2039,7 @@ namespace editor
         {
             return false;
         }
-        m_camera.FrameSphere(merged.Center(), Length(merged.Extents()), kFovY, ease);
+        m_camera.FrameSphere(merged.Center(), Length(merged.Extents()), m_camera.fovY, ease);
         return true;
     }
 

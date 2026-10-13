@@ -52,7 +52,9 @@ export namespace editor
         ViewportRay ray{};
         Float3 cameraPosition{};
         Float3 cameraForward{0.0f, 0.0f, -1.0f};
+        Float3 cameraUp{0.0f, 1.0f, 0.0f};
         f32 fovY = 1.0472f;
+        f32 orthoHeight = 0.0f; // > 0: an orthographic view this tall, in world units
 
         /// False when the pointer is not over the viewport this frame: a tool must keep any
         /// selection-tracking visuals in sync but clear hover, ignore buttons, and finish or

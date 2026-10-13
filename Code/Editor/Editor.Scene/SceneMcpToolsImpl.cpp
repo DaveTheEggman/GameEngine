@@ -552,6 +552,8 @@ namespace editor
                     JsonValue::MakeNumber(static_cast<f64>(RadiansToDegrees(camera.pitch))));
             out.Set(u8"forward", Float3Json(camera.Forward()));
             out.Set(u8"focusDistance", JsonValue::MakeNumber(static_cast<f64>(camera.focusDistance)));
+            out.Set(u8"orthographic", JsonValue::MakeBool(camera.orthographic));
+            out.Set(u8"orthoHeight", JsonValue::MakeNumber(static_cast<f64>(camera.OrthoHeight())));
             return out;
         }
 
@@ -1159,8 +1161,10 @@ namespace editor
         server.RegisterTool(
             u8"viewport_camera_get",
             u8"The pose a scene page's viewport looks from: the editor camera's position, yaw and "
-            u8"pitch in degrees (yaw 0 looks down -Z, positive pitch looks up), its forward vector "
-            u8"and its orbit focus distance. Defaults to the active page.",
+            u8"pitch in degrees (yaw 0 looks down -Z, positive pitch looks up), its forward vector, "
+            u8"its orbit focus distance, whether it draws orthographic, and the height an "
+            u8"orthographic view spans (what the field of view spans at the focus, so it follows "
+            u8"the zoom). Defaults to the active page.",
             SchemaBuilder().Str(u8"page", kPageArgument).Build(), ToolAnnotations::ReadOnly(),
             [ctx](const JsonValue& args) -> ToolResult
             {
@@ -1183,7 +1187,10 @@ namespace editor
             u8"before a viewport_screenshot, or to show the user a spot. Sets what is given: "
             u8"`position` ([x, y, z]), then `yawDegrees` / `pitchDegrees`, then `lookAt` "
             u8"([x, y, z]: aims from the position at that point, horizon level, and moves the "
-            u8"orbit focus there - it wins over yaw and pitch). Nothing given changes nothing. "
+            u8"orbit focus there - it wins over yaw and pitch), then `orthographic` (true draws "
+            u8"without perspective, keeping what is in view) and `orthoHeight` (the world height "
+            u8"an orthographic view spans: the camera zooms about its focus to it, in either "
+            u8"projection). Nothing given changes nothing. "
             u8"Returns the pose as viewport_camera_get does. Editor state only: no scene edit, "
             u8"no undo step.",
             SchemaBuilder()
@@ -1192,6 +1199,9 @@ namespace editor
                 .Number(u8"yawDegrees", u8"rotation about the up axis; 0 looks down -Z")
                 .Number(u8"pitchDegrees", u8"tilt; positive looks up, clamped short of straight up or down")
                 .Arr(u8"lookAt", u8"number", u8"the point [x, y, z] to aim at from the position")
+                .Boolean(u8"orthographic", u8"draw without perspective (true) or with it (false)")
+                .Number(u8"orthoHeight", u8"the world height an orthographic view spans; the "
+                                         u8"camera zooms about its focus to it")
                 .Build(),
             ToolAnnotations::Adjusts(),
             [ctx](const JsonValue& args) -> ToolResult
@@ -1224,6 +1234,15 @@ namespace editor
                 {
                     return Err(String(u8"`yawDegrees` and `pitchDegrees` take a number"));
                 }
+                if (args.Has(u8"orthographic") && !args.Get(u8"orthographic").IsBool())
+                {
+                    return Err(String(u8"`orthographic` takes true or false"));
+                }
+                if (args.Has(u8"orthoHeight") &&
+                    (!args.Get(u8"orthoHeight").IsNumber() || !(args.Get(u8"orthoHeight").AsNumber() > 0.0)))
+                {
+                    return Err(String(u8"`orthoHeight` takes a number above 0"));
+                }
                 if (hasPosition)
                 {
                     camera->position = position;
@@ -1243,6 +1262,18 @@ namespace editor
                 if (hasLookAt)
                 {
                     camera->LookAt(lookAt);
+                }
+                if (args.Has(u8"orthographic"))
+                {
+                    camera->SetOrthographic(args.Get(u8"orthographic").AsBool());
+                }
+                if (args.Has(u8"orthoHeight"))
+                {
+                    // The height is what the field of view spans at the focus: zoom about it.
+                    const Float3 focus = camera->position + camera->Forward() * camera->focusDistance;
+                    camera->focusDistance = static_cast<f32>(args.Get(u8"orthoHeight").AsNumber()) /
+                                            (2.0f * Tan(0.5f * camera->fovY));
+                    camera->position = focus - camera->Forward() * camera->focusDistance;
                 }
                 return CameraJson(addressed.Value(), *camera);
             });

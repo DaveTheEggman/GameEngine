@@ -37,6 +37,57 @@ export namespace editor
         f32 panSensitivity = 0.0015f;
         bool zoomedThisUpdate = false; // the last Update dollied on the wheel (the zoom readout)
         f32 glideSeconds = 0.3f;       // a frame eases over this long (0 jumps)
+        f32 fovY = 1.0472f;            // the vertical field of view, radians (60 degrees)
+        f32 nearZ = 0.1f, farZ = 1000.0f;
+        // Orthographic: the view keeps the camera's eye, pivot and framing, and draws parallel.
+        // Its height is what the field of view spans at the pivot (OrthoHeight), so zoom, frame,
+        // pan and orbit work as they do in perspective and switching keeps what is in view.
+        bool orthographic = false;
+        // Snapping to an axis view (SnapToAxis) turns orthographic, and orbiting away turns back:
+        // the editor's preference, set by the page.
+        bool autoOrthographic = true;
+
+        /// An orthographic view's height in world units: what the field of view spans at the
+        /// pivot, so it follows the zoom (focusDistance).
+        [[nodiscard]] f32 OrthoHeight() const
+        {
+            return 2.0f * focusDistance * Tan(0.5f * fovY);
+        }
+
+        /// The projection for a view `aspect` wide over tall, perspective or orthographic.
+        [[nodiscard]] Float4x4 Projection(f32 aspect) const
+        {
+            if (orthographic)
+            {
+                const f32 height = OrthoHeight();
+                return Float4x4::OrthographicRH(height * aspect, height, nearZ, farZ);
+            }
+            return Float4x4::PerspectiveFovRH(fovY, aspect, nearZ, farZ);
+        }
+
+        /// Switch between perspective and orthographic by hand (the toggle): what is in view stays.
+        void SetOrthographic(bool on)
+        {
+            orthographic = on;
+            m_orthographicFromSnap = false;
+        }
+
+        /// The world ray through a viewport point given in NDC (x right, y up, each -1..1) for a
+        /// view `aspect` wide over tall: from the eye fanning out in perspective; parallel to the
+        /// view under orthographic, starting on the eye's plane.
+        void RayThrough(f32 ndcX, f32 ndcY, f32 aspect, Float3& origin, Float3& direction) const
+        {
+            const f32 tanY = Tan(0.5f * fovY);
+            if (orthographic)
+            {
+                const f32 halfH = 0.5f * OrthoHeight();
+                origin = position + Right() * (ndcX * halfH * aspect) + Up() * (ndcY * halfH);
+                direction = Forward();
+                return;
+            }
+            origin = position;
+            direction = Normalized(Forward() + Right() * (ndcX * tanY * aspect) + Up() * (ndcY * tanY));
+        }
 
         [[nodiscard]] Quaternion Rotation() const
         {
@@ -87,15 +138,34 @@ export namespace editor
         }
 
         /// Turn to `newYaw` / `newPitch` about the orbit pivot: what the camera looks at stays put
-        /// and the camera swings round it (the orientation gizmo's snap to an axis). Stops a glide.
+        /// and the camera swings round it. Stops a glide. A pitch may reach straight up or down
+        /// (a top view), past the mouse-look limit.
         void TurnAboutPivot(f32 newYaw, f32 newPitch)
         {
             const Float3 pivot = position + Forward() * focusDistance;
             yaw = newYaw;
-            pitch = Clamp(newPitch, -1.55f, 1.55f);
+            pitch = Clamp(newPitch, -kStraightPitch, kStraightPitch);
             position = pivot - Forward() * focusDistance;
             m_gliding = false;
         }
+
+        /// The orientation gizmo's snap to an axis view: TurnAboutPivot, and with
+        /// autoOrthographic, orthographic until the camera is orbited or turned away.
+        void SnapToAxis(f32 newYaw, f32 newPitch)
+        {
+            TurnAboutPivot(newYaw, newPitch);
+            if (autoOrthographic && !orthographic)
+            {
+                orthographic = true;
+                m_orthographicFromSnap = true;
+            }
+        }
+
+        /// Whether the view is orthographic because a snap made it so (and turning away undoes it).
+        [[nodiscard]] bool IsOrthographicFromSnap() const noexcept { return m_orthographicFromSnap; }
+
+        static constexpr f32 kStraightPitch = 1.5707963f; // straight down or up
+        static constexpr f32 kLookPitch = 1.55f;          // the mouse-look limit
 
         /// Frame a sphere in a view of vertical field of view `fovY` (radians): keep the view
         /// direction, stand back far enough that the sphere fits with a margin, and put the orbit
@@ -196,15 +266,17 @@ export namespace editor
                     const Float3 focus = position + Forward() * focusDistance;
                     yaw -= mouse->DeltaX() * lookSensitivity;
                     pitch -= mouse->DeltaY() * lookSensitivity;
-                    pitch = Clamp(pitch, -1.55f, 1.55f);
+                    pitch = Clamp(pitch, -kLookPitch, kLookPitch);
                     position = focus - Forward() * focusDistance;
+                    LeaveSnapView(mouse);
                 }
                 else if (mouseCaptured || mouse->IsButtonDown(shell::MouseButton::Right))
                 {
                     m_gliding = false;
                     yaw -= mouse->DeltaX() * lookSensitivity;
                     pitch -= mouse->DeltaY() * lookSensitivity;
-                    pitch = Clamp(pitch, -1.55f, 1.55f);
+                    pitch = Clamp(pitch, -kLookPitch, kLookPitch);
+                    LeaveSnapView(mouse);
                 }
 
                 if (mouse->IsButtonDown(shell::MouseButton::Middle))
@@ -278,6 +350,17 @@ export namespace editor
         }
 
     private:
+        // A turn of the mouse leaves an axis view: a snap's orthographic goes back to perspective.
+        void LeaveSnapView(foundation::shell::IMouse* mouse)
+        {
+            if (m_orthographicFromSnap && (mouse->DeltaX() != 0.0f || mouse->DeltaY() != 0.0f))
+            {
+                orthographic = false;
+                m_orthographicFromSnap = false;
+            }
+        }
+
+        bool m_orthographicFromSnap = false;
         bool m_gliding = false;
         f32 m_glideElapsed = 0.0f;
         Float3 m_glideFrom{};

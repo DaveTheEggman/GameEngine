@@ -98,13 +98,16 @@ export namespace editor
         [[nodiscard]] GizmoAxis Selected() const noexcept { return m_selected; }
         [[nodiscard]] bool IsDragging() const noexcept { return m_dragging; }
 
-        /// Camera facts for grazing tests, quadrant flips, half-ring culling and sizing.
-        void SetCamera(Float3 cameraPosition, Float3 cameraForward);
+        /// Camera facts for grazing tests, quadrant flips, half-ring culling and sizing. Under an
+        /// orthographic view every view ray runs along `cameraForward`.
+        void SetCamera(Float3 cameraPosition, Float3 cameraForward, bool orthographic = false);
 
-        /// PlayCanvas screen-constant scale: tan(fovY/2) * view depth * ratio. Returns <= 0
-        /// when the point is at/behind the camera plane (caller should hide the gizmo).
+        /// PlayCanvas screen-constant scale: tan(fovY/2) * view depth * ratio; under an
+        /// orthographic view `orthoHeight` tall (> 0), half that height * ratio, the same at
+        /// every depth. Returns <= 0 when the point is at/behind the camera plane (caller should
+        /// hide the gizmo).
         [[nodiscard]] static f32 ScreenScale(Float3 cameraPos, Float3 cameraForward, f32 fovY,
-                                             Float3 point, f32 ratio = 0.3f);
+                                             Float3 point, f32 ratio = 0.3f, f32 orthoHeight = 0.0f);
 
         // === Handle enablement (grazing angles; PlayCanvas GLANCE_EPSILON) ===
 
@@ -165,7 +168,12 @@ export namespace editor
         [[nodiscard]] static f32 RayPointDistance(const GizmoRay& ray, Float3 point);
 
     private:
-        [[nodiscard]] Float3 ViewDir() const { return Normalized(position - m_cameraPos); }
+        [[nodiscard]] Float3 ViewDir() const { return ViewDirAt(position); }
+        // The view ray's direction at `point`: from the eye, or along the view when orthographic.
+        [[nodiscard]] Float3 ViewDirAt(Float3 point) const
+        {
+            return m_orthographic ? m_cameraForward : Normalized(point - m_cameraPos);
+        }
         [[nodiscard]] Float3 CameraRight() const;
 
         [[nodiscard]] static f32 Snap(f32 value, f32 increment);
@@ -218,6 +226,7 @@ export namespace editor
         // Camera facts for the frame.
         Float3 m_cameraPos{};
         Float3 m_cameraForward{0, 0, -1};
+        bool m_orthographic = false;
 
         GizmoAxis m_hovered = GizmoAxis::None;
         GizmoAxis m_selected = GizmoAxis::None;
@@ -242,6 +251,7 @@ export namespace editor
         Float3 cameraPosition{};
         Float3 cameraForward{0, 0, -1};
         f32 fovY = 1.0472f;
+        f32 orthoHeight = 0.0f; // > 0: an orthographic view this tall, in world units
         bool leftPressed = false;
         bool leftDown = false;
         bool leftReleased = false;

@@ -639,6 +639,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
         view.cameraYaw = 0.75f;
         view.cameraPitch = -0.25f;
         view.cameraFocusDistance = 8.0f;
+        view.cameraOrthographic = true;
         view.selection.PushBack(Guid{7, 7});
         view.selection.PushBack(Guid{8, 8});
         CHECK(SaveSceneViewPref(&once, view));
@@ -655,6 +656,7 @@ TEST_CASE("scene-editor: the per-scene view state (grid + LOD) round-trips throu
     CHECK(back.cameraYaw == doctest::Approx(0.75f));
     CHECK(back.cameraPitch == doctest::Approx(-0.25f));
     CHECK(back.cameraFocusDistance == doctest::Approx(8.0f));
+    CHECK(back.cameraOrthographic);
     REQUIRE(back.selection.Size() == 2u);
     CHECK(back.selection[0] == Guid{7, 7});
     CHECK(back.selection[1] == Guid{8, 8});

@@ -377,3 +377,35 @@ TEST_CASE("scene-actions: Set as Project Thumbnail asks the page for its clean t
     context.ClosePage(page);
     (void)RemoveDirectoryRecursive(dir);
 }
+
+TEST_CASE("scene-actions: Numpad 5 or O switches the viewport between perspective and orthographic")
+{
+    EditorContext context{DefaultAllocator()};
+    RegisterSceneEditorActions(context);
+    EditorActionRegistry& actions = context.Actions();
+    REQUIRE(actions.Find(kOrthographic) != nullptr);
+    CHECK(actions.Find(kOrthographic)->menuPath == u8"Scene/Orthographic");
+    CHECK(actions.Shortcut(kOrthographic).key == ui::KeyCode::Keypad5);
+    CHECK(actions.AlternateShortcut(kOrthographic).key == ui::KeyCode::O);
+
+    auto* page = static_cast<HeadlessScenePage*>(context.AdoptPage(UniquePtr<EditorPage>(
+        DefaultAllocator().New<HeadlessScenePage>(u8"Bistro"), DefaultAllocator())));
+    CHECK_FALSE(actions.IsEnabled(kOrthographic, page)); // no viewport
+    page->hasViewport = true;
+    CHECK(actions.IsEnabled(kOrthographic, page));
+    CHECK_FALSE(actions.IsChecked(kOrthographic, page));
+
+    const Float3 eye = page->camera.position;
+    REQUIRE(actions.Execute(kOrthographic, page).IsOk());
+    CHECK(page->camera.orthographic);
+    CHECK(actions.IsChecked(kOrthographic, page));
+    CHECK(page->camera.position.x == doctest::Approx(eye.x)); // the view stays where it was
+    REQUIRE(actions.Execute(kOrthographic, page).IsOk());
+    CHECK_FALSE(page->camera.orthographic);
+
+    // While the camera flies, its keys are its own.
+    page->cameraOwnsInput = true;
+    CHECK_FALSE(actions.IsEnabled(kOrthographic, page));
+
+    context.ClosePage(page);
+}

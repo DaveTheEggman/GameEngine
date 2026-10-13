@@ -242,3 +242,73 @@ TEST_CASE("EditorCamera::FrameSphere stands back along its view until the sphere
     cam.Update(&kb, &mouse, 0.016f);
     CHECK_FALSE(cam.IsGliding());
 }
+
+TEST_CASE("EditorCamera orthographic: the height is what the view spans at the pivot, and follows the zoom")
+{
+    editor::EditorCamera cam;
+    cam.focusDistance = 10.0f;
+    CHECK(Near(cam.OrthoHeight(), 2.0f * 10.0f * Tan(0.5f * cam.fovY)));
+    cam.focusDistance = 5.0f; // a zoom in halves it
+    CHECK(Near(cam.OrthoHeight(), 2.0f * 5.0f * Tan(0.5f * cam.fovY)));
+
+    // Switching keeps the eye and the pivot; only the projection changes, to that height.
+    const Float3 eye = cam.position;
+    cam.SetOrthographic(true);
+    CHECK(Near(cam.position.x, eye.x));
+    CHECK(Near(cam.position.z, eye.z));
+    const Float4x4 ortho = cam.Projection(2.0f);
+    CHECK(projection::IsOrthographic(ortho));
+    CHECK(Near(2.0f / ortho.m[1][1], cam.OrthoHeight()));
+    CHECK(Near(2.0f / ortho.m[0][0], cam.OrthoHeight() * 2.0f));
+    cam.SetOrthographic(false);
+    CHECK_FALSE(projection::IsOrthographic(cam.Projection(2.0f)));
+}
+
+TEST_CASE("EditorCamera orthographic: a ray runs along the view, from a point that moves with the pixel")
+{
+    editor::EditorCamera cam;
+    cam.LookAt(Float3{0.0f, 0.0f, 0.0f});
+    cam.SetOrthographic(true);
+    Float3 originA, dirA, originB, dirB;
+    cam.RayThrough(0.0f, 0.0f, 1.5f, originA, dirA);
+    cam.RayThrough(1.0f, 1.0f, 1.5f, originB, dirB);
+    CHECK(Near(Dot(dirA, cam.Forward()), 1.0f));
+    CHECK(Near(Dot(dirB, cam.Forward()), 1.0f));
+    // The corner's ray starts half the view up and half its width across from the centre's.
+    const Float3 offset = originB - originA;
+    CHECK(Near(Dot(offset, cam.Up()), 0.5f * cam.OrthoHeight()));
+    CHECK(Near(Dot(offset, cam.Right()), 0.5f * cam.OrthoHeight() * 1.5f));
+
+    // In perspective every ray starts at the eye and fans out.
+    cam.SetOrthographic(false);
+    cam.RayThrough(1.0f, 1.0f, 1.5f, originB, dirB);
+    CHECK(Near(originB.x, cam.position.x));
+    CHECK(Dot(dirB, cam.Forward()) < 0.95f);
+}
+
+TEST_CASE("EditorCamera orthographic: a snap to an axis turns it on, and turning away turns it off")
+{
+    editor::EditorCamera cam;
+    cam.SnapToAxis(0.0f, -editor::EditorCamera::kStraightPitch); // the top view
+    CHECK(cam.orthographic);
+    CHECK(cam.IsOrthographicFromSnap());
+    CHECK(Near(cam.Forward().y, -1.0f)); // straight down, past the mouse-look limit
+
+    StubKeyboard kb;
+    StubMouse mouse;
+    mouse.rmb = true;
+    cam.Update(&kb, &mouse, 0.016f); // held still: stays
+    CHECK(cam.orthographic);
+    mouse.dx = 20.0f;
+    cam.Update(&kb, &mouse, 0.016f); // a look away: back to perspective
+    CHECK_FALSE(cam.orthographic);
+
+    // Chosen by hand, it stays through a look; with the preference off, a snap leaves it alone.
+    cam.SetOrthographic(true);
+    cam.Update(&kb, &mouse, 0.016f);
+    CHECK(cam.orthographic);
+    editor::EditorCamera manual;
+    manual.autoOrthographic = false;
+    manual.SnapToAxis(0.0f, 0.0f);
+    CHECK_FALSE(manual.orthographic);
+}

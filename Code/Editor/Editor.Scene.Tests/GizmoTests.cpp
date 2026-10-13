@@ -808,3 +808,17 @@ TEST_CASE("gizmo-controller: vertex snap puts the pivot on the vertex under the 
     CHECK(scene.GetLocalTransform(edit.Resolve(id)).position.y == doctest::Approx(1.0f));
     CHECK(ctl.Update(Frame(Float3{3.8f, 0.8f, 1.0f}, false, false, true)));
 }
+
+TEST_CASE("gizmo: under an orthographic view it keeps one size at every depth")
+{
+    // An orthographic view 12 m tall: half its height times the ratio, near or far, and hidden
+    // behind the camera as in perspective.
+    const f32 near = TransformGizmo::ScreenScale(kCamPos, kCamFwd, 1.0472f, Float3{0, 0, 8}, 0.3f, 12.0f);
+    const f32 far = TransformGizmo::ScreenScale(kCamPos, kCamFwd, 1.0472f, Float3{0, 0, -90}, 0.3f, 12.0f);
+    CHECK(near == doctest::Approx(0.5f * 12.0f * 0.3f));
+    CHECK(far == doctest::Approx(near));
+    CHECK(TransformGizmo::ScreenScale(kCamPos, kCamFwd, 1.0472f, Float3{0, 0, 11}, 0.3f, 12.0f) <= 0.0f);
+    // In perspective it grows with depth.
+    CHECK(TransformGizmo::ScreenScale(kCamPos, kCamFwd, 1.0472f, Float3{0, 0, -90}) >
+          TransformGizmo::ScreenScale(kCamPos, kCamFwd, 1.0472f, Float3{0, 0, 8}));
+}

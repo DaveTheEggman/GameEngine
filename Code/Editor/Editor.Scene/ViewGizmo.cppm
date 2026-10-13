@@ -5,7 +5,8 @@
 //
 // The scene view's orientation gizmo: an axis tripod in the viewport's top-right that turns with
 // the camera - the world's X, Y and Z and their negatives as labelled knobs, the positive ones on
-// arms from the centre - and a click on a knob looks along that axis. The pure parts live here
+// arms from the centre - and a click on a knob looks along that axis; a click on the centre
+// switches the view between perspective and orthographic. The pure parts live here
 // (where the knobs sit for a camera, which one a click lands on, the angles a click snaps to) so
 // they are testable without a viewport; the page draws it and routes the click.
 
@@ -44,7 +45,8 @@ export namespace editor
         static constexpr f32 kKnob = 18.0f;   // a knob's side, pixels
         static constexpr f32 kMargin = 12.0f; // from the viewport's right edge
         static constexpr f32 kTop = 28.0f;    // from the top edge, below the FPS readout's line
-        static constexpr f32 kMaxPitch = 1.55f; // the camera's own pitch limit (EditorCamera)
+        static constexpr f32 kStraightPitch = 1.5707963f; // a top or bottom view looks straight down or up
+        static constexpr f32 kCentre = 10.0f; // the centre's side, pixels (the projection toggle)
 
         /// Where the knobs sit for a camera whose basis is `right`, `up`, `forward`, in a viewport
         /// `viewportWidth` pixels wide: each axis seen along the view, as the tripod shows it.
@@ -93,15 +95,30 @@ export namespace editor
             return -1;
         }
 
+        /// Whether pixel (x, y) is on the centre (and no knob covers it: a knob is hit first).
+        [[nodiscard]] static bool HitCentre(const ViewGizmoLayout& layout, f32 x, f32 y)
+        {
+            const f32 half = 0.5f * kCentre;
+            return Hit(layout, x, y) < 0 && x >= layout.center.x - half &&
+                   x <= layout.center.x + half && y >= layout.center.y - half &&
+                   y <= layout.center.y + half;
+        }
+
+        /// What the centre says the view is.
+        [[nodiscard]] static StringView ProjectionLabel(bool orthographic)
+        {
+            return orthographic ? StringView(u8"Ortho") : StringView(u8"Persp");
+        }
+
         /// The camera angles that look along `axis` from its side toward the centre: +X looks
-        /// down -X (yaw 90 degrees), +Z down -Z (yaw 0). Y keeps `currentYaw` and pitches to the
-        /// camera's limit (straight down from +Y, up from -Y).
+        /// down -X (yaw 90 degrees), +Z down -Z (yaw 0). Y keeps `currentYaw` and looks straight
+        /// down from +Y, up from -Y.
         static void SnapAngles(Float3 axis, f32 currentYaw, f32& yaw, f32& pitch)
         {
             if (axis.y > 0.5f || axis.y < -0.5f)
             {
                 yaw = currentYaw;
-                pitch = axis.y > 0.0f ? -kMaxPitch : kMaxPitch;
+                pitch = axis.y > 0.0f ? -kStraightPitch : kStraightPitch;
                 return;
             }
             // forward = -axis; forward = (-cos(p) sin(y), sin(p), -cos(p) cos(y)) at pitch 0.

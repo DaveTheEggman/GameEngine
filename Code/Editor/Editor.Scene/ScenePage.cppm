@@ -514,7 +514,10 @@ export namespace editor
         }
 
     private:
-        static constexpr f32 kFovY = 1.0472f; // must match OnRenderWindow's projection
+        // How high the camera is over the grid's plane, for its spacing: the eye's height in
+        // perspective; under orthographic, the pivot's distance (what the view spans), since an
+        // orthographic eye may stand level with the plane and still see across it.
+        [[nodiscard]] f32 GridViewHeight() const;
         // The grid's spacing where the camera is now (GridSpacingFor its distance from the grid's
         // plane): what the grid draws and the zoom readout reports.
         [[nodiscard]] GridSpacing CurrentGridSpacing() const;

@@ -81,21 +81,12 @@ the original sketch covered and the build left out, untracked until the audit:
 
 ## Queued 2026-10-02 (user, render-textures review)
 
-- **Post effects for an orthographic camera**: `LimitPostForOrthographic`
-  (`Engine.Render/RenderComponents.cppm`, applied in `RenderSubsystem::RenderScene`) turns off AO,
-  SSR, SSGI and TAA for any orthographic view, because their shaders assume a perspective
-  projection. A target camera (the minimap) renders post-off anyway; this matters for an
-  orthographic MAIN camera (isometric, 2.5D). What each needs:
-  - **AO (GTAO/SSAO)**: view-space position is rebuilt from depth with `ProjXX`/`ProjYY` and
-    perspective depth; an orthographic branch (linear depth, x/y not scaled by distance). Small.
-  - **TAA**: reprojection is matrix-based and fine; the history rejection linearizes depth as
-    perspective (`LinearizeDepth` in `taa.ps.hlsl`). Small.
-  - **SSR, SSGI**: screen-space marches assume rays fanning from an eye point; in orthographic
-    every view ray is parallel, so the ray setup and the step into screen space change. Larger.
-  Do AO and TAA first, then lift them out of `LimitPostForOrthographic`; each with a render
-  test, checked in an orthographic scene by the user. Unity URP supports SSAO in orthographic;
-  Unreal and Godot leave some screen-space effects limited there (from memory - check their
-  current docs before citing).
+- **SSR and SSGI under an orthographic camera**: `LimitPostForOrthographic` still turns them off
+  for an orthographic view (AO and TAA work since 2026-10-12, orthographic views P1): their
+  screen-space marches cast from an eye point, where an orthographic view's rays are parallel.
+  The plan is `Specs/orthographic-views.md` P3 (the ray's origin the pixel's view position, its
+  direction `ViewDirToViewer`, the march projected with `ViewToNdcXY`, SSGI's near clamp at the
+  near plane), with probes as P1's, then `LimitPostForOrthographic` goes.
 
 ## Queued 2026-09-23 (user, during the terrain holes work)
 

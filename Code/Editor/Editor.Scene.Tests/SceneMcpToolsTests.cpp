@@ -975,6 +975,24 @@ TEST_CASE("scene-mcp-tools: the viewport camera reads and moves in degrees (posi
     CHECK_FALSE(got.ok);
     CHECK(got.error.AsView().StartsWith(u8"`position` takes [x, y, z]"));
     CHECK(page->camera.yaw == doctest::Approx(0.0f));
+    // Orthographic: on, and zoomed about the focus to a height (focus 10 m ahead at the origin).
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"orthographic\":true,\"orthoHeight\":6}}", pageGuid.AsView())
+                   .AsView());
+    REQUIRE(got.ok);
+    CHECK(page->camera.orthographic);
+    CHECK(page->camera.OrthoHeight() == doctest::Approx(6.0f));
+    CHECK(got.payload.Get(u8"orthographic").AsBool());
+    CHECK(got.payload.Get(u8"orthoHeight").AsNumber() == doctest::Approx(6.0));
+    const Float3 focus = page->camera.position + page->camera.Forward() * page->camera.focusDistance;
+    CHECK(focus.z == doctest::Approx(0.0f).epsilon(1e-4));
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"orthoHeight\":0}}", pageGuid.AsView()).AsView());
+    CHECK_FALSE(got.ok);
+    got = Call(server, u8"viewport_camera_set",
+               Format(u8"{{\"page\":\"{}\",\"orthographic\":false}}", pageGuid.AsView()).AsView());
+    REQUIRE(got.ok);
+    CHECK_FALSE(page->camera.orthographic);
 
     // The screenshot: the first pump brings the page to front (active AND revealed, since a
     // background tab's viewport never renders) and asks for the capture, then the call is

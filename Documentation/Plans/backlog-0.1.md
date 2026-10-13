@@ -8,12 +8,6 @@
 
 ## Editor
 
-- **An orthographic editor camera** (user 2026-10-09; big, user 2026-10-11: several rendering
-  effects are disabled for orthographic cameras today, and they come first): the scene view's camera can switch
-  between perspective and orthographic with a toggle (in the view's toolbar, and a key). Pairs
-  with the orientation gizmo: snapping to a face is where an orthographic top, front or side
-  view is most used. The engine's cameras already have an orthographic projection
-  (`MakeCameraProjection`); the editor camera's zoom becomes the ortho size there.
 - **Project-wide defaults for scene settings, per domain** (user 2026-10-09, to think about): a
   scene's render settings come from the scene itself (its own values, or a profile asset it
   names, as Lamplight's levels share theirs), else from hard-coded defaults; other domains are

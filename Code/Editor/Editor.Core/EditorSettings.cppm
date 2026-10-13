@@ -62,12 +62,24 @@ export namespace editor
         RTTI_OBJECT(EditorUiSettings, ISerializable)
     public:
         f32 uiScale = 1.0f; // clamped to [kUiScaleMin, kUiScaleMax] on use
+        // Snapping a scene view to an axis (the orientation gizmo) turns it orthographic, and
+        // orbiting away turns it back (Specs/orthographic-views.md).
+        bool autoOrthographic = true;
 
         void Serialize(ISerializer& ar) override
         {
             foundation::core::Serialize(ar, "uiScale", uiScale);
+            foundation::core::SerializeAppended(ar, "autoOrthographic", autoOrthographic);
         }
     };
+
+    /// The user's auto-orthographic preference (EditorUiSettings), on when there is no store
+    /// or no section yet.
+    [[nodiscard]] inline bool AutoOrthographicViews(const foundation::settings::Settings* user)
+    {
+        const EditorUiSettings* ui = user != nullptr ? user->Find<EditorUiSettings>() : nullptr;
+        return ui == nullptr || ui->autoOrthographic;
+    }
 
     // The editor's settings file, in the user-data dir (hand-editable XML, like the project files).
     inline constexpr StringView kEditorSettingsFile = u8"editor.settings.xml";

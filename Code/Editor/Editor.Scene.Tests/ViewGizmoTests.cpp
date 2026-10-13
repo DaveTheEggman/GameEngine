@@ -115,14 +115,14 @@ TEST_CASE("view gizmo: a knob snaps the camera to look along its axis, about the
         CHECK(Near(after.z, pivot.z));
     }
 
-    // Top: straight down as far as the camera pitches, keeping the yaw; bottom: up.
+    // Top: straight down, keeping the yaw; bottom: straight up.
     f32 yaw = 0.0f;
     f32 pitch = 0.0f;
     editor::ViewGizmo::SnapAngles(Float3{0, 1, 0}, 0.7f, yaw, pitch);
     CHECK(Near(yaw, 0.7f));
-    CHECK(Near(pitch, -editor::ViewGizmo::kMaxPitch));
+    CHECK(Near(pitch, -editor::ViewGizmo::kStraightPitch));
     editor::ViewGizmo::SnapAngles(Float3{0, -1, 0}, 0.7f, yaw, pitch);
-    CHECK(Near(pitch, editor::ViewGizmo::kMaxPitch));
+    CHECK(Near(pitch, editor::ViewGizmo::kStraightPitch));
 }
 
 TEST_CASE("view gizmo: knobs are labelled by axis, coloured by axis, the negatives dimmer")
@@ -142,4 +142,21 @@ TEST_CASE("view gizmo: knobs are labelled by axis, coloured by axis, the negativ
     const editor::ViewGizmoPole y{Float3{0, 1, 0}, true, {}, 0.0f};
     CHECK(dimGreen.g < editor::ViewGizmo::ColorOf(y, false).g);
     CHECK(editor::ViewGizmo::ColorOf(x, true).r >= red.r); // hovered: no dimmer
+}
+
+TEST_CASE("view gizmo: the centre switches the projection, unless a knob covers it")
+{
+    // Looking down -Z: the Z knobs sit on the centre, covering it; X and Y stand off to the sides.
+    const editor::ViewGizmoLayout front =
+        editor::ViewGizmo::LayoutFor(Float3{1, 0, 0}, Float3{0, 1, 0}, Float3{0, 0, -1}, 800.0f);
+    CHECK_FALSE(editor::ViewGizmo::HitCentre(front, front.center.x, front.center.y));
+    // From above and to the side no knob is over the centre.
+    const Float3 forward = Normalized(Float3{-1, -1, -1});
+    const Float3 right = Normalized(Cross(forward, Float3{0, 1, 0}));
+    const Float3 up = Cross(right, forward);
+    const editor::ViewGizmoLayout angled = editor::ViewGizmo::LayoutFor(right, up, forward, 800.0f);
+    CHECK(editor::ViewGizmo::HitCentre(angled, angled.center.x, angled.center.y));
+    CHECK_FALSE(editor::ViewGizmo::HitCentre(angled, angled.center.x + 20.0f, angled.center.y + 20.0f));
+    CHECK(editor::ViewGizmo::ProjectionLabel(true) == StringView(u8"Ortho"));
+    CHECK(editor::ViewGizmo::ProjectionLabel(false) == StringView(u8"Persp"));
 }

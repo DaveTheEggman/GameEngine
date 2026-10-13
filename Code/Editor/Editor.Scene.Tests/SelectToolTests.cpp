@@ -590,3 +590,40 @@ TEST_CASE("select-tool: without a picker the marquee selects the origins project
     CHECK(selection.Items().Size() == 1);
     CHECK(selection.Contains(asideId));
 }
+
+TEST_CASE("select-tool: under an orthographic view the marquee projects origins without perspective")
+{
+    // An orthographic view 8 m tall: a point lands by its offset across the view alone, so an
+    // entity 40 m further back along the same line lands on the same pixel (in perspective it
+    // would have moved toward the centre).
+    Fixture f; // no picker
+    const Guid aside = f.edit.CreateEntity(u8"Aside");
+    const Guid behindIt = f.edit.CreateEntity(u8"BehindIt");
+    const Guid centre = f.edit.CreateEntity(u8"Centre");
+    {
+        core::Transform t;
+        t.position = Float3{3.0f, 1.0f, 0.0f};
+        f.scene.SetLocalTransform(f.edit.Resolve(aside), t);
+        t.position = Float3{3.0f, 1.0f, -40.0f};
+        f.scene.SetLocalTransform(f.edit.Resolve(behindIt), t);
+    }
+    f.scene.UpdateTransforms();
+    Selection<Guid>& selection = f.edit.EntitySelection();
+    selection.Clear();
+    const auto ortho = [](ViewportToolInput in)
+    {
+        in.orthoHeight = 8.0f;
+        return in;
+    };
+    // (3, 1) across a view 8 tall and 8 * 640 / 360 wide.
+    const i32 ax = static_cast<i32>((3.0f / (4.0f * 640.0f / 360.0f) * 0.5f + 0.5f) * 640.0f);
+    const i32 ay = static_cast<i32>((0.5f - 1.0f / 4.0f * 0.5f) * 360.0f);
+    const Float3 empty{50.0f, 0.0f, 0.0f};
+    CHECK(!f.tool.Update(ortho(PixelFrame(empty, true, ax - 6, ay - 6))));
+    (void)f.tool.Update(ortho(DragFrame(empty, ax + 6, ay + 6)));
+    (void)f.tool.Update(ortho(ReleaseFrame(empty, ax + 6, ay + 6)));
+    CHECK(selection.Contains(aside));
+    CHECK(selection.Contains(behindIt));
+    CHECK(!selection.Contains(centre));
+    CHECK(selection.Items().Size() == 2);
+}

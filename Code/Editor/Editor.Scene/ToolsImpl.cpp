@@ -27,6 +27,7 @@ namespace editor
         gizmoInput.cameraPosition = input.cameraPosition;
         gizmoInput.cameraForward = input.cameraForward;
         gizmoInput.fovY = input.fovY;
+        gizmoInput.orthoHeight = input.orthoHeight;
         // editingLocked (Simulate) maps to the controller's pointer-less update: the gizmo pose
         // keeps tracking what physics/animation move, but no hover, no drags, no mode hotkeys -
         // exactly the pre-framework Simulate branch.
@@ -163,19 +164,25 @@ namespace editor
         {
             return;
         }
-        // The view's basis from the camera forward (roll-free, like the editor camera) and its
-        // frustum tangents from fovY + the viewport aspect: enough to project an origin to a pixel.
+        // The view's basis from the camera forward and up (a view straight down keeps its turn),
+        // and how far a pixel reaches: the frustum tangents from fovY + the viewport aspect in
+        // perspective, half the view's height and width under orthographic. Enough to project an
+        // origin to a pixel.
         const Float3 forward = Normalized(input.cameraForward);
-        Float3 right = Cross(forward, Float3{0.0f, 1.0f, 0.0f});
+        Float3 right = Cross(forward, input.cameraUp);
         if (Dot(right, right) < 1e-6f)
         {
-            right = Float3{1.0f, 0.0f, 0.0f}; // looking straight up/down
+            right = Cross(forward, Float3{0.0f, 0.0f, -1.0f}); // an up along the view: any side
         }
         right = Normalized(right);
         const Float3 up = Cross(right, forward);
+        const f32 aspect =
+            static_cast<f32>(input.viewportWidth) / static_cast<f32>(input.viewportHeight);
+        const bool orthographic = input.orthoHeight > 0.0f;
         const f32 tanY = Tan(input.fovY * 0.5f);
-        const f32 tanX = tanY * (static_cast<f32>(input.viewportWidth) /
-                                 static_cast<f32>(input.viewportHeight));
+        const f32 tanX = tanY * aspect;
+        const f32 halfH = 0.5f * input.orthoHeight;
+        const f32 halfW = halfH * aspect;
         const f32 w = static_cast<f32>(input.viewportWidth);
         const f32 h = static_cast<f32>(input.viewportHeight);
         scene::Scene& scene = m_edit->Scene();
@@ -190,8 +197,8 @@ namespace editor
                 {
                     return; // behind the camera
                 }
-                const f32 nx = Dot(d, right) / (z * tanX);
-                const f32 ny = Dot(d, up) / (z * tanY);
+                const f32 nx = orthographic ? Dot(d, right) / halfW : Dot(d, right) / (z * tanX);
+                const f32 ny = orthographic ? Dot(d, up) / halfH : Dot(d, up) / (z * tanY);
                 const f32 px = (nx * 0.5f + 0.5f) * w;
                 const f32 py = (0.5f - ny * 0.5f) * h;
                 if (px >= static_cast<f32>(x0) && px < static_cast<f32>(x1 + 1) &&

@@ -23,6 +23,7 @@ import editor.core;
 import :edit;
 import :gizmo;
 import :scene_page_interface;
+import editor.camera; // the orthographic toggle flips the page's camera
 
 using namespace foundation::core;
 namespace scene = foundation::scene;
@@ -42,6 +43,7 @@ export namespace editor
         inline constexpr StringView kGizmoVertexSnap = u8"scene.gizmo.vertexSnap";
         inline constexpr StringView kMarkers = u8"scene.view.markers";
         inline constexpr StringView kFrameSelection = u8"scene.view.frameSelection";
+        inline constexpr StringView kOrthographic = u8"scene.view.orthographic";
         inline constexpr StringView kAnimationPanel = u8"scene.view.animationPanel";
         inline constexpr StringView kSetProjectThumbnail = u8"scene.view.setProjectThumbnail";
         inline constexpr StringView kEntityCreate = u8"scene.entity.create";
@@ -264,6 +266,33 @@ export namespace editor
             {
                 ISceneEditorPage* scene = scenePage(page);
                 (void)scene->FrameEntities(scene->EditContext().EntitySelection().Items(), true);
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d = Declare(kOrthographic, u8"Orthographic",
+                                                u8"Draw the viewport without perspective, every view "
+                                                u8"ray parallel: what is in view stays",
+                                                u8"Scene/Orthographic", 291);
+            d.kind = EditorActionKind::Toggle;
+            d.shortcut = EditorShortcut{foundation::ui::KeyCode::Keypad5, foundation::ui::KeyModifiers::None};
+            d.alternateShortcut = EditorShortcut{foundation::ui::KeyCode::O, foundation::ui::KeyModifiers::None};
+            d.readOnly = true; // the camera is the page's view, not the scene
+            d.enabled = [scenePage](EditorPage* page)
+            {
+                ISceneEditorPage* scene = scenePage(page);
+                return scene != nullptr && scene->ViewportCamera() != nullptr && !scene->CameraOwnsInput();
+            };
+            d.checked = [scenePage](EditorPage* page)
+            {
+                ISceneEditorPage* scene = scenePage(page);
+                return scene != nullptr && scene->ViewportCamera() != nullptr &&
+                       scene->ViewportCamera()->orthographic;
+            };
+            d.execute = [scenePage](EditorPage* page)
+            {
+                EditorCamera* camera = scenePage(page)->ViewportCamera();
+                camera->SetOrthographic(!camera->orthographic);
             };
             (void)actions.Register(Move(d));
         }

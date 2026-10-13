@@ -96,6 +96,23 @@ export namespace editor::app
                     ui::Event<void(ui::Slider*, f32)>::Handler{
                         [self](ui::Slider*, f32 v) { self->UpdateScaleLabel(v); }});
                 CategoryTabs::AddNote(column, u8"Font changes apply on restart.");
+
+                // The scene view: snapping to an axis view turns it orthographic.
+                const editor::EditorUiSettings* view = store.Find<editor::EditorUiSettings>();
+                auto autoOrtho = MakeRef<ui::CheckBox>(
+                    MemoryAllocator(), StringView(u8"Axis views are orthographic"),
+                    view == nullptr || view->autoOrthographic);
+                autoOrtho->FontSize.SetValue(12.0f);
+                autoOrtho->TooltipText =
+                    String(u8"Snapping a scene view to an axis (its orientation gizmo) turns it "
+                           u8"orthographic, and orbiting away turns it back");
+                m_autoOrthographic = autoOrtho.Get();
+                {
+                    ui::LayoutStyle lp;
+                    lp.Width = ui::SizeSpec::Match();
+                    lp.Height = ui::SizeSpec::Fixed(ui::Unit::Dp(22.0f));
+                    column.AddView(autoOrtho.Get(), lp);
+                }
             }
 
             // --- Export: where the export templates live ---
@@ -435,6 +452,8 @@ export namespace editor::app
             m_settings->MarkChanged<editor::EditorFontSettings>();
             const f32 uiScale = Clamp(m_uiScaleSlider->Value.Value(), editor::kUiScaleMin, editor::kUiScaleMax);
             m_settings->Section<editor::EditorUiSettings>().uiScale = uiScale;
+            m_settings->Section<editor::EditorUiSettings>().autoOrthographic =
+                m_autoOrthographic->IsChecked.Value();
             m_settings->MarkChanged<editor::EditorUiSettings>();
             if (OnUiScaleApplied)
             {
@@ -501,6 +520,7 @@ export namespace editor::app
         ui::Slider* m_uiScaleSlider = nullptr;
         ui::Label* m_uiScaleLabel = nullptr;
         ui::CheckBox* m_mcpEnabled = nullptr;
+        ui::CheckBox* m_autoOrthographic = nullptr;
         ui::EditText* m_mcpPortEdit = nullptr;
         ui::EditText* m_mcpTokenEdit = nullptr;
         editor::ShortcutEdits m_shortcutEdits; // staged; applied and persisted on Save

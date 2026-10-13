@@ -47,12 +47,22 @@ namespace editor
         scene::SceneManager sceneManager{editor::EditorRootAllocator()}; // this preview's OWN scene group
         engine::render::RenderSubsystem* render = nullptr;
         scene::Scene* scene = nullptr;
-        EditorCamera camera;
+        EditorCamera camera = PreviewCamera();
         UniquePtr<foundation::shell::InputRouter> router;
         RefPtr<ui::viewport::ViewportView> viewport;
         foundation::graphics::RenderWindow* hostWindow = nullptr;
 
         void EnsureViewportBound();
+
+        // A preview looks at one asset close up: a nearer near plane and a shorter reach than
+        // the scene view's.
+        static EditorCamera PreviewCamera()
+        {
+            EditorCamera c;
+            c.nearZ = 0.05f;
+            c.farZ = 500.0f;
+            return c;
+        }
     };
 
     PreviewViewport::PreviewViewport(runtime::IApplicationHost& host, ui::runtime::UIHost& uiHost,
@@ -186,10 +196,9 @@ namespace editor
         const EditorCamera& cam = m_impl->camera;
         render::ViewCamera camera;
         camera.view = Float4x4::LookAtRH(cam.position, cam.position + cam.Forward(), cam.Up());
-        camera.projection = Float4x4::PerspectiveFovRH(
-            1.0472f, static_cast<f32>(w) / static_cast<f32>(h), 0.05f, 500.0f);
+        camera.projection = cam.Projection(static_cast<f32>(w) / static_cast<f32>(h));
         camera.position = cam.position;
-        camera.farZ = 500.0f;
+        camera.farZ = cam.farZ;
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
