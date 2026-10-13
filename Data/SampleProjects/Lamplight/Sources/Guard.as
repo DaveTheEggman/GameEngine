@@ -249,7 +249,7 @@ class Guard
             m_spot = thief.worldPosition();
         }
         awareness += rate * d;
-        awareness = awareness < 0.0f ? 0.0f : (awareness > 1.0f ? 1.0f : awareness);
+        awareness = Math::Clamp(awareness, 0.0f, 1.0f);
     }
 
     private void patrol()
@@ -321,7 +321,7 @@ class Guard
         while (delta > 3.14159265f) delta -= 6.2831853f;
         while (delta < -3.14159265f) delta += 6.2831853f;
         float k = 8.0f * d;
-        m_yaw += delta * (k > 1.0f ? 1.0f : k);
+        m_yaw += delta * Math::Min(k, 1.0f);
         self.setRotationEuler(0.0f, m_yaw * 57.2957795f, 0.0f);
     }
 

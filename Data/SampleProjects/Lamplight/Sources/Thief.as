@@ -6,11 +6,6 @@
 
 const float kPi = 3.14159265f;
 
-float Saturate(float x)
-{
-    return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x);
-}
-
 class Thief
 {
     private Entity@ self;
@@ -86,7 +81,7 @@ class Thief
         float delta = want - m_yaw;
         while (delta > kPi) delta -= 2.0f * kPi;
         while (delta < -kPi) delta += 2.0f * kPi;
-        m_yaw += delta * Saturate(turnRate * float(dt));
+        m_yaw += delta * Math::Clamp(turnRate * float(dt), 0.0f, 1.0f);
         self.setRotationEuler(0.0f, Math::RadiansToDegrees(m_yaw), 0.0f);
     }
 

@@ -74,6 +74,6 @@ class Footsteps
             m_heard++;
         }
         float level = noise * loudness;
-        self.scene.events.emit("Noise", Float4(foot.x, foot.y, foot.z, level > 1.0f ? 1.0f : level));
+        self.scene.events.emit("Noise", Float4(foot.x, foot.y, foot.z, Math::Min(level, 1.0f)));
     }
 }

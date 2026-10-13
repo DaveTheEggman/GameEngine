@@ -3,11 +3,6 @@
 // with a little lag so a step does not jolt the view.
 const float kPi = 3.14159265f;
 
-float Saturate(float x)
-{
-    return x < 0.0f ? 0.0f : (x > 1.0f ? 1.0f : x);
-}
-
 class CameraRig
 {
     private Entity@ self;
@@ -49,11 +44,11 @@ class CameraRig
         float delta = want - m_yaw;
         while (delta > kPi) delta -= 2.0f * kPi;
         while (delta < -kPi) delta += 2.0f * kPi;
-        m_yaw += delta * Saturate(swing * d);
+        m_yaw += delta * Math::Clamp(swing * d, 0.0f, 1.0f);
         if (target !is null && target.isValid())
         {
             Float3 at = target.worldPosition();
-            float k = Saturate(follow * d);
+            float k = Math::Clamp(follow * d, 0.0f, 1.0f);
             m_focus = Float3(m_focus.x + (at.x - m_focus.x) * k, m_focus.y + (at.y - m_focus.y) * k,
                              m_focus.z + (at.z - m_focus.z) * k);
         }

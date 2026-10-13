@@ -44,7 +44,7 @@ class LightMeter
     void onUpdate(double dt)
     {
         float k = follow * float(dt);
-        m_shown += (level() - m_shown) * (k > 1.0f ? 1.0f : k);
+        m_shown += (level() - m_shown) * Math::Min(k, 1.0f);
         if (m_bar !is null && m_bar.isValid())
         {
             m_bar.setValue(m_shown);
@@ -61,7 +61,7 @@ class LightMeter
     private void glow()
     {
         float dark = (glowBelow - m_shown) / glowBelow;
-        float g = glowStrength * (dark < 0.0f ? 0.0f : (dark > 1.0f ? 1.0f : dark));
+        float g = glowStrength * Math::Clamp(dark, 0.0f, 1.0f);
         if (Math::Abs(g - m_glow) < 0.01f)
         {
             return;
