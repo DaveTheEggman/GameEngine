@@ -2192,11 +2192,10 @@ namespace foundation::render
                     rendergraph::RGHandle sceneColor = litHdr;
                     if (post.taaEnabled && m_taa != nullptr)
                     {
-                        const f32 taaFar = (v->Camera().farZ > 0.0f) ? v->Camera().farZ : 1000.0f;
                         sceneColor = m_taa->DeclareTaa(
                             m_graph, litHdr, postVelocity, postDepth, historySlot, v->Width(),
-                            v->Height(), post.taaBlend, post.taaGamma, m_taaMotionScale, /*near*/ 0.1f,
-                            taaFar);
+                            v->Height(), post.taaBlend, post.taaGamma, m_taaMotionScale,
+                            v->Camera().NearZ(), v->Camera().FarZ());
                     }
                     // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                     // color-only, depth read-only against the opaque depth, back-to-front. Under MSAA it

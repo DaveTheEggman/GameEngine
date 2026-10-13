@@ -51,19 +51,20 @@ export namespace foundation::render
         ShadowCascades out;
         out.valid = true;
         constexpr u32 N = ShadowCascades::kCount;
-        const f32 nearZ = 0.1f; // camera near (matches the default projection)
+        const f32 nearZ = cam.NearZ(); // the camera's own near plane, read from its projection
         const f32 farZ =
             Max(nearZ + 1.0f, shadowDistance); // CSM coverage range (splits span [near, this])
         // The frustum corners below span the CAMERA's full depth range, so split depths must be turned
         // into fractions of THAT range (camFar), not of the shorter shadow range (farZ).
-        const f32 camFar = Max(farZ, cam.farZ);
+        const f32 camFar = Max(farZ, cam.FarZ());
 
         f32 splits[N + 1];
         splits[0] = nearZ;
+        const f32 logNear = Max(nearZ, 0.01f); // the log split needs a near plane in front of the eye
         for (u32 i = 1; i <= N; ++i)
         {
             const f32 p = static_cast<f32>(i) / static_cast<f32>(N);
-            const f32 logS = nearZ * Pow(farZ / nearZ, p);
+            const f32 logS = logNear * Pow(farZ / logNear, p);
             const f32 uniS = nearZ + (farZ - nearZ) * p;
             splits[i] = lambda * logS + (1.0f - lambda) * uniS;
         }

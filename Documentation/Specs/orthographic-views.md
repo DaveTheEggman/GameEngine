@@ -55,12 +55,14 @@ perspective eye. `ViewGizmo.cppm` (the orientation gizmo) already snaps to the s
 
 ### One description of a view's projection
 
-`ViewCamera` gains `nearZ` and `orthographic` (set from the projection by whoever builds it, and
-checked against `IsOrthographic` in a debug assert), and an orthographic view's `orthoHeight`.
-The three hard-coded 0.1s read `nearZ`. Every shader that needs to know reads one flag and two
-numbers from the view constants it already has (a `ViewParams` block where there is none):
-orthographic or not, near, far. A shared `view.hlsli` holds the two-way helpers so each effect
-does not grow its own branch:
+`ViewCamera` answers `IsOrthographic()`, `NearZ()`, `FarZ()` and `OrthoHeight()` from its
+projection matrix (`projection::NearPlane` / `FarPlane` read the planes back from the z column,
+which neither projection's jitter touches), so none of the thirty-odd places that build a view
+camera has to repeat them, and none can disagree with the matrix. The three hard-coded 0.1s read
+`NearZ()`. Every shader that needs to know reads one flag and two numbers from the view
+constants it already has (a `ViewParams` block where there is none): orthographic or not, near,
+far. A shared `projection.hlsli` (`view.hlsli` is taken: the view constants) holds the two-way
+helpers so each effect does not grow its own branch:
 
 - `ViewPosFromDepth(uv, depth)`: through `InvProj`, as today (already correct for both).
 - `ViewToNdc(vp)`: perspective divides by -z; orthographic does not.
@@ -126,10 +128,9 @@ Each phase is its own commit (or two), with its tests, both compilers green. The
 are checked by the user in an orthographic scene (a test scene in a sample, or the editor once
 P4 lands; until then a game camera set to Orthographic in the inspector).
 
-- **P0 - one description of the view.** `ViewCamera.nearZ`, `orthographic`, `orthoHeight`; the
-  three 0.1s read it; `view.hlsli` with its helpers. Tests: the cascade splits start at a
-  camera's own near plane; the helpers' C++ twins (or a compute probe) agree with the matrices
-  for both projections.
+- **P0 - one description of the view.** `ViewCamera`'s answers from its projection; the three
+  0.1s read them. Tests: the planes read back from both projections, jittered or not; the cascade
+  splits start at a camera's own near plane. (`projection.hlsli` lands with its first users, P1.)
 - **P1 - AO and TAA.** As above, lifted out of `LimitPostForOrthographic`. Tests: a headless
   render of a box on a floor through an orthographic camera darkens the inner corner and leaves
   the open floor at 1 (AO); the orthographic jitter shifts a point at two depths by the same
@@ -146,7 +147,7 @@ P4 lands; until then a game camera set to Orthographic in the inspector).
   pivot and the framing; zoom, pan and frame in orthographic; the mouse ray's origin moves with
   the pixel and its direction does not; the gizmo keeps its screen size as the height changes;
   the MCP tools round-trip the new fields.
-- **P5 - docs.** `Systems/renderer.md` (orthographic views, `view.hlsli`), the editor's docs and
+- **P5 - docs.** `Systems/renderer.md` (orthographic views, `projection.hlsli`), the editor's docs and
   `McpGuide.md`, the weekly, the two backlog entries closed; port notes to Sedulous for each
   phase as it lands.
 

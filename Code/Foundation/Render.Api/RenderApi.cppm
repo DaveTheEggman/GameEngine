@@ -48,6 +48,20 @@ export namespace foundation::render
         f32 farZ = 1000.0f; // for depth-key normalization
 
         [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
+        // What the projection says about itself, so no builder has to repeat it beside the matrix
+        // (and none can disagree with it): its kind, its planes, and an orthographic view's height
+        // in world units.
+        [[nodiscard]] bool IsOrthographic() const noexcept
+        {
+            return projection::IsOrthographic(projection);
+        }
+        [[nodiscard]] f32 NearZ() const noexcept { return projection::NearPlane(projection); }
+        [[nodiscard]] f32 FarZ() const noexcept { return projection::FarPlane(projection); }
+        [[nodiscard]] f32 OrthoHeight() const noexcept
+        {
+            return (IsOrthographic() && projection.m[1][1] != 0.0f) ? 2.0f / projection.m[1][1]
+                                                                     : 0.0f;
+        }
     };
 
     // A viewport sub-rect within a render target, in pixels. Width 0 => the full target.

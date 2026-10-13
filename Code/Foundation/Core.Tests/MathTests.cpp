@@ -223,6 +223,24 @@ TEST_CASE("math: IsOrthographic tells an orthographic projection from a perspect
         projection::IsOrthographic(Float4x4::PerspectiveFovRH(1.0f, 16.0f / 9.0f, 0.1f, 100.0f)));
 }
 
+TEST_CASE("math: a projection's near and far planes read back from it, jittered or not")
+{
+    Float4x4 perspective = Float4x4::PerspectiveFovRH(1.0f, 16.0f / 9.0f, 0.3f, 250.0f);
+    CHECK(NearlyEqual(projection::NearPlane(perspective), 0.3f, 1.0e-4f));
+    CHECK(NearlyEqual(projection::FarPlane(perspective), 250.0f, 1.0e-2f));
+    Float4x4 ortho = Float4x4::OrthographicRH(40.0f, 22.5f, -50.0f, 120.0f);
+    CHECK(NearlyEqual(projection::NearPlane(ortho), -50.0f, 1.0e-3f));
+    CHECK(NearlyEqual(projection::FarPlane(ortho), 120.0f, 1.0e-3f));
+
+    // The TAA jitter sits in row 2 (perspective) or row 3 (orthographic), x and y: not the planes.
+    perspective.m[2][0] += 0.0007f;
+    perspective.m[2][1] -= 0.0004f;
+    ortho.m[3][0] += 0.0007f;
+    ortho.m[3][1] -= 0.0004f;
+    CHECK(NearlyEqual(projection::NearPlane(perspective), 0.3f, 1.0e-4f));
+    CHECK(NearlyEqual(projection::NearPlane(ortho), -50.0f, 1.0e-3f));
+}
+
 TEST_CASE("math: BoundingFrustum extracts the reverse-Z near and far planes where the camera puts them")
 {
     const f32 n = 0.5f, f = 200.0f;

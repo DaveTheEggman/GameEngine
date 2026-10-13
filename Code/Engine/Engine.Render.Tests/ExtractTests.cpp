@@ -1588,6 +1588,35 @@ TEST_CASE("extract: the scene's shadow reach rides the snapshot")
     CHECK(logarithmic.texelWorldSize[0] < near.texelWorldSize[0]);
 }
 
+TEST_CASE("render: a view's camera reads its kind, planes and height from its projection")
+{
+    ViewCamera cam;
+    cam.projection = Float4x4::PerspectiveFovRH(1.0472f, 16.0f / 9.0f, 0.5f, 300.0f);
+    CHECK_FALSE(cam.IsOrthographic());
+    CHECK(cam.NearZ() == doctest::Approx(0.5f).epsilon(1.0e-4));
+    CHECK(cam.FarZ() == doctest::Approx(300.0f).epsilon(1.0e-4));
+    CHECK(cam.OrthoHeight() == 0.0f);
+
+    cam.projection = Float4x4::OrthographicRH(32.0f, 18.0f, 0.1f, 2000.0f);
+    CHECK(cam.IsOrthographic());
+    CHECK(cam.NearZ() == doctest::Approx(0.1f).epsilon(1.0e-3));
+    CHECK(cam.FarZ() == doctest::Approx(2000.0f).epsilon(1.0e-4));
+    CHECK(cam.OrthoHeight() == doctest::Approx(18.0f));
+}
+
+TEST_CASE("render: the shadow cascades start at the camera's own near plane")
+{
+    // A camera whose near plane is 2 m: with uniform splits (lambda 0) over a 60 m reach the first
+    // cascade ends a quarter of the way from 2 m to 60 m, not from the 0.1 m once assumed.
+    ViewCamera cam;
+    cam.view = Float4x4::LookAtRH(Float3{0, 2, 0}, Float3{0, 2, -10}, Float3{0, 1, 0});
+    cam.projection = Float4x4::PerspectiveFovRH(1.0472f, 16.0f / 9.0f, 2.0f, 400.0f);
+    cam.farZ = 400.0f;
+    const Float3 sun = Normalized(Float3{-0.17f, -0.87f, -0.47f});
+    const ShadowCascades cascades = ComputeCascades(cam, sun, 60.0f, 1024, 0.0f);
+    CHECK(cascades.splitFar[0] == doctest::Approx(2.0f + 58.0f / 4.0f).epsilon(1.0e-3));
+}
+
 TEST_CASE("render: RequestPick keys on the viewport, answers nothing without a key, cancels")
 {
     rhi::null::NullDevice device{DefaultAllocator()};

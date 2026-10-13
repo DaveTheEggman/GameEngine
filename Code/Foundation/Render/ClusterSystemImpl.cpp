@@ -150,9 +150,10 @@ namespace foundation::render
             return binding;
         }
 
-        const f32 nearZ =
-            0.1f; // ViewCamera carries only farZ; near matches the CameraComponent default
-        const f32 farZ = (view.Camera().farZ > 0.0f) ? view.Camera().farZ : 1000.0f;
+        // The camera's own planes. The slices are logarithmic in view depth, so the near one stays
+        // in front of the eye (an orthographic projection's near plane may sit at or behind it).
+        const f32 nearZ = Max(view.Camera().NearZ(), 0.01f);
+        const f32 farZ = Max(view.Camera().FarZ(), nearZ + 1.0f);
         // slice = SliceCount * log(depth/near) / log(far/near) -> inverse of GetSliceDepth in the
         // kernel. The SliceCount factor is essential: without it every depth collapses to slice 0.
         const f32 logScale = static_cast<f32>(kSliceCount) / Log(farZ / nearZ);

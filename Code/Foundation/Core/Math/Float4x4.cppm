@@ -183,6 +183,26 @@ export namespace foundation::core
         {
             return matrix.m[3][3] != 0.0f;
         }
+
+        // The near and far planes a projection was built with, read back from its z column (the
+        // TAA jitter, in row 2 or 3's x and y, leaves it alone). Perspective: m22 = n / (f - n),
+        // m32 = f n / (f - n), so f = m32 / m22 and n = m22 f / (1 + m22). Orthographic:
+        // m22 = 1 / (f - n), m32 = f / (f - n), so f = m32 / m22 and n = f - 1 / m22.
+        [[nodiscard]] constexpr f32 FarPlane(const Float4x4& matrix) noexcept
+        {
+            const f32 a = matrix.m[2][2];
+            return (a != 0.0f) ? matrix.m[3][2] / a : 0.0f;
+        }
+        [[nodiscard]] constexpr f32 NearPlane(const Float4x4& matrix) noexcept
+        {
+            const f32 a = matrix.m[2][2];
+            if (a == 0.0f)
+            {
+                return 0.0f;
+            }
+            const f32 zFar = matrix.m[3][2] / a;
+            return IsOrthographic(matrix) ? zFar - 1.0f / a : a * zFar / (1.0f + a);
+        }
     } // namespace projection
 
     [[nodiscard]] constexpr Float4x4 operator*(const Float4x4& a, const Float4x4& b) noexcept
