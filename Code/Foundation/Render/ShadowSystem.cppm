@@ -39,6 +39,14 @@ export namespace foundation::render
         return Float3{c.x * invW, c.y * invW, c.z * invW};
     }
 
+    // How far a view's directional shadows reach from its draw eye: the scene's `distance` past the
+    // eye (at least a metre), clamped to the camera's far plane. A view drawn from behind its eye
+    // (ViewCamera::pullBack) reaches that much further, so its shadows cover the same ground.
+    [[nodiscard]] inline f32 ShadowReach(const ViewCamera& cam, f32 distance)
+    {
+        return Min(cam.farZ, Max(distance, 1.0f) + cam.pullBack);
+    }
+
     // Fit CSM cascades to the camera frustum. Practical split (lambda blend of log + uniform), a bounding
     // SPHERE fit per cascade (stable under camera rotation) with radius snapping, plus light-space TEXEL
     // snapping - the anti-shimmer fix Sedulous lacks (the survey flagged it). `lightDir` is the direction

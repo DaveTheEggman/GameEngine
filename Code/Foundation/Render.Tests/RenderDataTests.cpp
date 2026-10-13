@@ -484,3 +484,17 @@ TEST_CASE("LightFalloff matches the forward shader's range window and spot cone"
     GpuLight sun; // directional: everywhere alike
     CHECK(LightFalloff(sun, Float3{5, 5, 5}) == doctest::Approx(1.0f));
 }
+
+TEST_CASE("ShadowReach: a view drawn from behind its eye reaches as far past the eye")
+{
+    // The cascades start at the draw eye; an orthographic editor view pulled back 40 m must reach
+    // 40 m further from there, or its shadows would end 40 m short of where they did.
+    ViewCamera cam;
+    cam.farZ = 1000.0f;
+    CHECK(ShadowReach(cam, 120.0f) == doctest::Approx(120.0f));
+    CHECK(ShadowReach(cam, 0.0f) == doctest::Approx(1.0f)); // at least a metre
+    cam.pullBack = 40.0f;
+    cam.farZ = 1040.0f;
+    CHECK(ShadowReach(cam, 120.0f) == doctest::Approx(160.0f));
+    CHECK(ShadowReach(cam, 5000.0f) == doctest::Approx(1040.0f)); // never past the far plane
+}

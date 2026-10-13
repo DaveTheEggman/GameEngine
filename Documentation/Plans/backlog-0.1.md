@@ -15,16 +15,6 @@
   defaults, set in the project settings, so the lookup goes scene, then project, then the
   hard-coded default. Survey which domains have scene settings, and how a project default
   relates to the profiles (a project default could simply name a profile).
-- **An orthographic view tipped down clips the ground near it** (Sedulous, 2026-10-13, seen here
-  too in Lamplight's Gardens): the orthographic volume starts at the eye's plane (`nearZ` 0.1,
-  `EditorCamera::Projection`) and the eye stays where perspective put it, so in a view tipped
-  down the ground nearer than the eye's plane is cut away and the viewport's bottom shows the
-  backdrop. Unity pulls an orthographic camera back along the view; Blender starts the volume
-  behind the eye. Either way, decide what moves with it: the render and gizmo cameras and the
-  picking rays (`RayThrough`'s origin) are built from `position` in `ScenePageImpl`, and what is
-  measured from the eye (shadow cascade splits, fog) would shift by a pull-back, while a negative
-  near plane meets shaders that take a view depth to be positive (TAA's disocclusion divides by
-  it). With a test that a ground point below a tipped orthographic view is drawn and picked.
 - **Vertex snap, the next steps** (from the seeded item, 2026-08-26; the pivot-onto-vertex snap
   is built, week 2026-10-10): pick a SOURCE vertex on the moved object (Blender-style, any corner
   as the anchor, not only the pivot); snap to edges, faces and the grid as well as vertices; a

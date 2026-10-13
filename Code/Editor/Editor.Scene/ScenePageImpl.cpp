@@ -261,11 +261,12 @@ namespace editor
         }
 
         render::ViewCamera camera;
-        camera.view = Float4x4::LookAtRH(m_camera.position, m_camera.position + m_camera.Forward(),
+        camera.view = Float4x4::LookAtRH(m_camera.DrawEye(), m_camera.DrawEye() + m_camera.Forward(),
                                          m_camera.Up());
         camera.projection = m_camera.Projection(static_cast<f32>(w) / static_cast<f32>(h));
         camera.position = m_camera.position;
-        camera.farZ = m_camera.farZ;
+        camera.farZ = m_camera.DrawFar();
+        camera.pullBack = m_camera.DrawPullBack();
 
         render::CameraOverride cameraOverride;
         cameraOverride.camera = camera;
@@ -989,7 +990,9 @@ namespace editor
         }
         ViewportToolInput in;
         in.deltaSeconds = deltaSeconds;
-        in.cameraPosition = m_camera.position;
+        // The draw eye: under orthographic what lies behind the eye's own plane is in view too, and
+        // the gizmo's size and the marquee take a depth from here (the eye in perspective).
+        in.cameraPosition = m_camera.DrawEye();
         in.cameraForward = m_camera.Forward();
         in.cameraUp = m_camera.Up();
         in.fovY = m_camera.fovY;
@@ -1244,8 +1247,8 @@ namespace editor
         // The viewport's camera for the LOD overlay's per-view pick - the same matrices the
         // render path builds (aspect from the live render target when it exists).
         render::ViewCamera gizmoCamera;
-        gizmoCamera.view = Float4x4::LookAtRH(m_camera.position,
-                                              m_camera.position + m_camera.Forward(), m_camera.Up());
+        gizmoCamera.view = Float4x4::LookAtRH(m_camera.DrawEye(),
+                                              m_camera.DrawEye() + m_camera.Forward(), m_camera.Up());
         const f32 gizmoAspect =
             (m_viewport && m_viewport->IsReady() && m_viewport->RenderHeight() > 0)
                 ? static_cast<f32>(m_viewport->RenderWidth()) /
@@ -1253,6 +1256,8 @@ namespace editor
                 : 16.0f / 9.0f;
         gizmoCamera.projection = m_camera.Projection(gizmoAspect);
         gizmoCamera.position = m_camera.position;
+        gizmoCamera.farZ = m_camera.DrawFar();
+        gizmoCamera.pullBack = m_camera.DrawPullBack();
         ctx.viewCamera = &gizmoCamera;
         ctx.lodOverlay = m_showLodOverlay;
         ctx.showColliders = m_showColliders;

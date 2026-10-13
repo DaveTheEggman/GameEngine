@@ -1590,9 +1590,9 @@ namespace foundation::render
                 // this affordable (casters only touch the one cascade they fall in), and SampleCSM
                 // far-fades over the last cascade so the boundary dissolves instead of popping. Larger
                 // reach covers more ground but spreads cascade texel density (softer near shadows).
-                // The scene's reach (its environment settings), clamped to the camera's far plane.
+                // The scene's reach (its environment settings), from the view's eye (ShadowReach).
                 const SceneShadowSettings& reach = sctx->scene->ShadowSettings();
-                const f32 shadowDistance = Min(v->Camera().farZ, Max(reach.distance, 1.0f));
+                const f32 shadowDistance = ShadowReach(v->Camera(), reach.distance);
                 ShadowCascades cascades =
                     ComputeCascades(v->Camera(), viewLightDir, shadowDistance, shadowRes,
                                     Clamp(reach.cascadeSplit, 0.0f, 1.0f));

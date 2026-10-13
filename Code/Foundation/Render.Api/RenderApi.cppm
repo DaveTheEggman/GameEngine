@@ -46,6 +46,11 @@ export namespace foundation::render
         Float4x4 projection = Float4x4::Identity();
         Float3 position = Float3{0, 0, 0};
         f32 farZ = 1000.0f; // for depth-key normalization
+        // How far behind `position` the view draws from, along its view: an orthographic editor
+        // view pulled back to show what lies behind its eye's plane (the view matrix's origin is
+        // there, `position` stays the eye). What reaches a distance from the eye, the shadows,
+        // reaches this much further from the draw eye.
+        f32 pullBack = 0.0f;
 
         [[nodiscard]] Float4x4 ViewProjection() const noexcept { return view * projection; }
         // What the projection says about itself, so no builder has to repeat it beside the matrix

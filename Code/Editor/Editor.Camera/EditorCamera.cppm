@@ -60,10 +60,25 @@ export namespace editor
             if (orthographic)
             {
                 const f32 height = OrthoHeight();
-                return Float4x4::OrthographicRH(height * aspect, height, nearZ, farZ);
+                return Float4x4::OrthographicRH(height * aspect, height, nearZ, DrawFar());
             }
             return Float4x4::PerspectiveFovRH(fovY, aspect, nearZ, farZ);
         }
+
+        /// How far behind the eye the view draws from: one view height under orthographic, none in
+        /// perspective. An orthographic volume starting at the eye's plane cut away, in a view
+        /// tipped down, the ground below the eye; drawing from further back along the view changes
+        /// nothing on screen but what is clipped. One view height shows that ground in the views
+        /// people tip and follows the zoom, while what stands further behind the eye stays clipped
+        /// (a wall far behind it would otherwise cover the view; user ruling 2026-10-13). The eye
+        /// itself stays put: what is measured from it (orbit, zoom, the renderer's distance fades)
+        /// is as in perspective.
+        [[nodiscard]] f32 DrawPullBack() const { return orthographic ? OrthoHeight() : 0.0f; }
+        /// Where the view draws from: the eye, or under orthographic the point pulled back along
+        /// the view behind it (the view matrix's origin; the eye stays `position`).
+        [[nodiscard]] Float3 DrawEye() const { return position - Forward() * DrawPullBack(); }
+        /// The far plane from the draw eye: as far past the eye as ever.
+        [[nodiscard]] f32 DrawFar() const { return farZ + DrawPullBack(); }
 
         /// Switch between perspective and orthographic by hand (the toggle): what is in view stays.
         void SetOrthographic(bool on)
@@ -74,14 +89,15 @@ export namespace editor
 
         /// The world ray through a viewport point given in NDC (x right, y up, each -1..1) for a
         /// view `aspect` wide over tall: from the eye fanning out in perspective; parallel to the
-        /// view under orthographic, starting on the eye's plane.
+        /// view under orthographic, starting on the draw eye's plane (DrawEye).
         void RayThrough(f32 ndcX, f32 ndcY, f32 aspect, Float3& origin, Float3& direction) const
         {
             const f32 tanY = Tan(0.5f * fovY);
             if (orthographic)
             {
+                // From the draw eye's plane, so what lies behind the eye's own plane is picked too.
                 const f32 halfH = 0.5f * OrthoHeight();
-                origin = position + Right() * (ndcX * halfH * aspect) + Up() * (ndcY * halfH);
+                origin = DrawEye() + Right() * (ndcX * halfH * aspect) + Up() * (ndcY * halfH);
                 direction = Forward();
                 return;
             }

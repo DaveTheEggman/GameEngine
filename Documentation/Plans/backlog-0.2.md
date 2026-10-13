@@ -11,6 +11,38 @@ surface output) that GENERATE a surface shader, fed through the same cook (varia
 points, bytecode packs), on the NodeGraph UI and the AnimationGraphPage pattern. It builds on
 0.1's surface shaders (`Specs/custom-shaders.md`): a graph is a surface function written for you.
 
+## An orthographic view that sees behind its eye: revisit (user 2026-10-13; after 0.1)
+
+For 0.1 an orthographic editor view draws from one view height behind its eye (`EditorCamera::
+DrawPullBack`), so a view tipped down shows the ground below the eye, with the shadow reach
+lengthened to match (`ViewCamera::pullBack`, `ShadowReach`); what stands further behind stays
+clipped. The user was unsure between that and a view volume that starts behind the eye (a
+negative near plane, which games' orthographic cameras could use too), and asked to revisit it.
+A negative near meets every pass that takes a view depth to be positive: the cluster slices'
+`Log(far / near)`, the cascade splits' logarithmic start (`Max(nearZ, 0.01f)`), TAA's
+disocclusion ratio, the depth linearizations. What other engines do (surveyed 2026-10-13, on
+their current code):
+- ezEngine: a negative near. Its editor's axis-aligned orthographic views draw -1000..+1000 about
+  the eye (`ViewRenderSettings.cpp`), and focusing puts the eye at the selection's centre. The
+  cost shows: clustered lights have a todo for orthographic and directional shadows are off in
+  those views; its depth linearization is perspective-only. Its directional-shadow cameras use
+  both: the render camera pulled back with near 0, the culling camera with a negative near.
+- Traktor: a negative near. Every orthographic view is -far..+far about the eye (`WorldRender
+  View::setOrthogonal`, the near ignored), editor axis views only. Its cluster slices take
+  `log(far / near)` of that negative near and its cascades start at a positive near, with no
+  orthographic branch in either.
+- Doriax: a negative near by default (game cameras -10..10; its 2D editor view -10000..10000),
+  shadows forced to one cascade fitted to the whole volume; no 3D orthographic editor view.
+- LunarSong, Zero: a positive near; the eye stands a distance back from a pivot (Zero's
+  LookDistance, LunarSong's orbit distance doubling as the view height), so the pull-back is a
+  side effect of placing the eye, not a fix. LunarSong's near extraction turns a near of 0 or
+  less into 0.1, and Zero clamps a camera's near to 0.01.
+- Lumix: our old behaviour, near 0.1 from the perspective eye, tilted views allowed, nothing
+  compensating.
+None makes its renderer correct behind the eye: those with a negative near switch off or leave
+broken what assumes a positive one. Doing it properly here means each of those passes, on every
+backend, with a test of each; the payoff is games' orthographic cameras seeing behind themselves.
+
 ## The shader page: the cooked code, and project include files (2026-10-12; after 0.1)
 
 What custom shaders left after 0.1 (`Specs/custom-shaders.md`, phase 8): a toggle on the shader

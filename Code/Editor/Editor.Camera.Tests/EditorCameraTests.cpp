@@ -286,6 +286,48 @@ TEST_CASE("EditorCamera orthographic: a ray runs along the view, from a point th
     CHECK(Dot(dirB, cam.Forward()) < 0.95f);
 }
 
+TEST_CASE("EditorCamera orthographic: it draws from a view height back, showing the ground below the eye")
+{
+    // An eye 12 m up, tipped 35 degrees down, zoomed out: the view is 34.6 m tall, so at the eye's
+    // plane its bottom edge lies under the ground, and the ground there is nearer than that plane,
+    // which a volume starting at it cut away.
+    editor::EditorCamera cam;
+    cam.position = Float3{0.0f, 12.0f, 10.0f};
+    cam.yaw = 0.0f;
+    cam.pitch = -0.61f;
+    cam.focusDistance = 30.0f;
+
+    // Perspective draws from the eye.
+    CHECK(cam.DrawPullBack() == doctest::Approx(0.0f));
+    CHECK(Near(cam.DrawEye().z, cam.position.z));
+    CHECK(cam.DrawFar() == doctest::Approx(cam.farZ));
+
+    cam.SetOrthographic(true);
+    CHECK(cam.DrawPullBack() == doctest::Approx(cam.OrthoHeight()));
+    const Float3 drawEye = cam.DrawEye();
+    CHECK(Near(Dot(cam.position - drawEye, cam.Forward()), cam.OrthoHeight()));
+    // The eye stays put, the far plane keeps its reach past it, and the projection says so.
+    CHECK(Near(cam.position.y, 12.0f));
+    CHECK(cam.DrawFar() == doctest::Approx(cam.farZ + cam.OrthoHeight()));
+    CHECK(projection::FarPlane(cam.Projection(1.5f)) == doctest::Approx(cam.DrawFar()).epsilon(0.001));
+
+    // A ray through the bottom of the view starts on the draw eye's plane, so it finds the ground
+    // below the eye, behind the eye's own plane.
+    Float3 origin, direction;
+    cam.RayThrough(0.0f, -1.0f, 1.5f, origin, direction);
+    REQUIRE(direction.y < 0.0f);
+    const Float3 hit = origin + direction * (-origin.y / direction.y);
+    CHECK(Dot(hit - cam.position, cam.Forward()) < 0.0f);       // behind the eye's plane
+    CHECK(Dot(hit - drawEye, cam.Forward()) >= cam.nearZ);      // past the near plane
+    // What stands two view heights behind the eye stays clipped.
+    const Float3 farBehind = cam.position - cam.Forward() * (2.0f * cam.OrthoHeight());
+    CHECK(Dot(farBehind - drawEye, cam.Forward()) < cam.nearZ);
+
+    // Zooming in brings it closer: the reach follows the view height.
+    cam.focusDistance = 10.0f;
+    CHECK(cam.DrawPullBack() == doctest::Approx(cam.OrthoHeight()));
+}
+
 TEST_CASE("EditorCamera orthographic: a snap to an axis turns it on, and turning away turns it off")
 {
     editor::EditorCamera cam;
