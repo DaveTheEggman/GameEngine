@@ -2195,7 +2195,8 @@ namespace foundation::render
                         sceneColor = m_taa->DeclareTaa(
                             m_graph, litHdr, postVelocity, postDepth, historySlot, v->Width(),
                             v->Height(), post.taaBlend, post.taaGamma, m_taaMotionScale,
-                            v->Camera().NearZ(), v->Camera().FarZ());
+                            v->Camera().NearZ(), v->Camera().FarZ(),
+                            v->Camera().IsOrthographic());
                     }
                     // Transparent (blended) AFTER TAA, into the resolved image, with the UNJITTERED projection:
                     // color-only, depth read-only against the opaque depth, back-to-front. Under MSAA it

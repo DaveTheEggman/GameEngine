@@ -147,6 +147,7 @@ namespace foundation::render
             gp.projScaleY = proj(1, 1);
             gp.frameMod = static_cast<i32>(frameIndex & 63u);
             gp.debugMode = debugMode;
+            gp.orthographic = projection::IsOrthographic(proj) ? 1 : 0;
             push = PushBuf::From(gp);
             pipeline = m_gtaoPipeline;
         }
@@ -157,10 +158,9 @@ namespace foundation::render
             sp.texelSize = texel;
             sp.projXX = proj(0, 0);
             sp.projYY = proj(1, 1);
-            sp.jitter = Float2{
-                proj(2, 0),
-                proj(2,
-                     1)}; // NDC jitter (proj z-row) so back-projection matches the jittered depth
+            sp.jitter =
+                projection::JitterOf(proj); // so back-projection matches the jittered depth
+            sp.orthographic = projection::IsOrthographic(proj) ? 1 : 0;
             sp.radius = radius;
             sp.intensity = intensity;
             sp.bias = 0.05f;

@@ -257,7 +257,7 @@ namespace foundation::render
         pc.invProj = invProj;
         pc.vpMin = vpMin;
         pc.vpSize = vpSize;
-        pc.jitter = Float2{proj(2, 0), proj(2, 1)};
+        pc.jitter = projection::JitterOf(proj);
         pc.projXX = proj(0, 0);
         pc.projYY = proj(1, 1);
         pc.thickness = p.thickness;

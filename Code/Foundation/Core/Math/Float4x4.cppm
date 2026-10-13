@@ -203,6 +203,37 @@ export namespace foundation::core
             const f32 zFar = matrix.m[3][2] / a;
             return IsOrthographic(matrix) ? zFar - 1.0f / a : a * zFar / (1.0f + a);
         }
+
+        // Reverse-Z orthographic NDC depth -> view-space distance along the view (the inverse of
+        // OrthographicRH's z row, linear): d = f - ndc (f - n). ndc 1 -> n, ndc 0 -> f.
+        [[nodiscard]] constexpr f32 LinearizeDepthOrthographic(f32 ndcDepth, f32 zNear,
+                                                               f32 zFar) noexcept
+        {
+            return zFar - ndcDepth * (zFar - zNear);
+        }
+
+        // The TAA jitter: a sub-pixel shift of every NDC position by -(jx, jy), the same for both
+        // projections. A perspective one carries it in row 2 (scaled by w = view depth, so a
+        // constant NDC shift); an orthographic one keeps w = 1, so row 2 would shift by depth and
+        // the jitter goes in row 3 instead. JitterOf reads back what ApplyJitter put in.
+        constexpr void ApplyJitter(Float4x4& matrix, f32 jx, f32 jy) noexcept
+        {
+            if (IsOrthographic(matrix))
+            {
+                matrix.m[3][0] -= jx;
+                matrix.m[3][1] -= jy;
+            }
+            else
+            {
+                matrix.m[2][0] += jx;
+                matrix.m[2][1] += jy;
+            }
+        }
+        [[nodiscard]] constexpr Float2 JitterOf(const Float4x4& matrix) noexcept
+        {
+            return IsOrthographic(matrix) ? Float2{-matrix.m[3][0], -matrix.m[3][1]}
+                                          : Float2{matrix.m[2][0], matrix.m[2][1]};
+        }
     } // namespace projection
 
     [[nodiscard]] constexpr Float4x4 operator*(const Float4x4& a, const Float4x4& b) noexcept

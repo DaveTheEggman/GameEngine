@@ -1,6 +1,7 @@
 # Orthographic views - every effect under an orthographic camera, then the editor's
 
-> STATUS: SPEC, approved 2026-10-12 (the decisions below as recommended); P0 building. Backlog
+> STATUS: approved 2026-10-12 (the decisions below as recommended); P0 and P1 BUILT (P1 also took
+> the sky's zero velocity under orthographic, so TAA's history stays finite); P2 next. Backlog
 > entries it closes: `Plans/backlog-0.1.md` (Editor: an orthographic editor camera) and
 > `Plans/weekly_backlog.md` (Post effects for an orthographic camera). Read CONVENTIONS.md first.
 

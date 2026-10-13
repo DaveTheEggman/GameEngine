@@ -85,7 +85,7 @@ export namespace foundation::render
             f32 projScaleY = 1.0f;
             i32 frameMod = 0;
             i32 debugMode = 0;
-            i32 pad = 0;
+            i32 orthographic = 0; // 1: view rays are parallel, no divide by depth
         };
         struct SsaoPushC
         {
@@ -99,6 +99,8 @@ export namespace foundation::render
             f32 bias = 0.05f;
             i32 sampleCount = 16;
             i32 debugMode = 0;
+            i32 orthographic = 0; // 1: view rays are parallel, no divide by depth
+            i32 pad = 0;
         };
         struct BlurPushC
         {

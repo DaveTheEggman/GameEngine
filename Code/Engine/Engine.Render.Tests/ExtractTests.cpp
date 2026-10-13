@@ -705,7 +705,7 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
     }
 }
 
-TEST_CASE("LimitPostForOrthographic drops the passes that assume a perspective depth")
+TEST_CASE("LimitPostForOrthographic drops the passes that still assume an eye point")
 {
     ViewPostConfig vp;
     vp.aoMode = 1u;
@@ -716,11 +716,11 @@ TEST_CASE("LimitPostForOrthographic drops the passes that assume a perspective d
     vp.fxaaEnabled = true;
     vp.autoExposure = true;
     LimitPostForOrthographic(vp);
-    CHECK(vp.aoMode == 0u);
     CHECK_FALSE(vp.ssrEnabled);
     CHECK_FALSE(vp.ssgiEnabled);
-    CHECK_FALSE(vp.taaEnabled);
-    // What reads only the colour stays.
+    // AO and TAA handle an orthographic view; what reads only the colour stays.
+    CHECK(vp.aoMode == 1u);
+    CHECK(vp.taaEnabled);
     CHECK(vp.bloomEnabled);
     CHECK(vp.fxaaEnabled);
     CHECK(vp.autoExposure);

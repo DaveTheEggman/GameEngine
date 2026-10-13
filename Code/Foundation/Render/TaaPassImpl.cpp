@@ -101,7 +101,8 @@ namespace foundation::render
                                               rendergraph::RGHandle motion,
                                               rendergraph::RGHandle depth, u32 viewIndex, u32 w,
                                               u32 h, f32 blendFactor, f32 varianceGamma,
-                                              f32 motionScale, f32 nearPlane, f32 farPlane)
+                                              f32 motionScale, f32 nearPlane, f32 farPlane,
+                                              bool orthographic)
     {
         if (viewIndex >= kMaxViews || w == 0 || h == 0)
         {
@@ -148,6 +149,7 @@ namespace foundation::render
         push.motionScale = motionScale;
         push.nearPlane = nearPlane;
         push.farPlane = (farPlane > nearPlane) ? farPlane : 1000.0f;
+        push.orthographic = orthographic ? 1 : 0;
 
         rhi::TextureView* histPrevView = hist.view[prev];
         graph.AddRenderPass(

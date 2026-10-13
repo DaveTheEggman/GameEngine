@@ -179,13 +179,13 @@ export namespace foundation::render
 
         [[nodiscard]] const ExtractedScene* Scene() const noexcept { return m_scene; }
         [[nodiscard]] const ViewCamera& Camera() const noexcept { return m_camera; }
-        // Apply a sub-pixel TAA jitter (clip-space offset) to the projection, so every downstream read of
-        // ViewProjection() (prepass, forward, sky) uses the same jittered matrix. Row-vector convention:
-        // offsetting proj(2,0)/(2,1) shifts clip.xy by jitter*clip.w -> a constant pixel offset.
+        // Apply a sub-pixel TAA jitter to the projection, so every downstream read of
+        // ViewProjection() (prepass, forward, sky) uses the same jittered matrix: a constant NDC
+        // shift in either projection (projection::ApplyJitter puts it in the row that does that;
+        // passes read it back with projection::JitterOf).
         void ApplyProjectionJitter(f32 jx, f32 jy) noexcept
         {
-            m_camera.projection(2, 0) += jx;
-            m_camera.projection(2, 1) += jy;
+            projection::ApplyJitter(m_camera.projection, jx, jy);
         }
         [[nodiscard]] const ViewSettings& Settings() const noexcept { return m_settings; }
         [[nodiscard]] rhi::TextureView* Target() const noexcept { return m_target; }

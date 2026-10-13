@@ -241,6 +241,46 @@ TEST_CASE("math: a projection's near and far planes read back from it, jittered 
     CHECK(NearlyEqual(projection::NearPlane(ortho), -50.0f, 1.0e-3f));
 }
 
+TEST_CASE("math: an orthographic depth linearizes back to its distance")
+{
+    const f32 n = -20.0f, f = 80.0f;
+    const Float4x4 ortho = Float4x4::OrthographicRH(10.0f, 10.0f, n, f);
+    const f32 distances[] = {-20.0f, -3.5f, 0.0f, 12.0f, 79.0f};
+    for (const f32 d : distances)
+    {
+        CHECK(NearlyEqual(projection::LinearizeDepthOrthographic(NdcDepthAt(ortho, d), n, f), d,
+                          1.0e-3f));
+    }
+}
+
+TEST_CASE("math: the TAA jitter shifts NDC by the same amount at every depth, either projection")
+{
+    const auto ndcXY = [](const Float4x4& proj, f32 x, f32 y, f32 distance)
+    {
+        const Float4 clip = Float4{x, y, -distance, 1.0f} * proj;
+        return Float2{clip.x / clip.w, clip.y / clip.w};
+    };
+    const f32 jx = 0.0031f, jy = -0.0017f;
+    const Float4x4 projections[] = {Float4x4::PerspectiveFovRH(1.0f, 1.5f, 0.1f, 500.0f),
+                                    Float4x4::OrthographicRH(20.0f, 12.0f, 0.1f, 500.0f)};
+    const f32 depths[] = {1.0f, 40.0f, 300.0f};
+    for (const Float4x4& plain : projections)
+    {
+        Float4x4 jittered = plain;
+        projection::ApplyJitter(jittered, jx, jy);
+        CHECK(NearlyEqual(projection::JitterOf(jittered).x, jx, 1.0e-7f));
+        CHECK(NearlyEqual(projection::JitterOf(jittered).y, jy, 1.0e-7f));
+        CHECK(NearlyEqual(projection::NearPlane(jittered), projection::NearPlane(plain), 1.0e-4f));
+        for (const f32 distance : depths)
+        {
+            const Float2 a = ndcXY(plain, 0.7f, -0.4f, distance);
+            const Float2 b = ndcXY(jittered, 0.7f, -0.4f, distance);
+            CHECK(NearlyEqual(b.x - a.x, -jx, 1.0e-5f));
+            CHECK(NearlyEqual(b.y - a.y, -jy, 1.0e-5f));
+        }
+    }
+}
+
 TEST_CASE("math: BoundingFrustum extracts the reverse-Z near and far planes where the camera puts them")
 {
     const f32 n = 0.5f, f = 200.0f;

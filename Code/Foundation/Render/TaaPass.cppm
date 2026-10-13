@@ -56,12 +56,12 @@ export namespace foundation::render
 
         // Resolve TAA for one view: reads the jittered HDR (`current`), the previous history, the motion +
         // depth targets; writes the resolved HDR (a new transient, returned) and the next-frame history.
-        // `blendFactor` ~0.95. Returns the resolved handle, or `current` unchanged if the view is invalid.
+        // `blendFactor` ~0.95; the planes and the projection's kind linearize its depth. Returns the resolved handle, or `current` unchanged if the view is invalid.
         [[nodiscard]] rendergraph::RGHandle
         DeclareTaa(rendergraph::RenderGraph& graph, rendergraph::RGHandle current,
                    rendergraph::RGHandle motion, rendergraph::RGHandle depth, u32 viewIndex, u32 w,
                    u32 h, f32 blendFactor, f32 varianceGamma, f32 motionScale, f32 nearPlane,
-                   f32 farPlane);
+                   f32 farPlane, bool orthographic);
 
         /// Forget history slot `slot`'s accumulated state (the frame handed the slot to another
         /// view, RenderFrame::HistorySlotFor): its next frame starts fresh instead of blending in
@@ -84,6 +84,8 @@ export namespace foundation::render
             f32 motionScale = 1.0f / 32.0f; // per pixel a frame (taa.ps.hlsl)
             f32 nearPlane = 0.1f;
             f32 farPlane = 1000.0f;
+            i32 orthographic = 0; // 1: linear depth (taa.ps.hlsl's disocclusion test)
+            i32 pad0 = 0, pad1 = 0, pad2 = 0;
         };
 
         struct ViewHistory

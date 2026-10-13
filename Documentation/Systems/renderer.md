@@ -311,6 +311,17 @@ It lives in three places, kept in step:
   `BiasClipTowardViewer` (shadow receiver bias, debug-line pull), `LinearizeDepth`. The sky
   sits AT `kDepthFar` with `NearerOrEqual`, so only a cleared pixel passes.
 
+Both projections share it. An orthographic projection keeps w = 1, so its depth is linear
+(`projection::LinearizeDepthOrthographic`); a `ViewCamera` reads its kind and planes from its
+matrix (`IsOrthographic`, `NearZ`, `FarZ`, `OrthoHeight`, through `projection::NearPlane` /
+`FarPlane`). The TAA jitter is the same NDC shift in both: `projection::ApplyJitter` puts it in
+row 2 for a perspective projection and row 3 for an orthographic one (where row 2 would shift by
+depth), and passes read it back with `projection::JitterOf`. A pass working in view space
+includes `Data/Shaders/projection.hlsli` (`ProjectionDivide`, `ViewToNdcXY`, `ViewDirToViewer`,
+`LinearViewDepth`) with its view's orthographic flag rather than assume an eye: AO and TAA do.
+SSR and SSGI still cast from an eye, so `LimitPostForOrthographic` turns them off for an
+orthographic view (`Specs/orthographic-views.md`).
+
 What is convention-free and stayed as it was: everything that reconstructs position through an
 inverse projection (GTAO/SSAO/SSR/SSGI/decals via `InvProj`/`InvViewProj`), the soft-particle
 depth from projection terms, the cluster slices (view-space), LOD (projection[1][1]), the editor
