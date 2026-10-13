@@ -337,6 +337,15 @@ export namespace foundation::ui
         /// looseness: a base-side Match would defeat FlexLayout's deliberate cross-axis
         /// demotion. Controls implement OnMeasureContent (content-box in, content
         /// size out); plain OnMeasure overrides receive the post-margin post-spec box.
+        ///
+        /// Within one layout pass a view answers a repeat request with the same constraints
+        /// from its last answers (up to eight) rather than measuring its subtree again: nested flex
+        /// containers measure each child more than once, and that doubled at every level (a deep
+        /// page measured its leaves hundreds of times a pass). The answer is the same; what a
+        /// stored answer cannot bring back is the subtree's own state (each child keeps what its
+        /// LAST real measure gave it), so Layout first measures the subtree again, once, when
+        /// the last request was answered from the store for other constraints than the subtree
+        /// holds. Invalidation (MarkNeedsLayout) and each layout pass start the store afresh.
         void Measure(BoxConstraints c); // impl unit (needs RootView complete for the dpi query)
 
         /// How wide this view's content is when nothing narrows it, at `height`: what a container
@@ -940,6 +949,25 @@ export namespace foundation::ui
         UniquePtr<TransitionState> m_transitionState; ///< null until the first transition
         bool m_transitionRegistered = false;          ///< listed in the context's tick set
         void RegisterTransitioning();                  // impl unit
+
+        // The measure store (Measure): this pass's last few answers, the constraints the
+        // subtree was last really measured for, and the last request.
+        struct MeasureAnswer
+        {
+            BoxConstraints constraints;
+            Float2 size;
+        };
+        // Eight: each nesting level below brings a request of its own (its measured height), so
+        // a deep page needs a few; four evicted answers still wanted and measure counts grew again.
+        static constexpr u32 kMeasureAnswers = 8;
+        MeasureAnswer m_measureAnswers[kMeasureAnswers];
+        u32 m_measureAnswerCount = 0;
+        u32 m_measureAnswerNext = 0;
+        u64 m_measureGeneration = ~u64{0};
+        BoxConstraints m_measuredFor;   ///< what the subtree's state was last computed for
+        BoxConstraints m_measureRequest; ///< the last request (what the parent lays out by)
+        bool m_measureStale = false;    ///< the request was answered from the store, not m_measuredFor
+        void MeasureUncached(BoxConstraints c); // impl unit: the real measure
 
         bool m_needsRedraw = true;
         LayoutStyle m_layout;          ///< inline (declared) intent
@@ -1738,7 +1766,11 @@ export namespace foundation::ui
         {
             m_needsLayout = true;
             m_needsRedraw = true; // a relayout always redraws
+            ++m_measureGeneration; // what a view measured before may no longer hold
         }
+        /// Views answer repeat measures within one generation (View::Measure); a new layout
+        /// pass or any invalidation starts the next.
+        [[nodiscard]] u64 MeasureGeneration() const noexcept { return m_measureGeneration; }
         void BeginFrame(f32 deltaTime)
         {
             m_deltaTime = deltaTime;
@@ -1776,6 +1808,7 @@ export namespace foundation::ui
                 return;
             }
             m_phase = Phase::Layout;
+            ++m_measureGeneration; // a pass measures afresh, then reuses answers within itself
             const f32 dpi = Max(root->DpiScale, 0.01f);
             const f32 logicalW = root->ViewportSize.x / dpi;
             const f32 logicalH = root->ViewportSize.y / dpi;
@@ -1869,6 +1902,7 @@ export namespace foundation::ui
         Phase m_phase = Phase::Idle;
         bool m_needsRedraw = true;
         bool m_needsLayout = true;
+        u64 m_measureGeneration = 1;
         f32 m_deltaTime = 0.0f;
         f32 m_totalTime = 0.0f;
     };

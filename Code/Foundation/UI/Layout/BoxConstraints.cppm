@@ -30,6 +30,7 @@ export namespace foundation::ui
             : MinWidth(minWidth), MaxWidth(maxWidth), MinHeight(minHeight), MaxHeight(maxHeight)
         {
         }
+        constexpr bool operator==(const BoxConstraints&) const noexcept = default;
 
         /// Exact size on both axes (min == max).
         [[nodiscard]] static constexpr BoxConstraints Tight(f32 width, f32 height) noexcept

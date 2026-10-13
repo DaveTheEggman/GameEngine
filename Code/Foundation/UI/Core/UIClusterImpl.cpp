@@ -856,6 +856,41 @@ namespace foundation::ui
 
     void View::Measure(BoxConstraints c)
     {
+        m_measureRequest = c;
+        if (Context == nullptr)
+        {
+            MeasureUncached(c);
+            return;
+        }
+        const u64 generation = Context->MeasureGeneration();
+        if (m_measureGeneration != generation)
+        {
+            m_measureGeneration = generation;
+            m_measureAnswerCount = 0;
+            m_measureAnswerNext = 0;
+        }
+        else
+        {
+            for (u32 i = 0; i < m_measureAnswerCount; ++i)
+            {
+                if (m_measureAnswers[i].constraints == c)
+                {
+                    MeasuredSize = m_measureAnswers[i].size;
+                    m_measureStale = !(c == m_measuredFor);
+                    return;
+                }
+            }
+        }
+        MeasureUncached(c);
+        m_measureAnswers[m_measureAnswerNext] = MeasureAnswer{c, MeasuredSize};
+        m_measureAnswerNext = (m_measureAnswerNext + 1) % kMeasureAnswers;
+        m_measureAnswerCount = Min(m_measureAnswerCount + 1, kMeasureAnswers);
+    }
+
+    void View::MeasureUncached(BoxConstraints c)
+    {
+        m_measuredFor = c;
+        m_measureStale = false;
         // Effective layout first: this view's (its own spec/margin below) and its children's
         // (the container's OnMeasure reads child->Layout() before measuring each child).
         RefreshEffectiveLayout();
@@ -953,6 +988,13 @@ namespace foundation::ui
     // of 1/dpi stay multiples).
     void View::Layout(f32 x, f32 y, f32 width, f32 height)
     {
+        // The parent lays this view out by its last answer; when that came from the measure store
+        // for other constraints than the subtree last held, measure the subtree for it, once, so
+        // every child lays out by what that request gives it (View::Measure).
+        if (m_measureStale)
+        {
+            MeasureUncached(m_measureRequest);
+        }
         const Thickness margin = m_effectiveLayout.Margin;
         f32 bx = x + margin.Left;
         f32 by = y + margin.Top;

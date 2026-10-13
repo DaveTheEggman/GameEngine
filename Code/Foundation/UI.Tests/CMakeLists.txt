@@ -48,6 +48,7 @@ add_executable(UI.Tests
     MarkupLoaderTests.cpp
     BoxModelTests.cpp
     TransitionTests.cpp
+    MeasureStoreTests.cpp
     FlexWrapTests.cpp
     DragDropTests.cpp
     TooltipTests.cpp
