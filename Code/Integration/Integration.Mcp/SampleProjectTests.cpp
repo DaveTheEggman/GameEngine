@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// The tracked sample projects (Data/SampleProjects: PaperKid, Sky Hopper, Snowline) must stay
-// readable at the CURRENT data versions. A wire-version bump or a key rename that forgets to
-// upgrade their sources leaves them refused by the strict readers - the cook logged 13 refusals
-// (font, six meshes, six UI documents) on PaperKid before the 2026-09-18 upgrade. This registers
-// the whole pipeline the way Tools.Cook does, opens a scratch copy (so opening never writes into
-// the tracked tree), and reads every instance back.
+// The tracked sample projects (Data/SampleProjects: PaperKid, Sky Hopper, Snowline, Shader
+// Gallery) must stay readable at the CURRENT data versions. A wire-version bump or a key rename
+// that forgets to upgrade their sources leaves them refused by the strict readers - the cook
+// logged 13 refusals (font, six meshes, six UI documents) on PaperKid before the 2026-09-18
+// upgrade. This registers the whole pipeline the way Tools.Cook does, opens a scratch copy (so
+// opening never writes into the tracked tree), and reads every instance back.
 #include <doctest/doctest.h>
 #include <filesystem>
 #include <string>
@@ -261,4 +261,13 @@ TEST_CASE("sample project: Snowline reads, cooks and its overrides match")
     // 13 scripts, 4 UI documents, 4 particle effects, 3 sounds, the input map and the render
     // profiles; the overrides are the gates', gems', kickers', ghosts', gap's and avalanche's settings
     CheckSampleProject(u8"Snowline", u8"scratch_snowline_versions", {127u, 108.0, 161u});
+}
+
+TEST_CASE("sample project: Shader Gallery reads, cooks and its overrides match")
+{
+    // 11 lesson shaders (surface and low-level, every program compiled by the cook) and their
+    // materials, the hall's 3 materials, 5 textures, 4 Blender models with their meshes and
+    // prefabs, the primitives, the hall, the camera's script, the list, the font and the input
+    // map; the overrides are the camera's starting yaw and pitch
+    CheckSampleProject(u8"ShaderGallery", u8"scratch_shadergallery_versions", {50u, 45.0, 2u});
 }
