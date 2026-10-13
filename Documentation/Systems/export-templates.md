@@ -66,7 +66,11 @@ required runtime-lib.
   install into the templates root (usable immediately) or export to a folder (for zip + distribution).
   A Web build synthesizes a "Web" template (the player is the `.html`, sidecars from the manifest, and
   export stages page + sidecars + `Content.pak` + `player.xml` + the WGSL `Data/Shaders/shaders.dpak`
-  with its `Data/.dataroot` marker).
+  with its `Data/.dataroot` marker). `scripts/build-export-templates.sh web` makes two: `web-release`
+  from the `wasm-shipping` preset (smallest, no profiler; the samples' Web presets and the published
+  demos use it) and `web-profile` from the `wasm-release` preset (Release with the profiler, its
+  capture and its overlay compiled in, the overlay off by default; given its own id since both
+  builds land in `Bin/Release/`), to profile a game in a browser.
 - **Import** - `ImportTemplate` (validate `template.xml` -> recursive copy under `<id>`).
 - **Resolve** - as above.
 

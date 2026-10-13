@@ -172,6 +172,17 @@
         "BUILDSYSTEM_OUTPUT_SUFFIX": "-Shipping",
         "OPTION_BUILD_SAMPLES": "OFF"
       }
+    },
+    {
+      "name": "wasm-release",
+      "displayName": "Emscripten wasm32 (Ninja, Release, profiler compiled in)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/wasm-release",
+      "toolchainFile": "$env{EMSDK}/upstream/emscripten/cmake/Modules/Platform/Emscripten.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "OPTION_BUILD_SAMPLES": "OFF"
+      }
     }
   ],
   "buildPresets": [
@@ -234,6 +245,10 @@
     {
       "name": "wasm-shipping",
       "configurePreset": "wasm-shipping"
+    },
+    {
+      "name": "wasm-release",
+      "configurePreset": "wasm-release"
     }
   ],
   "testPresets": [

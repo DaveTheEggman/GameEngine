@@ -216,8 +216,10 @@ target_compile_definitions(policy INTERFACE
     # point: one BMI is shared by the library that defines an entity and every consumer, so
     # the annotation must expand the same way everywhere (shared-libraries.md P5).
     $<$<BOOL:${ENGINE_SHARED_LIBS}>:BUILDSYSTEM_SHARED_LIBS=1>
-    # Instrumentation on in Debug/RelWithDebInfo; off (compiles to nothing) in shipping builds.
-    $<$<CONFIG:Debug,RelWithDebInfo>:BUILD_PROFILING=1>
+    # The profiler (CPU scopes, GPU timings, the overlay) in every build but Shipping, Release
+    # included, since Release is where timings mean something (user ruling 2026-10-13,
+    # Specs/profiler.md); in Shipping it compiles to nothing.
+    $<$<NOT:$<BOOL:${OPTION_SHIPPING_BUILD}>>:BUILD_PROFILING=1>
     # Build identity as strings, matching the Bin/<Config>/<Platform>-<Compiler> layout: the export
     # host template stamps itself with the config/compiler that built the running tool.
     BUILD_CONFIG=\"$<CONFIG>\"

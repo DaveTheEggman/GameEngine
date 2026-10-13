@@ -24,6 +24,12 @@
 # Windows is NOT built here (no toolchain on Linux) - use scripts/build-export-templates.ps1 on a
 # Windows agent for the Win64 template.
 #
+# The web templates are two: web-release (the wasm-shipping preset: smallest, no profiler), which
+# the sample games' Web presets and the published demos use, and web-profile (the wasm-release
+# preset: Release with the profiler, its capture and its overlay compiled in, the overlay off by
+# default), to profile a game in a browser. Both land in Bin/Release/..., so the profiling one
+# is given its own id.
+#
 #   Usage:  scripts/build-export-templates.sh [linux|web|all]      (default: all)
 #   Env:    JOBS=N     build parallelism (default 4; higher OOMs the engine build)
 #           OUT=<dir>  write self-contained bundles under <dir> (for zip/distribution);
@@ -43,6 +49,10 @@ LINUX_BUILD="build/$LINUX_PRESET"
 LINUX_BIN="Bin/RelWithDebInfo/Linux64-Clang"
 WEB_BUILD="build/wasm-shipping"        # the wasm-shipping preset: emscripten, Release, shipping
 WEB_BIN="Bin/Release/Emscripten-Clang-Shipping" # the preset's output suffix (-Shipping)
+WEB_PROFILE_BUILD="build/wasm-release"  # the wasm-release preset: emscripten, Release, profiler in
+WEB_PROFILE_BIN="Bin/Release/Emscripten-Clang"
+VERSION="$(sed -n 's/^[[:space:]]*VERSION[[:space:]]\+\([0-9][0-9.]*\).*/\1/p' CMakeLists.txt | head -1)"
+PREFIX="$(sed -n 's/^set(TEMPLATE_ID_PREFIX_VALUE[[:space:]]*"\([^"]*\)".*/\1/p' CMakeLists.txt | head -1)"
 
 # The native exporter packages EVERY platform's bundle (it runs on the host, pointing at the
 # target's Bin dir - including the wasm one, which it synthesizes into a "Web" template).
@@ -50,9 +60,10 @@ EXPORTER="$LINUX_BIN/Tools.Export"
 
 log() { printf '\n== %s ==\n' "$*"; }
 
-create_template() { # <config-dir> <out-subdir-tag>
+create_template() { # <config-dir> <out-subdir-tag> [Tools.Export --id/--name/... flags]
     local cfg="$1"
     local tag="$2"
+    shift 2
     if [[ ! -x "$EXPORTER" ]]; then
         echo "!! $EXPORTER not built yet (the Linux step builds it)" >&2
         return 1
@@ -62,9 +73,9 @@ create_template() { # <config-dir> <out-subdir-tag>
         # subfolder or a multi-platform run would clobber one template.xml with the next.
         local dest="$OUT/$tag"
         mkdir -p "$dest"
-        "$EXPORTER" --template create "$cfg" --out "$dest"
+        "$EXPORTER" --template create "$cfg" --out "$dest" "$@"
     else
-        "$EXPORTER" --template create "$cfg" --install   # --install already lands each under its <id>
+        "$EXPORTER" --template create "$cfg" --install "$@"   # --install lands each under its <id>
     fi
 }
 
@@ -122,6 +133,18 @@ build_web() {
     cmake --build "$WEB_BUILD" --target Engine.Player -j"$JOBS"
     # Packaged by the NATIVE exporter (built in the Linux step) -> a "Web" template.
     create_template "$WEB_BIN" "web-release"
+
+    log "Web (profiling) template"
+    if [[ ! -f "$WEB_PROFILE_BUILD/CMakeCache.txt" ]]; then
+        echo ">> configuring $WEB_PROFILE_BUILD (the wasm-release preset)"
+        cmake --preset wasm-release
+    fi
+    cmake --build "$WEB_PROFILE_BUILD" --target Engine.Player -j"$JOBS"
+    [[ -n "$VERSION" && -n "$PREFIX" ]] || { echo "!! no project VERSION or template id prefix in CMakeLists.txt" >&2; return 1; }
+    create_template "$WEB_PROFILE_BIN" "web-profile" \
+        --id "$PREFIX-web-profile-$VERSION" \
+        --name "Web Profile $VERSION" \
+        --notes "Web Release with the profiler compiled in: its capture and its overlay (off by default)."
 }
 
 case "$WHICH" in
