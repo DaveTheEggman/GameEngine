@@ -18,7 +18,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <atomic>
 
 export module foundation.profiler;
 
@@ -143,16 +142,16 @@ export namespace foundation::profiler
         // ---- arming -------------------------------------------------------------------------
 
         /// Start recording; each Arm is undone by one Disarm.
-        void Arm() noexcept { m_armCount.fetch_add(1, std::memory_order_acq_rel); }
+        void Arm() noexcept { m_armCount.fetch_add(1, MemoryOrder::AcqRel); }
         void Disarm() noexcept
         {
-            u32 count = m_armCount.load(std::memory_order_acquire);
+            u32 count = m_armCount.load(MemoryOrder::Acquire);
             while (count > 0 &&
-                   !m_armCount.compare_exchange_weak(count, count - 1, std::memory_order_acq_rel))
+                   !m_armCount.compare_exchange_weak(count, count - 1, MemoryOrder::AcqRel))
             {
             }
         }
-        [[nodiscard]] bool Armed() const noexcept { return m_armCount.load(std::memory_order_acquire) > 0; }
+        [[nodiscard]] bool Armed() const noexcept { return m_armCount.load(MemoryOrder::Acquire) > 0; }
 
         /// How many scopes a thread can hold between two frame ends before it drops new ones. Read
         /// when a thread first records, so set it before arming.
@@ -221,15 +220,15 @@ export namespace foundation::profiler
             }
             const OpenScope open = td.stack[td.stack.Size() - 1];
             td.stack.PopBack();
-            const u64 written = td.written.load(std::memory_order_relaxed);
-            if (written - td.read.load(std::memory_order_acquire) >= td.ring.Size())
+            const u64 written = td.written.load(MemoryOrder::Relaxed);
+            if (written - td.read.load(MemoryOrder::Acquire) >= td.ring.Size())
             {
-                td.dropped.fetch_add(1, std::memory_order_relaxed);
+                td.dropped.fetch_add(1, MemoryOrder::Relaxed);
                 return;
             }
             td.ring[static_cast<usize>(written & (td.ring.Size() - 1))] =
                 ScopeEvent{open.name, static_cast<u32>(td.stack.Size()), open.beginTick, GetTicks()};
-            td.written.store(written + 1, std::memory_order_release);
+            td.written.store(written + 1, MemoryOrder::Release);
         }
 
         /// The id of `name`, added to the table if new. Any thread: a name another thread adds
@@ -246,7 +245,7 @@ export namespace foundation::profiler
             const NameId id = static_cast<NameId>(m_names.Size() + m_pendingNames.Size());
             m_pendingNames.PushBack(key);
             m_nameIds.InsertOrAssign(key, id);
-            if (Thread::CurrentId() == m_frameThreadId.load(std::memory_order_relaxed))
+            if (Thread::CurrentId() == m_frameThreadId.load(MemoryOrder::Relaxed))
             {
                 PublishPendingNames();
             }
@@ -258,7 +257,7 @@ export namespace foundation::profiler
         void BeginFrame() noexcept
         {
             m_frameBeginTick = GetTicks();
-            m_frameThreadId.store(Thread::CurrentId(), std::memory_order_relaxed);
+            m_frameThreadId.store(Thread::CurrentId(), MemoryOrder::Relaxed);
         }
 
         /// Close the frame: gather what every thread finished into its record (when armed), publish
@@ -296,9 +295,9 @@ export namespace foundation::profiler
             }
             for (ThreadData* td : threads)
             {
-                const u64 written = td->written.load(std::memory_order_acquire);
-                const u64 read = td->read.load(std::memory_order_relaxed);
-                const u32 dropped = td->dropped.exchange(0, std::memory_order_relaxed);
+                const u64 written = td->written.load(MemoryOrder::Acquire);
+                const u64 read = td->read.load(MemoryOrder::Relaxed);
+                const u32 dropped = td->dropped.exchange(0, MemoryOrder::Relaxed);
                 if (record != nullptr && (written > read || dropped > 0))
                 {
                     ThreadFrame frame(*m_allocator);
@@ -310,7 +309,7 @@ export namespace foundation::profiler
                     }
                     record->threads.PushBack(Move(frame));
                 }
-                td->read.store(written, std::memory_order_release); // unarmed: what was left is dropped
+                td->read.store(written, MemoryOrder::Release); // unarmed: what was left is dropped
             }
             if (record != nullptr)
             {
@@ -584,7 +583,7 @@ export namespace foundation::profiler
                 {
                     found->name = String(named, *m_allocator);
                 }
-                const u32 capacity = threadId == m_frameThreadId.load(std::memory_order_relaxed)
+                const u32 capacity = threadId == m_frameThreadId.load(MemoryOrder::Relaxed)
                                          ? m_frameThreadRing
                                          : m_threadRing;
                 found->ring.Resize(capacity);

@@ -8,7 +8,6 @@
 
 module;
 #include "Core/Prelude.h"
-#include <atomic>
 
 module foundation.profiler;
 
@@ -20,7 +19,7 @@ namespace foundation::profiler
 {
     namespace
     {
-        std::atomic<u64> g_nextSerial{1};
+        Atomic<u64> g_nextSerial{1};
 
         // The job system's hooks: every job a JobSystem runs shows as a "Job" scope on its
         // worker's lane, under which its own scopes nest.
@@ -62,5 +61,5 @@ namespace foundation::profiler
         return cache;
     }
 
-    u64 Profiler::NextSerial() noexcept { return g_nextSerial.fetch_add(1, std::memory_order_relaxed); }
+    u64 Profiler::NextSerial() noexcept { return g_nextSerial.fetch_add(1, MemoryOrder::Relaxed); }
 } // namespace foundation::profiler
