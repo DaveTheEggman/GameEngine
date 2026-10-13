@@ -151,6 +151,12 @@ export namespace foundation::shaders
             return changed.Size();
         }
 
+        // Whether a source is registered (or was fetched and cached) for `name`'s `stage`.
+        [[nodiscard]] bool HasSource(core::StringView name, ShaderStage stage) const
+        {
+            return m_sources.Find(SourceKey(name, stage)) != nullptr;
+        }
+
         // Drops the cached source text for every stage of `name` (the variant cache
         // is handled by InvalidateShader).
         void RemoveSource(core::StringView name)

@@ -42,6 +42,43 @@ export namespace editor
     namespace runtime = foundation::runtime;
     namespace ui = foundation::ui;
 
+    // A page's preview shader in the renderer's shader system, under the page's own name:
+    // registered each time the text checks, removed once when the page closes. Released, it
+    // forgets the system: at editor exit a page outlives the renderer (OnClose runs, the runtime
+    // context shuts the renderer down, then the pages are destroyed), so whatever releases again
+    // must not reach it.
+    class PreviewShaderSlot
+    {
+    public:
+        PreviewShaderSlot() = default;
+        ~PreviewShaderSlot() { Release(); }
+        PreviewShaderSlot(const PreviewShaderSlot&) = delete;
+        PreviewShaderSlot& operator=(const PreviewShaderSlot&) = delete;
+
+        // Whether it still holds the system (not yet released, and there was one).
+        [[nodiscard]] bool IsHeld() const noexcept { return m_shaders != nullptr; }
+        [[nodiscard]] StringView Name() const noexcept { return m_name.AsView(); }
+
+        // The system to register in (null: none, the slot does nothing) and the name to use.
+        void Attach(foundation::shaders::ShaderSystem* shaders, String name)
+        {
+            Release();
+            m_shaders = shaders;
+            m_name = Move(name);
+        }
+        // One program's text for both stages, with their entry points and lattices; a draw on
+        // the name compiles it anew.
+        void Register(StringView hlsl, StringView vertexEntry,
+                      foundation::shaders::ShaderFlags vertexMask, StringView fragmentEntry,
+                      foundation::shaders::ShaderFlags fragmentMask);
+        // Removes the sources and the compiled variants, then lets go of the system.
+        void Release();
+
+    private:
+        foundation::shaders::ShaderSystem* m_shaders = nullptr; // the renderer's; borrowed
+        String m_name;
+    };
+
     class ShaderEditorPage final : public app::UIEditorPage
     {
     public:
@@ -64,15 +101,13 @@ export namespace editor
         // Checks the text, puts the errors on the page, and on success redraws the preview.
         void Check();
         void UpdatePreview(const pipeline::ShaderCheck& check);
-        void RemovePreviewShader();
 
         EditorContext* m_context = nullptr;
-        foundation::shaders::ShaderSystem* m_shaders = nullptr; // the renderer's; borrowed
+        PreviewShaderSlot m_previewShader; // what the sphere draws with
         String m_title;
         String m_shaderLibrary;
         String m_sourcePath; // absolute path of the linked .hlsl
         String m_fileName;   // its name as errors carry it
-        String m_previewName; // the preview's shader name, private to this page
         RefPtr<pipeline::ShaderAsset> m_asset; // the edited asset (Save writes it back)
         String m_text;
         f32 m_checkDelay = 0.0f;

@@ -54,12 +54,10 @@ namespace editor
           m_shaderLibrary(shaderLibrary)
     {
         SetInstanceId(instance.Id());
-        if (auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
-        {
-            m_shaders = render->Shaders();
-        }
         // A name of the page's own: the preview never replaces the cooked shader a scene draws.
-        m_previewName = Format(u8"editor.preview.{}", instance.Id());
+        auto* render = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>();
+        m_previewShader.Attach(render != nullptr ? render->Shaders() : nullptr,
+                               Format(u8"editor.preview.{}", instance.Id()));
 
         RefPtr<ISerializable> object = instance.ReadObject();
         m_asset = RefPtr<pipeline::ShaderAsset>(Cast<pipeline::ShaderAsset>(object.Get()));
@@ -191,7 +189,6 @@ namespace editor
 
     ShaderEditorPage::~ShaderEditorPage()
     {
-        RemovePreviewShader();
         if (m_compiler != nullptr)
         {
             m_compiler->Destroy();
@@ -278,7 +275,7 @@ namespace editor
         {
             m_preview->Shutdown();
         }
-        RemovePreviewShader();
+        m_previewShader.Release(); // before the renderer goes: the page is destroyed after it
     }
 
     void ShaderEditorPage::BuildPreviewScene()
@@ -366,24 +363,21 @@ namespace editor
     void ShaderEditorPage::UpdatePreview(const pipeline::ShaderCheck& check)
     {
         scene::Scene* scenePtr = m_preview ? m_preview->Scene() : nullptr;
-        if (m_shaders == nullptr || scenePtr == nullptr || !m_sphere.IsAssigned())
+        if (!m_previewShader.IsHeld() || scenePtr == nullptr || !m_sphere.IsAssigned())
         {
             return;
         }
         // The main program as the cook would ship it (a surface shader's forward program),
         // under the page's own name, with its entries and lattices.
         const pipeline::ShaderCheckProgram& main = check.programs[0];
-        const StringView name = m_previewName.AsView();
-        m_shaders->RegisterSource(name, shaders::ShaderStage::Vertex, main.text.AsView(),
-                                  main.vertexEntryPoint.AsView(), main.vertexMask);
-        m_shaders->RegisterSource(name, shaders::ShaderStage::Fragment, main.text.AsView(),
-                                  main.fragmentEntryPoint.AsView(), main.fragmentMask);
-        m_shaders->InvalidateShader(name);
+        const StringView name = m_previewShader.Name();
+        m_previewShader.Register(main.text.AsView(), main.vertexEntryPoint.AsView(), main.vertexMask,
+                                 main.fragmentEntryPoint.AsView(), main.fragmentMask);
 
         // A material laid out by the block as a cooked material on this shader is, at its
         // defaults.
         shaders::ShaderSource shader;
-        shader.name = m_previewName;
+        shader.name = String(name);
         shader.SetProperties(check.block);
         materials::MaterialSource authored;
         authored.name = String(u8"preview");
@@ -399,12 +393,28 @@ namespace editor
         }
     }
 
-    void ShaderEditorPage::RemovePreviewShader()
+    void PreviewShaderSlot::Register(StringView hlsl, StringView vertexEntry,
+                                     shaders::ShaderFlags vertexMask, StringView fragmentEntry,
+                                     shaders::ShaderFlags fragmentMask)
     {
-        if (m_shaders != nullptr && !m_previewName.IsEmpty())
+        if (m_shaders == nullptr)
         {
-            m_shaders->RemoveSource(m_previewName.AsView());
-            m_shaders->InvalidateShader(m_previewName.AsView());
+            return;
         }
+        const StringView name = m_name.AsView();
+        m_shaders->RegisterSource(name, shaders::ShaderStage::Vertex, hlsl, vertexEntry, vertexMask);
+        m_shaders->RegisterSource(name, shaders::ShaderStage::Fragment, hlsl, fragmentEntry,
+                                  fragmentMask);
+        m_shaders->InvalidateShader(name);
+    }
+
+    void PreviewShaderSlot::Release()
+    {
+        if (m_shaders != nullptr && !m_name.IsEmpty())
+        {
+            m_shaders->RemoveSource(m_name.AsView());
+            m_shaders->InvalidateShader(m_name.AsView());
+        }
+        m_shaders = nullptr;
     }
 }
