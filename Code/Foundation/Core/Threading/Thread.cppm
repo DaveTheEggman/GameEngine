@@ -14,6 +14,7 @@ export module foundation.core:thread;
 
 import :base;
 import :allocator;
+import :string;
 
 export namespace foundation::core
 {
@@ -100,4 +101,11 @@ export namespace foundation::core
         sys::ThreadHandle m_handle = sys::kInvalidThread;
         bool m_joinable = false;
     };
+
+    /// Name the calling thread ("Main", "Worker 3"), for the profiler's lanes and anything else
+    /// that shows threads; the first 31 bytes are kept. Defined in ThreadImpl.cpp, one per process
+    /// (a definition here would give each shared library its own copy).
+    void SetCurrentThreadName(StringView name) noexcept;
+    /// The calling thread's name: empty until it is named.
+    [[nodiscard]] StringView CurrentThreadName() noexcept;
 }

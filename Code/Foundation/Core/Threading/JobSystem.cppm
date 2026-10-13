@@ -42,10 +42,27 @@ import :thread;
 import :mutex;
 import :condition_variable;
 import :scoped_lock;
+import :string;
+import :format;
 
 export namespace foundation::core
 {
     class Counter;
+
+    // Called around every job any JobSystem runs, on the thread running it: how a profiler shows
+    // a worker's jobs without Core knowing the profiler. `begin` answers whether it opened
+    // anything, and `end` runs only when it did. Installed once by whoever wants them (the
+    // profiler); a null set calls nothing.
+    struct JobHooks
+    {
+        bool (*begin)() = nullptr;
+        void (*end)() = nullptr;
+    };
+
+    // Defined in JobSystemImpl.cpp, one per process (shared-libraries.md rendezvous rule).
+    // `hooks` must outlive every JobSystem (static storage).
+    void SetJobHooks(const JobHooks* hooks) noexcept;
+    [[nodiscard]] const JobHooks* CurrentJobHooks() noexcept;
 
     namespace detail
     {
@@ -372,8 +389,14 @@ export namespace foundation::core
 
         void RunJob(const detail::JobItem& job)
         {
+            const JobHooks* hooks = CurrentJobHooks();
+            const bool began = hooks != nullptr && hooks->begin != nullptr && hooks->begin();
             job.invoke(job.data);
             job.destroy(job.data, *m_allocator);
+            if (began && hooks->end != nullptr)
+            {
+                hooks->end();
+            }
 
             // Handle the completion signal (and schedule its dependents) BEFORE dropping
             // this job from m_pending - a continuation is added to m_pending before its
@@ -410,6 +433,9 @@ export namespace foundation::core
         void WorkerLoop(u32 index)
         {
             WorkerSlot() = static_cast<i32>(index);
+            String name;
+            AppendFormat(name, u8"Worker {}", index);
+            SetCurrentThreadName(name.AsView());
             for (;;)
             {
                 if (RunOneJob())

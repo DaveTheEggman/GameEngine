@@ -8,6 +8,7 @@
 
 module;
 #include "Core/Prelude.h"
+#include <atomic>
 
 module foundation.core;
 
@@ -16,7 +17,12 @@ namespace foundation::core
     namespace
     {
         JobSystem* g_globalJobs = nullptr;
+        std::atomic<const JobHooks*> g_jobHooks{nullptr};
     }
+
+    void SetJobHooks(const JobHooks* hooks) noexcept { g_jobHooks.store(hooks, std::memory_order_release); }
+
+    const JobHooks* CurrentJobHooks() noexcept { return g_jobHooks.load(std::memory_order_acquire); }
 
     i32& JobSystem::WorkerSlot() noexcept
     {

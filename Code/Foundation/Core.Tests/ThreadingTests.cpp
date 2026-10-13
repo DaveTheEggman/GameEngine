@@ -375,4 +375,95 @@ TEST_CASE("threading: nested ParallelFor does not deadlock (caller participation
     CHECK(total.load() == 64);
 }
 
+TEST_CASE("threading: a thread's name is its own, kept to 31 bytes")
+{
+    // Each thread starts unnamed and names only itself.
+    String seen;
+    Thread t(
+        [&seen]()
+        {
+            seen = String(CurrentThreadName());
+            SetCurrentThreadName(StringView(u8"Loader"));
+            seen.Append(u8"|");
+            seen.Append(CurrentThreadName());
+        });
+    t.Join();
+    CHECK(seen == String(u8"|Loader"));
+
+    const String before(CurrentThreadName());
+    SetCurrentThreadName(StringView(u8"A thread with a name far longer than thirty-one bytes"));
+    CHECK(CurrentThreadName().Size() == 31u);
+    CHECK(CurrentThreadName() == StringView(u8"A thread with a name far longer"));
+    SetCurrentThreadName(before.AsView());
+}
+
+namespace
+{
+    Atomic<int> g_hookBegins{0};
+    Atomic<int> g_hookEnds{0};
+    Atomic<int> g_hookAnswer{1}; // what begin answers: 1 opened a scope, 0 did not
+    bool CountBegin()
+    {
+        g_hookBegins.fetch_add(1);
+        return g_hookAnswer.load() != 0;
+    }
+    void CountEnd() { g_hookEnds.fetch_add(1); }
+    const JobHooks kCountingHooks{&CountBegin, &CountEnd};
+}
+
+TEST_CASE("threading: job hooks bracket every job, and end only what begin opened")
+{
+    // How the profiler shows a worker's jobs: begin and end around each one, on its thread.
+    g_hookBegins.store(0);
+    g_hookEnds.store(0);
+    g_hookAnswer.store(1);
+    SetJobHooks(&kCountingHooks);
+    {
+        JobSystem jobs(DefaultAllocator(), 3);
+        for (int i = 0; i < 200; ++i)
+        {
+            jobs.Submit([]() {});
+        }
+        jobs.WaitForAll();
+        CHECK(g_hookBegins.load() == 200);
+        CHECK(g_hookEnds.load() == 200);
+
+        // A begin that opened nothing is not ended.
+        g_hookAnswer.store(0);
+        for (int i = 0; i < 50; ++i)
+        {
+            jobs.Submit([]() {});
+        }
+        jobs.WaitForAll();
+        CHECK(g_hookBegins.load() == 250);
+        CHECK(g_hookEnds.load() == 200);
+    }
+    SetJobHooks(nullptr);
+    CHECK(CurrentJobHooks() == nullptr);
+}
+
+TEST_CASE("threading: a JobSystem's workers are named by their slot")
+{
+    JobSystem jobs(DefaultAllocator(), 3);
+    Mutex lock;
+    Array<String> names;
+    jobs.ParallelFor(3000u,
+                     [&](u32)
+                     {
+                         const u32 slot = jobs.CurrentSlot();
+                         if (slot < jobs.WorkerCount())
+                         {
+                             String expected;
+                             AppendFormat(expected, u8"Worker {}", slot);
+                             ScopedLock guard(lock);
+                             names.PushBack(String(CurrentThreadName()));
+                             names.PushBack(expected);
+                         }
+                     });
+    for (usize i = 0; i + 1 < names.Size(); i += 2)
+    {
+        CHECK(names[i] == names[i + 1]);
+    }
+}
+
 #endif // !PLATFORM_WEB
