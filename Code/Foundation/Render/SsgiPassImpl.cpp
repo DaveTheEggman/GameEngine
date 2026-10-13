@@ -596,7 +596,7 @@ namespace foundation::render
                         inputs.Set(3, graph.GetTextureView(albedo), graph.GetTextureGeneration(albedo));
                         inputs.Set(4, graph.GetTextureView(normal), graph.GetTextureGeneration(normal));
                         inputs.SetBuffer(shBuffer, shGeneration);
-                        rhi::BindGroup* bg = EnsureResolveBindGroup(histPrevView, inputs);
+                        rhi::BindGroup* bg = EnsureResolveBindGroup(m_resolveBindGroups, histPrevView, inputs);
                         if (bg == nullptr)
                         {
                             return;
@@ -662,7 +662,7 @@ namespace foundation::render
                             inputs.Set(3, graph.GetTextureView(albedo), graph.GetTextureGeneration(albedo));
                             inputs.Set(4, graph.GetTextureView(normal), graph.GetTextureGeneration(normal));
                             inputs.SetBuffer(shBuffer, shGeneration);
-                            rhi::BindGroup* bg = EnsureResolveBindGroup(histCurView, inputs);
+                            rhi::BindGroup* bg = EnsureResolveBindGroup(m_compositeBindGroups, histCurView, inputs);
                             if (bg == nullptr)
                             {
                                 return;
@@ -805,6 +805,7 @@ namespace foundation::render
         {
             return nullptr;
         }
+        ++m_bindGroupsBuilt;
         m_bindGroups.InsertOrAssign(scene, Entry{bg, depth, normal, generation});
         return bg;
     }
@@ -839,6 +840,7 @@ namespace foundation::render
         {
             return nullptr;
         }
+        ++m_bindGroupsBuilt;
         m_downBindGroups.InsertOrAssign(hdr, DownEntry{bg, generation});
         return bg;
     }
@@ -875,18 +877,20 @@ namespace foundation::render
         {
             return nullptr;
         }
+        ++m_bindGroupsBuilt;
         m_blurBindGroups.InsertOrAssign(gi, BlurEntry{bg, depth, generation});
         return bg;
     }
 
-    rhi::BindGroup* SsgiPass::EnsureResolveBindGroup(rhi::TextureView* histPrev, const ResolveInputs& inputs)
+    rhi::BindGroup* SsgiPass::EnsureResolveBindGroup(BindGroupCache<5>& cache, rhi::TextureView* histPrev,
+                                                     const ResolveInputs& inputs)
     {
         if (histPrev == nullptr || !inputs.Complete())
         {
             return nullptr;
         }
         rhi::BindGroup* stale = nullptr;
-        if (rhi::BindGroup* cached = m_resolveBindGroups.Find(histPrev, inputs, stale))
+        if (rhi::BindGroup* cached = cache.Find(histPrev, inputs, stale))
         {
             return cached;
         }
@@ -913,7 +917,8 @@ namespace foundation::render
         {
             return nullptr;
         }
-        m_resolveBindGroups.Store(histPrev, inputs, bg);
+        ++m_bindGroupsBuilt;
+        cache.Store(histPrev, inputs, bg);
         return bg;
     }
 
@@ -944,6 +949,7 @@ namespace foundation::render
         }
         m_blurBindGroups.Clear();
         m_resolveBindGroups.Release([this](rhi::BindGroup* bg) { m_device->DestroyBindGroup(bg); });
+        m_compositeBindGroups.Release([this](rhi::BindGroup* bg) { m_device->DestroyBindGroup(bg); });
         if (m_dummyShBuffer != nullptr)
         {
             m_device->DestroyBuffer(m_dummyShBuffer);

@@ -113,6 +113,10 @@ export namespace foundation::render
             }
         }
 
+        /// Bind groups built so far: a frame whose inputs all came back builds none, so a count
+        /// that keeps climbing on a still view is a cache throwing groups away.
+        [[nodiscard]] u64 BindGroupsBuilt() const noexcept { return m_bindGroupsBuilt; }
+
     private:
         static constexpr rhi::TextureFormat kHdrFormat =
             rhi::TextureFormat::RGBA16Float; // matches the scene HDR
@@ -225,11 +229,14 @@ export namespace foundation::render
                                             u64 generation);
 
         // Resolve bind group (gi, history, velocity, hdr, albedo, normal, sky SH + 2 samplers), one
-        // per history view, kept only while its transient inputs (gi, velocity, hdr, albedo, normal:
-        // views and generations; the SH buffer and its context's generation) are the ones it was
-        // built from (BindGroupCache).
+        // per history view in `cache`, kept only while its transient inputs (gi, velocity, hdr,
+        // albedo, normal: views and generations; the SH buffer and its context's generation) are the
+        // ones it was built from (BindGroupCache). The accumulate and the composite each keep their
+        // own: the composite binds this frame's history view, which the next frame's accumulate
+        // binds with other inputs, so in one cache each threw the other's group away every frame.
         using ResolveInputs = BindGroupInputs<5>;
-        rhi::BindGroup* EnsureResolveBindGroup(rhi::TextureView* histPrev, const ResolveInputs& inputs);
+        rhi::BindGroup* EnsureResolveBindGroup(BindGroupCache<5>& cache, rhi::TextureView* histPrev,
+                                               const ResolveInputs& inputs);
 
         void Shutdown();
 
@@ -280,6 +287,8 @@ export namespace foundation::render
         HashMap<rhi::TextureView*, DownEntry> m_downBindGroups;
         HashMap<rhi::TextureView*, BlurEntry> m_blurBindGroups;
         BindGroupCache<5> m_resolveBindGroups;
+        BindGroupCache<5> m_compositeBindGroups;
+        u64 m_bindGroupsBuilt = 0;
         rhi::Buffer* m_dummyShBuffer = nullptr; // bound when the scene has no SH sky (never read)
         Array<Retired> m_retired;
         u32 m_lastFrame = 0xFFFFFFFFu;

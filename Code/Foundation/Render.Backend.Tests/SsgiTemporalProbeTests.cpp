@@ -54,6 +54,7 @@ namespace
         f32 nearStill = 0.0f; // the settled floor luma beside it once it stands
         f32 blotch = 0.0f;    // how mottled the lit area is once it stands (Blotchiness)
         f32 shimmer = 0.0f;   // mean per-pixel frame-to-frame change on the wall once it stands
+        u64 groupsStanding = 0; // bind groups SSGI built over the standing frames (inputs repeat)
     };
 
     ViewCamera Camera()
@@ -247,6 +248,7 @@ namespace
             const ViewCamera camera = Camera();
             f64 specks = 0.0, behind = 0.0, ahead = 0.0, wobble = 0.0, still = 0.0, shimmer = 0.0;
             u32 shimmerSamples = 0;
+            u64 groupsAtStand = 0;
             Array<f32> lastWall{DefaultAllocator()};
             u32 walkSamples = 0, stillSamples = 0;
             f32 previous = -1.0f;
@@ -273,6 +275,10 @@ namespace
 
                 const bool walking = i >= kSettle + 30 && i < kSettle + kWalk; // past the start-up
                 const bool standing = i >= kSettle + kWalk + 20;
+                if (i == kSettle + kWalk + 20)
+                {
+                    groupsAtStand = ssgi.BindGroupsBuilt();
+                }
                 if (!walking && !standing)
                 {
                     continue;
@@ -343,6 +349,7 @@ namespace
             out.wobble = static_cast<f32>(wobble / Max(stillSamples - 1u, 1u));
             out.nearStill = static_cast<f32>(still / Max(stillSamples, 1u));
             out.shimmer = static_cast<f32>(shimmer / Max(shimmerSamples, 1u));
+            out.groupsStanding = ssgi.BindGroupsBuilt() - groupsAtStand;
 
             device.WaitIdle();
             device.DestroyFence(fence);
@@ -363,7 +370,8 @@ namespace
                                          << " without SSGI); floor behind " << on.behind << " vs ahead "
                                          << on.ahead << "; standing: floor " << on.nearStill << ", wobble "
                                          << on.wobble << ", mottling " << on.blotch << " (" << off.blotch
-                                         << " without SSGI), shimmer a pixel " << on.shimmer);
+                                         << " without SSGI), shimmer a pixel " << on.shimmer
+                                         << ", bind groups built standing " << on.groupsStanding);
         REQUIRE(on.nearStill > off.nearStill + 10.0f); // the bounce is there to see
         // No trail: behind the light no brighter than ahead of it (the trusted history left it
         // 38.6 behind against 23.7 ahead). No flashes on top of the scene's own edges, and as
@@ -379,6 +387,10 @@ namespace
         // beside the glow changing 0.98 a pixel a frame once it stood (Lamplight's wall by the
         // guard, 0.77); four rays of half the steps, the same taps, 0.43.
         CHECK(on.shimmer <= 0.7f);
+        // A still view's inputs all come back, so its bind groups do too: the composite and the
+        // next frame's accumulate shared one cache keyed by the same history view and threw each
+        // other's group away, two built a frame (38 over the standing frames).
+        CHECK(on.groupsStanding == 0u);
     }
 
     void ForEachBackend(void (*probe)(rhi::Device&, const char*))
