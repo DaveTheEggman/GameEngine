@@ -41,6 +41,17 @@ export namespace foundation::profiler
         u64 endTick = 0;
     };
 
+    /// What the GPU counted while a pass ran (pipeline statistics), where the device counts.
+    struct GpuPassCounts
+    {
+        u64 inputVertices = 0;
+        u64 inputPrimitives = 0;
+        u64 vertexInvocations = 0;
+        u64 clippingPrimitives = 0;
+        u64 fragmentInvocations = 0;
+        u64 computeInvocations = 0;
+    };
+
     /// One GPU pass of a frame, its ticks already on the CPU clock.
     struct GpuPassEvent
     {
@@ -49,6 +60,8 @@ export namespace foundation::profiler
         u32 queue = 0; // 0 graphics, 1 async compute
         u64 beginTick = 0;
         u64 endTick = 0;
+        bool hasCounts = false; // the device counted pipeline statistics
+        GpuPassCounts counts;
     };
 
     enum class CounterUnit : u8
@@ -183,6 +196,18 @@ export namespace foundation::profiler
             }
             ThreadData& td = Local();
             td.stack.PushBack(OpenScope{InternName(name), GetTicks()});
+            return true;
+        }
+
+        /// Open a scope by a name already interned (InternName), which a caller naming the same
+        /// scopes every frame keeps.
+        bool BeginScope(NameId name) noexcept
+        {
+            if (!Armed())
+            {
+                return false;
+            }
+            Local().stack.PushBack(OpenScope{name, GetTicks()});
             return true;
         }
 
@@ -336,7 +361,8 @@ export namespace foundation::profiler
 
         // ---- GPU passes (the frame thread) ---------------------------------------------------
 
-        /// Frame `frameNumber`'s GPU passes, when they arrive; ignored once the record is gone.
+        /// Add GPU passes to frame `frameNumber`'s record when they arrive (each render graph of
+        /// the frame sends its own); ignored once the record is gone.
         void SubmitGpuPasses(u64 frameNumber, Span<const GpuPassEvent> passes)
         {
             if (m_recordedFrames == 0)
@@ -348,7 +374,6 @@ export namespace foundation::profiler
             {
                 return;
             }
-            record.gpu.Clear();
             for (const GpuPassEvent& pass : passes)
             {
                 record.gpu.PushBack(pass);

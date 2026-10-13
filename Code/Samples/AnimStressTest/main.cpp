@@ -553,13 +553,8 @@ namespace
                     core::ConsoleWrite(core::Format(
                         u8"=== AnimStressTest PROFILE: chars={}  fps={}  frame={} ms ===\n",
                         m_instances.Size(), static_cast<core::u32>(fps + 0.5f), m_frameTimeMs));
+                    // The newest frame's CPU scopes and GPU passes.
                     core::ConsoleWrite(foundation::profiler::Profiler::Get().BuildReport().AsView());
-                    if (auto* renderer = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
-                    {
-                        core::String gpu;
-                        renderer->BuildGpuProfileReport(gpu);
-                        core::ConsoleWrite(gpu.AsView());
-                    }
                     host.RequestExit(0);
                     return;
                 }

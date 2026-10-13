@@ -33,6 +33,16 @@ namespace
         return kNotFound;
     }
 
+    GpuPassEvent Pass(NameId name, u32 queue, u64 beginTick, u64 endTick)
+    {
+        GpuPassEvent pass;
+        pass.name = name;
+        pass.queue = queue;
+        pass.beginTick = beginTick;
+        pass.endTick = endTick;
+        return pass;
+    }
+
     // Busy for a little while, so a scope has a duration a tick counter can see.
     void Spin()
     {
@@ -101,6 +111,22 @@ TEST_CASE("profiler: a frame holds its thread's scopes, nested, in ticks")
     p.EndScope();
     p.EndFrame();
     CHECK(p.LatestFrame()->threads[0].scopes[0].name == thread.scopes[2].name);
+}
+
+TEST_CASE("profiler: a scope can be opened by a name kept as an id")
+{
+    // A render graph names the same passes every frame: it interns once and opens by id.
+    Profiler p(DefaultAllocator());
+    const NameId shadows = p.InternName(StringView(u8"shadows"));
+    CHECK_FALSE(p.BeginScope(shadows)); // unarmed
+    p.Arm();
+    p.BeginFrame();
+    REQUIRE(p.BeginScope(shadows));
+    p.EndScope();
+    p.EndFrame();
+    REQUIRE(p.LatestFrame() != nullptr);
+    CHECK(p.LatestFrame()->threads[0].scopes[0].name == shadows);
+    CHECK(p.NameOf(shadows) == StringView(u8"shadows"));
 }
 
 TEST_CASE("profiler: names outlive the strings they came from")
@@ -304,12 +330,22 @@ TEST_CASE("profiler: GPU passes join their frame's record when they arrive")
 
     // A frame or two late, frame 0's passes arrive.
     const NameId shadow = p.InternName(StringView(u8"shadow"));
-    const GpuPassEvent passes[] = {{shadow, 0, 0, 100, 250}, {shadow, 0, 1, 260, 300}};
+    const GpuPassEvent passes[] = {Pass(shadow, 0, 100, 250), Pass(shadow, 1, 260, 300)};
     p.SubmitGpuPasses(0, Span<const GpuPassEvent>(passes, 2));
     REQUIRE(p.Frame(0)->gpuValid);
     REQUIRE(p.Frame(0)->gpu.Size() == 2u);
     CHECK(p.Frame(0)->gpu[1].queue == 1u);
     CHECK(p.Frame(0)->gpu[0].endTick == 250u);
+
+    // Another render graph of the same frame adds its passes beside them, with its counts.
+    GpuPassEvent other = Pass(p.InternName(StringView(u8"preview")), 0, 400, 450);
+    other.hasCounts = true;
+    other.counts.inputVertices = 36;
+    p.SubmitGpuPasses(0, Span<const GpuPassEvent>(&other, 1));
+    REQUIRE(p.Frame(0)->gpu.Size() == 3u);
+    CHECK(p.Frame(0)->gpu[2].hasCounts);
+    CHECK(p.Frame(0)->gpu[2].counts.inputVertices == 36u);
+    CHECK_FALSE(p.Frame(0)->gpu[0].hasCounts);
 
     // Passes for a frame the history no longer keeps are let go.
     p.BeginFrame();
@@ -406,7 +442,7 @@ TEST_CASE("profiler: the report shows the newest frame by thread, indented by de
     p.EndScope();
     p.EndFrame();
     const NameId pass = p.InternName(StringView(u8"forward"));
-    const GpuPassEvent gpu[] = {{pass, 0, 0, 0, 10}};
+    const GpuPassEvent gpu[] = {Pass(pass, 0, 0, 10)};
     p.SubmitGpuPasses(0, Span<const GpuPassEvent>(gpu, 1));
     const String report = p.BuildReport();
     const StringView text = report.AsView();

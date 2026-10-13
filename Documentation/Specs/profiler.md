@@ -1,7 +1,7 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: P0 (the capture store) BUILT 2026-10-13; P1 onward to come. Decisions taken and
-> revised the same day (below). Backlog entry it closes:
+> STATUS: P0 (the capture store) and P1 (GPU timings and statistics) BUILT 2026-10-13; P2
+> onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -144,6 +144,15 @@ answer, an explicit "unsupported"), it does not lean on a default body. The few 
 have one today (`AsMeshShaderExt`, `AsRayTracingExt`, `MaxColorDepthSampleCount`,
 `SupportsSampleCount`, `DestroyMeshPipeline`, `DestroyAccelStruct`,
 `DestroyRayTracingPipeline`) are not the pattern to follow.
+
+What P1 added, all pure: `Queue::CalibrateTimestamps` (a GPU timestamp and core::GetTicks read
+together; Vulkan's calibrated timestamps in the host clock core::GetTicks reads, D3D12's
+GetClockCalibration, false on WebGPU and Null) with `Features::timestampCalibration`;
+`CommandEncoder::Begin/EndPipelineStatisticsQuery`; and `Device::QueryResultSize(type)` with
+`Device::DecodePipelineStatistics`, since a statistics result is a backend's own record (Vulkan
+writes its enabled counters in bit order, D3D12 an eleven-counter struct) and Vulkan's resolve had
+written every query eight bytes apart. WebGPU's `timestampQueries` now means what
+`WriteTimestamp` can do there (wgpu-native's in-encoder feature; never in a browser).
 
 ### Pipeline statistics and counters
 

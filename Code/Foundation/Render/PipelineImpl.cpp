@@ -716,15 +716,6 @@ namespace foundation::render
         }
     }
 
-    void RenderFrame::ReadGpuProfile(String& out)
-    {
-        if (auto* p = m_graph.GpuProfiler())
-        {
-            p->ReadResults(m_graph.LastProfiledPassCount(), out);
-        }
-        m_graph.AppendCpuPassReport(out);
-    }
-
     void RenderFrame::RecordDepthPrepass(rhi::RenderPassEncoder& rp, const RenderView& view,
                                          const RendererRegistry& registry, u32 viewIndex)
     {

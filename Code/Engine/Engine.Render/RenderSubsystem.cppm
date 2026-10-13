@@ -275,10 +275,6 @@ export namespace engine::render
         void SetTaaMotionScale(f32 v) noexcept { m_taaMotionScale = v; }
         [[nodiscard]] f32 TaaMotionScale() const noexcept { return m_taaMotionScale; }
 
-        // Append a per-pass GPU timing report. STALLS (waits for the GPU to finish) so the timestamps
-        // are valid - intended for an on-demand dump (the P-key), not per-frame use.
-        void BuildGpuProfileReport(String& out);
-
         // ---- ISceneRenderer ----
 
         void BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex) override;

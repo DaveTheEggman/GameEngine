@@ -141,13 +141,8 @@ namespace engine::runtime
             core::ConsoleWrite(core::StringView(u8"Profiler armed; press P again for a frame.\n"));
             return;
         }
+        // The newest frame, its GPU passes included once they have arrived (a frame or two late).
         core::ConsoleWrite(profiler.BuildReport().AsView());
-        if (auto* renderer = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
-        {
-            core::String gpu;
-            renderer->BuildGpuProfileReport(gpu);
-            core::ConsoleWrite(gpu.AsView());
-        }
     }
 
     void DefaultApplication::TickGameScript(IApplicationHost& host, core::f32 deltaTime)

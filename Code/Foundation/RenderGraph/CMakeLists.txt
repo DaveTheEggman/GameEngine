@@ -3,7 +3,7 @@
 # Ported from Sedulous.RenderGraph.
 
 util_add_engine_library(RenderGraph ALIAS Foundation::RenderGraph)
-target_link_libraries(RenderGraph PUBLIC Foundation::Core Foundation::RHI Foundation::Policy)
+target_link_libraries(RenderGraph PUBLIC Foundation::Core Foundation::RHI Foundation::Profiler Foundation::Policy)
 
 target_sources(RenderGraph
     PUBLIC

@@ -18,6 +18,7 @@ export module foundation.rendergraph:graph;
 
 import foundation.core;
 import foundation.rhi;
+import foundation.profiler;
 import :types;
 import :descriptors;
 import :callbacks;
@@ -53,83 +54,6 @@ export namespace foundation::rendergraph
             {
                 m_deferredDeletions.PushBack(Array<DeferredDeletion>{});
             }
-        }
-
-        // Turn on per-pass GPU timestamp profiling (lazy; needs the device). Idempotent.
-        void EnableGpuProfiling()
-        {
-            if (m_gpuProfiler.Get() != nullptr || m_device == nullptr)
-            {
-                return;
-            }
-            m_gpuProfiler = MakeUnique<GraphProfiler>((*m_allocator));
-            if (!m_gpuProfiler->Init(*m_device).IsOk())
-            {
-                m_gpuProfiler.Reset();
-                return;
-            }
-            if (rhi::Queue* q = m_device->GetQueue(rhi::QueueType::Graphics))
-            {
-                m_gpuProfiler->SetTimestampPeriod(q->TimestampPeriod());
-            }
-        }
-
-        // The GPU profiler (null if not enabled). Read its results after the GPU has finished (e.g.
-        // after WaitIdle on a P-key dump). `LastProfiledPassCount` is how many passes were timed.
-        [[nodiscard]] GraphProfiler* GpuProfiler() noexcept { return m_gpuProfiler.Get(); }
-        [[nodiscard]] i32 LastProfiledPassCount() const noexcept { return m_lastProfiledPassCount; }
-
-        // Aggregate this frame's per-pass CPU RECORD time by pass name (most-expensive first). The graph
-        // execute is often CPU-bound (recording/bundle build) while the GPU is idle - this shows where.
-        void AppendCpuPassReport(String& out) const
-        {
-            struct Agg
-            {
-                StringView name;
-                u64 ticks = 0;
-                i32 n = 0;
-            };
-            Array<Agg> agg;
-            u64 total = 0;
-            for (const PassCpu& p : m_passCpu)
-            {
-                total += p.ticks;
-                bool found = false;
-                for (Agg& a : agg)
-                {
-                    if (a.name == p.name)
-                    {
-                        a.ticks += p.ticks;
-                        ++a.n;
-                        found = true;
-                        break;
-                    }
-                }
-                if (!found)
-                {
-                    Agg a;
-                    a.name = p.name;
-                    a.ticks = p.ticks;
-                    a.n = 1;
-                    agg.PushBack(a);
-                }
-            }
-            for (usize i = 0; i < agg.Size(); ++i)
-                for (usize j = i + 1; j < agg.Size(); ++j)
-                    if (agg[j].ticks > agg[i].ticks)
-                    {
-                        const Agg t = agg[i];
-                        agg[i] = agg[j];
-                        agg[j] = t;
-                    }
-            out.Append(u8"=== CPU by pass name (record cost, expensive first) ===\n");
-            for (const Agg& a : agg)
-            {
-                AppendFormat(out, u8"  {} ms  (x{})  {}\n", TicksToMilliseconds(a.ticks), a.n,
-                             a.name);
-            }
-            AppendFormat(out, u8"  --------\n  {} ms  TOTAL (pass record)\n",
-                         TicksToMilliseconds(total));
         }
 
         ~RenderGraph()
@@ -214,15 +138,13 @@ export namespace foundation::rendergraph
 
             m_barrierSolver.Reset(ResourceSpan());
 
-            // GPU profiling: reset the timestamp pool up front (must be outside any render pass),
-            // then bracket each executed pass with begin/end timestamps.
-            const bool prof = (m_gpuProfiler.Get() != nullptr);
-            if (prof)
-            {
-                m_gpuProfiler->BeginFrame(*encoder);
-                m_passCpu.Clear();
-            }
-            i32 profiledPassCount = 0;
+#if BUILD_PROFILING
+            // While the profiler is armed, every executed pass is a CPU scope (its recording) and,
+            // where the device has timestamps, a GPU pass of this frame (GraphProfiler).
+            profiler::Profiler& cpuProfiler = profiler::Profiler::Get();
+            const bool profiling = cpuProfiler.Armed();
+            GraphProfiler* gpuProfiler = BeginGpuProfiling(*encoder);
+#endif
 
             // Where each imported texture with a final state is used for the last time, as a
             // position in the execution order: it takes its final state right after that pass.
@@ -257,14 +179,21 @@ export namespace foundation::rendergraph
                     continue;
                 }
 
-                // Per-pass CPU cost (barriers + record/execute, incl. any bundle build/wait): the graph's
-                // execute is often CPU-bound while the GPU is idle, so this shows which pass RECORDING is slow.
-                const u64 cpuStart = prof ? core::GetTicks() : 0;
-                encoder->BeginDebugLabel(pass->name.AsView());
-                if (prof)
+                // A pass's CPU cost (barriers + record/execute, incl. any bundle build/wait) as a
+                // scope under its name: the graph's execute is often CPU-bound while the GPU is idle.
+#if BUILD_PROFILING
+                bool passScope = false;
+                if (profiling)
                 {
-                    m_gpuProfiler->BeginPass(*encoder, profiledPassCount, pass->name.AsView());
+                    const profiler::NameId passName = m_profileNames.NameFor(pass->name.AsView());
+                    passScope = cpuProfiler.BeginScope(passName);
+                    if (gpuProfiler != nullptr)
+                    {
+                        gpuProfiler->BeginPass(*encoder, passName);
+                    }
                 }
+#endif
+                encoder->BeginDebugLabel(pass->name.AsView());
                 m_barrierSolver.EmitBarriers(*pass, ResourceSpan(), *encoder);
 
                 switch (pass->type)
@@ -291,23 +220,25 @@ export namespace foundation::rendergraph
                         m_finalAfter[access.handle.index] = -1; // once, however many accesses
                     }
                 }
-                if (prof)
-                {
-                    m_gpuProfiler->EndPass(*encoder, profiledPassCount);
-                    ++profiledPassCount;
-                }
                 encoder->EndDebugLabel();
-                if (prof)
+#if BUILD_PROFILING
+                if (gpuProfiler != nullptr)
                 {
-                    m_passCpu.PushBack(PassCpu{pass->name.AsView(), core::GetTicks() - cpuStart});
+                    gpuProfiler->EndPass(*encoder);
                 }
+                if (passScope)
+                {
+                    cpuProfiler.EndScope();
+                }
+#endif
             }
 
-            if (m_gpuProfiler.Get() != nullptr)
+#if BUILD_PROFILING
+            if (gpuProfiler != nullptr)
             {
-                m_gpuProfiler->Resolve(*encoder, profiledPassCount);
-                m_lastProfiledPassCount = profiledPassCount;
+                gpuProfiler->EndFrame(*encoder);
             }
+#endif
 
             m_barrierSolver.EmitFinalTransitions(ResourceSpan(), *encoder);
             m_barrierSolver.UpdatePersistentStates(ResourceSpan());
@@ -595,6 +526,29 @@ export namespace foundation::rendergraph
         [[nodiscard]] Span<RenderGraphResource* const> ResourceSpan() const
         {
             return Span<RenderGraphResource* const>(m_resources.Data(), m_resources.Size());
+        }
+
+        // This frame's GPU profiler, made when first needed; null when nothing is measured. The
+        // slot the frame's queries go in is the frame's own (the deferred deletions' slot), so a
+        // slot's results are read when it comes round, its GPU work done.
+        [[nodiscard]] GraphProfiler* BeginGpuProfiling(rhi::CommandEncoder& encoder)
+        {
+            if (m_gpuProfiler.Get() == nullptr)
+            {
+                if (m_gpuProfilerUnavailable || m_device == nullptr || !profiler::Profiler::Get().Armed())
+                {
+                    return nullptr;
+                }
+                m_gpuProfiler = MakeUnique<GraphProfiler>(*m_allocator, *m_allocator);
+                if (!m_gpuProfiler->Init(*m_device, static_cast<u32>(m_deferredDeletions.Size())).IsOk())
+                {
+                    m_gpuProfiler.Reset();
+                    m_gpuProfilerUnavailable = true; // no timestamps here (a browser): CPU scopes only
+                    return nullptr;
+                }
+            }
+            const u32 slot = static_cast<u32>(m_frameIndex) % static_cast<u32>(m_deferredDeletions.Size());
+            return m_gpuProfiler->BeginFrame(encoder, slot) ? m_gpuProfiler.Get() : nullptr;
         }
 
         [[nodiscard]] Array<DeferredDeletion>& DeferredSlot()
@@ -1334,14 +1288,11 @@ export namespace foundation::rendergraph
         Array<i32> m_executionOrder;
         Array<i32> m_finalAfter; // per resource: the execution position it takes its final state after
         bool m_isCompiled = false;
-        UniquePtr<GraphProfiler> m_gpuProfiler; // optional per-pass GPU timing
-        i32 m_lastProfiledPassCount = 0;
-        struct PassCpu
-        {
-            StringView name;
-            u64 ticks = 0;
-        }; // per-pass CPU record time (name -> pass->name, valid pre-Reset)
-        Array<PassCpu> m_passCpu;
+        // The profiler's half in the graph (Specs/profiler.md): made the first frame the
+        // profiler is armed, where the device has timestamps.
+        UniquePtr<GraphProfiler> m_gpuProfiler;
+        bool m_gpuProfilerUnavailable = false;
+        ProfileNames m_profileNames{*m_allocator};
         BarrierSolver m_barrierSolver;
         UniquePtr<TransientTexturePool> m_texturePool;
         Array<Array<DeferredDeletion>> m_deferredDeletions;

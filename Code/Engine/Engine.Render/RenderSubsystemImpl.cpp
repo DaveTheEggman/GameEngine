@@ -262,16 +262,6 @@ namespace engine::render
         m_globalPostActive = true;
     }
 
-    void RenderSubsystem::BuildGpuProfileReport(String& out)
-    {
-        if (m_frame.Get() == nullptr || m_device == nullptr)
-        {
-            return;
-        }
-        m_device->WaitIdle();
-        m_frame->ReadGpuProfile(out);
-    }
-
     void RenderSubsystem::BeginRendering(rhi::CommandEncoder& encoder, u32 frameIndex)
     {
         PROFILE_SCOPE("Render.Begin");
@@ -974,7 +964,6 @@ namespace engine::render
             m_tonemapPass.Get(), m_shadowSystem.Get(), m_iblSystem.Get(), m_skyPass.Get(),
             m_bloomPass.Get(), m_taaPass.Get(), m_aoPass.Get(), m_fxaaPass.Get(),
             m_exposurePass.Get(), m_debugBlitPass.Get());
-        m_frame->EnableGpuProfiling(); // per-pass GPU timestamps (cheap; read on the P-key dump)
     }
 
     void RenderSubsystem::OnReady()

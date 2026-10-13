@@ -682,9 +682,6 @@ export namespace foundation::render
         // the prefiltered result. Set once per frame before End.
         void SetProbes(ReflectionProbeSystem* probes) noexcept { m_probeSystem = probes; }
 
-        // Turn on per-pass GPU timestamp profiling for the frame graph (idempotent).
-        void EnableGpuProfiling() { m_graph.EnableGpuProfiling(); }
-
         // Linear exposure multiplier applied in the tonemap pass (scene/camera setting).
         void SetExposure(f32 exposure) noexcept { m_exposure = exposure; }
         // The frame's time in seconds (the app's run clock): the WIND vertex sway phase. Set once
@@ -719,8 +716,6 @@ export namespace foundation::render
         // Last frame's view-frustum cull totals, summed over active views (0/0 when culling was off). Read
         // before Begin() rewinds the view pool (e.g. from the sample's OnUpdate) to see the previous frame.
         void CullStats(u32& culled, u32& total) const noexcept;
-        // Append a per-pass GPU timing report + the per-pass CPU record cost (call only after device idle).
-        void ReadGpuProfile(String& out);
 
         // Depth prepass body: emit the view's OPAQUE draws as depth-only from the camera POV (no bias, so
         // the depth equals the forward pass's exactly -> LessEqual early-Z). Masked isn't prepassed (the
