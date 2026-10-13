@@ -46,6 +46,7 @@ class Guard
     private float m_timer = 0.0f;
     private Float3 m_home = Float3(0.0f, 0.0f, 0.0f);
     private Float3 m_last = Float3(0.0f, 0.0f, 0.0f);
+    private float m_lastDt = 0.0f; // the frame m_last was taken in: the crowd moved him by its time
     private float m_yaw = 0.0f;
     private Entity@ m_figure;
     private float m_calm = 0.0f; // after a catch: not looking for the thief yet
@@ -296,9 +297,14 @@ class Guard
     private void animate(float d)
     {
         Float3 p = self.worldPosition();
-        float vx = (p.x - m_last.x) / d;
-        float vz = (p.z - m_last.z) / d;
+        // Scripts update before the crowd, so what he moved since the last frame is the crowd's
+        // step in that frame, by that frame's time; this frame's would swing the speed with every
+        // uneven frame, and the graph's blend with it.
+        float step = m_lastDt > 0.0f ? m_lastDt : d;
+        float vx = (p.x - m_last.x) / step;
+        float vz = (p.z - m_last.z) / step;
         m_last = p;
+        m_lastDt = d;
         float speed = Math::Sqrt(vx * vx + vz * vz);
         if (speed > 0.2f && m_state != kSuspicious)
         {
