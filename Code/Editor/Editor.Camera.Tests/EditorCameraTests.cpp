@@ -316,6 +316,9 @@ TEST_CASE("EditorCamera orthographic: it draws from a view height back, showing 
     Float3 origin, direction;
     cam.RayThrough(0.0f, -1.0f, 1.5f, origin, direction);
     REQUIRE(direction.y < 0.0f);
+    // On the draw eye's plane, not the eye's: the line is the same either way, but a pick takes
+    // the first hit past the origin, so from the eye's plane it missed the ground behind it.
+    CHECK(Near(Dot(origin - drawEye, cam.Forward()), 0.0f));
     const Float3 hit = origin + direction * (-origin.y / direction.y);
     CHECK(Dot(hit - cam.position, cam.Forward()) < 0.0f);       // behind the eye's plane
     CHECK(Dot(hit - drawEye, cam.Forward()) >= cam.nearZ);      // past the near plane
