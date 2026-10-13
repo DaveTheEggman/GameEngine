@@ -81,8 +81,14 @@ export namespace foundation::ui::toolkit
             Cursor = CursorType::Hand;
         }
 
+        /// Invalidates on a change only: a page syncs its toolbar every frame, and an unconditional
+        /// invalidate re-laid-out the whole editor each frame.
         void SetText(StringView text)
         {
+            if (m_text.AsView() == text)
+            {
+                return;
+            }
             m_text.Clear();
             m_text.Append(text);
             Invalidate();

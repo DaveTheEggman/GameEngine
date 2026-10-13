@@ -83,3 +83,24 @@ TEST_CASE("toolkit-toolbar: a menu button is a button with a checked state and a
     CHECK(menu->MeasuredSize.x == doctest::Approx(plain->MeasuredSize.x + ToolbarMenuButton::kCaretWidth));
 }
 
+
+TEST_CASE("toolkit-toolbar: setting a button's text to what it is asks for no layout")
+{
+    // A page syncs its toolbar every frame; an unconditional invalidate re-laid-out the editor
+    // each frame. A change still asks.
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRef<RootView>(DefaultAllocator());
+    root->ViewportSize = Float2{400, 100};
+    ctx.AddRootView(root.Get());
+    auto bar = MakeRef<Toolbar>(DefaultAllocator());
+    root->AddView(bar.Get());
+    ToolbarButton* button = bar->AddButton(u8"Pin");
+    ctx.UpdateRootView(root.Get());
+    ctx.ClearLayoutDamage();
+
+    button->SetText(u8"Pin");
+    CHECK(!ctx.NeedsLayout());
+    button->SetText(u8"Unpin");
+    CHECK(ctx.NeedsLayout());
+    CHECK(button->Text() == StringView(u8"Unpin"));
+}

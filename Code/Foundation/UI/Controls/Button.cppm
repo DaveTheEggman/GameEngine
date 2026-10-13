@@ -46,12 +46,9 @@ export namespace foundation::ui
             Text.SetSilent(String(text));
         }
 
-        /// Set the button text.
-        void SetText(StringView text)
-        {
-            Text.SetValue(String(text));
-            Invalidate();
-        }
+        /// Set the button text. The property invalidates on a change only: a caller that sets the
+        /// same text every frame (a toolbar's state sync) must not re-lay-out the window each frame.
+        void SetText(StringView text) { Text.SetValue(String(text)); }
 
     protected:
         [[nodiscard]] Thickness DefaultStylePadding() const override

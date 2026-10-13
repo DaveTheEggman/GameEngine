@@ -229,6 +229,35 @@ TEST_CASE("damage: visual-only invalidation redraws WITHOUT layout damage")
     CHECK(ctx.NeedsLayout());
 }
 
+TEST_CASE("damage: setting a button's text or a scroll bar's viewport to what it is asks for no layout")
+{
+    // A page syncing its toolbar each frame, and a scroll view setting its bars from its own
+    // Layout, kept the editor re-laying-out its whole window every frame (a page with many
+    // controls went sluggish). A change still asks.
+    UIContext ctx{DefaultAllocator()};
+    auto root = MakeRoot();
+    Init(ctx, root.Get(), 200, 300);
+    auto button = core::MakeRef<Button>(core::DefaultAllocator(), StringView(u8"Pin"));
+    auto bar = core::MakeRef<ScrollBar>(core::DefaultAllocator());
+    root->AddView(button.Get());
+    root->AddView(bar.Get());
+    bar->SetViewportSize(120.0f);
+    LayoutPass(ctx, root.Get());
+    ctx.ClearLayoutDamage();
+
+    button->SetText(u8"Pin");
+    bar->SetViewportSize(120.0f);
+    bar->SetIsHorizontal(bar->IsHorizontal());
+    CHECK(!ctx.NeedsLayout());
+
+    button->SetText(u8"Unpin");
+    CHECK(ctx.NeedsLayout());
+    LayoutPass(ctx, root.Get());
+    ctx.ClearLayoutDamage();
+    bar->SetViewportSize(90.0f);
+    CHECK(ctx.NeedsLayout());
+}
+
 // Shift+arrow grows and shrinks ONE range from the anchor; before, each press re-ranged from an
 // arbitrary selected row, so the selection collapsed to two rows (Sedulous 5482ab11).
 TEST_CASE("list-view: Shift+Down and Shift+Up extend one range from the anchor")

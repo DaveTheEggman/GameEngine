@@ -71,14 +71,25 @@ export namespace foundation::ui
             SetValue(m_value);
         }
         [[nodiscard]] f32 ViewportSize() const noexcept { return m_viewportSize; }
+        // Invalidate on a change only: a scroll view sets its bars' viewport from its own Layout,
+        // and an unconditional invalidate there asked for another layout every frame, forever.
         void SetViewportSize(f32 value)
         {
-            m_viewportSize = core::Max(1.0f, value);
+            const f32 size = core::Max(1.0f, value);
+            if (m_viewportSize == size)
+            {
+                return;
+            }
+            m_viewportSize = size;
             Invalidate();
         }
         [[nodiscard]] bool IsHorizontal() const noexcept { return m_isHorizontal; }
         void SetIsHorizontal(bool value)
         {
+            if (m_isHorizontal == value)
+            {
+                return;
+            }
             m_isHorizontal = value;
             Invalidate();
         }

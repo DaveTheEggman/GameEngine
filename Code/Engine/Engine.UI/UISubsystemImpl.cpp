@@ -3068,8 +3068,14 @@ namespace engine::ui
             label.SetLayout(place);
             label.TextColor.SetValue(Optional<Color>(Color{1.0f, 1.0f, 1.0f, m_controls[i].down ? 1.0f : 0.85f}));
         }
+        // Redraw while a control shows (fingers move), and once more as the last one goes; idle with
+        // nothing shown it asks for nothing, rather than a layout every frame.
+        const bool wasShown = Visibility == foundation::ui::Visibility::Visible;
         Visibility = m_controls.IsEmpty() ? foundation::ui::Visibility::Gone : foundation::ui::Visibility::Visible;
-        Invalidate();
+        if (!m_controls.IsEmpty() || wasShown)
+        {
+            Invalidate();
+        }
     }
 
     void TouchGuideView::OnDraw(foundation::ui::UIDrawContext& ctx)
