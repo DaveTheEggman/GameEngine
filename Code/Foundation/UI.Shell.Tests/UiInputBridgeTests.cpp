@@ -180,7 +180,7 @@ TEST_CASE("ui-shell: ShellClipboard with null shell is graceful")
 
 // Regression: function keys were unmapped (KeyCode::Unknown), so F2-rename etc. never reached
 // the UI. The bridge now maps F1-F24 and the digit row.
-TEST_CASE("ui-shell: function and digit keys map through the bridge")
+TEST_CASE("ui-shell: function, digit and keypad keys map through the bridge")
 {
     UIContext ctx{DefaultAllocator()};
     auto root = core::MakeRef<RootView>(core::DefaultAllocator());
@@ -233,6 +233,19 @@ TEST_CASE("ui-shell: function and digit keys map through the bridge")
     CHECK(probe->last == KeyCode::RightGui);
     (void)bridge.Dispatch(key(shell::KeyCode::Delete)); // pre-existing mapping still intact
     CHECK(probe->last == KeyCode::Delete);
+    // The keypad: digits (an editor's Numpad 5 reached the UI as Unknown) and its operators.
+    (void)bridge.Dispatch(key(shell::KeyCode::Keypad5));
+    CHECK(probe->last == KeyCode::Keypad5);
+    (void)bridge.Dispatch(key(shell::KeyCode::Keypad1));
+    CHECK(probe->last == KeyCode::Keypad1);
+    (void)bridge.Dispatch(key(shell::KeyCode::Keypad9));
+    CHECK(probe->last == KeyCode::Keypad9);
+    (void)bridge.Dispatch(key(shell::KeyCode::Keypad0));
+    CHECK(probe->last == KeyCode::Keypad0);
+    (void)bridge.Dispatch(key(shell::KeyCode::KeypadPlus));
+    CHECK(probe->last == KeyCode::KeypadPlus);
+    (void)bridge.Dispatch(key(shell::KeyCode::KeypadDecimal));
+    CHECK(probe->last == KeyCode::KeypadPeriod);
 }
 
 // Numpad Enter maps to Return: both mean "confirm" to the UI (commit-on-Enter etc.).

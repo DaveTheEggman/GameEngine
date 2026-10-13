@@ -335,8 +335,28 @@ export namespace foundation::ui
             {
                 return KeyCode::Num0;
             }
+            // Keypad digits (the shell counts 0..9, ui 1..9 then 0): an editor binds them (Numpad 5
+            // switches a scene view's projection), and without them a keypad press reached the UI
+            // as Unknown.
+            if (kv >= static_cast<u32>(SK::Keypad1) && kv <= static_cast<u32>(SK::Keypad9))
+            {
+                return static_cast<KeyCode>(static_cast<u32>(KeyCode::Keypad1) +
+                                            (kv - static_cast<u32>(SK::Keypad1)));
+            }
             switch (key)
             {
+            case SK::Keypad0:
+                return KeyCode::Keypad0;
+            case SK::KeypadDivide:
+                return KeyCode::KeypadDivide;
+            case SK::KeypadMultiply:
+                return KeyCode::KeypadMultiply;
+            case SK::KeypadMinus:
+                return KeyCode::KeypadMinus;
+            case SK::KeypadPlus:
+                return KeyCode::KeypadPlus;
+            case SK::KeypadDecimal:
+                return KeyCode::KeypadPeriod;
             case SK::Return:
                 return KeyCode::Return;
             case SK::KeypadEnter:
