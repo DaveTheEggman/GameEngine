@@ -261,7 +261,10 @@ namespace
                                          << ortho.open << " (perspective " << reference.open << ")");
         REQUIRE(ortho.edgeOff > 100.0f); // the walls are where we look
         CHECK(ortho.edge < 0.99f);       // the corner occludes itself
-        CHECK(Abs(ortho.edge - reference.edge) < 0.03f);
+        // Tight: the right projection matches to a few thousandths; SSAO with its orthographic
+        // flag off came within 0.02, so a looser band let that regression through (Sedulous
+        // found it in their port).
+        CHECK(Abs(ortho.edge - reference.edge) < 0.005f);
         CHECK(Abs(ortho.open - reference.open) < 0.06f);
     }
 
