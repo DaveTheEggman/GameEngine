@@ -43,6 +43,15 @@ None makes its renderer correct behind the eye: those with a negative near switc
 broken what assumes a positive one. Doing it properly here means each of those passes, on every
 backend, with a test of each; the payoff is games' orthographic cameras seeing behind themselves.
 
+## The profiler: a live connection to a running player (user 2026-10-13; after 0.1)
+
+0.1's profiler (`Specs/profiler.md`) profiles an exported game through capture files (a key or
+`--profile-capture` in the player, opened in Perfetto). Add a live view: the editor connects to
+a running player (a desktop player, the Steam Deck, a phone) over the network and its Profiler
+panel shows that player's frames as it shows the editor's, as Traktor's target connection and
+ezInspector do. The capture store is UI-free already; this is a transport (the engine's reliable
+UDP), a player-side server armed by a flag, and the panel choosing its source.
+
 ## The shader page: the cooked code, and project include files (2026-10-12; after 0.1)
 
 What custom shaders left after 0.1 (`Specs/custom-shaders.md`, phase 8): a toggle on the shader
