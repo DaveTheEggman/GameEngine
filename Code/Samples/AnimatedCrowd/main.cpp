@@ -243,6 +243,10 @@ namespace
                 return;
             }
             RebuildToCount(kAutoProfile ? kProfileCount : (kAutoRamp ? 100u : kBatchSize));
+            if (kAutoProfile)
+            {
+                foundation::profiler::Profiler::Get().Arm(); // the report at the end needs frames
+            }
         }
 
         // Cook + bind + spawn one model, placed at `position` and auto-fit to a target size. Each model

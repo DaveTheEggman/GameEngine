@@ -131,7 +131,17 @@ namespace engine::runtime
             return;
         }
 
-        core::ConsoleWrite(foundation::profiler::Profiler::Get().BuildReport().AsView());
+        // The profiler records only while something watches it: the first press arms it for the
+        // rest of the run, and each press prints the newest frame.
+        foundation::profiler::Profiler& profiler = foundation::profiler::Profiler::Get();
+        if (!m_profilerArmedByKey)
+        {
+            profiler.Arm();
+            m_profilerArmedByKey = true;
+            core::ConsoleWrite(core::StringView(u8"Profiler armed; press P again for a frame.\n"));
+            return;
+        }
+        core::ConsoleWrite(profiler.BuildReport().AsView());
         if (auto* renderer = host.Ctx().GetSubsystem<engine::render::RenderSubsystem>())
         {
             core::String gpu;

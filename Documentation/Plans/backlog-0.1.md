@@ -79,37 +79,9 @@
   support two scripting languages (the cost of every script facade, test and doc twice, against
   what each brings). The heist plan already had a Luau-only game coming after Lamplight.
 
-### Seeded: GPU profiler + profiler visualization (user 2026-08-26)
-
-Origin: same parity doc - "GPU PROFILER: Lumix-ahead - unified CPU/GPU profiler
-timeline + pipeline statistics + NVML telemetry + PIX/RenderDoc; Draconic:
-per-pass graph timestamps + CPU record-time report, SEPARATE from its CPU
-profiler." We have both halves but they are text-dump only and disjoint.
-
-What exists ([[profiler-system]]): `draconic.profiler` CPU scopes
-(compile-gated) + a GPU `GraphProfiler` (per-pass Vulkan timestamps); the P key
-DUMPS TEXT. Two gaps, and the user asked for both:
-
-1. **GPU profiler** - broaden past the current per-pass Vulkan-only timestamps:
-   finer scopes and coverage on the OTHER backends (WebGPU timestamp-query where
-   available, DX12) so the GPU timeline is not Vulkan-only. Pipeline statistics
-   (draw/primitive counts) alongside the timings if cheap.
-2. **Profiler visualization** - replace the text dump with a VISUAL profiler
-   panel (timeline / flamegraph) that UNIFIES the CPU scopes and the GPU
-   timestamps on ONE per-frame timeline (the "separate" problem the parity note
-   calls out). ImGui is already integrated ([[imgui-integration]]) - a candidate
-   host for the overlay - but decide editor-panel vs in-app-overlay at design.
-
-Open questions for week start:
-- The shared data model: merge CPU scope trees + GPU pass timings into one frame
-  record with a common clock/axis (GPU timestamps resolve a frame or two late -
-  the view must align them to the right CPU frame).
-- Where it lives: an editor profiler panel, an ImGui overlay in the samples, or
-  both reading the same capture. Keep the capture layer UI-free.
-- Portability: WebGPU timestamp-query is optional/limited and DX12 differs from
-  Vulkan - the GPU side degrades gracefully where timestamps are unavailable.
-- Compile-gating stays (the CPU profiler is already gated); the visualization is
-  a debug tool, not shipped in dist.
+- **The profiler: CPU and GPU on one timeline, an overlay and a panel** (user 2026-08-26 and
+  2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0, the capture store, built
+  2026-10-13 (week-2026-10-10).
 
 ## Other
 

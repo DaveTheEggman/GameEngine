@@ -67,6 +67,11 @@ export namespace foundation::runtime
             m_shell = shell;
             m_graphics = graphics;
             m_settings = app.Settings();
+            // The thread running the frames: its lane in the profiler, unless the app named it.
+            if (core::CurrentThreadName().IsEmpty())
+            {
+                core::SetCurrentThreadName(core::StringView(u8"Main"));
+            }
             // Running from here on, so a RequestExit raised DURING startup (Configure/OnStartup:
             // no data root, an unreadable dist) is honored by the run loop instead of being
             // overwritten when Start completes.

@@ -354,6 +354,7 @@ export namespace engine::runtime
         core::u64 m_renderedFrames = 0; // frames FinishFrame saw (the --screenshot-frame count)
         core::u32 m_screenshotsTaken = 0; // of the --screenshot run (--screenshot-count frames, then done)
         bool m_screenshotExitPending = false;
+        bool m_profilerArmedByKey = false; // the P key armed the profiler (for the rest of the run)
         core::f32 m_exitAfterSeconds = 0.0f;
         core::f32 m_runSeconds = 0.0f;
 

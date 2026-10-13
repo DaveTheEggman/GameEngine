@@ -1,6 +1,7 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: SPEC 2026-10-13, decisions taken and revised the same day (below); not started. Backlog entry it closes:
+> STATUS: P0 (the capture store) BUILT 2026-10-13; P1 onward to come. Decisions taken and
+> revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -72,18 +73,23 @@ writer and gives a full viewer for free.
 
 `foundation.profiler` becomes the one store both halves write to, and every viewer reads:
 
-- **Per thread**: a fixed ring of begin/end events (name id, tick), sized per thread (main 64K
-  events, others 16K; a setting), written without a lock by its own thread. Names are static
-  literals or interned once (a dynamic name, a pass's, interns to an id). Threads carry names
-  (`SetThreadName`), and the job system names its workers and scopes each job it runs.
-- **Frames**: `FrameBegin` records the frame number and tick on the main thread; the store keeps
-  a history of frames (300 by default, about five seconds) as index ranges into the rings, so a
-  viewer can select any recent frame without copying.
+- **Per thread**: a fixed ring of the scopes it finished (name id, depth, begin and end ticks),
+  sized per thread (the frame thread 64K, others 16K; `SetRingCapacity`), written without a lock
+  by its own thread and read by the frame thread at frame end; a full ring drops new scopes and
+  counts them. Names are interned to ids: a literal once per thread (cached by address), a name
+  made at run time (a pass's) each call. Threads carry names (`core::SetCurrentThreadName`; the
+  host names its frame thread "Main", the job system its workers "Worker N"), and every job a
+  job system runs is a "Job" scope on its worker's lane (`core::JobHooks`, which Core calls
+  around each job without knowing the profiler).
+- **Frames**: `EndFrame` copies what every thread finished into the frame's record; the store
+  keeps the last 300 records (about five seconds; `SetHistoryLength`), found by frame number.
 - **GPU lane**: GPU passes arrive late (below) and are written into the frame they belong to,
-  by frame number, as begin/end ticks already on the CPU clock.
-- **Counters**: named values per frame (below), the lanes under the timeline.
-- **Armed or not**: recording costs a branch when nothing is watching. A viewer (the panel, a
-  capture, an MCP call) arms it; the P key keeps working.
+  by frame number (`SubmitGpuPasses`), as begin/end ticks already on the CPU clock.
+- **Counters**: registered once by name and unit, set per frame (below), the lanes under the
+  timeline.
+- **Armed or not**: recording costs a branch when nothing is watching. Arms are counted: a
+  viewer (the panel, a capture, an MCP call) arms it and disarms when done; the P key's first
+  press arms it for the rest of the run.
 
 ### Built to be streamed: remote profiling in 0.2 is a transport, not surgery
 
