@@ -130,6 +130,31 @@ TEST_CASE("ui-shell: text input target follows focus (IME sync)")
     CHECK(!window.active); // nothing focused -> IME off
 }
 
+TEST_CASE("ui-shell: a window going away stops being the text input target")
+{
+    // The editor's crash: a dialog window was the target, it closed, and the next sync called into
+    // it. Forgetting it leaves no target, so a sync touches no window until the host sets one.
+    UIContext ctx{DefaultAllocator()};
+    RefPtr<RootView> root;
+    SetupRoot(ctx, root);
+    auto edit = core::MakeRef<EditText>(core::DefaultAllocator());
+    root->AddView(edit.Get());
+    LayoutPass(ctx, root.Get());
+    ctx.GetFocusManager()->SetFocus(edit.Get());
+
+    MockWindow main;
+    MockWindow dialog;
+    UiInputBridge bridge(&ctx);
+    bridge.SetTextInputTarget(&dialog);
+    bridge.ForgetWindow(&main); // another window: the target stays
+    CHECK(bridge.TextInputTarget() == &dialog);
+    bridge.ForgetWindow(&dialog);
+    CHECK(bridge.TextInputTarget() == nullptr);
+    bridge.SyncTextInput(); // no target: nothing called
+    CHECK(!dialog.active);
+    CHECK(!main.active);
+}
+
 TEST_CASE("ui-shell: ShellClipboard bridges the platform clipboard")
 {
     shell::NullShell nullShell; // implements IShell incl. clipboard

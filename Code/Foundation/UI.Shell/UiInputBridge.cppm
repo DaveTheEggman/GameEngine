@@ -69,6 +69,17 @@ export namespace foundation::ui
         /// input while a text-editing view holds focus and stops it otherwise - reconciled after each
         /// Dispatch()/PumpFromSurface(). Pass nullptr to disable.
         void SetTextInputTarget(shell::IWindow* window) noexcept { m_textInputTarget = window; }
+        [[nodiscard]] shell::IWindow* TextInputTarget() const noexcept { return m_textInputTarget; }
+        /// A window going away: if it is the text-input target, the bridge lets go of it (the
+        /// target is borrowed, and the next sync would call into a destroyed window). The host
+        /// points it at the focused window again on its next update.
+        void ForgetWindow(const shell::IWindow* window) noexcept
+        {
+            if (window != nullptr && m_textInputTarget == window)
+            {
+                m_textInputTarget = nullptr;
+            }
+        }
 
         /// Reconcile the target window's text-input state with the focused view's WantsTextInput().
         void SyncTextInput()

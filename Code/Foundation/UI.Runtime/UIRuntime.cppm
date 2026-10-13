@@ -358,6 +358,10 @@ export namespace foundation::ui::runtime
                     }
                     m_router->RemoveSurface(data->surface.Get());
                     m_ctx.RemoveRootView(data->root.Get());
+                    // The window is closed after this: the bridge's text input must not keep it.
+                    // Until the next focus refresh, the hover pump synced IME against it, and a
+                    // closed popup or dialog window crashed the editor there.
+                    m_bridge->ForgetWindow(&window->Window());
                     m_attached.RemoveAt(i);
                     return;
                 }
