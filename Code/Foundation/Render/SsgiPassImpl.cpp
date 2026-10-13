@@ -467,9 +467,8 @@ namespace foundation::render
             });
 
         // --- Spatial denoise: neighbors share their hits before the temporal accumulate
-        //     (depth-aware; at 1-4 rays the raw estimate alone cannot converge) ---
-        const rendergraph::RGHandle filtered =
-            graph.CreateTransient(u8"ssgi.filtered", rendergraph::RGTextureDesc(kHdrFormat, w, h));
+        //     (depth-aware; at 1-4 rays the raw estimate alone cannot converge), and again after
+        //     it at a widening step (the a-trous passes below) ---
         SsgiBlurPushC bpc2{};
         bpc2.texelSize = Float2{1.0f / fw, 1.0f / fh};
         bpc2.depthSigma = (p.depthSigma > 1e-3f) ? p.depthSigma : 1e-3f;
@@ -477,33 +476,42 @@ namespace foundation::render
         bpc2.vpMin = vpMin;
         bpc2.vpSize = vpSize;
         bpc2.ySign = m_device->NeedsClipSpaceYFlip() ? 1.0f : -1.0f;
-        graph.AddRenderPass(
-            u8"ssgi.blur",
-            [this, &graph, gi, depth, filtered, bpc2](rendergraph::PassBuilder& b)
-            {
-                b.SetColorTarget(0, filtered, rhi::LoadOp::Clear, rhi::StoreOp::Store,
-                                 rhi::ClearColor::Black());
-                b.ReadTexture(gi);
-                b.ReadTexture(depth);
-                b.NeverCull();
-                b.SetExecute(
-                    [this, &graph, gi, depth, bpc2](rhi::RenderPassEncoder& rp)
-                    {
-                        rhi::BindGroup* bg = EnsureBlurBindGroup(
-                            graph.GetTextureView(gi), graph.GetTextureView(depth),
-                            graph.GetTextureGeneration(gi) ^
-                                (graph.GetTextureGeneration(depth) * 1099511628211ull));
-                        if (bg == nullptr)
+        const auto declareBlur = [this, &graph, depth, bpc2](StringView name, rendergraph::RGHandle src,
+                                                              rendergraph::RGHandle dst, f32 step)
+        {
+            SsgiBlurPushC pushed = bpc2;
+            pushed.step = step;
+            graph.AddRenderPass(
+                name,
+                [this, &graph, src, depth, dst, pushed](rendergraph::PassBuilder& b)
+                {
+                    b.SetColorTarget(0, dst, rhi::LoadOp::Clear, rhi::StoreOp::Store,
+                                     rhi::ClearColor::Black());
+                    b.ReadTexture(src);
+                    b.ReadTexture(depth);
+                    b.NeverCull();
+                    b.SetExecute(
+                        [this, &graph, src, depth, pushed](rhi::RenderPassEncoder& rp)
                         {
-                            return;
-                        }
-                        rp.SetPipeline(m_blurPipeline);
-                        rp.SetBindGroup(0, bg, Span<const u32>{});
-                        rp.SetPushConstants(rhi::ShaderStage::Fragment, 0, sizeof(SsgiBlurPushC),
-                                            &bpc2);
-                        rp.Draw(3, 1, 0, 0);
-                    });
-            });
+                            rhi::BindGroup* bg = EnsureBlurBindGroup(
+                                graph.GetTextureView(src), graph.GetTextureView(depth),
+                                graph.GetTextureGeneration(src) ^
+                                    (graph.GetTextureGeneration(depth) * 1099511628211ull));
+                            if (bg == nullptr)
+                            {
+                                return;
+                            }
+                            rp.SetPipeline(m_blurPipeline);
+                            rp.SetBindGroup(0, bg, Span<const u32>{});
+                            rp.SetPushConstants(rhi::ShaderStage::Fragment, 0,
+                                                sizeof(SsgiBlurPushC), &pushed);
+                            rp.Draw(3, 1, 0, 0);
+                        });
+                });
+        };
+        const rendergraph::RGHandle filtered =
+            graph.CreateTransient(u8"ssgi.filtered", rendergraph::RGTextureDesc(kHdrFormat, w, h));
+        declareBlur(u8"ssgi.blur", gi, filtered, 1.0f);
 
         // --- Resolve: reproject + variance-clip + accumulate, then ADD into the HDR ---
         ViewHistory& hist = m_views[viewIndex];
@@ -533,7 +541,6 @@ namespace foundation::render
         rpc2.motionScale = p.motionScale;
         rpc2.temporalOn = temporalOn ? 1 : 0;
         rpc2.debug = p.debug;
-        rpc2.ghostReject = p.ghostReject;
         rpc2.intensity = (p.intensity >= 0.0f) ? p.intensity : 0.0f;
         // The ambient a hit replaces (see :ssgi): the camera's world rotation turns the G-buffer's
         // view-space normal to world, where the SH sky is; no SH sky = flat fill alone (as the forward).
@@ -547,13 +554,23 @@ namespace foundation::render
         const u64 shGeneration = shSky ? sky.generation : 0;
         const rendergraph::RGHandle shHandle = shSky ? sky.shHandle : rendergraph::RGHandle{};
 
+        // The accumulate writes the history and, when the denoise runs, the accumulated bounce
+        // itself (rgb + hit share) rather than the composite: the a-trous passes smooth that,
+        // and the same shader, its accumulate off, composites the result (the history stays
+        // unfiltered, so the denoise never feeds back into it).
+        const u32 denoisePasses = (temporalOn && p.debug == 0) ? Min(p.denoisePasses, 4u) : 0u;
+        const rendergraph::RGHandle accumOut =
+            denoisePasses > 0
+                ? graph.CreateTransient(u8"ssgi.accum", rendergraph::RGTextureDesc(kHdrFormat, w, h))
+                : out;
+        rpc2.outputAccum = denoisePasses > 0 ? 1 : 0;
         rhi::TextureView* histPrevView = hist.view[prev];
         graph.AddRenderPass(
             u8"ssgi.resolve",
-            [this, &graph, filtered, histPrev, velocity, hdr, albedo, normal, out, histCur,
+            [this, &graph, filtered, histPrev, velocity, hdr, albedo, normal, accumOut, histCur,
              histPrevView, rpc2, shBuffer, shGeneration, shHandle](rendergraph::PassBuilder& b)
             {
-                b.SetColorTarget(0, out, rhi::LoadOp::Clear, rhi::StoreOp::Store,
+                b.SetColorTarget(0, accumOut, rhi::LoadOp::Clear, rhi::StoreOp::Store,
                                  rhi::ClearColor::Black());
                 b.SetColorTarget(1, histCur, rhi::LoadOp::Clear, rhi::StoreOp::Store,
                                  rhi::ClearColor::Black());
@@ -591,6 +608,73 @@ namespace foundation::render
                         rp.Draw(3, 1, 0, 0);
                     });
             });
+        if (denoisePasses > 0)
+        {
+            // A-trous: the depth-aware gather again, its taps 1, 2, 4, 8 pixels apart.
+            rendergraph::RGHandle src = accumOut;
+            static constexpr StringView kNames[4] = {u8"ssgi.denoise1", u8"ssgi.denoise2",
+                                                     u8"ssgi.denoise3", u8"ssgi.denoise4"};
+            for (u32 pass = 0; pass < denoisePasses; ++pass)
+            {
+                const rendergraph::RGHandle dst =
+                    graph.CreateTransient(kNames[pass], rendergraph::RGTextureDesc(kHdrFormat, w, h));
+                declareBlur(kNames[pass], src, dst, static_cast<f32>(1u << pass));
+                src = dst;
+            }
+            // The composite: the resolve with its accumulate off reads the smoothed bounce as its
+            // current frame. Its history input is bound (this frame's, keyed apart from the
+            // accumulate's bind group) and unread; its history output is a scratch target.
+            SsgiResolvePushC cpc = rpc2;
+            cpc.temporalOn = 0;
+            cpc.outputAccum = 0;
+            const rendergraph::RGHandle scratch =
+                graph.CreateTransient(u8"ssgi.compositeScratch", rendergraph::RGTextureDesc(kHdrFormat, w, h));
+            rhi::TextureView* histCurView = hist.view[cur];
+            const rendergraph::RGHandle smoothed = src;
+            graph.AddRenderPass(
+                u8"ssgi.composite",
+                [this, &graph, smoothed, histCur, velocity, hdr, albedo, normal, out, scratch,
+                 histCurView, cpc, shBuffer, shGeneration, shHandle](rendergraph::PassBuilder& b)
+                {
+                    b.SetColorTarget(0, out, rhi::LoadOp::Clear, rhi::StoreOp::Store,
+                                     rhi::ClearColor::Black());
+                    b.SetColorTarget(1, scratch, rhi::LoadOp::Clear, rhi::StoreOp::Store,
+                                     rhi::ClearColor::Black());
+                    b.ReadTexture(smoothed);
+                    b.ReadTexture(histCur);
+                    b.ReadTexture(velocity);
+                    b.ReadTexture(hdr);
+                    b.ReadTexture(albedo);
+                    b.ReadTexture(normal);
+                    if (shHandle.IsValid())
+                    {
+                        b.ReadBuffer(shHandle);
+                    }
+                    b.NeverCull();
+                    b.SetExecute(
+                        [this, &graph, smoothed, velocity, hdr, albedo, normal, histCurView, cpc,
+                         shBuffer, shGeneration](rhi::RenderPassEncoder& rp)
+                        {
+                            ResolveInputs inputs;
+                            inputs.Set(0, graph.GetTextureView(smoothed), graph.GetTextureGeneration(smoothed));
+                            inputs.Set(1, graph.GetTextureView(velocity), graph.GetTextureGeneration(velocity));
+                            inputs.Set(2, graph.GetTextureView(hdr), graph.GetTextureGeneration(hdr));
+                            inputs.Set(3, graph.GetTextureView(albedo), graph.GetTextureGeneration(albedo));
+                            inputs.Set(4, graph.GetTextureView(normal), graph.GetTextureGeneration(normal));
+                            inputs.SetBuffer(shBuffer, shGeneration);
+                            rhi::BindGroup* bg = EnsureResolveBindGroup(histCurView, inputs);
+                            if (bg == nullptr)
+                            {
+                                return;
+                            }
+                            rp.SetPipeline(m_resolvePipeline);
+                            rp.SetBindGroup(0, bg, Span<const u32>{});
+                            rp.SetPushConstants(rhi::ShaderStage::Fragment, 0,
+                                                sizeof(SsgiResolvePushC), &cpc);
+                            rp.Draw(3, 1, 0, 0);
+                        });
+                });
+        }
         hist.cur = prev; // this frame's history output becomes next frame's read
         hist.valid = true;
         return out;

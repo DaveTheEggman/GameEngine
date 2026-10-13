@@ -60,15 +60,24 @@ export namespace foundation::render
             f32 maxRadiance = 4.0f;   // per-hit gather clamp (firefly suppression)
             f32 radius = 3.0f;        // view-space gather radius (world units)
             f32 thickness = 0.6f;     // hit acceptance band (view-space linear depth)
-            i32 maxSteps = 24;        // march budget PER RAY
-            i32 rayCount = 2;         // hemisphere rays per pixel (1..4)
+            // Four rays of 12 steps, the same 48 depth taps a pixel as two of 24: with the history
+            // held close to the frame (varianceGamma), two rays left a wall beside a bright patch
+            // flickering (Lamplight's guard by a wall, 0.77 a pixel a frame against 0.11).
+            i32 maxSteps = 12;        // march budget PER RAY
+            i32 rayCount = 4;         // hemisphere rays per pixel (1..4)
             bool temporal = true;     // temporal accumulate (reproject + variance-clip history)
             f32 historyBlend = 0.95f; // max history weight (GI is noisier than SSR - lean on it)
-            f32 varianceGamma = 2.5f; // neighborhood clip half-width in stddevs (post-blur)
+            // The history's clip box half-width in stddevs of the wide neighbourhood (ssgi_resolve):
+            // tight, as the box's mean is the steady estimate of a sparse trace; 2.5 let a moving
+            // light's bounce trail it, 0 let the trace's noise through.
+            f32 varianceGamma = 0.25f;
             f32 depthSigma = 0.05f;   // spatial-denoise depth tolerance (relative)
             f32 motionScale = 24.0f;  // how fast history drops with motion
-            f32 ghostReject = 3.0f;   // history-vs-current luma-diff rejection strength
             i32 debug = 0;            // >0 = show the accumulated GI raw (no composite)
+            // A-trous passes over the accumulated bounce before the composite (0 = none, at most
+            // 4: taps 1, 2, 4, 8 pixels apart), so a history held close to the frame (no trail)
+            // does not show the trace's noise as blotches.
+            u32 denoisePasses = 4;
         };
 
         // The ambient the forward lit the view's scene with, which a hit replaces: the scene's SH
@@ -143,7 +152,7 @@ export namespace foundation::render
         {
             Float2 texelSize{};
             f32 depthSigma = 0.05f;
-            f32 pad0 = 0.0f;
+            f32 step = 1.0f; // tap spacing in pixels: 1 before the accumulate, 1/2/4/8 after it
             Float4x4 invProj{};
             Float2 vpMin{0.0f, 0.0f};
             Float2 vpSize{1.0f, 1.0f};
@@ -165,7 +174,7 @@ export namespace foundation::render
             f32 motionScale = 24.0f;
             i32 temporalOn = 1;
             i32 debug = 0;
-            f32 ghostReject = 3.0f;
+            i32 outputAccum = 0; // 1: write the accumulated bounce, not the composite (the denoise's input)
             f32 intensity = 1.0f;
             // HLSL starts a float4 on a 16-byte boundary; Float4 here is only 4-byte aligned, so
             // the pad keeps the C++ offsets the shader's (a shifted read scrambled the sky term).
