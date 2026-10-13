@@ -110,6 +110,10 @@ export namespace foundation::rhi::validation
         }
 
         f32 TimestampPeriod() const override { return m_inner->TimestampPeriod(); }
+        bool CalibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks) override
+        {
+            return m_inner->CalibrateTimestamps(gpuTimestamp, cpuTicks);
+        }
 
         Queue* inner() const { return m_inner; }
 

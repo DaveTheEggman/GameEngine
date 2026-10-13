@@ -67,6 +67,8 @@ export namespace foundation::rhi::vk
         }
 
         f32 TimestampPeriod() const override { return m_tsPeriod; }
+        // Out-of-line (VkDevice.cppm): the device holds the calibration entry point.
+        bool CalibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks) override;
 
         // ---- Internal ----
         [[nodiscard]] VkQueue handle() const { return m_queue; }

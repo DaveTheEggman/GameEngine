@@ -181,6 +181,28 @@ export namespace foundation::rhi::dx12
         // shadows ever render flipped on DX12 (untested on the reconstruction path), this becomes true.
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
 
+        // A statistics query resolves to D3D12's own eleven-counter record.
+        [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
+        {
+            return type == QueryType::PipelineStatistics
+                       ? static_cast<u32>(sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS))
+                       : 8u;
+        }
+        [[nodiscard]] PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept override
+        {
+            PipelineStatistics out;
+            if (result == nullptr)
+                return out;
+            const auto* d3d = static_cast<const D3D12_QUERY_DATA_PIPELINE_STATISTICS*>(result);
+            out.inputVertices = d3d->IAVertices;
+            out.inputPrimitives = d3d->IAPrimitives;
+            out.vertexInvocations = d3d->VSInvocations;
+            out.clippingPrimitives = d3d->CPrimitives;
+            out.fragmentInvocations = d3d->PSInvocations;
+            out.computeInvocations = d3d->CSInvocations;
+            return out;
+        }
+
         Queue* GetQueue(QueueType t, u32 index) override
         {
             switch (t)

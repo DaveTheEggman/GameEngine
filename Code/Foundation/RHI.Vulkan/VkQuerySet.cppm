@@ -22,6 +22,9 @@ export namespace foundation::rhi::vk
     class VkQuerySetImpl : public QuerySet
     {
     public:
+        /// The counters a statistics query counts (the RHI's six), each a u64.
+        static constexpr u32 kPipelineStatisticsCounters = 6;
+
         Status init(VkDevice device, const QuerySetDesc& d)
         {
             type = d.type;
@@ -41,10 +44,13 @@ export namespace foundation::rhi::vk
                 break;
             case QueryType::PipelineStatistics:
                 ci.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
+                // The RHI's six counters; Vulkan writes the enabled ones in bit order, which
+                // VkDeviceImpl::DecodePipelineStatistics reads back.
                 ci.pipelineStatistics =
                     VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
                     VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
                     VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+                    VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
                     VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
                     VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
                 break;

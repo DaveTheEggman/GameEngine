@@ -229,6 +229,38 @@ export namespace foundation::rhi::validation
             m_inner->WriteTimestamp(qs, index);
         }
 
+        void BeginPipelineStatisticsQuery(QuerySet* qs, u32 index) override
+        {
+            if (!checkState("beginPipelineStatisticsQuery", EncoderState::Recording))
+                return;
+            if (!qs || qs->type != QueryType::PipelineStatistics)
+            {
+                LogError("[Validation] beginPipelineStatisticsQuery: needs a PipelineStatistics query set");
+                return;
+            }
+            if (m_statisticsQuery != nullptr)
+            {
+                LogError("[Validation] beginPipelineStatisticsQuery: one is already open (they do not nest)");
+                return;
+            }
+            m_statisticsQuery = qs;
+            m_statisticsIndex = index;
+            m_inner->BeginPipelineStatisticsQuery(qs, index);
+        }
+
+        void EndPipelineStatisticsQuery(QuerySet* qs, u32 index) override
+        {
+            if (!checkState("endPipelineStatisticsQuery", EncoderState::Recording))
+                return;
+            if (qs == nullptr || qs != m_statisticsQuery || index != m_statisticsIndex)
+            {
+                LogError("[Validation] endPipelineStatisticsQuery: does not match the open query");
+                return;
+            }
+            m_statisticsQuery = nullptr;
+            m_inner->EndPipelineStatisticsQuery(qs, index);
+        }
+
         void ResolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst, u64 dstOff) override
         {
             if (!checkState("resolveQuerySet", EncoderState::Recording))
@@ -293,6 +325,8 @@ export namespace foundation::rhi::validation
                 LogError("[Validation] finish: compute pass still open");
             if (m_debugLabelDepth > 0)
                 LogWarningf("[Validation] finish: %d debug label(s) not closed", m_debugLabelDepth);
+            if (m_statisticsQuery != nullptr)
+                LogError("[Validation] finish: a pipeline statistics query is still open");
             m_state = EncoderState::Finished;
             return m_inner->Finish();
         }
@@ -436,6 +470,8 @@ export namespace foundation::rhi::validation
         EncoderState m_state = EncoderState::Recording;
         i32 m_debugLabelDepth = 0;
         bool m_rtPipelineBound = false;
+        QuerySet* m_statisticsQuery = nullptr; // the open pipeline statistics query, if any
+        u32 m_statisticsIndex = 0;
 
         ValidatedRenderPassEncoder m_rpe;
         ValidatedComputePassEncoder m_cpe;

@@ -206,6 +206,8 @@ export namespace foundation::rhi::null
         void ResolveTexture(Texture*, Texture*) override {}
         void ResetQuerySet(QuerySet*, u32, u32) override {}
         void WriteTimestamp(QuerySet*, u32) override {}
+        void BeginPipelineStatisticsQuery(QuerySet*, u32) override {}
+        void EndPipelineStatisticsQuery(QuerySet*, u32) override {}
         void ResolveQuerySet(QuerySet*, u32, u32, Buffer*, u64) override {}
         void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
         void EndDebugLabel() override {}
@@ -315,6 +317,7 @@ export namespace foundation::rhi::null
         }
         void DestroyTransferBatch(TransferBatch*&) override {}
         f32 TimestampPeriod() const override { return 1.0f; }
+        bool CalibrateTimestamps(u64&, u64&) override { return false; } // no GPU, no clock to read
     };
 
     // ---- Null Device ----
@@ -339,6 +342,15 @@ export namespace foundation::rhi::null
         }
 
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+        // No statistics: a statistics result takes no room and reads as zeros.
+        [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
+        {
+            return type == QueryType::PipelineStatistics ? 0u : 8u;
+        }
+        [[nodiscard]] PipelineStatistics DecodePipelineStatistics(const void*) const noexcept override
+        {
+            return PipelineStatistics{};
+        }
 
         Queue* GetQueue(QueueType t, u32) override
         {

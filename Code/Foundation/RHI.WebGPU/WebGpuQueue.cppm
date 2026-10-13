@@ -169,6 +169,10 @@ export namespace foundation::rhi::webgpu
                        : 1.0f;
         }
 
+        // WebGPU offers no way to read a GPU timestamp together with the CPU's clock
+        // (Features::timestampCalibration is false); a profiler syncs the two another way.
+        bool CalibrateTimestamps(u64&, u64&) override { return false; }
+
     private:
         WGPUSubmissionIndex SubmitInternal(Span<CommandBuffer* const> commandBuffers)
         {

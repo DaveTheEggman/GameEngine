@@ -63,6 +63,9 @@ export namespace foundation::rhi
             // Feature flags.
             bool bindlessDescriptors = false;
             bool timestampQueries = false;
+            // Queue::CalibrateTimestamps can read a GPU timestamp and the CPU's clock together
+            // (Vulkan calibrated timestamps, D3D12 GetClockCalibration).
+            bool timestampCalibration = false;
             bool pipelineStatisticsQueries = false;
             // Begin/EndOcclusionQuery inside render passes. WebGPU cannot honor the
             // RHI's begin-anywhere shape until RenderPassDesc declares the query set
@@ -108,6 +111,18 @@ export namespace foundation::rhi
     using DeviceFeatures = AdapterInfo::Features;
 
     /// Descriptor for logical device creation.
+    /// The counters of one pipeline-statistics query, whatever layout a backend resolves them in
+    /// (Device::DecodePipelineStatistics).
+    struct PipelineStatistics
+    {
+        u64 inputVertices = 0;       // vertices the input assembler read
+        u64 inputPrimitives = 0;     // primitives it assembled
+        u64 vertexInvocations = 0;   // vertex shader runs
+        u64 clippingPrimitives = 0;  // primitives that came out of clipping (toward the rasterizer)
+        u64 fragmentInvocations = 0; // fragment (pixel) shader runs
+        u64 computeInvocations = 0;  // compute shader runs
+    };
+
     struct DeviceDesc
     {
         DeviceFeatures requiredFeatures{};

@@ -124,6 +124,19 @@ export namespace foundation::rhi::dx12
 
         f32 TimestampPeriod() const override { return m_tsPeriod; }
 
+        // The queue's timestamp and QueryPerformanceCounter read together; core::GetTicks reads
+        // QueryPerformanceCounter on Windows, so the CPU side needs no conversion.
+        bool CalibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks) override
+        {
+            UINT64 gpu = 0;
+            UINT64 cpu = 0;
+            if (FAILED(m_queue->GetClockCalibration(&gpu, &cpu)))
+                return false;
+            gpuTimestamp = static_cast<u64>(gpu);
+            cpuTicks = static_cast<u64>(cpu);
+            return true;
+        }
+
         void cleanup()
         {
             if (m_fenceEvent)

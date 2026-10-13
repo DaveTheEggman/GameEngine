@@ -115,6 +115,18 @@ TEST_CASE("rhi.webgpu: unimplemented stages fail honestly, extensions unsupporte
     QuerySet* statistics = nullptr;
     CHECK(device->CreateQuerySet(statisticsDesc, statistics).Code() ==
           ErrorCode::NotSupported);
+    // ...so a statistics result takes no room and reads as zeros, and no GPU timestamp can be
+    // read beside the CPU's clock: a profiler syncs the two another way.
+    CHECK_FALSE(device->features.pipelineStatisticsQueries);
+    CHECK_FALSE(device->features.timestampCalibration);
+    CHECK(device->QueryResultSize(QueryType::PipelineStatistics) == 0u);
+    CHECK(device->QueryResultSize(QueryType::Timestamp) == 8u);
+    CHECK(device->DecodePipelineStatistics(nullptr).fragmentInvocations == 0u);
+    {
+        u64 gpu = 3, cpu = 4;
+        CHECK_FALSE(device->GetQueue(QueueType::Graphics)->CalibrateTimestamps(gpu, cpu));
+        CHECK(cpu == 4u);
+    }
 
     MeshPipeline* mesh = nullptr;
     CHECK(device->CreateMeshPipeline(MeshPipelineDesc{}, mesh).Code() ==

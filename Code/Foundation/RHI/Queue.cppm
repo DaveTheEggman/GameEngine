@@ -50,6 +50,11 @@ export namespace foundation::rhi
 
         /// Timestamp period in nanoseconds per tick.
         [[nodiscard]] virtual f32 TimestampPeriod() const = 0;
+
+        /// A GPU timestamp (in this queue's timestamp ticks) and core::GetTicks() read at the same
+        /// moment, to place the queue's timestamps on the CPU's clock. False, with both left
+        /// alone, when the device cannot (Features::timestampCalibration).
+        [[nodiscard]] virtual bool CalibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks) = 0;
     };
 
 } // namespace foundation::rhi

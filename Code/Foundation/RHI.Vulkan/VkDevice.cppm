@@ -124,6 +124,10 @@ export namespace foundation::rhi::vk
                 exts.PushBack("VK_KHR_deferred_host_operations");
                 exts.PushBack("VK_KHR_ray_query");
             }
+            if (const char* calibration = adapter->calibratedTimestampsExtension())
+            {
+                exts.PushBack(calibration);
+            }
 
             // Feature chain.
             VkPhysicalDeviceVulkan13Features features13{};
@@ -200,6 +204,19 @@ export namespace foundation::rhi::vk
                 return ErrorCode::Unknown;
 
             type = DeviceType::Vulkan;
+
+            // The KHR and EXT calibration entry points share a signature.
+            if (features.timestampCalibration)
+            {
+                m_getCalibratedTimestamps = reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
+                    vkGetDeviceProcAddr(m_device, "vkGetCalibratedTimestampsKHR"));
+                if (m_getCalibratedTimestamps == nullptr)
+                {
+                    m_getCalibratedTimestamps = reinterpret_cast<PFN_vkGetCalibratedTimestampsEXT>(
+                        vkGetDeviceProcAddr(m_device, "vkGetCalibratedTimestampsEXT"));
+                }
+                features.timestampCalibration = m_getCalibratedTimestamps != nullptr;
+            }
 
             // Retrieve queues.
             auto retrieveQueues = [&](i32 family, u32 count, QueueType qt, u32 offset)
@@ -377,6 +394,60 @@ export namespace foundation::rhi::vk
             if (both & VK_SAMPLE_COUNT_2_BIT)
                 return 2;
             return 1;
+        }
+
+        // A statistics pool counts the RHI's six counters (VkQuerySet), written in bit order:
+        // input vertices, input primitives, vertex invocations, clipping primitives, fragment
+        // invocations, compute invocations.
+        u32 QueryResultSize(QueryType type) const noexcept override
+        {
+            if (type == QueryType::PipelineStatistics)
+            {
+                return features.pipelineStatisticsQueries
+                           ? VkQuerySetImpl::kPipelineStatisticsCounters * 8u
+                           : 0u;
+            }
+            return 8u;
+        }
+
+        PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept override
+        {
+            PipelineStatistics out;
+            if (result == nullptr || !features.pipelineStatisticsQueries)
+            {
+                return out;
+            }
+            const u64* counters = static_cast<const u64*>(result);
+            out.inputVertices = counters[0];
+            out.inputPrimitives = counters[1];
+            out.vertexInvocations = counters[2];
+            out.clippingPrimitives = counters[3];
+            out.fragmentInvocations = counters[4];
+            out.computeInvocations = counters[5];
+            return out;
+        }
+
+        /// Read the device's timestamp and the host clock together (Queue::CalibrateTimestamps).
+        bool calibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks)
+        {
+            if (m_getCalibratedTimestamps == nullptr)
+            {
+                return false;
+            }
+            VkCalibratedTimestampInfoEXT infos[2]{};
+            infos[0].sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_EXT;
+            infos[0].timeDomain = VK_TIME_DOMAIN_DEVICE_EXT;
+            infos[1].sType = VK_STRUCTURE_TYPE_CALIBRATED_TIMESTAMP_INFO_EXT;
+            infos[1].timeDomain = m_adapter->hostTimeDomain();
+            u64 values[2] = {};
+            u64 deviation = 0;
+            if (m_getCalibratedTimestamps(m_device, 2, infos, values, &deviation) != VK_SUCCESS)
+            {
+                return false;
+            }
+            gpuTimestamp = values[0];
+            cpuTicks = values[1]; // CLOCK_MONOTONIC ns / QPC counts: core::GetTicks' own units
+            return true;
         }
 
         bool SupportsSampleCount(u32 count) const noexcept override
@@ -913,6 +984,7 @@ export namespace foundation::rhi::vk
         bool m_rtEnabled = false;
         bool m_bindlessEnabled = false;
         bool m_validationEnabled = false;
+        PFN_vkGetCalibratedTimestampsEXT m_getCalibratedTimestamps = nullptr;
         BindingShifts m_bindingShifts = BindingShifts::standard();
         VkDescriptorPoolManager* m_poolManager = nullptr;
 
@@ -974,6 +1046,11 @@ export namespace foundation::rhi::vk
         if (vr == VK_ERROR_OUT_OF_DATE_KHR || vr == VK_SUBOPTIMAL_KHR)
             return ErrorCode::Unknown;
         return vr == VK_SUCCESS ? ErrorCode::Ok : ErrorCode::Unknown;
+    }
+
+    bool VkQueueImpl::CalibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks)
+    {
+        return m_device->calibrateTimestamps(gpuTimestamp, cpuTicks);
     }
 
     // ---- Queue submits (out-of-line: report device loss + swap chain sync need Device) ----

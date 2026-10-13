@@ -212,6 +212,13 @@ export namespace foundation::rhi
         /// Query operations.
         virtual void ResetQuerySet(QuerySet* querySet, u32 first, u32 count) = 0;
         virtual void WriteTimestamp(QuerySet* querySet, u32 index) = 0;
+        /// Count pipeline statistics (Features::pipelineStatisticsQueries) into query `index` of a
+        /// PipelineStatistics set, from Begin to End, both outside any pass (one may span whole
+        /// passes); one statistics query at a time, they do not nest.
+        virtual void BeginPipelineStatisticsQuery(QuerySet* querySet, u32 index) = 0;
+        virtual void EndPipelineStatisticsQuery(QuerySet* querySet, u32 index) = 0;
+        /// Copy `count` results into `dst` from `dstOffset`, each Device::QueryResultSize(type)
+        /// bytes apart.
         virtual void ResolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst,
                                      u64 dstOffset) = 0;
 

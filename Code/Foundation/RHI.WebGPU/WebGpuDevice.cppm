@@ -119,6 +119,16 @@ export namespace foundation::rhi::webgpu
         // carries the same convention. No renderer pass needs a Y compensation on this backend.
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
 
+        // No pipeline statistics on WebGPU: a statistics result takes no room and reads as zeros.
+        [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
+        {
+            return type == QueryType::PipelineStatistics ? 0u : 8u;
+        }
+        [[nodiscard]] PipelineStatistics DecodePipelineStatistics(const void*) const noexcept override
+        {
+            return PipelineStatistics{};
+        }
+
         // ---- Queries ----
         Queue* GetQueue(QueueType queueType, u32 index) override
         {

@@ -328,6 +328,11 @@ export namespace foundation::rhi::webgpu
 #endif
         }
 
+        // WebGPU has no pipeline statistics (Features::pipelineStatisticsQueries is false and no
+        // such query set can be made), so there is nothing to begin or end.
+        void BeginPipelineStatisticsQuery(QuerySet*, u32) override {}
+        void EndPipelineStatisticsQuery(QuerySet*, u32) override {}
+
         void ResolveQuerySet(QuerySet* querySet, u32 firstQuery, u32 queryCount,
                              Buffer* destination, u64 destinationOffset) override
         {

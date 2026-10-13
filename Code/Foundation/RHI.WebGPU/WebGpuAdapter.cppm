@@ -191,6 +191,7 @@ export namespace foundation::rhi::webgpu
             // Encoder-level WriteTimestamp (the RHI's CommandEncoder::WriteTimestamp,
             // used by the GPU GraphProfiler) is a separate wgpu feature from
             // pass-boundary timestamps. The enum is wgpu-native-only - unavailable on web.
+            bool encoderTimestampsEnabled = false;
 #if !PLATFORM_WEB
             const auto encoderTimestamps =
                 static_cast<WGPUFeatureName>(WGPUNativeFeature_TimestampQueryInsideEncoders);
@@ -198,6 +199,7 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuAdapterHasFeature(m_adapter, encoderTimestamps) != 0u)
             {
                 required.PushBack(encoderTimestamps);
+                encoderTimestampsEnabled = true;
             }
 #endif
 
@@ -320,6 +322,9 @@ export namespace foundation::rhi::webgpu
             auto* wrapper = m_allocator.New<WebGpuDevice>(*m_api, m_instance, m_adapter,
                                                           device, m_allocator);
             wrapper->features = info.supportedFeatures;
+            // The RHI's timestamp feature is CommandEncoder::WriteTimestamp, which needs the
+            // in-encoder feature; a browser's TimestampQuery alone writes nothing there.
+            wrapper->features.timestampQueries = encoderTimestampsEnabled;
             // SetPushConstants works EITHER way - native Immediates or the uniform-buffer
             // emulation - so the budget is always advertised. Reporting 0 under emulation
             // would make capability-checking callers disable the very paths the emulator

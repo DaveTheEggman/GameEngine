@@ -595,6 +595,18 @@ export namespace foundation::rhi::dx12
                 m_cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_TIMESTAMP, index);
         }
 
+        void BeginPipelineStatisticsQuery(QuerySet* querySet, u32 index) override
+        {
+            if (auto* qs = static_cast<DxQuerySetImpl*>(querySet))
+                m_cmdList->BeginQuery(qs->handle(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+        }
+
+        void EndPipelineStatisticsQuery(QuerySet* querySet, u32 index) override
+        {
+            if (auto* qs = static_cast<DxQuerySetImpl*>(querySet))
+                m_cmdList->EndQuery(qs->handle(), D3D12_QUERY_TYPE_PIPELINE_STATISTICS, index);
+        }
+
         void ResolveQuerySet(QuerySet* querySet, u32 first, u32 count, Buffer* dst,
                              u64 dstOffset) override
         {

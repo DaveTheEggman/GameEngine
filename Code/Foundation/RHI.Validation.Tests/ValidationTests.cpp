@@ -231,3 +231,60 @@ TEST_CASE("rhi.validation: a pipeline stage with no entry point anywhere is refu
     device->Destroy();
     vb->Destroy();
 }
+
+TEST_CASE("rhi.validation: pipeline statistics queries are one at a time, on a statistics set")
+{
+    // A statistics query cannot nest, must be on a PipelineStatistics set, ends the query it
+    // began, and is closed before the encoder finishes; the layer reports each, and passes the
+    // device's answers (here Null's: no statistics, no calibration) through.
+    Backend* inner = nullptr;
+    REQUIRE(null::CreateNullBackend(inner).IsOk());
+    Backend* vb = validation::CreateValidatedBackend(inner, DefaultAllocator());
+    REQUIRE(vb != nullptr);
+    Device* device = nullptr;
+    REQUIRE(vb->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    CHECK(device->QueryResultSize(QueryType::Timestamp) == 8u);
+    CHECK(device->QueryResultSize(QueryType::PipelineStatistics) == 0u);
+    CHECK(device->DecodePipelineStatistics(nullptr).inputVertices == 0u);
+    u64 gpu = 1, cpu = 2;
+    CHECK_FALSE(device->GetQueue(QueueType::Graphics, 0)->CalibrateTimestamps(gpu, cpu));
+    CHECK(gpu == 1u);
+
+    QuerySetDesc qd{};
+    qd.type = QueryType::PipelineStatistics;
+    qd.count = 2;
+    QuerySet* stats = nullptr;
+    REQUIRE(device->CreateQuerySet(qd, stats).IsOk());
+    qd.type = QueryType::Timestamp;
+    QuerySet* timestamps = nullptr;
+    REQUIRE(device->CreateQuerySet(qd, timestamps).IsOk());
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* enc = nullptr;
+    REQUIRE(pool->CreateEncoder(enc).IsOk());
+
+    ErrorCapture capture;
+    SetLogSink(&ErrorCapture::Sink, &capture);
+    enc->BeginPipelineStatisticsQuery(timestamps, 0); // the wrong kind of set
+    CHECK(capture.errors == 1);
+    enc->BeginPipelineStatisticsQuery(stats, 0);
+    CHECK(capture.errors == 1); // a good begin
+    enc->BeginPipelineStatisticsQuery(stats, 1); // nested
+    CHECK(capture.errors == 2);
+    enc->EndPipelineStatisticsQuery(stats, 1); // not the open one
+    CHECK(capture.errors == 3);
+    enc->EndPipelineStatisticsQuery(stats, 0);
+    CHECK(capture.errors == 3); // a good end
+    enc->BeginPipelineStatisticsQuery(stats, 1);
+    CommandBuffer* cb = enc->Finish(); // left open
+    CHECK(capture.errors == 4);
+    CHECK(cb != nullptr);
+    SetLogSink(nullptr, nullptr);
+
+    pool->DestroyEncoder(enc);
+    device->DestroyCommandPool(pool);
+    device->DestroyQuerySet(stats);
+    device->DestroyQuerySet(timestamps);
+    device->Destroy();
+    vb->Destroy();
+}

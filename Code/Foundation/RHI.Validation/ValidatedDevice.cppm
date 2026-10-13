@@ -72,6 +72,14 @@ export namespace foundation::rhi::validation
         {
             return m_inner->GetFormatSupport(f);
         }
+        u32 QueryResultSize(QueryType type) const noexcept override
+        {
+            return m_inner->QueryResultSize(type);
+        }
+        PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept override
+        {
+            return m_inner->DecodePipelineStatistics(result);
+        }
 
         // ---- Create methods (with validation + tracking) ----
 

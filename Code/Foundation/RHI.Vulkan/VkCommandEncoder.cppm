@@ -471,14 +471,31 @@ export namespace foundation::rhi::vk
                                     index);
         }
 
+        void BeginPipelineStatisticsQuery(QuerySet* qs, u32 index) override
+        {
+            if (auto* q = static_cast<VkQuerySetImpl*>(qs))
+                vkCmdBeginQuery(m_cmdBuf, q->handle(), index, 0);
+        }
+
+        void EndPipelineStatisticsQuery(QuerySet* qs, u32 index) override
+        {
+            if (auto* q = static_cast<VkQuerySetImpl*>(qs))
+                vkCmdEndQuery(m_cmdBuf, q->handle(), index);
+        }
+
         void ResolveQuerySet(QuerySet* qs, u32 first, u32 count, Buffer* dst,
                              u64 dstOffset) override
         {
             auto* q = static_cast<VkQuerySetImpl*>(qs);
             auto* b = static_cast<VkBufferImpl*>(dst);
+            // One result per query, as wide as its kind (Device::QueryResultSize): a statistics
+            // query carries all six of its counters.
+            const VkDeviceSize stride = (q != nullptr && q->type == QueryType::PipelineStatistics)
+                                            ? VkQuerySetImpl::kPipelineStatisticsCounters * 8u
+                                            : 8u;
             if (q && b)
                 vkCmdCopyQueryPoolResults(m_cmdBuf, q->handle(), first, count, b->handle(),
-                                          dstOffset, 8,
+                                          dstOffset, stride,
                                           VK_QUERY_RESULT_64_BIT | VK_QUERY_RESULT_WAIT_BIT);
         }
 

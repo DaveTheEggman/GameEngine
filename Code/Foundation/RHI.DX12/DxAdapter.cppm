@@ -74,6 +74,7 @@ export namespace foundation::rhi::dx12
             {
                 f.bindlessDescriptors = true; // DX12 always supports descriptor indexing
                 f.timestampQueries = true;
+                f.timestampCalibration = true; // ID3D12CommandQueue::GetClockCalibration
                 f.occlusionQueries = true; // BeginQuery works anywhere in a pass
                 f.borderSampling = true;
                 f.multiDrawIndirect = true;

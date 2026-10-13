@@ -179,6 +179,14 @@ export namespace foundation::rhi
         /// creation). Default: only 1 (no MSAA). Overridden by backends that support it.
         [[nodiscard]] virtual bool SupportsSampleCount(u32 count) const noexcept { return count <= 1; }
 
+        /// The bytes one query of `type` takes in the buffer ResolveQuerySet writes: 8 for a
+        /// timestamp or occlusion count, a backend's own record for pipeline statistics (0 when
+        /// the device has none, Features::pipelineStatisticsQueries).
+        [[nodiscard]] virtual u32 QueryResultSize(QueryType type) const noexcept = 0;
+        /// One resolved pipeline-statistics query (QueryResultSize(PipelineStatistics) bytes at
+        /// `result`) in the RHI's terms; all zero without the feature.
+        [[nodiscard]] virtual PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept = 0;
+
         // ---- Resource creation ----
         virtual Status CreateBuffer(const BufferDesc& desc, Buffer*& out) = 0;
         virtual Status CreateTexture(const TextureDesc& desc, Texture*& out) = 0;

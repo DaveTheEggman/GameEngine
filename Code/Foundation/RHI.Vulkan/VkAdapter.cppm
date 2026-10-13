@@ -81,6 +81,7 @@ export namespace foundation::rhi::vk
 
             f.bindlessDescriptors = m_supportsDescriptorIndexing;
             f.timestampQueries = m_properties.limits.timestampComputeAndGraphics;
+            f.timestampCalibration = m_calibratedTimestamps != nullptr;
             f.occlusionQueries = true; // vkCmdBeginQuery works anywhere in a pass
             f.borderSampling = true;
             f.multiDrawIndirect = m_features10.multiDrawIndirect;
@@ -220,6 +221,11 @@ export namespace foundation::rhi::vk
         }
         [[nodiscard]] bool supportsMeshShader() const { return m_supportsMeshShader; }
         [[nodiscard]] bool supportsRayTracing() const { return m_supportsRayTracing; }
+        /// The calibrated-timestamps extension to enable (KHR or EXT), null when the device cannot
+        /// read its timestamps together with the clock core::GetTicks reads.
+        [[nodiscard]] const char* calibratedTimestampsExtension() const { return m_calibratedTimestamps; }
+        /// That clock's time domain (CLOCK_MONOTONIC on Linux, QueryPerformanceCounter on Windows).
+        [[nodiscard]] VkTimeDomainEXT hostTimeDomain() const { return m_hostTimeDomain; }
         [[nodiscard]] IAllocator& allocator() const noexcept { return m_allocator; }
 
     private:
@@ -245,6 +251,16 @@ export namespace foundation::rhi::vk
                     m_supportsMeshShader = true;
                 if (std::strcmp(name, "VK_KHR_ray_tracing_pipeline") == 0)
                     m_supportsRayTracing = true;
+                if (std::strcmp(name, "VK_KHR_calibrated_timestamps") == 0)
+                    m_calibratedTimestamps = "VK_KHR_calibrated_timestamps";
+                if (std::strcmp(name, "VK_EXT_calibrated_timestamps") == 0 && m_calibratedTimestamps == nullptr)
+                    m_calibratedTimestamps = "VK_EXT_calibrated_timestamps";
+            }
+            // Calibration is only of use when the device's domain and the host clock core::GetTicks
+            // reads are both offered.
+            if (m_calibratedTimestamps != nullptr && !HasCalibrationDomains())
+            {
+                m_calibratedTimestamps = nullptr;
             }
 
             // Vulkan 1.3+: these are core.
@@ -264,9 +280,48 @@ export namespace foundation::rhi::vk
             }
         }
 
+        bool HasCalibrationDomains() const
+        {
+            // The KHR and EXT entry points share a signature; the instance answers whichever exists.
+            auto query = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
+                vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsKHR"));
+            if (query == nullptr)
+            {
+                query = reinterpret_cast<PFN_vkGetPhysicalDeviceCalibrateableTimeDomainsEXT>(
+                    vkGetInstanceProcAddr(m_instance, "vkGetPhysicalDeviceCalibrateableTimeDomainsEXT"));
+            }
+            if (query == nullptr)
+            {
+                return false;
+            }
+            u32 count = 0;
+            if (query(m_physicalDevice, &count, nullptr) != VK_SUCCESS || count == 0)
+            {
+                return false;
+            }
+            Array<VkTimeDomainEXT> domains(count);
+            if (query(m_physicalDevice, &count, domains.Data()) != VK_SUCCESS)
+            {
+                return false;
+            }
+            bool device = false, host = false;
+            for (u32 i = 0; i < count; ++i)
+            {
+                device = device || domains[i] == VK_TIME_DOMAIN_DEVICE_EXT;
+                host = host || domains[i] == m_hostTimeDomain;
+            }
+            return device && host;
+        }
+
         IAllocator& m_allocator;
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
         VkInstance m_instance = VK_NULL_HANDLE;
+        const char* m_calibratedTimestamps = nullptr;
+#if PLATFORM_WINDOWS
+        VkTimeDomainEXT m_hostTimeDomain = VK_TIME_DOMAIN_QUERY_PERFORMANCE_COUNTER_EXT;
+#else
+        VkTimeDomainEXT m_hostTimeDomain = VK_TIME_DOMAIN_CLOCK_MONOTONIC_EXT;
+#endif
         VkPhysicalDeviceProperties m_properties{};
         VkPhysicalDeviceFeatures m_features10{};
         VkPhysicalDeviceMemoryProperties m_memoryProperties{};

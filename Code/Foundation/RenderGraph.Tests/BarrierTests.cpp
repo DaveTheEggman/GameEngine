@@ -68,6 +68,8 @@ namespace
         void ResolveTexture(rhi::Texture*, rhi::Texture*) override {}
         void ResetQuerySet(rhi::QuerySet*, u32, u32) override {}
         void WriteTimestamp(rhi::QuerySet*, u32) override {}
+        void BeginPipelineStatisticsQuery(rhi::QuerySet*, u32) override {}
+        void EndPipelineStatisticsQuery(rhi::QuerySet*, u32) override {}
         void ResolveQuerySet(rhi::QuerySet*, u32, u32, rhi::Buffer*, u64) override {}
         void BeginDebugLabel(StringView, f32, f32, f32, f32) override {}
         void EndDebugLabel() override {}
