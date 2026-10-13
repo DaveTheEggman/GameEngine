@@ -45,8 +45,6 @@ class Guard
     private Float3 m_spot = Float3(0.0f, 0.0f, 0.0f);
     private float m_timer = 0.0f;
     private Float3 m_home = Float3(0.0f, 0.0f, 0.0f);
-    private Float3 m_last = Float3(0.0f, 0.0f, 0.0f);
-    private float m_lastDt = 0.0f; // the frame m_last was taken in: the crowd moved him by its time
     private float m_yaw = 0.0f;
     private Entity@ m_figure;
     private float m_calm = 0.0f; // after a catch: not looking for the thief yet
@@ -58,7 +56,6 @@ class Guard
     void onStart()
     {
         m_home = self.worldPosition();
-        m_last = m_home;
         patrol();
     }
 
@@ -296,15 +293,13 @@ class Guard
     // The body faces where it goes, or (suspicious) the thief; the graph follows the speed.
     private void animate(float d)
     {
+        // The crowd's own velocity for him, not his positions differenced: scripts update before the
+        // crowd, so a position here is last frame's, and dividing its change by this frame's time
+        // swings the speed (and the graph's blend) with every uneven frame.
         Float3 p = self.worldPosition();
-        // Scripts update before the crowd, so what he moved since the last frame is the crowd's
-        // step in that frame, by that frame's time; this frame's would swing the speed with every
-        // uneven frame, and the graph's blend with it.
-        float step = m_lastDt > 0.0f ? m_lastDt : d;
-        float vx = (p.x - m_last.x) / step;
-        float vz = (p.z - m_last.z) / step;
-        m_last = p;
-        m_lastDt = d;
+        NavAgentComponent@ agent = NavAgentComponent::of(self);
+        float vx = agent.velocityX();
+        float vz = agent.velocityZ();
         float speed = Math::Sqrt(vx * vx + vz * vz);
         if (speed > 0.2f && m_state != kSuspicious)
         {
