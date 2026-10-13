@@ -533,6 +533,7 @@ namespace foundation::render
         rpc2.motionScale = p.motionScale;
         rpc2.temporalOn = temporalOn ? 1 : 0;
         rpc2.debug = p.debug;
+        rpc2.ghostReject = p.ghostReject;
         rpc2.intensity = (p.intensity >= 0.0f) ? p.intensity : 0.0f;
         // The ambient a hit replaces (see :ssgi): the camera's world rotation turns the G-buffer's
         // view-space normal to world, where the SH sky is; no SH sky = flat fill alone (as the forward).

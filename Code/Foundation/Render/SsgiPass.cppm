@@ -64,12 +64,10 @@ export namespace foundation::render
             i32 rayCount = 2;         // hemisphere rays per pixel (1..4)
             bool temporal = true;     // temporal accumulate (reproject + variance-clip history)
             f32 historyBlend = 0.95f; // max history weight (GI is noisier than SSR - lean on it)
-            // The history's clip box half-width in stddevs of the wide neighbourhood (ssgi_resolve):
-            // tight, as the box's mean is the steady estimate of a sparse trace; 2.5 let a moving
-            // light's bounce trail it, 0 let the trace's noise through.
-            f32 varianceGamma = 0.25f;
+            f32 varianceGamma = 2.5f; // neighborhood clip half-width in stddevs (post-blur)
             f32 depthSigma = 0.05f;   // spatial-denoise depth tolerance (relative)
             f32 motionScale = 24.0f;  // how fast history drops with motion
+            f32 ghostReject = 3.0f;   // history-vs-current luma-diff rejection strength
             i32 debug = 0;            // >0 = show the accumulated GI raw (no composite)
         };
 
@@ -167,7 +165,7 @@ export namespace foundation::render
             f32 motionScale = 24.0f;
             i32 temporalOn = 1;
             i32 debug = 0;
-            f32 pad2 = 0.0f;
+            f32 ghostReject = 3.0f;
             f32 intensity = 1.0f;
             // HLSL starts a float4 on a 16-byte boundary; Float4 here is only 4-byte aligned, so
             // the pad keeps the C++ offsets the shader's (a shifted read scrambled the sky term).

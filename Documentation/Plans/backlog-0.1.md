@@ -23,6 +23,17 @@
 
 ## Engine
 
+- **SSGI smears over time** (user 2026-10-12, after the orthographic views): the bounce light
+  trails behind what moves (seen in Lamplight, the guard's lantern glow on the walls). Leads, not
+  yet checked: `ssgi_resolve.ps.hlsl` blends history up to `blendFactor` 0.92
+  (`SsgiPass.cppm:162`; `historyBlend` 0.95 at :66) and, for a pixel that is not moving, trusts
+  it raw ("Still + trusted history = raw accumulation"): the variance clip runs only under motion
+  or when the history is the brighter, so a still wall a moving light reaches brightens over a
+  dozen or more frames, and the light's own motion is in no velocity. Measure first (a light
+  moved past a still wall, its bounce per frame against the converged value), then a fix that
+  keeps the firefly fixes those comments record (a clip against the current frame's
+  neighbourhood scaled by how far the current frame jumped, or a shorter history where the
+  current frame changes a lot), checked by the user in Lamplight.
 - **A script sets a scene's sky texture and environment profile** (user 2026-10-10): no script
   can point a scene at another sky texture or Environment Profile. `EnvironmentSettings.of(scene)`
   leaves its asset references out of AngelScript (the property loop skips a type it cannot declare)
