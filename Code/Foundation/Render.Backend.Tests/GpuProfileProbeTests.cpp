@@ -48,6 +48,9 @@ namespace
         u32 withCounts = 0;      // passes carrying pipeline statistics
         u64 primitives = 0;      // input primitives over one frame's passes
         u64 fragments = 0;       // fragment invocations over one frame's passes
+        u64 fewestDraws = ~0ull; // the device's counts over one frame (Device::Counters), fewest
+        u64 fewestPasses = ~0ull;
+        u64 targetBytes = 0;     // render-target memory held during the frames
     };
 
     Measure Run(rhi::Device& device)
@@ -129,6 +132,7 @@ namespace
                 {
                     firstFrame = p.CurrentFrameNumber();
                 }
+                const rhi::DeviceCounters before = device.Counters();
                 rhi::CommandEncoder* encoder = nullptr;
                 REQUIRE(pool->CreateEncoder(encoder).IsOk());
                 settings.targetCurrentState = (i == 0) ? rhi::ResourceState::Undefined : rhi::ResourceState::CopySrc;
@@ -141,6 +145,10 @@ namespace
                 queue->Submit(Span<rhi::CommandBuffer* const>(commandBuffers, 1), fence, i + 1);
                 REQUIRE(fence->Wait(i + 1, ~0ull));
                 pool->DestroyEncoder(encoder);
+                const rhi::DeviceCounters after = device.Counters();
+                out.fewestDraws = Min(out.fewestDraws, after.draws - before.draws);
+                out.fewestPasses = Min(out.fewestPasses, after.renderPasses - before.renderPasses);
+                out.targetBytes = after.renderTargetBytes;
                 p.EndFrame();
             }
             p.Disarm();
@@ -214,12 +222,19 @@ namespace
                                          << m.passes << " passes, " << m.outsideFrame << " outside their frame, "
                                          << m.outOfOrder << " out of order, " << m.withCounts
                                          << " with counts; one frame: " << m.primitives << " primitives, "
-                                         << m.fragments << " fragments");
+                                         << m.fragments << " fragments; the device counts at least "
+                                         << m.fewestDraws << " draws and " << m.fewestPasses
+                                         << " render passes a frame, " << (m.targetBytes >> 10)
+                                         << " KiB of render targets");
         CHECK(m.framesWithGpu == kFrames - 2);
         CHECK(m.passes >= m.framesWithGpu);
         CHECK(m.outsideFrame == 0u);
         CHECK(m.outOfOrder == 0u);
         CHECK(m.unnamedOnCpu == 0u);
+        // The depth prepass and the forward pass draw the cube, the tonemap its triangle.
+        CHECK(m.fewestDraws >= 3u);
+        CHECK(m.fewestPasses >= 3u);
+        CHECK(m.targetBytes >= kSize * kSize * 4u); // the probe's own target, at least
         if (device.features.pipelineStatisticsQueries)
         {
             CHECK(m.withCounts == m.passes);

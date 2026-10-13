@@ -10,6 +10,7 @@ target_sources(Runtime.Client
         FILE_SET runtime_client_modules TYPE CXX_MODULES FILES
             Application.cppm
             EmbeddedHost.cppm
+            DeviceCounterPublisher.cppm
             ApplicationHost.cppm)
 
 

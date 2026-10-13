@@ -28,6 +28,7 @@ export module foundation.runtime.client;
 
 export import :app;           // ApplicationSettings, IApplicationHost, IApplication
 export import :embedded_host; // EmbeddedApplicationHost (editor-embedded runtime)
+export import :device_counters; // DeviceCounterPublisher (the device's counts to the profiler)
 
 import foundation.core;
 import foundation.runtime;
@@ -185,6 +186,13 @@ export namespace foundation::runtime
 
             m_context.EndFrame();
             FlushPendingCloses();
+#if BUILD_PROFILING
+            // The device's counts for this frame (draws, passes, binds, memory) to the profiler.
+            if (m_graphics != nullptr && m_graphics->Raw() != nullptr)
+            {
+                m_deviceCounters.Publish(*m_graphics->Raw(), foundation::profiler::Profiler::Get());
+            }
+#endif
             PROFILE_FRAME_END();
         }
 
@@ -337,5 +345,6 @@ export namespace foundation::runtime
         bool m_presented = false; // the last Tick presented a window (IdleLastTick)
         int m_exitCode = 0;
         FixedStepper m_stepper;
+        DeviceCounterPublisher m_deviceCounters; // the device's counts to the profiler, per frame
     };
 }

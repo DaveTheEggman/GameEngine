@@ -1,7 +1,7 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: P0 (the capture store) and P1 (GPU timings and statistics) BUILT 2026-10-13; P2
-> onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
+> STATUS: P0 (the capture store), P1 (GPU timings and statistics) and P2 (the RHI's counters)
+> BUILT 2026-10-13; P3 onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -153,6 +153,17 @@ GetClockCalibration, false on WebGPU and Null) with `Features::timestampCalibrat
 writes its enabled counters in bit order, D3D12 an eleven-counter struct) and Vulkan's resolve had
 written every query eight bytes apart. WebGPU's `timestampQueries` now means what
 `WriteTimestamp` can do there (wgpu-native's in-encoder feature; never in a browser).
+
+What P2 added, all pure: `Device::Counters()` (a `DeviceCounters` snapshot: totals of draws,
+dispatches, render and compute passes, pipeline and bind group binds, bytes through transfer
+batches, and the bytes and count of the buffers, textures and render targets held now) and
+`Device::MemoryBudget` with `Features::memoryBudget` (VK_EXT_memory_budget's device-local heaps,
+DXGI QueryVideoMemoryInfo). Each backend keeps a `DeviceCounterBlock` (atomics; bundles are built
+on workers) that its encoders, transfer batches and resource creation bump; a render bundle keeps
+`RecordedCounts` and adds them each time it is executed. Vulkan counts its allocations' real
+sizes; WebGPU, D3D12 and Null a texture's size from its description (`EstimateTextureBytes`).
+`runtime::DeviceCounterPublisher` turns the totals into the frame's counters at the host's frame
+end, the budget read once a second.
 
 ### Pipeline statistics and counters
 

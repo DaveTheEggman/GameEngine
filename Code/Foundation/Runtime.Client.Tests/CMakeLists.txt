@@ -2,7 +2,8 @@
 
 add_executable(Runtime.Client.Tests
     TestsMain.cpp
-    ApplicationTests.cpp)
+    ApplicationTests.cpp
+    DeviceCounterTests.cpp)
 
 target_link_libraries(Runtime.Client.Tests PRIVATE
     Foundation::Runtime.Client Foundation::Shell.Null Foundation::Graphics Foundation::Graphics.Null doctest::doctest)
