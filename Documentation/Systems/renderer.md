@@ -319,8 +319,14 @@ row 2 for a perspective projection and row 3 for an orthographic one (where row 
 depth), and passes read it back with `projection::JitterOf`. A pass working in view space
 includes `Data/Shaders/projection.hlsli` (`ProjectionDivide`, `ViewToNdcXY`, `ViewDirToViewer`,
 `LinearViewDepth`) with its view's orthographic flag rather than assume an eye: AO and TAA do.
-SSR and SSGI still cast from an eye, so `LimitPostForOrthographic` turns them off for an
-orthographic view (`Specs/orthographic-views.md`).
+The forward and surface shaders take their view vector from `view.hlsli`'s
+`ViewDirToCamera` (parallel under orthographic, told by `ViewProj`'s zero w column; a surface's
+`viewDir` aims at `ViewEyeFor`), soft particles linearize the scene depth for either projection,
+and the sky of an orthographic view draws through `SkyViewProjection`'s 60 degree perspective
+stand-in (parallel rays would paint the background one colour), its motion from that stand-in
+turning. Distances from the camera (fades, sorts, the shadow reach) measure from its position in
+both projections. SSR and SSGI still cast from an eye, so `LimitPostForOrthographic` turns them
+off for an orthographic view (`Specs/orthographic-views.md`).
 
 What is convention-free and stayed as it was: everything that reconstructs position through an
 inverse projection (GTAO/SSAO/SSR/SSGI/decals via `InvProj`/`InvViewProj`), the soft-particle

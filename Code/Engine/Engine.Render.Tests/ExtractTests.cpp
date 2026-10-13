@@ -1617,6 +1617,94 @@ TEST_CASE("render: the shadow cascades start at the camera's own near plane")
     CHECK(cascades.splitFar[0] == doctest::Approx(2.0f + 58.0f / 4.0f).epsilon(1.0e-3));
 }
 
+TEST_CASE("render: an orthographic view's cascades cover its box from the near plane to the reach")
+{
+    // An orthographic camera 30 m back, 20 m tall: a point anywhere across the view, at any depth up
+    // to the reach, lands inside the cascade that covers its depth.
+    ViewCamera cam;
+    const Float3 eye{0, 5, 30};
+    cam.view = Float4x4::LookAtRH(eye, Float3{0, 0, 0}, Float3{0, 1, 0});
+    cam.projection = Float4x4::OrthographicRH(20.0f * 16.0f / 9.0f, 20.0f, 0.1f, 200.0f);
+    cam.farZ = 200.0f;
+    const Float3 sun = Normalized(Float3{-0.17f, -0.87f, -0.47f});
+    const ShadowCascades cascades = ComputeCascades(cam, sun, 60.0f, 1024);
+    REQUIRE(cascades.valid);
+    const Float4x4 toWorld = Inverse(cam.view);
+    const f32 halfW = 10.0f * 16.0f / 9.0f * 0.95f, halfH = 10.0f * 0.95f;
+    const f32 depths[] = {0.5f, 12.0f, 35.0f, 59.0f};
+    const f32 corners[][2] = {{-1, -1}, {1, -1}, {1, 1}, {-1, 1}, {0, 0}};
+    for (const f32 depth : depths)
+    {
+        u32 c = 0;
+        while (c + 1 < ShadowCascades::kCount && cascades.splitFar[c] < depth)
+        {
+            ++c;
+        }
+        for (const auto& k : corners)
+        {
+            const Float3 world = TransformPoint(Float3{k[0] * halfW, k[1] * halfH, -depth}, toWorld);
+            const Float3 lightClip = TransformPoint(world, cascades.viewProj[c]);
+            CAPTURE(depth);
+            CAPTURE(c);
+            CHECK(Abs(lightClip.x) <= 1.0f);
+            CHECK(Abs(lightClip.y) <= 1.0f);
+            CHECK(lightClip.z >= 0.0f);
+            CHECK(lightClip.z <= 1.0f);
+        }
+    }
+}
+
+TEST_CASE("render: an orthographic view's sky draws through a perspective stand-in")
+{
+    ViewCamera cam;
+    const Float3 eye{0, 2, 10};
+    cam.position = eye;
+    cam.view = Float4x4::LookAtRH(eye, Float3{0, 2, 0}, Float3{0, 1, 0});
+    cam.projection = Float4x4::PerspectiveFovRH(1.0f, 16.0f / 9.0f, 0.1f, 500.0f);
+    // A perspective view's sky is the view's own.
+    const Float4x4 perspectiveSky = SkyViewProjection(cam);
+    const Float4x4 perspectiveView = cam.ViewProjection();
+    for (u32 r = 0; r < 4; ++r)
+    {
+        for (u32 c = 0; c < 4; ++c)
+        {
+            CHECK(perspectiveSky.m[r][c] == perspectiveView.m[r][c]);
+        }
+    }
+
+    // An orthographic view's: a 60 degree perspective looking where the view looks.
+    cam.projection = Float4x4::OrthographicRH(16.0f, 9.0f, 0.1f, 500.0f);
+    const Float4x4 sky = SkyViewProjection(cam);
+    // w carries depth again: the view-projection's w column is not zero (view.hlsli's test).
+    CHECK(Abs(sky.m[0][3]) + Abs(sky.m[1][3]) + Abs(sky.m[2][3]) > 0.5f);
+    const Float4x4 invSky = Inverse(sky);
+    const auto ray = [&](f32 x, f32 y)
+    {
+        const Float4 h = Float4{x, y, projection::kNdcDepthFar, 1.0f} * invSky;
+        return Normalized(Float3{h.x / h.w, h.y / h.w, h.z / h.w} - eye);
+    };
+    const Float3 centre = ray(0.0f, 0.0f);
+    CHECK(centre.z == doctest::Approx(-1.0f).epsilon(1.0e-4));
+    const Float3 top = ray(0.0f, 1.0f); // half of 60 degrees above the view
+    CHECK(Atan2(top.y, -top.z) == doctest::Approx(0.5235988f).epsilon(1.0e-3));
+
+    // A direction lands where it did for a still camera, and moves when the camera turns: the
+    // sky's motion (a direction through an orthographic matrix has w = 0, no motion at all).
+    const auto ndcOf = [](const Float4x4& vp, Float3 dir)
+    {
+        const Float4 clip = Float4{dir.x, dir.y, dir.z, 0.0f} * vp;
+        return Float2{clip.x / clip.w, clip.y / clip.w};
+    };
+    const Float3 dir = Normalized(Float3{0.2f, 0.1f, -1.0f});
+    const Float2 still = ndcOf(sky, dir);
+    CHECK(still.x == doctest::Approx(ndcOf(SkyViewProjection(cam), dir).x));
+    ViewCamera turned = cam;
+    turned.view = Float4x4::LookAtRH(eye, Float3{0.3f, 2, 0}, Float3{0, 1, 0});
+    const Float2 moved = ndcOf(SkyViewProjection(turned), dir);
+    CHECK(Abs(moved.x - still.x) > 0.01f);
+    CHECK(moved.x == moved.x); // finite
+}
+
 TEST_CASE("render: RequestPick keys on the viewport, answers nothing without a key, cancels")
 {
     rhi::null::NullDevice device{DefaultAllocator()};

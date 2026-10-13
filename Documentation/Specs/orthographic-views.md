@@ -1,7 +1,8 @@
 # Orthographic views - every effect under an orthographic camera, then the editor's
 
-> STATUS: approved 2026-10-12 (the decisions below as recommended); P0 and P1 BUILT (P1 also took
-> the sky's zero velocity under orthographic, so TAA's history stays finite); P2 next. Backlog
+> STATUS: approved 2026-10-12 (the decisions below as recommended); P0, P1 and P2 BUILT (P1 also
+> took the sky's zero velocity under orthographic, so TAA's history stays finite; P2 revised how
+> distances from the camera read, below); the editor camera (P4) next. Backlog
 > entries it closes: `Plans/backlog-0.1.md` (Editor: an orthographic editor camera) and
 > `Plans/weekly_backlog.md` (Post effects for an orthographic camera). Read CONVENTIONS.md first.
 
@@ -83,17 +84,23 @@ helpers so each effect does not grow its own branch:
   and a fixed 60 degree field of view would see it, so the background still reads as sky; its
   velocity comes from the rotation change alone (no w = 0 divide). This is a choice (see
   Decisions).
-- **Soft particles**: `LinearDepth` for the scene depth, the fragment's own depth the same way.
-- **Specular and other view vectors** in the forward and surface shaders: `WorldViewDir`.
-- **Instance fade and the grid fade**: under orthographic, the distance stands in as the view's
-  depth along forward from the near plane, so a fade does not change as an orthographic camera is
-  slid back along its axis.
+- **Soft particles**: the scene depth linearized for the projection it was drawn with.
+- **Specular and other view vectors** in the forward and surface shaders: `ViewDirToCamera` in
+  `view.hlsli`, which tells an orthographic view by its view-projection's zero w column (a
+  surface's `viewDir` comes from `ViewEyeFor`).
+- **Distances from the camera** (the instance fade, the grid's fade, vegetation chunks, the local
+  shadows' priority, particle sorting) keep measuring from the camera's position in both
+  projections (revised 2026-10-12, building P2). Under orthographic every point is the same size
+  on screen, so no distance is the right one; measuring from the near plane faded everything out
+  for a camera placed far back. An orthographic camera's position is where its author puts it,
+  and the editor keeps its eye where the matching perspective camera stands (P4), so these read
+  as they would in perspective.
 - **SSR and SSGI**: parallel rays. The ray's origin is the pixel's view position and its eye
   direction is `ViewDir`; the march projects with `ViewToNdc`; SSGI's near-plane clamp uses
   `nearZ` rather than the eye. The larger of the effects, last.
-- **Shadows**: the cascade splits start at `nearZ`, and under orthographic the cascades cover
-  [nearZ, nearZ + reach] of the view box; the reach stays the scene's setting. An orthographic
-  camera placed far back would otherwise put every cascade in empty space in front of the scene.
+- **Shadows**: the cascade splits start at `nearZ` (P0) and cover [nearZ, nearZ + reach] of the
+  view box, measured along the view from the camera as in perspective; the box fits an
+  orthographic frustum as it does a perspective one.
 
 When the last of these lands, `LimitPostForOrthographic` and its test go.
 
@@ -102,10 +109,10 @@ When the last of these lands, `LimitPostForOrthographic` and its test go.
 - `EditorCamera` gains `orthographic` and `orthoHeight`. One function builds the scene view's
   projection from it (the view, the gizmo camera and the preview all call it), so the three
   sites stop hard-coding the field of view.
-- **Placement**: an orthographic editor camera keeps its pivot (`position + Forward() *
-  focusDistance`) and draws with its near plane `kOrthoDepth` (say 1000 m) behind the pivot and
-  its far plane as far in front, so switching does not cut the scene and orbiting turns about the
-  same point.
+- **Placement**: switching does not move the camera. An orthographic editor camera keeps its eye
+  where the perspective one stood, its pivot (`position + Forward() * focusDistance`) and its
+  near and far planes, so orbiting turns about the same point and what measures from the camera
+  (fades, sorts, the shadow reach) reads as it did.
 - **Switching keeps the framing**: perspective to orthographic sets `orthoHeight` to what the
   field of view spans at the pivot (2 * focusDistance * tan(fovY / 2)); back the other way sets
   the focus distance from the height.
@@ -137,10 +144,11 @@ P4 lands; until then a game camera set to Orthographic in the inspector).
   the open floor at 1 (AO); the orthographic jitter shifts a point at two depths by the same
   pixel offset, and a still orthographic scene under TAA converges to its unjittered image within
   a tolerance.
-- **P2 - the sky, soft particles, view vectors, fades, shadows.** Tests: the sky's velocity is
-  finite and zero for a still orthographic camera; a soft particle fades the same against a wall
-  in both projections at the same depth; the cascades of an orthographic view placed 500 m back
-  cover the scene in front of its near plane.
+- **P2 - the sky, soft particles, view vectors, shadows.** Tests: the sky's stand-in is a
+  perspective with the view's aspect looking where the view looks, and a direction through it
+  stays put for a still camera and moves for a turning one; an orthographic view's cascades cover
+  its frustum from its near plane to the reach. The soft particles' and the view vectors' shader
+  changes have no pixel probe (none exists for lit particles or specular); the user checks them.
 - **P3 - SSR and SSGI.** As above; `LimitPostForOrthographic` removed. Tests: an orthographic view
   of a mirror floor reflects a box above it where the CPU ray says it should (a few pixels'
   tolerance); SSGI's result is finite everywhere.
@@ -169,9 +177,9 @@ P4 lands; until then a game camera set to Orthographic in the inspector).
 
 - Reverse-Z: the near plane is depth 1 and the far 0 in both projections (`depth.hlsli`); the
   orthographic linearization is linear in depth, not hyperbolic.
-- A camera placed far back is normal under orthographic: nothing may measure "near the camera"
-  by distance to its position (fades, cascades, the shadow reach, the vegetation and particle
-  sorts read the view's depth instead).
+- A camera placed far back is normal under orthographic, and what measures from its position
+  (fades, the shadow reach, sorts) measures from there; the editor keeps its eye where the
+  perspective camera stood.
 - The jitter row differs by projection; get it wrong and TAA smears by depth.
 - Every new shader branch reads a uniform, not a specialization, unless the cost shows; check the
   shader corpus count is unchanged (no new variants).

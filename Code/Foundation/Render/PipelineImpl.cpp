@@ -1971,6 +1971,11 @@ namespace foundation::render
                 const Float4x4 unjitteredVP =
                     v->Camera()
                         .ViewProjection(); // captured BEFORE jitter (transparent draws with this, post-TAA)
+                // The sky's own view-projection. A perspective view's is the view's; an orthographic
+                // view's rays are parallel, which would paint the whole background one colour, so the
+                // sky draws as a 60 degree perspective with the same view would see it, and its motion
+                // comes from that stand-in turning (Specs/orthographic-views.md).
+                const Float4x4 skyViewProj = SkyViewProjection(v->Camera());
                 Float2 jitter{0.0f, 0.0f};
                 if (post.taaEnabled && m_taa != nullptr)
                 {
@@ -1998,6 +2003,15 @@ namespace foundation::render
                     m_curJitter.Resize(historySlot + 1u, jitter);
                 }
                 m_curJitter[historySlot] = jitter;
+                const Float4x4 prevSkyViewProj =
+                    (!historyFresh && historySlot < m_prevSkyViewProj.Size())
+                        ? m_prevSkyViewProj[historySlot]
+                        : skyViewProj;
+                if (m_curSkyViewProj.Size() <= historySlot)
+                {
+                    m_curSkyViewProj.Resize(historySlot + 1u, skyViewProj);
+                }
+                m_curSkyViewProj[historySlot] = skyViewProj;
 
                 // Depth prepass: opaque-only, clears + writes the camera depth so the forward pass shades
                 // each opaque pixel once (early-Z via LessEqual). Declared before the forward, which Loads it.
@@ -2031,13 +2045,18 @@ namespace foundation::render
                     // jittering its sampling buys ~no AA but makes it oscillate sub-pixel each frame - which TAA
                     // can only partly cancel, i.e. the wobble. Unjittered => temporally invariant sky under a
                     // static camera; the sky pass still writes a geometric motion vector so rotation reprojects.
-                    const Float4x4 invVP = Inverse(unjitteredVP);
+                    // An orthographic view's stand-in is unjittered both frames: no jitter to remove.
+                    const bool standIn = v->Camera().IsOrthographic();
+                    const Float4x4 invVP = Inverse(skyViewProj);
                     // The crisp analytic sun disc is for untextured skies; textured envs carry their own sun.
                     const f32 sunInt = viewIblCtx->HasSunDisc() ? viewIblCtx->SunIntensity() : 0.0f;
                     m_sky->DeclareSky(m_graph, colorTarget, velocityTarget, depth,
                                       viewIblCtx->EnvHandle(), viewIblCtx->EnvView(), colorFmt,
-                                      m_pass.DepthFormat(), invVP, prevViewProj, jitter, prevJitter,
-                                      v->Camera().position, viewIblCtx->SkyBackgroundIntensity(),
+                                      m_pass.DepthFormat(), invVP,
+                                      standIn ? prevSkyViewProj : prevViewProj,
+                                      standIn ? Float2{0, 0} : jitter,
+                                      standIn ? Float2{0, 0} : prevJitter, v->Camera().position,
+                                      viewIblCtx->SkyBackgroundIntensity(),
                                       viewIblCtx->SunDir(), viewIblCtx->SunAngularSize(),
                                       Float3{1.0f, 0.98f, 0.92f}, sunInt, v->ViewportX(),
                                       v->ViewportY(), v->ViewportWidth(), v->ViewportHeight(),
@@ -2515,6 +2534,7 @@ namespace foundation::render
             r->FinishFrame();
         }
         m_prevViewProj = m_curViewProj; // this frame's view-projs become next frame's "previous"
+        m_prevSkyViewProj = m_curSkyViewProj;
         m_prevJitter = m_curJitter;     // ...and jitters (for the motion-vector unjitter)
         if (m_anyViewTaa)
         {

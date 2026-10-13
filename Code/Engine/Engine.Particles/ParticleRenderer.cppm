@@ -274,7 +274,8 @@ export namespace engine::particles
                 return;
             }
             // DepthParams = the projection coeffs that reconstruct view-space depth from a sampled NDC
-            // depth (Proj[2][2], Proj[3][2], Proj[2][3]) + the soft-particle fade distance.
+            // depth (Proj[2][2], Proj[3][2], Proj[2][3]: 0 for an orthographic projection, which the
+            // shader linearizes as such) + the soft-particle fade distance.
             const Float4x4 proj =
                 (ctx.view != nullptr) ? ctx.view->Camera().projection : Float4x4::Identity();
             struct ViewUBO

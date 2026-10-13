@@ -69,13 +69,29 @@ export namespace foundation::render
         return r;
     }
     // TAA sub-pixel jitter for frame `index` (mod the sequence length), in clip space (matches Sedulous):
-    // Halton(2,3) centered to [-0.5,0.5], scaled to a 1-texel clip offset. Add to projection (2,0)/(2,1).
+    // Halton(2,3) centered to [-0.5,0.5], scaled to a 1-texel clip offset (projection::ApplyJitter).
     [[nodiscard]] inline Float2 HaltonJitter(u32 index, u32 width, u32 height)
     {
         const f32 x = HaltonSeq(index, 2u) - 0.5f;
         const f32 y = HaltonSeq(index, 3u) - 0.5f;
         return Float2{x * 2.0f / static_cast<f32>(width > 0 ? width : 1u),
                       y * 2.0f / static_cast<f32>(height > 0 ? height : 1u)};
+    }
+
+    // The view-projection the sky draws its rays through, from an UNJITTERED camera: the view's own
+    // for a perspective camera; for an orthographic one, whose rays are parallel (the whole
+    // background one colour), a 60 degree perspective with the same view and aspect, so the sky
+    // still reads as sky and turns with the camera (Specs/orthographic-views.md).
+    [[nodiscard]] inline Float4x4 SkyViewProjection(const ViewCamera& camera)
+    {
+        if (!camera.IsOrthographic())
+        {
+            return camera.ViewProjection();
+        }
+        const Float4x4& p = camera.projection;
+        const f32 aspect = (p.m[0][0] != 0.0f) ? p.m[1][1] / p.m[0][0] : 1.0f;
+        const f32 farZ = Max(camera.FarZ(), 1.0f);
+        return camera.view * Float4x4::PerspectiveFovRH(1.0471976f, aspect, Min(0.1f, farZ * 0.5f), farZ);
     }
 
     // What the IBL precompute exposes to the forward pass: this frame's graph handles for the products the
@@ -837,6 +853,10 @@ export namespace foundation::render
         Array<Float4x4> m_curViewProj;
         Array<Float2> m_prevJitter;
         Array<Float2> m_curJitter;
+        // The sky's view-projection by history slot (the view's, or an orthographic view's
+        // perspective stand-in: SkyViewProjection), for its motion vectors.
+        Array<Float4x4> m_prevSkyViewProj;
+        Array<Float4x4> m_curSkyViewProj;
         struct HistorySlot
         {
             u64 key = 0;
