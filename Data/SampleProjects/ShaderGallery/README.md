@@ -4,13 +4,15 @@ The custom shaders sample: a hall of lesson shaders to fly through, each on its 
 `.hlsl` a short commented lesson that builds on the one before. Surface shaders first (the kind to
 start with), then the low-level kind. The plan: `Documentation/Specs/shader-gallery.md`.
 
+![The Shader Gallery: the lesson list and the hall of plinths](../../../Documentation/Images/ShaderGallery-Hall.png)
+
 ## Walking it
 
 - Fly with WASD (or the left stick), Q and E (or the shoulders) to sink and rise, Shift (or press
   the stick) to go faster.
 - Look with the mouse while its right button is held, or with the right stick.
-- Click a lesson in the list to glide to it; what it teaches shows under the list. H (or Y) hides
-  the list.
+- Click a lesson in the list to glide to it; what it teaches and its file show in a caption at
+  the foot of the view. H (or Y) hides the list and the caption.
 
 ## The lessons
 
@@ -27,6 +29,10 @@ start with), then the low-level kind. The plan: `Documentation/Specs/shader-gall
 | 9 | Built-in PBR | lit surface | The engine's own material, written as a surface: the reference |
 | 10 | Toon | low-level | Lighting of its own: bands, a shadow colour, a rim |
 | 11 | Custom Lighting | low-level | Walking the lights itself (`LightsAt`, `LightAt`, `ShadowOf`): half-Lambert, Blinn-Phong |
+
+![Lesson 4, Hologram: a fresnel rim and scanlines on a blended material](../../../Documentation/Images/ShaderGallery-Hologram.png)
+![Lesson 6, Dissolve: holes cut by alpha, with a burning edge](../../../Documentation/Images/ShaderGallery-Dissolve.png)
+![Lesson 10, Toon: a low-level shader lighting the knot in bands](../../../Documentation/Images/ShaderGallery-Toon.png)
 
 Read them in `Sources/` (the shader page opens them in the editor), in order. Each material is
 part of its lesson: open it on the material page and drag its sliders.

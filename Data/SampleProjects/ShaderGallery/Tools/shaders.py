@@ -9,11 +9,11 @@ material_set_shader, its parameters and textures set by property name in its env
 blend and cull modes, and a cook.
 textures.py runs first (it writes generated/).
 """
-import os, struct, sys
-import xml.etree.ElementTree as ET
+import os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scenegen import mcp
+from materialvalues import set_values
 from lessons import LESSONS, shader_file
 
 
@@ -23,42 +23,6 @@ def assets_by(type_name):
 
 def import_file(path, group):
     return mcp("asset_import", {"source": path, "group": group})["guid"]
-
-
-def floats(value):
-    """A parameter's value as the floats its property holds (a colour or a vector, or one)."""
-    return list(value) if isinstance(value, (tuple, list)) else [value]
-
-
-def set_values(material_guid, params, textures, texture_ids, blend, cull):
-    """The lesson's values, textures and modes into the material's envelope, by property name."""
-    root = ET.fromstring(mcp("asset_data_read", {"guid": material_guid})["xml"])
-    payload = root.find("object[@name='payload']")
-    names = [e.text for e in payload.find("array[@name='propertyNames']")]
-    offsets = [int(e.text) for e in payload.find("array[@name='propertyOffsets']")]
-    defaults = payload.find("array[@name='uniformDefaults']")
-    data = bytearray(int(e.text) for e in defaults)
-    for name, value in params.items():
-        if name not in names:
-            raise SystemExit("the material has no property %s (has %s)" % (name, names))
-        at = offsets[names.index(name)]
-        packed = struct.pack("<%df" % len(floats(value)), *floats(value))
-        data[at:at + len(packed)] = packed
-    for e, b in zip(defaults, data):
-        e.text = str(b)
-    slots = payload.find("array[@name='textureSlots']")
-    ids = payload.find("array[@name='textureIds']")
-    for array in (slots, ids):
-        for child in list(array):
-            array.remove(child)
-    for slot, texture in textures.items():
-        ET.SubElement(slots, "string").text = slot
-        ET.SubElement(ids, "string").text = texture_ids[texture]
-    slots.set("count", str(len(textures)))
-    ids.set("count", str(len(textures)))
-    payload.find("u8[@name='blendMode']").text = str(blend)
-    payload.find("u8[@name='cullMode']").text = str(cull)
-    mcp("asset_data_write", {"guid": material_guid, "xml": ET.tostring(root, encoding="unicode")})
 
 
 def main():

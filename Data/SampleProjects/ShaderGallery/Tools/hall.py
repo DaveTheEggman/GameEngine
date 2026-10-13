@@ -5,9 +5,10 @@ table, and made the project's default scene.
 The lessons stand in a row along the hall in teaching order, 4 m apart: a plinth, the lesson's
 exhibit on it (its mesh, its material: Materials/<Name>), and in front of it a viewpoint
 ("ViewNN") the list glides the camera to, the exhibit named "LessonNN". A floor, a back wall and
-two end walls; the sun through the open side, a soft light over each plinth, and a reflection
-probe over the hall. An exhibit may sit higher or lower, larger or smaller, on a wider plinth or
-hung from a flagpole (lessons.py's placement fields). The camera carries the Gallery behaviour.
+two end walls in the hall's own dark materials; the sun through the open side, a soft light over
+each plinth, and a reflection probe over the hall. An exhibit may sit higher or lower, larger or
+smaller, on a wider plinth or hung from a flagpole (lessons.py's placement fields). The camera
+carries the Gallery behaviour.
 importmodels.py, shaders.py and importscripts.py run first (the meshes, the materials and the
 script it names).
 """
@@ -15,12 +16,21 @@ import math, os, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from scenegen import Doc, mcp, yaw, pitch
+from materialvalues import set_values
 from lessons import LESSONS
 
 SPACING = 4.0          # metres between plinths
 PLINTH = (1.2, 0.9, 1.2)
 EXHIBIT_Y = 1.6        # the exhibit's centre above the floor
 VIEW = (0.0, 1.9, 3.4)  # a viewpoint, from its plinth
+
+# The hall's own materials (Materials/Hall/<Name>, built-in PBR): a dark floor, cool walls and near
+# black plinths, so the lessons' colours, glows and see-through surfaces read against them.
+HALL_MATERIALS = {
+    "HallFloor": {"BaseColor": (0.15, 0.14, 0.13, 1.0), "Roughness": 0.8},
+    "HallWall": {"BaseColor": (0.28, 0.30, 0.35, 1.0), "Roughness": 0.9},
+    "Plinth": {"BaseColor": (0.07, 0.07, 0.08, 1.0), "Roughness": 0.35},
+}
 
 
 def quat_mul(a, b):
@@ -32,6 +42,18 @@ def quat_mul(a, b):
 
 def assets(type_name):
     return {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"] if a["type"] == type_name}
+
+
+def hall_materials():
+    """The hall's materials by name, made once and given their values on every run."""
+    have = {a["name"]: a["guid"] for a in mcp("asset_list", {})["assets"]
+            if a["type"] == "MaterialAsset" and a.get("group") == "Materials/Hall"}
+    for name, params in HALL_MATERIALS.items():
+        if name not in have:
+            have[name] = mcp("asset_create", {"creator": "PBR Material", "name": name,
+                                              "group": "Materials/Hall"})["guid"]
+        set_values(have[name], params, {}, {}, 0, 1)
+    return have
 
 
 def exhibit_meshes():
@@ -49,6 +71,10 @@ def main():
     materials = assets("MaterialAsset")
     scripts = assets("ScriptClassAsset")
     scenes = assets("SceneDocument")
+    hall = hall_materials()
+
+    def surface(guid):
+        return ["<string>%s</string>" % guid]
 
     d = Doc("Hall")
     length = SPACING * (len(LESSONS) + 1)
@@ -56,12 +82,12 @@ def main():
 
     # The room: a floor, a back wall behind the plinths, and the two ends.
     e = d.entity("Floor", (centre, 0.0, 0.0), scale=(length + 4.0, 1.0, 12.0))
-    d.add(e, "mesh", mesh=meshes["Plane"])
+    d.add(e, "mesh", mesh=meshes["Plane"], materials=surface(hall["HallFloor"]))
     e = d.entity("BackWall", (centre, 3.0, -2.5), scale=(length + 4.0, 6.0, 0.3))
-    d.add(e, "mesh", mesh=meshes["Cube"])
+    d.add(e, "mesh", mesh=meshes["Cube"], materials=surface(hall["HallWall"]))
     for side, x in (("WestWall", -SPACING - 2.0), ("EastWall", centre * 2 + SPACING + 2.0)):
         e = d.entity(side, (x, 3.0, 1.5), scale=(0.3, 6.0, 8.0))
-        d.add(e, "mesh", mesh=meshes["Cube"])
+        d.add(e, "mesh", mesh=meshes["Cube"], materials=surface(hall["HallWall"]))
 
     # The lessons.
     for i, l in enumerate(LESSONS):
@@ -69,14 +95,14 @@ def main():
         tag = "%02d" % l["n"]
         plinth = l.get("plinth", PLINTH)
         e = d.entity("Plinth" + tag, (x, plinth[1] / 2.0, 0.0), scale=plinth)
-        d.add(e, "mesh", mesh=meshes["Cube"])
+        d.add(e, "mesh", mesh=meshes["Cube"], materials=surface(hall["Plinth"]))
         y = l.get("y", EXHIBIT_Y)
         at = x + l.get("offset", 0.0)
         if "pole" in l:
             # A flagpole from the plinth, the exhibit hung from its top by its foot.
             top = plinth[1] + l["pole"]
             e = d.entity("Pole" + tag, (at, (plinth[1] + top) / 2.0, 0.0), scale=(0.06, l["pole"], 0.06))
-            d.add(e, "mesh", mesh=meshes["Cube"])
+            d.add(e, "mesh", mesh=meshes["Cube"], materials=surface(hall["Plinth"]))
             y = top - 1.05
         size = l.get("scale", 1.1)
         e = d.entity("Lesson" + tag, (at, y, 0.0), scale=(size, size, size))

@@ -3,9 +3,9 @@
 //
 // Fly with WASD or the left stick, Q and E (or the shoulders) to sink and rise, Shift (or pressing
 // the stick) to go faster; look with the mouse while its right button is held, or the right stick.
-// H (or Y) hides the list. A row glides the camera to that lesson's viewpoint ("ViewNN"), looking at
-// its exhibit ("LessonNN"), and shows what the lesson teaches under the list; flying by hand again
-// leaves the list alone.
+// H (or Y) hides the list and the caption. A row glides the camera to that lesson's viewpoint
+// ("ViewNN"), looking at its exhibit ("LessonNN"), and shows what the lesson teaches and its file in
+// the caption at the foot of the view; flying by hand again leaves both alone.
 //
 // GENERATED from Tools/scripts/Gallery.as.in by Tools/ui.py, which fills in the lessons' handlers
 // from Tools/lessons.py: edit the template and the table, not the generated copy.
@@ -30,6 +30,7 @@ class Gallery
     [1.2, "How long a glide to a lesson takes (s)"] float glideTime;
     [0.0, "Starting yaw (degrees; 0 looks down -Z)"] float startYaw;
     [-8.0, "Starting pitch (degrees; up is positive)"] float startPitch;
+    [12.0, "How far a glide turns left of its lesson while the list shows (degrees), so the lesson sits in the free view"] float listYaw;
 
     private float m_yaw = 0.0f;
     private float m_pitch = 0.0f;
@@ -42,6 +43,7 @@ class Gallery
     private float m_fromPitch = 0.0f;
     private float m_toPitch = 0.0f;
     private bool m_panelShown = true;
+    private bool m_captioned = false;
 
     Gallery(Entity@ entity) { @self = entity; }
 
@@ -61,6 +63,7 @@ class Gallery
         {
             m_panelShown = !m_panelShown;
             ui::find("gallery-panel").setVisible(m_panelShown);
+            ui::find("gallery-caption").setVisible(m_panelShown && m_captioned);
         }
 
         // Looking: the mouse while its right button is held, or the right stick.
@@ -116,11 +119,11 @@ class Gallery
         string id = (n < 10 ? "0" : "") + n;
         Entity@ view = self.scene.find("View" + id);
         Entity@ exhibit = self.scene.find("Lesson" + id);
-        Label@ about = ui::findLabel("gallery-about");
-        if (about !is null)
-        {
-            about.setText(n + ". " + title + ": " + summary + "\n" + file);
-        }
+        ui::findLabel("gallery-title").setText(n + ". " + title);
+        ui::findLabel("gallery-about").setText(summary);
+        ui::findLabel("gallery-file").setText(file);
+        m_captioned = true;
+        ui::find("gallery-caption").setVisible(m_panelShown);
         if (view is null || !view.isValid() || exhibit is null || !exhibit.isValid())
         {
             return;
@@ -136,7 +139,9 @@ class Gallery
         }
         m_fromYaw = m_yaw;
         m_fromPitch = m_pitch;
-        m_toYaw = Math::RadiansToDegrees(Math::Atan2(-dir.x, -dir.z));
+        // Turned a little left while the list covers the left of the screen, so the lesson sits in
+        // the middle of what is left.
+        m_toYaw = Math::RadiansToDegrees(Math::Atan2(-dir.x, -dir.z)) + (m_panelShown ? listYaw : 0.0f);
         m_toPitch = Math::RadiansToDegrees(Math::Asin(dir.y / len));
         // The short way round.
         while (m_toYaw - m_fromYaw > 180.0f) m_toYaw -= 360.0f;

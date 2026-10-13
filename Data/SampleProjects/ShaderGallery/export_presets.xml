@@ -31,9 +31,11 @@
 			<string name="name">Web</string>
 			<string name="platform">Web</string>
 			<string name="templateId"/>
-			<string name="playerName"/>
+			<string name="playerName">index</string>
 			<string name="outputSubdir">Web</string>
-			<array name="additionalFiles" count="0"/>
+			<array name="additionalFiles" count="1">
+				<string>CREDITS.md</string>
+			</array>
 			<string name="config"/>
 			<bool name="stageSymbols">false</bool>
 			<bool name="pruneToReachable">false</bool>

@@ -57,7 +57,7 @@ is part of the lesson (drag a slider, see it change).
   stick) to look, Shift to go faster.
 - **The list**: a panel down one side, a row per shader (number, name, kind). Clicking a row flies
   the camera to that plinth's viewpoint, a smooth move over about a second, and shows the lesson's
-  one-line summary and its file name under the list. Flying the camera by hand again leaves the
+  one-line summary and its file name in a caption at the foot of the view. Flying the camera by hand again leaves the
   list alone; the next click flies from wherever it is.
 - A key hides the panel (screenshots, a clean look).
 

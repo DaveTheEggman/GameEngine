@@ -16,8 +16,9 @@ editor with the project open and its MCP server on (`Tools.Editor Data/SamplePro
 4. `shaders.py`: each lesson's shader (`shaders/NN_Name.hlsl`, checked with `shader_validate`,
    imported into Shaders) and its material (Materials/<Name>, put on the shader with
    `material_set_shader`, its parameters and textures set), then a cook.
-5. `hall.py`: the hall (scene Hall), a plinth, exhibit and viewpoint per lesson (and a flagpole
-   for the flag), made the project's default scene.
+5. `hall.py`: the hall's materials (Materials/Hall) and the hall (scene Hall), a plinth, exhibit
+   and viewpoint per lesson (and a flagpole for the flag), made the project's default scene.
 
 `lessons.py` is the table the others read: a lesson is a row there and its `.hlsl`. `scenegen.py`
-(the scene document writer) and `mcp.py` (the MCP client) are the helpers the others share.
+(the scene document writer), `materialvalues.py` (a material's values, textures and modes by
+property name) and `mcp.py` (the MCP client) are the helpers the others share.
