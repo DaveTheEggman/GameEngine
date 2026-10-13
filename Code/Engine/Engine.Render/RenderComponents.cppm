@@ -1112,15 +1112,6 @@ export namespace engine::render
         }
     }
 
-    // SSR's and SSGI's marches still cast their rays from an eye point, so an orthographic view
-    // runs without them (AO and TAA handle both projections: Specs/orthographic-views.md). Like
-    // ApplyViewPostOverride, needsMotion is the caller's to finalize after.
-    inline void LimitPostForOrthographic(ViewPostConfig& vp)
-    {
-        vp.ssrEnabled = false;
-        vp.ssgiEnabled = false;
-    }
-
     // Live re-resolving handles over the render scene-SYSTEMS' one-per-scene settings:
     // EnvironmentSettings.of(scene) / PostProcessSettings.of(scene) return a handle typed as the
     // settings struct that re-resolves the scene's LIVE settings on every field access - so a

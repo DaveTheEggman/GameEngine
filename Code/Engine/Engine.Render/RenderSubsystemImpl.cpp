@@ -497,10 +497,6 @@ namespace engine::render
         {
             settings.debug = *debugView;
         }
-        if (projection::IsOrthographic(camera.projection))
-        {
-            LimitPostForOrthographic(settings.post);
-        }
         settings.viewportKey = viewportKey; // pick requests bind to it
         // Who this view is from frame to frame, for the state it carries between frames (motion
         // vectors' previous camera, TAA/SSR/SSGI/exposure history): its viewport's key (an editor

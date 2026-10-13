@@ -79,15 +79,6 @@ the original sketch covered and the build left out, untracked until the audit:
   green). PaperKid's `fx.py` seeds each system by name. Fix: give a system a fresh seed when the
   particle page (and `asset_create`'s default) adds one.
 
-## Queued 2026-10-02 (user, render-textures review)
-
-- **SSR and SSGI under an orthographic camera**: `LimitPostForOrthographic` still turns them off
-  for an orthographic view (AO and TAA work since 2026-10-12, orthographic views P1): their
-  screen-space marches cast from an eye point, where an orthographic view's rays are parallel.
-  The plan is `Specs/orthographic-views.md` P3 (the ray's origin the pixel's view position, its
-  direction `ViewDirToViewer`, the march projected with `ViewToNdcXY`, SSGI's near clamp at the
-  near plane), with probes as P1's, then `LimitPostForOrthographic` goes.
-
 ## Queued 2026-09-23 (user, during the terrain holes work)
 
 - **A blank flat heightfield cannot be dug into** (confirmed): a blank is zero-filled, sample 0

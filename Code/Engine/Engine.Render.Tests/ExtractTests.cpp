@@ -705,27 +705,6 @@ TEST_CASE("ResolveScenePost maps authored settings to the per-view ViewPostConfi
     }
 }
 
-TEST_CASE("LimitPostForOrthographic drops the passes that still assume an eye point")
-{
-    ViewPostConfig vp;
-    vp.aoMode = 1u;
-    vp.ssrEnabled = true;
-    vp.ssgiEnabled = true;
-    vp.taaEnabled = true;
-    vp.bloomEnabled = true;
-    vp.fxaaEnabled = true;
-    vp.autoExposure = true;
-    LimitPostForOrthographic(vp);
-    CHECK_FALSE(vp.ssrEnabled);
-    CHECK_FALSE(vp.ssgiEnabled);
-    // AO and TAA handle an orthographic view; what reads only the colour stays.
-    CHECK(vp.aoMode == 1u);
-    CHECK(vp.taaEnabled);
-    CHECK(vp.bloomEnabled);
-    CHECK(vp.fxaaEnabled);
-    CHECK(vp.autoExposure);
-}
-
 TEST_CASE("ApplyViewPostOverride strips effects per view without touching the authored config")
 {
     // Start from a fully-enabled config (exposure/tonemap preserved by every override).

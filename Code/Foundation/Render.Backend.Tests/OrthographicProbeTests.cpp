@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-// Ambient occlusion and TAA under an orthographic camera, proven at the pixel on real Vulkan and
+// Ambient occlusion, TAA, SSR and SSGI under an orthographic camera, proven at the pixel on real Vulkan and
 // WebGPU devices through the full RenderFrame chain (structural assertions, no golden images).
-// Both passes once assumed a perspective eye (a divide by view depth, a view vector to the eye,
-// a perspective depth linearization), so an orthographic view ran without them
+// Each once assumed a perspective eye (a divide by view depth, a view vector to the eye, a
+// perspective depth linearization or march), so an orthographic view ran without them
 // (Specs/orthographic-views.md).
 //  - AO: an inside corner seen through an orthographic camera takes the occlusion a nearly
 //    orthographic perspective view of it takes, GTAO and SSAO both.
+//  - SSR and SSGI: a mirror floor's reflection and a corner's bounce, as a nearly orthographic
+//    perspective view of them shows.
 //  - TAA: a still orthographic view settles on what it shows without TAA, its slanted edge
 //    antialiased and nothing else changed: the jitter in the row
 //    an orthographic projection needs (a constant shift, not one that grows with depth) and its
@@ -57,6 +59,8 @@ namespace
         ViewCamera camera;
         AoMode ao = AoMode::Off;
         bool taa = false;
+        bool ssr = false;
+        bool ssgi = false;
     };
 
     // Render `spec` through the frame chain (forward + tonemap, plus AO or TAA when asked; no
@@ -85,10 +89,25 @@ namespace
             REQUIRE(ao.Initialize().IsOk());
             TaaPass taa(device, shaderSystem);
             REQUIRE(taa.Initialize().IsOk());
+            SsrPass ssr(device, shaderSystem);
+            REQUIRE(ssr.Initialize().IsOk());
+            SsgiPass ssgi(device, shaderSystem);
+            REQUIRE(ssgi.Initialize().IsOk());
 
             RenderFrame frame(DefaultAllocator(), device, registry, 2, /*clusters*/ nullptr, &tonemap,
                               /*shadows*/ nullptr, /*ibl*/ nullptr, /*sky*/ nullptr, /*bloom*/ nullptr,
                               spec.taa ? &taa : nullptr, &ao, /*fxaa*/ nullptr);
+            if (spec.ssr)
+            {
+                SsrPass::Params params;
+                params.temporal = false; // one frame's trace, not an accumulation still settling
+                frame.SetSsr(&ssr);
+                frame.SetSsrParams(true, params);
+            }
+            if (spec.ssgi)
+            {
+                frame.SetSsgi(&ssgi);
+            }
 
             ExtractedScene scene{DefaultAllocator()};
             scene.SetAmbient(Float3{1.0f, 1.0f, 1.0f});
@@ -131,10 +150,12 @@ namespace
             settings.post.aoMode = static_cast<u32>(spec.ao);
             settings.post.aoStrength = 1.0f;
             settings.post.taaEnabled = spec.taa;
-            settings.post.needsMotion = spec.taa;
+            settings.post.ssrEnabled = spec.ssr;
+            settings.post.ssgiEnabled = spec.ssgi;
+            settings.post.needsMotion = spec.taa || spec.ssgi; // SSGI's history reprojects too
 
-            // TAA settles over its history on a still camera.
-            const u32 frames = spec.taa ? 24u : 2u;
+            // TAA and SSGI settle over their history on a still camera.
+            const u32 frames = (spec.taa || spec.ssgi) ? 24u : 2u;
             for (u32 i = 0; i < frames; ++i)
             {
                 rhi::CommandEncoder* encoder = nullptr;
@@ -205,6 +226,52 @@ namespace
         return spec;
     }
 
+    // A mirror floor and a red pillar 8 m tall twenty metres off, seen from 60 m back, tipped 20
+    // degrees down so the floor shows: through an orthographic camera 16 m tall, or a perspective
+    // one that sees about the same at the pillar (about 15 degrees). The floor is dark, so what reads
+    // red below the pillar is its reflection.
+    ProbeScene PillarOverMirror(bool ssr, bool perspective)
+    {
+        ProbeScene spec;
+        spec.ssr = ssr;
+        Item floor;
+        floor.mesh = geometry::Primitives::Plane(DefaultAllocator(), 200.0f, 200.0f);
+        floor.material = materials::CreatePBR(u8"probe.mirror", Float4{0.02f, 0.02f, 0.02f, 1.0f}, 0.0f, 0.02f);
+        floor.radius = 150.0f;
+        spec.items.PushBack(floor);
+        Item pillar;
+        pillar.mesh = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+        pillar.material = materials::CreatePBR(u8"probe.pillar", Float4{1.0f, 0.05f, 0.05f, 1.0f}, 0.0f, 0.9f);
+        pillar.world = Float4x4::Scale(Float3{2.0f, 8.0f, 2.0f}) * Float4x4::Translation(Float3{0.0f, 4.0f, -20.0f});
+        pillar.center = Float3{0.0f, 4.0f, -20.0f};
+        pillar.radius = 5.0f;
+        spec.items.PushBack(pillar);
+        const Float3 target{0.0f, 0.0f, -20.0f};
+        const f32 pitch = 20.0f * 3.14159265f / 180.0f;
+        spec.camera.position = target + Float3{0.0f, Sin(pitch), Cos(pitch)} * 60.0f;
+        spec.camera.view = Float4x4::LookAtRH(spec.camera.position, target, Float3{0, 1, 0});
+        spec.camera.projection = perspective
+                                     ? Float4x4::PerspectiveFovRH(2.0f * Atan2(8.0f, 60.0f), 1.0f, 0.1f, 200.0f)
+                                     : Float4x4::OrthographicRH(16.0f, 16.0f, 0.1f, 200.0f);
+        return spec;
+    }
+
+    bool Reddish(const u8* p) { return p[0] > 60 && p[0] > p[1] * 2 && p[0] > p[2] * 2; }
+
+    // Red pixels in the centre columns (where the pillar and its reflection stand).
+    u32 RedInCentre(const testsupport::CapturedImage& image)
+    {
+        u32 count = 0;
+        for (u32 x = kSize / 2 - 2; x < kSize / 2 + 2; ++x)
+        {
+            for (u32 y = 0; y < image.height; ++y)
+            {
+                count += Reddish(image.At(x, y)) ? 1u : 0u;
+            }
+        }
+        return count;
+    }
+
     // Mean r+g+b over columns [x0, x1), every row.
     f32 ColumnsMean(const testsupport::CapturedImage& image, u32 x0, u32 x1)
     {
@@ -266,6 +333,59 @@ namespace
         // found it in their port).
         CHECK(Abs(ortho.edge - reference.edge) < 0.005f);
         CHECK(Abs(ortho.open - reference.open) < 0.06f);
+    }
+
+    // The red down the pillar's columns with SSR off and on: the reflection mirrors the pillar about
+    // the floor, adding about as much again, as it does in the nearly orthographic perspective view.
+    // Before, the march divided an orthographic view's x and y by its depth and stepped 1/depth along
+    // a ray whose depth is linear on screen.
+    void ProbeSsr(rhi::Device& device, const char* backend)
+    {
+        CAPTURE(backend);
+        const auto ratio = [&](bool perspective, u32& pillar)
+        {
+            const testsupport::CapturedImage off = Render(device, PillarOverMirror(false, perspective));
+            const testsupport::CapturedImage on = Render(device, PillarOverMirror(true, perspective));
+            REQUIRE(off.valid);
+            REQUIRE(on.valid);
+            pillar = RedInCentre(off);
+            return static_cast<f32>(RedInCentre(on)) / static_cast<f32>(Max(pillar, 1u));
+        };
+        u32 orthoPillar = 0, perspectivePillar = 0;
+        const f32 ortho = ratio(false, orthoPillar);
+        const f32 reference = ratio(true, perspectivePillar);
+        MESSAGE(doctest::String(backend) << ": red with SSR on over off, orthographic " << ortho << " (pillar "
+                                         << orthoPillar << " px), perspective " << reference << " (pillar "
+                                         << perspectivePillar << " px)");
+        REQUIRE(orthoPillar > 40u); // the pillar is on screen
+        CHECK(ortho > 1.5f);        // its reflection is there
+        CHECK(Abs(ortho - reference) < 0.15f);
+    }
+
+    // The inside corner's edge with SSGI off and on: the rays there hit the other wall (half as
+    // bright as the sky they hide), darkening it as much as in the nearly orthographic perspective
+    // view.
+    void ProbeSsgi(rhi::Device& device, const char* backend)
+    {
+        CAPTURE(backend);
+        const auto ratio = [&](bool perspective)
+        {
+            ProbeScene off = Corner(AoMode::Off, false, perspective);
+            ProbeScene on = Corner(AoMode::Off, false, perspective);
+            on.ssgi = true;
+            const testsupport::CapturedImage a = Render(device, off);
+            const testsupport::CapturedImage b = Render(device, on);
+            REQUIRE(a.valid);
+            REQUIRE(b.valid);
+            const u32 edge = kSize / 2;
+            return ColumnsMean(b, edge - 6, edge + 6) / Max(ColumnsMean(a, edge - 6, edge + 6), 1.0f);
+        };
+        const f32 ortho = ratio(false);
+        const f32 reference = ratio(true);
+        MESSAGE(doctest::String(backend) << ": corner edge with SSGI on over off, orthographic " << ortho
+                                         << ", perspective " << reference);
+        CHECK(ortho < 0.97f);
+        CHECK(Abs(ortho - reference) < 0.03f);
     }
 
     void ProbeGtao(rhi::Device& device, const char* backend) { ProbeAo(device, backend, AoMode::GTAO, "gtao"); }
@@ -354,6 +474,16 @@ TEST_CASE("orthographic: GTAO occludes a corner as a nearly orthographic perspec
 TEST_CASE("orthographic: SSAO occludes a corner as a nearly orthographic perspective view does")
 {
     ForEachBackend(&ProbeSsao);
+}
+
+TEST_CASE("orthographic: SSR reflects a pillar in a mirror floor as a nearly orthographic perspective view does")
+{
+    ForEachBackend(&ProbeSsr);
+}
+
+TEST_CASE("orthographic: SSGI darkens a corner as a nearly orthographic perspective view does")
+{
+    ForEachBackend(&ProbeSsgi);
 }
 
 TEST_CASE("orthographic: a still view under TAA settles on what it shows without it")
