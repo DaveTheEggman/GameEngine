@@ -1,6 +1,6 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: SPEC 2026-10-13, decisions taken (below); not started. Backlog entry it closes:
+> STATUS: SPEC 2026-10-13, decisions taken and revised the same day (below); not started. Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -81,10 +81,34 @@ writer and gives a full viewer for free.
   viewer can select any recent frame without copying.
 - **GPU lane**: GPU passes arrive late (below) and are written into the frame they belong to,
   by frame number, as begin/end ticks already on the CPU clock.
-- **Counters**: named values per frame (draw calls, triangles, GPU memory where the backend
-  says), the lane below the timeline.
+- **Counters**: named values per frame (below), the lanes under the timeline.
 - **Armed or not**: recording costs a branch when nothing is watching. A viewer (the panel, a
   capture, an MCP call) arms it; the P key keeps working.
+
+### Built to be streamed: remote profiling in 0.2 is a transport, not surgery
+
+The user asked (2026-10-13) that a live connection to a running player, a 0.2 item, need no deep
+changes then. So from P0 the store's unit is a **frame record** that means the same thing in
+another process:
+
+- A frame record holds its frame number, its CPU begin/end ticks, every thread's events in that
+  frame, its GPU passes (already on the CPU clock), its pipeline statistics and its counters,
+  with names as ids. It refers to nothing in the process: no pointers, no `StringView`s.
+- The tables a record leans on travel beside it as deltas: the name table (an id per string,
+  sent when new), the thread table (index, name), the counter table (id, name, unit), and once
+  per session a header: application, platform, build, the tick frequency. A viewer never
+  compares another process's ticks with its own clock.
+- **One encoding** of that stream (`ProfileStream`, a compact binary) is written by the store
+  and read by every viewer. A capture file is that stream saved (`.aeprofile`); the Chrome trace
+  JSON is an export from it, for Perfetto. In 0.2 a socket carries the same bytes.
+- **Viewers read through a source** (`IProfileSource`: the frames it has, the tables, a newest
+  frame), with two implementations in 0.1: the live store in this process and a capture file.
+  The panel and the overlay never touch the store directly, so 0.2 adds a third, the network.
+- **Control is a small message set**: arm, disarm, capture N frames, set the overlay, which the
+  local store answers by function call now and a player answers over the wire in 0.2.
+
+That costs 0.1 little (a capture file is the stream either way) and buys a panel that opens a
+capture from a Steam Deck or a phone today, the way it will watch one live tomorrow.
 
 ### GPU timings: frame-tagged, read without stalling, on the CPU clock
 
@@ -104,47 +128,126 @@ and in order.
 The GPU profiler is compiled under the same gate as the CPU one and armed with it, instead of
 running in every build.
 
-### Viewers
+### The RHI stays a pure interface
 
-- **The editor's Profiler panel** (in the View menu, beside Console), on `foundation.ui`:
-  - a frame strip: one bar per frame in the history, its height the frame's time, a budget line
-    (16.7 / 33.3 ms); click selects a frame, Pause freezes the history;
-  - the timeline of the selected frame (or a dragged range of frames): a lane per thread, nested
-    scopes as stacked bars, the GPU lane with its passes, frame boundaries; wheel zooms about the
-    pointer, drag pans, hover shows name, duration and depth;
-  - a table beside it: scopes and passes of the selection by total time, self time and count,
-    sortable; selecting a row highlights its bars.
-  It shows the editor's own frames and a Play-in-editor game's (the Game tab runs in-process).
-- **A capture file in Chrome trace JSON**: Save Capture in the panel, a key and a command-line
-  flag in any player (`--profile-capture <seconds>`), and the MCP tool. It opens in Perfetto or
-  chrome://tracing with a frames lane, a lane per thread and the GPU lane, so an exported game on
-  a Steam Deck or a phone is profiled without the editor.
+The user's rule (2026-10-13): the RHI is a pure interface. Whatever this adds to it (the counters'
+read-out, the driver's memory budget, a calibrated clock pair) is pure virtual, implemented in
+every backend: Vulkan, DX12, WebGPU, Null, and the Validation wrapper passing through. A backend
+without the capability says so in its `Features` and still implements the method (an empty
+answer, an explicit "unsupported"), it does not lean on a default body. The few virtuals that
+have one today (`AsMeshShaderExt`, `AsRayTracingExt`, `MaxColorDepthSampleCount`,
+`SupportsSampleCount`, `DestroyMeshPipeline`, `DestroyAccelStruct`,
+`DestroyRayTracingPipeline`) are not the pattern to follow.
+
+### Pipeline statistics and counters
+
+The user asked (2026-10-13) for these in 0.1 too.
+
+- **Pipeline statistics** per pass, beside its timestamps, where the device has them (Vulkan,
+  DX12; `Features.pipelineStatisticsQueries`): input-assembly vertices and primitives,
+  vertex, fragment and compute shader invocations, clipping primitives. A query set per frame in
+  flight, read when the frame's fence passes, like the timestamps. Not nested (a statistics query
+  cannot be), so per pass only, the frame's totals summed from them. WebGPU has none: the
+  columns read "n/a" there.
+- **What the RHI counts itself, every backend** (web included): per frame, draws, indexed draws,
+  dispatches, render passes, pipeline and bind group changes, bytes uploaded; and live GPU memory
+  the RHI allocated, split into buffers, textures and render targets (the backends allocate their
+  own memory, one allocation per resource, so the counts are exact).
+- **What the driver says**, where it says it: heap budget and usage (Vulkan
+  `VK_EXT_memory_budget`, DX12 `IDXGIAdapter3::QueryVideoMemoryInfo`), read once a second.
+- All of it lands in the frame record as counters, so every viewer shows it, the stream carries
+  it, and the overlay draws it.
+
+### The views: one library, embedded in the game and the editor
+
+The user's shape (2026-10-13): a library of profiler views, `Profiler.UI` (`foundation.profiler.
+ui`), on `foundation.ui` and drawn with VG, whose pieces the game's overlay and the editor's
+panel each put together. The editor and the game UI share `foundation.ui`, so one view serves
+both; the capture store stays UI-free (`Profiler.UI` depends on it, never the reverse). Every view
+reads an `IProfileSource`, so each works on the live store, a capture file, and in 0.2 a player
+over the network.
+
+The pieces, each a `View` that draws itself with VG (antialiased lines, filled paths, rounded
+rects, text) and measures like any other:
+
+| View | What it draws |
+|---|---|
+| `FrameTimeGraph` | the frame times of the last N frames as a line over a filled area, CPU and GPU, a budget line (16.7 / 33.3 ms); in the panel, click selects a frame and a drag a range |
+| `FrameStats` | the current (or selected) frame's CPU and GPU times, fps, min / median / max over the window |
+| `TopList` | the top scopes or GPU passes by time over a window (half a second, or the selection), as labelled bars |
+| `CounterStrip` | counters as compact values or sparklines: draws, primitives, shader invocations, GPU memory by kind and against the driver's budget |
+| `Timeline` | the selected frames: a lane per thread with nested scopes as stacked bars, the GPU lane, frame boundaries; wheel zoom about the pointer, drag pan, hover for name, duration and depth |
+| `ScopeTable` | scopes and passes of the selection by total, self and count, sortable; a row highlights its bars in a `Timeline` beside it |
+| `ProfilerToolbar` | pause, the frame window, open and save a capture, export JSON (panel only) |
+
+The two assemblies:
+
+- **The in-game overlay** (`ProfilerOverlay`, compact): `FrameTimeGraph`, `FrameStats`, a
+  `TopList` for scopes and one for GPU passes, a `CounterStrip`, on a translucent rounded panel in
+  a corner. Off by default; F3 (a project setting may change it), `--profile-overlay` or a script
+  call turns it on, in any build the profiler is compiled into (all but Shipping), in the Game
+  tab and in exported players, the web included. Engine.UI pushes it topmost as a global screen
+  overlay (`UISubsystem::PushScreenOverlay`), so it draws in the UI's overlay pass after the
+  scene, survives scene changes, and needs nothing a player does not already carry.
+- **The editor's Profiler panel** (in the View menu, beside Console): `ProfilerToolbar`,
+  `FrameTimeGraph` as the frame strip (click a frame, drag a range, Pause freezes), the
+  `Timeline` of the selection with a `ScopeTable` beside it, `CounterStrip` lanes under it. It
+  shows the editor's own frames, a Play-in-editor game's (the Game tab runs in-process), or a
+  capture file opened from a player.
+
+A game can embed any piece itself (a debug menu of its own showing `FrameTimeGraph`), since they
+are ordinary views.
+
+### Capture files and MCP
+
+- **Capture files**: Save Capture in the panel, a key and a command-line flag in any player
+  (`--profile-capture <seconds>`), and the MCP tool write the stream (`.aeprofile`); the panel
+  opens one (Open Capture), and Export writes Chrome trace JSON beside it, for Perfetto or
+  chrome://tracing (a frames lane, a lane per thread, the GPU lane, counters). So an exported game
+  on a Steam Deck or a phone is profiled without the editor: capture there, open here.
 - **MCP**: `profiler_capture` arms the profiler for N frames (of the editor or a PIE instance),
-  writes the trace file and answers a summary: frame times (min, median, max), the top scopes and
-  GPU passes by total time, and the path. Documented in the McpGuide; the tool count bumps.
+  writes the capture and answers a summary: frame times (min, median, max), the top scopes and
+  GPU passes by total time, the counters, and the path. Documented in the McpGuide; the tool
+  count bumps.
 
 ## Decisions (user 2026-10-13)
 
-1. **Viewer**: the editor's Profiler panel plus Chrome trace capture files. No in-game overlay.
+1. **Viewers**: the editor's Profiler panel, capture files (our stream, exported to Chrome trace
+   JSON), and an in-game overlay, off by default (revised: the overlay first ruled out, then
+   asked for), both assembled from one library of views, `Profiler.UI`, drawn with VG.
 2. **Profiling an exported game**: capture files for 0.1. A live connection from the editor to a
-   running player is in `Plans/backlog-0.2.md`.
+   running player is in `Plans/backlog-0.2.md`, and 0.1 is built so that it is a transport only
+   (the frame record, the stream, the sources, the control messages).
 3. **Gate**: compiled into Debug, RelWithDebInfo and Release; out only in Shipping
    (`BUILD_PROFILING`, `CMakeLists.txt:220`), the GPU profiler with it.
-4. **Pipeline statistics and GPU memory counters**: after 0.1.
+4. **Pipeline statistics and GPU memory counters**: in 0.1 (revised from "later").
 
 ## Phases
 
-- **P0 capture store**: per-thread event rings, thread names, frame history, the armed switch,
-  job-system scopes; the P key reads the new store. Tests: nesting across threads, the ring
-  wrapping, a frame selected from history, nothing recorded unarmed.
-- **P1 GPU**: frame-tagged query sets per frame in flight, read without stalling, capability
-  check, clock alignment per backend, under the gate. GPU probe tests on Vulkan and WebGPU
-  native: passes arrive tagged with their frame, non-overlapping, ordered, inside the frame's
-  CPU span after alignment.
-- **P2 capture file and MCP**: the Chrome trace writer, the player key and flag,
-  `profiler_capture`. Tests: the JSON round-trips (frames, threads, GPU lane, nesting), the tool
-  answers its summary.
-- **P3 the Profiler panel**: frame strip, timeline, table, pause, zoom; docs page in the user
-  docs. The user checks it by eye.
-- **Later** (after 0.1): pipeline statistics and GPU memory counters; a live connection to a
-  running player (backlog-0.2).
+- **P0 capture store**: per-thread event rings, thread names, frame history, frame records with
+  their name, thread and counter tables, the armed switch, job-system scopes; the P key reads the
+  new store. Tests: nesting across threads, the ring wrapping, a frame selected from history, a
+  record holding no pointer into the process, nothing recorded unarmed.
+- **P1 GPU**: frame-tagged timestamp and pipeline-statistics query sets per frame in flight,
+  read without stalling, capability checks, clock alignment per backend, under the gate. GPU
+  probe tests on Vulkan and WebGPU native: passes arrive tagged with their frame, ordered, inside
+  the frame's CPU span after alignment; statistics count a known draw's vertices.
+- **P2 counters**: the RHI's own counts (draws, dispatches, passes, binds, uploads, live memory
+  by kind) on every backend, the driver's budget where offered. Tests: a frame of known work
+  counts what it did; memory rises and falls with a texture made and freed.
+- **P3 the stream, capture files and MCP**: `ProfileStream` write and read, `.aeprofile`, the
+  Chrome export, the player key and flag, `IProfileSource` (live, file), the control messages,
+  `profiler_capture`. Tests: a captured stream reads back frame for frame; the JSON holds frames,
+  threads, the GPU lane and nesting; the tool answers its summary.
+- **P4 `Profiler.UI` and the overlay**: the views `FrameTimeGraph`, `FrameStats`, `TopList`,
+  `CounterStrip`, and the overlay assembled from them; off by default; F3, `--profile-overlay`, a
+  script call; Engine.UI pushes it as a global screen overlay; Game tab and players, web
+  included. Tests: each view measures and draws its numbers from a source holding a known history
+  (its VG batch holds the graph's points, the bars' lengths); the overlay is off unless turned on.
+  The user checks it by eye.
+- **P5 the Profiler panel**: the views `Timeline`, `ScopeTable`, `ProfilerToolbar`; the panel
+  assembled from them with the P4 views; opening a capture; the user docs page. Tests: a
+  `Timeline` lays out a known frame's lanes and nesting, zoom keeps the point under the pointer,
+  a table row selects its bars. The user checks it by eye.
+- **After 0.1**: a live connection to a running player (backlog-0.2): a socket source and a
+  player-side server answering the control messages.
