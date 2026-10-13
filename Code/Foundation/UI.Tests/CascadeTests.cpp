@@ -227,6 +227,26 @@ TEST_CASE("cascade: text properties inherit the parent's COMPUTED value through 
     CHECK(leaf->ResolveStyleFloat(StyleProperty::CornerRadius, -1.0f) == doctest::Approx(-1.0f));
 }
 
+// A label wraps by the `word-wrap` style as by its markup attribute: the style was parsed and
+// inherited but the label read only its own property (the Shader Gallery's caption did not wrap).
+TEST_CASE("cascade: a label wraps by the word-wrap style, its own setting first")
+{
+    Fixture f(LoadSSS(u8".wraps { word-wrap: true; }\n"));
+    core::RefPtr<Label> plain = core::MakeRef<Label>(core::DefaultAllocator());
+    f.root->AddView(plain.Get());
+    CHECK_FALSE(plain->IsWordWrapped()); // nothing says so: off
+
+    auto box = f.Group(f.root.Get(), u8"wraps");
+    core::RefPtr<Label> styled = core::MakeRef<Label>(core::DefaultAllocator());
+    box->AddView(styled.Get());
+    CHECK(styled->IsWordWrapped()); // the container's style reaches it
+
+    styled->WordWrap.SetValue(false); // its own setting wins over the style
+    CHECK_FALSE(styled->IsWordWrapped());
+    plain->WordWrap.SetValue(true);
+    CHECK(plain->IsWordWrapped());
+}
+
 TEST_CASE("cascade: `inherit` takes the parent's value even for non-inheritable properties; `initial` unsets")
 {
     Fixture f(LoadSSS(u8"TestGroup { corner-radius: 6; text-color: #00ff00; }\n"

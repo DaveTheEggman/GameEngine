@@ -37,7 +37,7 @@ export namespace foundation::ui
         Property<String> Text;
         Property<fonts::TextAlignment> HAlign{fonts::TextAlignment::Left};
         Property<fonts::VerticalAlignment> VAlign{fonts::VerticalAlignment::Middle};
-        Property<bool> WordWrap{false};
+        Property<Optional<bool>> WordWrap; // unset: the style's word-wrap (inherited), else off
         Property<bool> Ellipsis{false};
         Property<Optional<f32>> FontSize;
         Property<String> FontFamily;
@@ -100,6 +100,18 @@ export namespace foundation::ui
                                            Color{220.0f / 255.0f, 225.0f / 255.0f, 235.0f / 255.0f, 1.0f});
         }
 
+        /// Whether the text wraps at the label's width: its own WordWrap when set, else the
+        /// `word-wrap` style (inherited, so a container's style reaches its labels).
+        [[nodiscard]] bool IsWordWrapped()
+        {
+            if (WordWrap.Value().HasValue())
+            {
+                return WordWrap.Value().Value();
+            }
+            const Optional<bool> styled = ResolveStyle(StyleProperty::WordWrap).AsBool();
+            return styled.HasValue() && styled.Value();
+        }
+
     protected:
         void OnMeasure(BoxConstraints constraints) override
         {
@@ -116,7 +128,7 @@ export namespace foundation::ui
                     // cost. All results are cached in m_measureCache, value-keyed (the EditText
                     // m_glyphsDirty pattern, generalized).
                     const String family = ResolveStyleFontFamily(FontFamily.Value());
-                    if (WordWrap.Value() && font->shaper != nullptr)
+                    if (IsWordWrapped() && font->shaper != nullptr)
                     {
                         const f32 maxWidth =
                             (constraints.MaxWidth < kFloatMax) ? constraints.MaxWidth : 10000.0f;
@@ -208,7 +220,7 @@ export namespace foundation::ui
             const String family = ResolveStyleFontFamily(FontFamily.Value());
             const f32 fontSize = ResolveFontSize();
 
-            if (WordWrap.Value())
+            if (IsWordWrapped())
             {
                 f32 y = 0;
                 if (v != fonts::VerticalAlignment::Top && font->shaper != nullptr)
