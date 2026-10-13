@@ -56,6 +56,9 @@ export namespace foundation::rhi::webgpu
                                       QueueType::Compute, m_bufferRegistry);
             m_transferQueue.Initialize(api, instance, device, queue, allocator,
                                        QueueType::Transfer, m_bufferRegistry);
+            m_graphicsQueue.counters = &m_counters;
+            m_computeQueue.counters = &m_counters;
+            m_transferQueue.counters = &m_counters;
             m_blitHelper.Initialize(api, device);
             // DEBUG: force the FULL browser shader path on desktop wgpu-native (see
             // PreferredShaderFormat) - WGSL text AND push-constant emulation. The WGSL cook always
@@ -118,6 +121,10 @@ export namespace foundation::rhi::webgpu
         // adjustment, and the WGSL cook passes naga --keep-coordinate-space so the cooked WGSL
         // carries the same convention. No renderer pass needs a Y compensation on this backend.
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+
+        DeviceCounters Counters() const noexcept override { return m_counters.Snapshot(); }
+        // WebGPU does not report its memory budget.
+        bool MemoryBudget(u64&, u64&) const override { return false; }
 
         // No pipeline statistics on WebGPU: a statistics result takes no room and reads as zeros.
         [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
@@ -277,13 +284,20 @@ export namespace foundation::rhi::webgpu
             if (status.IsOk())
             {
                 m_bufferRegistry.Add(static_cast<WebGpuBuffer*>(out));
+                m_counters.BufferMade(bufferDesc.size);
             }
             return status;
         }
         Status CreateTexture(const TextureDesc& textureDesc, Texture*& out) override
         {
-            return CreateResource<WebGpuTexture>(
+            const Status status = CreateResource<WebGpuTexture>(
                 out, [&](WebGpuTexture& t) { return t.Initialize(*m_api, m_device, textureDesc); });
+            if (status.IsOk())
+            {
+                // WebGPU does not say what it allocated: the description's size.
+                m_counters.TextureMade(EstimateTextureBytes(textureDesc), CountsAsRenderTarget(textureDesc));
+            }
+            return status;
         }
         Status CreateTextureView(Texture* texture, const TextureViewDesc& viewDesc,
                                  TextureView*& out) override
@@ -356,6 +370,7 @@ export namespace foundation::rhi::webgpu
             // All queue types funnel into the ONE WebGPU queue; pools are bookkeeping.
             auto* pool = m_allocator.New<WebGpuCommandPool>();
             pool->Initialize(*m_api, m_device, m_allocator, m_blitHelper);
+            pool->counters = &m_counters;
             out = pool;
             return ErrorCode::Ok;
         }
@@ -390,10 +405,18 @@ export namespace foundation::rhi::webgpu
             if (x != nullptr)
             {
                 m_bufferRegistry.Remove(static_cast<WebGpuBuffer*>(x));
+                m_counters.BufferFreed(x->desc.size);
             }
             ReleaseAndDelete<WebGpuBuffer>(x);
         }
-        void DestroyTexture(Texture*& x) override { ReleaseAndDelete<WebGpuTexture>(x); }
+        void DestroyTexture(Texture*& x) override
+        {
+            if (x != nullptr)
+            {
+                m_counters.TextureFreed(EstimateTextureBytes(x->desc), CountsAsRenderTarget(x->desc));
+            }
+            ReleaseAndDelete<WebGpuTexture>(x);
+        }
         void DestroyTextureView(TextureView*& x) override
         {
             ReleaseAndDelete<WebGpuTextureView>(x);
@@ -526,6 +549,7 @@ export namespace foundation::rhi::webgpu
         IAllocator& m_allocator;
         WebGpuBlitHelper m_blitHelper;
         WebGpuBufferRegistry m_bufferRegistry;
+        DeviceCounterBlock m_counters; // what its encoders recorded and its resources hold
         WebGpuQueue m_graphicsQueue;
         WebGpuQueue m_computeQueue;
         WebGpuQueue m_transferQueue;

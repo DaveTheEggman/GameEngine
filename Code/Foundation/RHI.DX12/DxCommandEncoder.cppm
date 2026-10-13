@@ -149,6 +149,8 @@ export namespace foundation::rhi::dx12
             }
 
             m_rpe.begin(desc);
+            if (m_rpeCtx.counters)
+                m_rpeCtx.counters->RenderPass();
             return &m_rpe;
         }
 
@@ -158,6 +160,8 @@ export namespace foundation::rhi::dx12
         {
             ensureDescriptorHeaps();
             m_cpe.begin();
+            if (m_rpeCtx.counters)
+                m_rpeCtx.counters->ComputePass();
             return &m_cpe;
         }
 
@@ -763,6 +767,7 @@ export namespace foundation::rhi::dx12
 
         void SetRayTracingPipeline(RayTracingPipeline* pipeline) override
         {
+            if (m_rpeCtx.counters) m_rpeCtx.counters->PipelineBinds();
             m_currentRtPipeline = static_cast<DxRayTracingPipelineImpl*>(pipeline);
             if (!m_currentRtPipeline)
                 return;
@@ -780,6 +785,7 @@ export namespace foundation::rhi::dx12
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
         {
+            if (m_rpeCtx.counters) m_rpeCtx.counters->BindGroupBinds();
             auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
             if (!dxGroup || !m_currentRtPipeline)
                 return;
@@ -873,6 +879,7 @@ export namespace foundation::rhi::dx12
                        u64 missOffset, u64 missStride, Buffer* hitSBT, u64 hitOffset, u64 hitStride,
                        u32 width, u32 height, u32 depth) override
         {
+            if (m_rpeCtx.counters) m_rpeCtx.counters->Dispatches(); // a trace counts as a dispatch
             ComPtr<ID3D12GraphicsCommandList4> cmdList4;
             if (FAILED(m_cmdList->QueryInterface(IID_PPV_ARGS(&cmdList4))) || !cmdList4)
                 return;

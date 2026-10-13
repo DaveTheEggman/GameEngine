@@ -30,11 +30,16 @@ export namespace foundation::rhi::vk
     public:
         VkComputePassEncoderImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
 
+        /// The device's counts this pass bumps (Device::Counters); set by the command encoder.
+        void setCounters(DeviceCounterBlock* counters) noexcept { m_counters = counters; }
+
         void SetPipeline(ComputePipeline* pipeline) override
         {
             m_current = static_cast<VkComputePipelineImpl*>(pipeline);
             if (m_current)
                 vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE, m_current->handle());
+            if (m_counters)
+                m_counters->PipelineBinds();
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override
@@ -46,6 +51,8 @@ export namespace foundation::rhi::vk
             vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_COMPUTE,
                                     m_current->vkLayout()->handle(), index, 1, &set,
                                     static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
+            if (m_counters)
+                m_counters->BindGroupBinds();
         }
 
         void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override
@@ -56,13 +63,20 @@ export namespace foundation::rhi::vk
                                toVkShaderStageFlags(stages), offset, size, data);
         }
 
-        void Dispatch(u32 x, u32 y, u32 z) override { vkCmdDispatch(m_cmdBuf, x, y, z); }
+        void Dispatch(u32 x, u32 y, u32 z) override
+        {
+            vkCmdDispatch(m_cmdBuf, x, y, z);
+            if (m_counters)
+                m_counters->Dispatches();
+        }
 
         void DispatchIndirect(Buffer* buffer, u64 offset) override
         {
             auto* vkBuf = static_cast<VkBufferImpl*>(buffer);
             if (vkBuf)
                 vkCmdDispatchIndirect(m_cmdBuf, vkBuf->handle(), offset);
+            if (vkBuf && m_counters)
+                m_counters->Dispatches();
         }
 
         void ComputeBarrier() override
@@ -93,6 +107,7 @@ export namespace foundation::rhi::vk
     private:
         VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
         VkComputePipelineImpl* m_current = nullptr;
+        DeviceCounterBlock* m_counters = nullptr;
     };
 
 } // namespace foundation::rhi::vk

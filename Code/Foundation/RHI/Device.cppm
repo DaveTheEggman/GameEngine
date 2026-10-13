@@ -20,6 +20,7 @@ import :enums;
 import :texture_format;
 import :types;
 import :descriptors;
+import :counters;
 import :ext_descriptors;
 import :resources;
 import :commands;
@@ -178,6 +179,14 @@ export namespace foundation::rhi
         /// assume every count up to the ceiling works (an unsupported count aborts texture/pipeline
         /// creation). Default: only 1 (no MSAA). Overridden by backends that support it.
         [[nodiscard]] virtual bool SupportsSampleCount(u32 count) const noexcept { return count <= 1; }
+
+        /// What this device has recorded since it was made and the memory it holds now (the
+        /// profiler's counters; DeviceCounters).
+        [[nodiscard]] virtual DeviceCounters Counters() const noexcept = 0;
+        /// The driver's own GPU memory figures, where it gives them (Features::memoryBudget):
+        /// what the device-local heaps may hold and what this process uses of them. False, both
+        /// left alone, when it does not.
+        [[nodiscard]] virtual bool MemoryBudget(u64& budgetBytes, u64& usedBytes) const = 0;
 
         /// The bytes one query of `type` takes in the buffer ResolveQuerySet writes: 8 for a
         /// timestamp or occlusion count, a backend's own record for pipeline statistics (0 when

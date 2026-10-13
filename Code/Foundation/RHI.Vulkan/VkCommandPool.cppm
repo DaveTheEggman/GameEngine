@@ -111,6 +111,8 @@ export namespace foundation::rhi::vk
 
         // Stored so the encoder can access it.
         VkDeviceImpl* ownerDevice = nullptr;
+        // The device's counts its encoders bump (Device::Counters).
+        DeviceCounterBlock* counters = nullptr;
 
         /// The queue family this pool records for; barriers must not name stages the family
         /// cannot execute (VkBarrierHelper::maskStagesForQueue).

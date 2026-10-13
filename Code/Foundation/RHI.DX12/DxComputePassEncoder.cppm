@@ -38,6 +38,7 @@ export namespace foundation::rhi::dx12
         DxGpuDescriptorHeap* gpuSamplerHeap = nullptr;
         // Indirect command signature (cached on device).
         ID3D12CommandSignature* dispatchSig = nullptr;
+        DeviceCounterBlock* counters = nullptr; // the device's counts (Device::Counters)
     };
 
     class DxComputePassEncoderImpl : public ComputePassEncoder
@@ -51,6 +52,7 @@ export namespace foundation::rhi::dx12
 
         void SetPipeline(ComputePipeline* pipeline) override
         {
+            if (m_ctx.counters) m_ctx.counters->PipelineBinds();
             auto* dxPipeline = static_cast<DxComputePipelineImpl*>(pipeline);
             if (!dxPipeline)
                 return;
@@ -63,6 +65,7 @@ export namespace foundation::rhi::dx12
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
         {
+            if (m_ctx.counters) m_ctx.counters->BindGroupBinds();
             auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
             if (!dxGroup || !m_currentPipeline)
                 return;
@@ -155,10 +158,16 @@ export namespace foundation::rhi::dx12
 
         // ---- Dispatch ----
 
-        void Dispatch(u32 x, u32 y, u32 z) override { m_ctx.cmdList->Dispatch(x, y, z); }
+        void Dispatch(u32 x, u32 y, u32 z) override
+        {
+            if (m_ctx.counters)
+                m_ctx.counters->Dispatches();
+            m_ctx.cmdList->Dispatch(x, y, z);
+        }
 
         void DispatchIndirect(Buffer* buffer, u64 offset) override
         {
+            if (m_ctx.counters) m_ctx.counters->Dispatches();
             auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
             if (!dxBuf)
                 return;

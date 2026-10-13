@@ -53,6 +53,9 @@ export namespace foundation::rhi::dx12
         ComPtr<ID3D12CommandAllocator> m_alloc;
         ID3D12RootSignature* m_rootSig = nullptr;
         ID3D12PipelineState* m_pso = nullptr;
+
+    public:
+        RecordedCounts counts; // what it recorded, counted each time it is executed
     };
 
     /// Pointers needed by the render pass encoder, provided by the command encoder.
@@ -67,6 +70,9 @@ export namespace foundation::rhi::dx12
         ID3D12CommandSignature* drawSig = nullptr;
         ID3D12CommandSignature* drawIndexedSig = nullptr;
         ID3D12CommandSignature* dispatchMeshSig = nullptr;
+        // The device's counts (Device::Counters); null for a bundle, which counts what it
+        // recorded and adds it each time it is executed.
+        DeviceCounterBlock* counters = nullptr;
     };
 
     class DxRenderPassEncoderImpl : public RenderPassEncoder, public MeshShaderPassExt
@@ -86,6 +92,7 @@ export namespace foundation::rhi::dx12
 
         void SetPipeline(RenderPipeline* pipeline) override
         {
+            if (m_ctx.counters) m_ctx.counters->PipelineBinds();
             auto* dxPipeline = static_cast<DxRenderPipelineImpl*>(pipeline);
             if (!dxPipeline)
                 return;
@@ -112,6 +119,7 @@ export namespace foundation::rhi::dx12
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
         {
+            if (m_ctx.counters) m_ctx.counters->BindGroupBinds();
             auto* dxGroup = static_cast<DxBindGroupImpl*>(group);
             if (!dxGroup)
                 return;
@@ -283,18 +291,21 @@ export namespace foundation::rhi::dx12
 
         void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws();
             m_ctx.cmdList->DrawInstanced(vertexCount, instanceCount, firstVertex, firstInstance);
         }
 
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
                          u32 firstInstance) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws();
             m_ctx.cmdList->DrawIndexedInstanced(indexCount, instanceCount, firstIndex, baseVertex,
                                                 firstInstance);
         }
 
         void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws(drawCount);
             auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
             if (!dxBuf)
                 return;
@@ -314,6 +325,7 @@ export namespace foundation::rhi::dx12
 
         void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws(drawCount);
             auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
             if (!dxBuf)
                 return;
@@ -358,6 +370,7 @@ export namespace foundation::rhi::dx12
 
         void SetMeshPipeline(MeshPipeline* pipeline) override
         {
+            if (m_ctx.counters) m_ctx.counters->PipelineBinds();
             auto* dxPipeline = static_cast<DxMeshPipelineImpl*>(pipeline);
             if (!dxPipeline)
                 return;
@@ -371,6 +384,7 @@ export namespace foundation::rhi::dx12
 
         void DrawMeshTasks(u32 groupCountX, u32 groupCountY, u32 groupCountZ) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws();
             // Need ID3D12GraphicsCommandList6 for DispatchMesh.
             ID3D12GraphicsCommandList6* cmdList6 = nullptr;
             HRESULT hr = m_ctx.cmdList->QueryInterface(IID_PPV_ARGS(&cmdList6));
@@ -383,6 +397,7 @@ export namespace foundation::rhi::dx12
 
         void DrawMeshTasksIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws(drawCount);
             auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
             if (!dxBuf)
                 return;
@@ -404,6 +419,7 @@ export namespace foundation::rhi::dx12
         void DrawMeshTasksIndirectCount(Buffer* buffer, u64 offset, Buffer* countBuffer,
                                         u64 countOffset, u32 maxDrawCount, u32 /*stride*/) override
         {
+            if (m_ctx.counters) m_ctx.counters->Draws(maxDrawCount); // the count is on the GPU: at most this many
             auto* dxBuf = static_cast<DxBufferImpl*>(buffer);
             auto* dxCountBuf = static_cast<DxBufferImpl*>(countBuffer);
             if (!dxBuf || !dxCountBuf)
@@ -432,6 +448,8 @@ export namespace foundation::rhi::dx12
                     if (b->pso())
                         m_ctx.cmdList->SetPipelineState(b->pso());
                     m_ctx.cmdList->ExecuteBundle(b->handle());
+                    if (m_ctx.counters) // a bundle's recorded work, each time it runs
+                        b->counts.AddTo(*m_ctx.counters);
                 }
             }
         }

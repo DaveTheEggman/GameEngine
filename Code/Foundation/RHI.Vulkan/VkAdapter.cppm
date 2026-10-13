@@ -82,6 +82,7 @@ export namespace foundation::rhi::vk
             f.bindlessDescriptors = m_supportsDescriptorIndexing;
             f.timestampQueries = m_properties.limits.timestampComputeAndGraphics;
             f.timestampCalibration = m_calibratedTimestamps != nullptr;
+            f.memoryBudget = m_supportsMemoryBudget;
             f.occlusionQueries = true; // vkCmdBeginQuery works anywhere in a pass
             f.borderSampling = true;
             f.multiDrawIndirect = m_features10.multiDrawIndirect;
@@ -226,6 +227,7 @@ export namespace foundation::rhi::vk
         [[nodiscard]] const char* calibratedTimestampsExtension() const { return m_calibratedTimestamps; }
         /// That clock's time domain (CLOCK_MONOTONIC on Linux, QueryPerformanceCounter on Windows).
         [[nodiscard]] VkTimeDomainEXT hostTimeDomain() const { return m_hostTimeDomain; }
+        [[nodiscard]] bool supportsMemoryBudget() const { return m_supportsMemoryBudget; }
         [[nodiscard]] IAllocator& allocator() const noexcept { return m_allocator; }
 
     private:
@@ -251,6 +253,8 @@ export namespace foundation::rhi::vk
                     m_supportsMeshShader = true;
                 if (std::strcmp(name, "VK_KHR_ray_tracing_pipeline") == 0)
                     m_supportsRayTracing = true;
+                if (std::strcmp(name, "VK_EXT_memory_budget") == 0)
+                    m_supportsMemoryBudget = true;
                 if (std::strcmp(name, "VK_KHR_calibrated_timestamps") == 0)
                     m_calibratedTimestamps = "VK_KHR_calibrated_timestamps";
                 if (std::strcmp(name, "VK_EXT_calibrated_timestamps") == 0 && m_calibratedTimestamps == nullptr)
@@ -317,6 +321,7 @@ export namespace foundation::rhi::vk
         VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
         VkInstance m_instance = VK_NULL_HANDLE;
         const char* m_calibratedTimestamps = nullptr;
+        bool m_supportsMemoryBudget = false;
 #if PLATFORM_WINDOWS
         VkTimeDomainEXT m_hostTimeDomain = VK_TIME_DOMAIN_QUERY_PERFORMANCE_COUNTER_EXT;
 #else

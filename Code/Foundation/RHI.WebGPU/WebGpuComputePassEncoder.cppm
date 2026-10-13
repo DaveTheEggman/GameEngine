@@ -24,6 +24,8 @@ export namespace foundation::rhi::webgpu
     class WebGpuComputePassEncoder final : public ComputePassEncoder
     {
     public:
+        DeviceCounterBlock* counters = nullptr; // the device's counts; set by the command encoder
+
         void Begin(const WebGpuApi& api, WGPUDevice device, WGPUComputePassEncoder encoder)
         {
             m_api = &api;
@@ -36,6 +38,8 @@ export namespace foundation::rhi::webgpu
             auto* wgpuPipeline = static_cast<WebGpuComputePipeline*>(pipeline);
             m_api->wgpuComputePassEncoderSetPipeline(m_encoder, wgpuPipeline->Handle());
             m_pushConstants.SetPipeline(wgpuPipeline->PushConstants());
+            if (counters)
+                counters->PipelineBinds();
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
@@ -43,6 +47,8 @@ export namespace foundation::rhi::webgpu
             m_api->wgpuComputePassEncoderSetBindGroup(
                 m_encoder, index, static_cast<WebGpuBindGroup*>(group)->Handle(),
                 dynamicOffsets.Size(), dynamicOffsets.Data());
+            if (counters)
+                counters->BindGroupBinds();
         }
 
         void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override
@@ -60,6 +66,8 @@ export namespace foundation::rhi::webgpu
         {
             FlushPushConstants();
             m_api->wgpuComputePassEncoderDispatchWorkgroups(m_encoder, x, y, z);
+            if (counters)
+                counters->Dispatches();
         }
 
         void DispatchIndirect(Buffer* buffer, u64 offset) override
@@ -67,6 +75,8 @@ export namespace foundation::rhi::webgpu
             FlushPushConstants();
             m_api->wgpuComputePassEncoderDispatchWorkgroupsIndirect(
                 m_encoder, static_cast<WebGpuBuffer*>(buffer)->Handle(), offset);
+            if (counters)
+                counters->Dispatches();
         }
 
         void ComputeBarrier() override

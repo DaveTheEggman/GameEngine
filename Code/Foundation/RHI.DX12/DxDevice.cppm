@@ -120,6 +120,7 @@ export namespace foundation::rhi::dx12
                     m_allocator.Delete(q);
                     break;
                 }
+                q->counters = &m_counters;
                 m_graphicsQueues.PushBack(q);
             }
             for (u32 i = 0; i < desc.computeQueueCount; ++i)
@@ -130,6 +131,7 @@ export namespace foundation::rhi::dx12
                     m_allocator.Delete(q);
                     break;
                 }
+                q->counters = &m_counters;
                 m_computeQueues.PushBack(q);
             }
             for (u32 i = 0; i < desc.transferQueueCount; ++i)
@@ -140,6 +142,7 @@ export namespace foundation::rhi::dx12
                     m_allocator.Delete(q);
                     break;
                 }
+                q->counters = &m_counters;
                 m_transferQueues.PushBack(q);
             }
 
@@ -352,6 +355,7 @@ export namespace foundation::rhi::dx12
                 return ErrorCode::Unknown;
             }
             setDebugName(b->handle(), d.label);
+            m_counters.BufferMade(d.size);
             out = b;
             return ErrorCode::Ok;
         }
@@ -366,6 +370,8 @@ export namespace foundation::rhi::dx12
                 return ErrorCode::Unknown;
             }
             setDebugName(t->handle(), d.label);
+            // The description's size (the driver may pad: GetResourceAllocationInfo would say).
+            m_counters.TextureMade(EstimateTextureBytes(d), CountsAsRenderTarget(d));
             out = t;
             return ErrorCode::Ok;
         }
@@ -737,6 +743,7 @@ export namespace foundation::rhi::dx12
         {
             if (b)
             {
+                m_counters.BufferFreed(b->desc.size);
                 static_cast<DxBufferImpl*>(b)->cleanup();
                 m_allocator.Delete(static_cast<DxBufferImpl*>(b));
                 b = nullptr;
@@ -746,6 +753,7 @@ export namespace foundation::rhi::dx12
         {
             if (t)
             {
+                m_counters.TextureFreed(EstimateTextureBytes(t->desc), CountsAsRenderTarget(t->desc));
                 static_cast<DxTextureImpl*>(t)->cleanup();
                 m_allocator.Delete(static_cast<DxTextureImpl*>(t));
                 t = nullptr;
@@ -997,6 +1005,24 @@ export namespace foundation::rhi::dx12
 
         [[nodiscard]] ID3D12Device* handle() const { return m_device.Get(); }
         [[nodiscard]] DxAdapterImpl* adapter() const { return m_adapter; }
+        /// The device's counts its encoders, queues and resources bump (Device::Counters).
+        [[nodiscard]] DeviceCounterBlock* counters() noexcept { return &m_counters; }
+
+        DeviceCounters Counters() const noexcept override { return m_counters.Snapshot(); }
+
+        // The local (device) memory segment's budget and this process's use of it.
+        bool MemoryBudget(u64& budgetBytes, u64& usedBytes) const override
+        {
+            ComPtr<IDXGIAdapter3> adapter3;
+            if (m_adapter == nullptr || FAILED(m_adapter->handle()->QueryInterface(IID_PPV_ARGS(&adapter3))))
+                return false;
+            DXGI_QUERY_VIDEO_MEMORY_INFO info{};
+            if (FAILED(adapter3->QueryVideoMemoryInfo(0, DXGI_MEMORY_SEGMENT_GROUP_LOCAL, &info)))
+                return false;
+            budgetBytes = static_cast<u64>(info.Budget);
+            usedBytes = static_cast<u64>(info.CurrentUsage);
+            return true;
+        }
 
         [[nodiscard]] DxDescriptorHeapAllocator* rtvHeap() { return &m_rtvHeap; }
         [[nodiscard]] DxDescriptorHeapAllocator* dsvHeap() { return &m_dsvHeap; }
@@ -1271,6 +1297,7 @@ export namespace foundation::rhi::dx12
         ComPtr<ID3D12Device> m_device;
         ComPtr<ID3D12InfoQueue> m_infoQueue;
         DxAdapterImpl* m_adapter = nullptr;
+        DeviceCounterBlock m_counters; // what its encoders recorded and its resources hold
 
         // Queues.
         Array<DxQueueImpl*> m_graphicsQueues;
@@ -1429,6 +1456,7 @@ export namespace foundation::rhi::dx12
         rpeCtx.drawSig = m_device->drawSignature();
         rpeCtx.drawIndexedSig = m_device->drawIndexedSignature();
         rpeCtx.dispatchMeshSig = m_device->dispatchMeshSignature();
+        rpeCtx.counters = m_device->counters();
 
         DxComputePassContext cpeCtx{};
         cpeCtx.cmdList = cmdList;
@@ -1436,6 +1464,7 @@ export namespace foundation::rhi::dx12
         cpeCtx.gpuSrvHeap = m_device->gpuSrvHeap();
         cpeCtx.gpuSamplerHeap = m_device->gpuSamplerHeap();
         cpeCtx.dispatchSig = m_device->dispatchSignature();
+        cpeCtx.counters = m_device->counters();
 
         auto* enc = m_allocPtr->New<DxCommandEncoderImpl>(m_device, cmdList, this, rpeCtx, cpeCtx,
                                                           *m_allocPtr);

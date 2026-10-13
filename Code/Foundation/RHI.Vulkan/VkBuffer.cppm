@@ -82,6 +82,7 @@ export namespace foundation::rhi::vk
             }
 
             vkBindBufferMemory(device, m_buffer, m_memory, 0);
+            m_allocationSize = memReqs.size;
 
             // Persistently map host-visible buffers.
             if (d.memory == MemoryLocation::CpuToGpu || d.memory == MemoryLocation::GpuToCpu)
@@ -116,8 +117,11 @@ export namespace foundation::rhi::vk
         // ---- Internal ----
         [[nodiscard]] VkBuffer handle() const { return m_buffer; }
         [[nodiscard]] VkDeviceMemory memory() const { return m_memory; }
+        /// The bytes the driver allocated for it (Device::Counters).
+        [[nodiscard]] u64 allocationSize() const noexcept { return m_allocationSize; }
 
     private:
+        u64 m_allocationSize = 0;
         VkBuffer m_buffer = VK_NULL_HANDLE;
         VkDeviceMemory m_memory = VK_NULL_HANDLE;
         void* m_mappedPtr = nullptr;

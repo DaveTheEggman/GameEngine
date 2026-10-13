@@ -29,4 +29,5 @@ target_sources(RHI
             Queue.cppm
             SwapChain.cppm
             Device.cppm
+            Counters.cppm
             RhiModule.cppm)

@@ -37,6 +37,9 @@ export namespace foundation::rhi::vk
         {
         }
 
+        /// The device's counts this pass bumps (Device::Counters); set by the command encoder.
+        void setCounters(DeviceCounterBlock* counters) noexcept { m_counters = counters; }
+
         // ---- RenderPassEncoder ----
 
         void SetPipeline(RenderPipeline* pipeline) override
@@ -46,6 +49,8 @@ export namespace foundation::rhi::vk
             if (m_currentPipeline)
                 vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                   m_currentPipeline->handle());
+            if (m_counters)
+                m_counters->PipelineBinds();
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override
@@ -58,6 +63,8 @@ export namespace foundation::rhi::vk
             vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle(),
                                     index, 1, &set, static_cast<u32>(dynOffsets.Size()),
                                     dynOffsets.Data());
+            if (m_counters)
+                m_counters->BindGroupBinds();
         }
 
         void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override
@@ -121,6 +128,8 @@ export namespace foundation::rhi::vk
         void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override
         {
             vkCmdDraw(m_cmdBuf, vertexCount, instanceCount, firstVertex, firstInstance);
+            if (m_counters)
+                m_counters->Draws();
         }
 
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
@@ -128,6 +137,8 @@ export namespace foundation::rhi::vk
         {
             vkCmdDrawIndexed(m_cmdBuf, indexCount, instanceCount, firstIndex, baseVertex,
                              firstInstance);
+            if (m_counters)
+                m_counters->Draws();
         }
 
         void DrawIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override
@@ -137,6 +148,8 @@ export namespace foundation::rhi::vk
                 return;
             vkCmdDrawIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount,
                               stride > 0 ? stride : 16);
+            if (m_counters)
+                m_counters->Draws(drawCount);
         }
 
         void DrawIndexedIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override
@@ -146,6 +159,8 @@ export namespace foundation::rhi::vk
                 return;
             vkCmdDrawIndexedIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount,
                                      stride > 0 ? stride : 20);
+            if (m_counters)
+                m_counters->Draws(drawCount);
         }
 
         void WriteTimestamp(QuerySet* qs, u32 index) override
@@ -176,7 +191,12 @@ export namespace foundation::rhi::vk
                 return;
             Array<VkCommandBuffer> secs(bundles.Size());
             for (usize i = 0; i < bundles.Size(); ++i)
-                secs[i] = static_cast<VkRenderBundleImpl*>(bundles[i])->handle();
+            {
+                auto* bundle = static_cast<VkRenderBundleImpl*>(bundles[i]);
+                secs[i] = bundle->handle();
+                if (m_counters) // a bundle's recorded work, each time it runs
+                    bundle->counts.AddTo(*m_counters);
+            }
             vkCmdExecuteCommands(m_cmdBuf, static_cast<u32>(secs.Size()), secs.Data());
         }
 
@@ -202,6 +222,7 @@ export namespace foundation::rhi::vk
         VkDevice m_device = VK_NULL_HANDLE;
         VkRenderPipelineImpl* m_currentPipeline = nullptr;
         VkMeshPipelineImpl* m_currentMeshPipeline = nullptr;
+        DeviceCounterBlock* m_counters = nullptr;
 
         // Cached device-level mesh shader function pointers.
         PFN_vkCmdDrawMeshTasksEXT m_pfnDrawMesh = nullptr;

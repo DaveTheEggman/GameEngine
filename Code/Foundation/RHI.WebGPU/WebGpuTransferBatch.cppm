@@ -29,6 +29,8 @@ export namespace foundation::rhi::webgpu
     class WebGpuTransferBatch final : public TransferBatch
     {
     public:
+        DeviceCounterBlock* counters = nullptr; // the device's counts (transfer bytes)
+
         void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
                         WGPUQueue queue, IAllocator& allocator)
         {
@@ -48,12 +50,16 @@ export namespace foundation::rhi::webgpu
             write.size = data.Size();
             AppendPayload(data);
             m_bufferWrites.PushBack(write);
+            if (counters)
+                counters->Transfer(data.Size());
         }
 
         void WriteTexture(Texture* dst, Span<const u8> data, const TextureDataLayout& layout,
                           Extent3D extent, u32 mipLevel, u32 arrayLayer) override
         {
             const WebGpuTexture* texture = static_cast<WebGpuTexture*>(dst);
+            if (counters)
+                counters->Transfer(data.Size());
             TextureWrite write;
             write.destination = texture->Handle();
             write.layout = layout;

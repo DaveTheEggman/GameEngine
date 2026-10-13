@@ -120,12 +120,21 @@ export namespace foundation::rhi::null
 
     // ---- Stub encoders ----
 
+    // The Null device does nothing, but counts what it is asked to do (Device::Counters), so the
+    // profiler's counters can be tested without a GPU.
+    class NullRenderBundle : public RenderBundle
+    {
+    public:
+        RecordedCounts counts; // what it recorded, counted each time it is executed
+    };
+
     class NullRenderPassEncoder : public RenderPassEncoder, public MeshShaderPassExt
     {
     public:
+        DeviceCounterBlock* counters = nullptr;
         MeshShaderPassExt* AsMeshShaderExt() noexcept override { return this; }
-        void SetPipeline(RenderPipeline*) override {}
-        void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+        void SetPipeline(RenderPipeline*) override { counters->PipelineBinds(); }
+        void SetBindGroup(u32, BindGroup*, Span<const u32>) override { counters->BindGroupBinds(); }
         void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
         void SetVertexBuffer(u32, Buffer*, u64) override {}
         void SetIndexBuffer(Buffer*, IndexFormat, u64) override {}
@@ -133,37 +142,43 @@ export namespace foundation::rhi::null
         void SetScissor(i32, i32, u32, u32) override {}
         void SetBlendConstant(f32, f32, f32, f32) override {}
         void SetStencilReference(u32) override {}
-        void Draw(u32, u32, u32, u32) override {}
-        void DrawIndexed(u32, u32, u32, i32, u32) override {}
-        void DrawIndirect(Buffer*, u64, u32, u32) override {}
-        void DrawIndexedIndirect(Buffer*, u64, u32, u32) override {}
-        void ExecuteBundles(Span<RenderBundle* const>) override {}
+        void Draw(u32, u32, u32, u32) override { counters->Draws(); }
+        void DrawIndexed(u32, u32, u32, i32, u32) override { counters->Draws(); }
+        void DrawIndirect(Buffer*, u64, u32 drawCount, u32) override { counters->Draws(drawCount); }
+        void DrawIndexedIndirect(Buffer*, u64, u32 drawCount, u32) override { counters->Draws(drawCount); }
+        void ExecuteBundles(Span<RenderBundle* const> bundles) override
+        {
+            for (RenderBundle* bundle : bundles)
+            {
+                static_cast<NullRenderBundle*>(bundle)->counts.AddTo(*counters);
+            }
+        }
         void WriteTimestamp(QuerySet*, u32) override {}
         void BeginOcclusionQuery(QuerySet*, u32) override {}
         void EndOcclusionQuery(QuerySet*, u32) override {}
         void End() override {}
-        void SetMeshPipeline(MeshPipeline*) override {}
-        void DrawMeshTasks(u32, u32, u32) override {}
-        void DrawMeshTasksIndirect(Buffer*, u64, u32, u32) override {}
-        void DrawMeshTasksIndirectCount(Buffer*, u64, Buffer*, u64, u32, u32) override {}
-    };
-
-    class NullRenderBundle : public RenderBundle
-    {
+        void SetMeshPipeline(MeshPipeline*) override { counters->PipelineBinds(); }
+        void DrawMeshTasks(u32, u32, u32) override { counters->Draws(); }
+        void DrawMeshTasksIndirect(Buffer*, u64, u32 drawCount, u32) override { counters->Draws(drawCount); }
+        void DrawMeshTasksIndirectCount(Buffer*, u64, Buffer*, u64, u32 maxDrawCount, u32) override
+        {
+            counters->Draws(maxDrawCount); // the count is on the GPU: at most this many
+        }
     };
 
     class NullRenderBundleEncoder : public RenderBundleEncoder
     {
     public:
-        void SetPipeline(RenderPipeline*) override {}
-        void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+        // Counts what it records into its bundle (counted when the bundle runs), not the device.
+        void SetPipeline(RenderPipeline*) override { ++bundle.counts.pipelineBinds; }
+        void SetBindGroup(u32, BindGroup*, Span<const u32>) override { ++bundle.counts.bindGroupBinds; }
         void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
         void SetVertexBuffer(u32, Buffer*, u64) override {}
         void SetIndexBuffer(Buffer*, IndexFormat, u64) override {}
-        void Draw(u32, u32, u32, u32) override {}
-        void DrawIndexed(u32, u32, u32, i32, u32) override {}
-        void DrawIndirect(Buffer*, u64, u32, u32) override {}
-        void DrawIndexedIndirect(Buffer*, u64, u32, u32) override {}
+        void Draw(u32, u32, u32, u32) override { ++bundle.counts.draws; }
+        void DrawIndexed(u32, u32, u32, i32, u32) override { ++bundle.counts.draws; }
+        void DrawIndirect(Buffer*, u64, u32 drawCount, u32) override { bundle.counts.draws += drawCount; }
+        void DrawIndexedIndirect(Buffer*, u64, u32 drawCount, u32) override { bundle.counts.draws += drawCount; }
         RenderBundle* Finish() override { return &bundle; }
         NullRenderBundle bundle;
     };
@@ -171,11 +186,12 @@ export namespace foundation::rhi::null
     class NullComputePassEncoder : public ComputePassEncoder
     {
     public:
-        void SetPipeline(ComputePipeline*) override {}
-        void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+        DeviceCounterBlock* counters = nullptr;
+        void SetPipeline(ComputePipeline*) override { counters->PipelineBinds(); }
+        void SetBindGroup(u32, BindGroup*, Span<const u32>) override { counters->BindGroupBinds(); }
         void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
-        void Dispatch(u32, u32, u32) override {}
-        void DispatchIndirect(Buffer*, u64) override {}
+        void Dispatch(u32, u32, u32) override { counters->Dispatches(); }
+        void DispatchIndirect(Buffer*, u64) override { counters->Dispatches(); }
         void ComputeBarrier() override {}
         void WriteTimestamp(QuerySet*, u32) override {}
         void End() override {}
@@ -190,10 +206,33 @@ export namespace foundation::rhi::null
         NullRenderBundleEncoder rbe;
         NullCommandBuffer cb;
 
-        RenderPassEncoder* BeginRenderPass(const RenderPassDesc&) override { return &rpe; }
-        ComputePassEncoder* BeginComputePass(StringView) override { return &cpe; }
+        DeviceCounterBlock* counters = nullptr;
+
+        // Made by a NullCommandPool, it counts into its device; made on its own (tests), into a
+        // block of its own.
+        NullCommandEncoder() noexcept { Wire(m_standalone); }
+        explicit NullCommandEncoder(DeviceCounterBlock& block) noexcept { Wire(block); }
+        void Wire(DeviceCounterBlock& block) noexcept
+        {
+            counters = &block;
+            rpe.counters = &block;
+            cpe.counters = &block;
+        }
+        DeviceCounterBlock m_standalone;
+
+        RenderPassEncoder* BeginRenderPass(const RenderPassDesc&) override
+        {
+            counters->RenderPass();
+            return &rpe;
+        }
+        ComputePassEncoder* BeginComputePass(StringView) override
+        {
+            counters->ComputePass();
+            return &cpe;
+        }
         RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override
         {
+            rbe.bundle.counts = RecordedCounts{};
             return &rbe;
         }
         void Barrier(const BarrierGroup&) override {}
@@ -221,18 +260,20 @@ export namespace foundation::rhi::null
         {
         }
         void BuildTopLevelAccelStruct(AccelStruct*, Buffer*, u64, Buffer*, u64, u32) override {}
-        void SetRayTracingPipeline(RayTracingPipeline*) override {}
-        void SetBindGroup(u32, BindGroup*, Span<const u32>) override {}
+        void SetRayTracingPipeline(RayTracingPipeline*) override { counters->PipelineBinds(); }
+        void SetBindGroup(u32, BindGroup*, Span<const u32>) override { counters->BindGroupBinds(); }
         void SetPushConstants(ShaderStage, u32, u32, const void*) override {}
         void TraceRays(Buffer*, u64, u64, Buffer*, u64, u64, Buffer*, u64, u64, u32, u32,
                        u32) override
         {
+            counters->Dispatches();
         }
     };
 
     class NullCommandPool : public CommandPool
     {
     public:
+        explicit NullCommandPool(DeviceCounterBlock& counters) noexcept : enc(counters) {}
         NullCommandEncoder enc;
         Status CreateEncoder(CommandEncoder*& out) override
         {
@@ -243,6 +284,7 @@ export namespace foundation::rhi::null
         void Reset() override {}
         RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc&) override
         {
+            enc.rbe.bundle.counts = RecordedCounts{};
             return &enc.rbe;
         }
     };
@@ -250,10 +292,12 @@ export namespace foundation::rhi::null
     class NullTransferBatch : public TransferBatch
     {
     public:
-        void WriteBuffer(Buffer*, u64, Span<const u8>) override {}
-        void WriteTexture(Texture*, Span<const u8>, const TextureDataLayout&, Extent3D, u32,
+        DeviceCounterBlock* counters = nullptr;
+        void WriteBuffer(Buffer*, u64, Span<const u8> data) override { counters->Transfer(data.Size()); }
+        void WriteTexture(Texture*, Span<const u8> data, const TextureDataLayout&, Extent3D, u32,
                           u32) override
         {
+            counters->Transfer(data.Size());
         }
         Status Submit() override { return ErrorCode::Ok; }
         Status SubmitAsync(Fence*, u64) override { return ErrorCode::Ok; }
@@ -327,10 +371,14 @@ export namespace foundation::rhi::null
     public:
         NullQueue gfxQueue, compQueue, xferQueue;
         IAllocator& m_allocator;
+        DeviceCounterBlock m_counters;
 
         explicit NullDevice(IAllocator& allocator) : m_allocator(allocator)
         {
             type = DeviceType::Null;
+            gfxQueue.tb.counters = &m_counters;
+            compQueue.tb.counters = &m_counters;
+            xferQueue.tb.counters = &m_counters;
             gfxQueue.queueType = QueueType::Graphics;
             compQueue.queueType = QueueType::Compute;
             xferQueue.queueType = QueueType::Transfer;
@@ -342,6 +390,11 @@ export namespace foundation::rhi::null
         }
 
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
+
+        // What it was asked to do, and the memory its resources would take (from their descs).
+        [[nodiscard]] DeviceCounters Counters() const noexcept override { return m_counters.Snapshot(); }
+        [[nodiscard]] bool MemoryBudget(u64&, u64&) const override { return false; } // no driver
+
         // No statistics: a statistics result takes no room and reads as zeros.
         [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
         {
@@ -377,6 +430,7 @@ export namespace foundation::rhi::null
             auto* b = m_allocator.New<NullBuffer>();
             b->desc = d;
             b->allocate(d.size);
+            m_counters.BufferMade(d.size);
             out = b;
             return ErrorCode::Ok;
         }
@@ -384,6 +438,7 @@ export namespace foundation::rhi::null
         {
             auto* t = m_allocator.New<NullTexture>();
             t->desc = d;
+            m_counters.TextureMade(EstimateTextureBytes(d), CountsAsRenderTarget(d));
             out = t;
             return ErrorCode::Ok;
         }
@@ -440,7 +495,7 @@ export namespace foundation::rhi::null
         }
         Status CreateCommandPool(QueueType, CommandPool*& out) override
         {
-            out = m_allocator.New<NullCommandPool>();
+            out = m_allocator.New<NullCommandPool>(m_counters);
             return ErrorCode::Ok;
         }
         Status CreateFence(u64, Fence*& out) override
@@ -469,11 +524,15 @@ export namespace foundation::rhi::null
 
         void DestroyBuffer(Buffer*& x) override
         {
+            if (x != nullptr)
+                m_counters.BufferFreed(x->desc.size);
             m_allocator.Delete(x);
             x = nullptr;
         }
         void DestroyTexture(Texture*& x) override
         {
+            if (x != nullptr)
+                m_counters.TextureFreed(EstimateTextureBytes(x->desc), CountsAsRenderTarget(x->desc));
             m_allocator.Delete(x);
             x = nullptr;
         }

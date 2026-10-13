@@ -66,6 +66,9 @@ export namespace foundation::rhi
             // Queue::CalibrateTimestamps can read a GPU timestamp and the CPU's clock together
             // (Vulkan calibrated timestamps, D3D12 GetClockCalibration).
             bool timestampCalibration = false;
+            // Device::MemoryBudget answers (Vulkan VK_EXT_memory_budget, DXGI
+            // QueryVideoMemoryInfo).
+            bool memoryBudget = false;
             bool pipelineStatisticsQueries = false;
             // Begin/EndOcclusionQuery inside render passes. WebGPU cannot honor the
             // RHI's begin-anywhere shape until RenderPassDesc declares the query set

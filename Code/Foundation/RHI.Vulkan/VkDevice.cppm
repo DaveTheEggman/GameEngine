@@ -128,6 +128,10 @@ export namespace foundation::rhi::vk
             {
                 exts.PushBack(calibration);
             }
+            if (adapter->supportsMemoryBudget())
+            {
+                exts.PushBack("VK_EXT_memory_budget");
+            }
 
             // Feature chain.
             VkPhysicalDeviceVulkan13Features features13{};
@@ -231,6 +235,7 @@ export namespace foundation::rhi::vk
                     auto* vkQ = m_allocator.New<VkQueueImpl>(
                         q, qt, static_cast<u32>(family), tsPeriod, this, m_device,
                         adapter->physicalDevice(), m_allocator);
+                    vkQ->counters = &m_counters;
                     m_allQueues.PushBack(vkQ);
                     switch (qt)
                     {
@@ -427,6 +432,33 @@ export namespace foundation::rhi::vk
             return out;
         }
 
+        DeviceCounters Counters() const noexcept override { return m_counters.Snapshot(); }
+
+        // The device-local heaps' budget and this process's use of them (VK_EXT_memory_budget).
+        bool MemoryBudget(u64& budgetBytes, u64& usedBytes) const override
+        {
+            if (!features.memoryBudget)
+                return false;
+            VkPhysicalDeviceMemoryBudgetPropertiesEXT budget{};
+            budget.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT;
+            VkPhysicalDeviceMemoryProperties2 props{};
+            props.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+            props.pNext = &budget;
+            vkGetPhysicalDeviceMemoryProperties2(m_adapter->physicalDevice(), &props);
+            u64 total = 0, used = 0;
+            for (u32 i = 0; i < props.memoryProperties.memoryHeapCount; ++i)
+            {
+                if ((props.memoryProperties.memoryHeaps[i].flags & VK_MEMORY_HEAP_DEVICE_LOCAL_BIT) != 0)
+                {
+                    total += budget.heapBudget[i];
+                    used += budget.heapUsage[i];
+                }
+            }
+            budgetBytes = total;
+            usedBytes = used;
+            return true;
+        }
+
         /// Read the device's timestamp and the host clock together (Queue::CalibrateTimestamps).
         bool calibrateTimestamps(u64& gpuTimestamp, u64& cpuTicks)
         {
@@ -474,6 +506,7 @@ export namespace foundation::rhi::vk
                 out = nullptr;
                 return ErrorCode::Unknown;
             }
+            m_counters.BufferMade(b->allocationSize());
             out = b;
             return ErrorCode::Ok;
         }
@@ -486,6 +519,7 @@ export namespace foundation::rhi::vk
                 out = nullptr;
                 return ErrorCode::Unknown;
             }
+            m_counters.TextureMade(t->allocationSize(), CountsAsRenderTarget(d));
             out = t;
             return ErrorCode::Ok;
         }
@@ -602,6 +636,7 @@ export namespace foundation::rhi::vk
         {
             auto* p = m_allocator.New<VkCommandPoolImpl>();
             p->ownerDevice = this;
+            p->counters = &m_counters;
             if (p->init(m_device, m_adapter, qt, m_allocator) != ErrorCode::Ok)
             {
                 m_allocator.Delete(p);
@@ -753,6 +788,7 @@ export namespace foundation::rhi::vk
         {
             if (b)
             {
+                m_counters.BufferFreed(static_cast<VkBufferImpl*>(b)->allocationSize());
                 static_cast<VkBufferImpl*>(b)->cleanup(m_device);
                 m_allocator.Delete(static_cast<VkBufferImpl*>(b));
                 b = nullptr;
@@ -762,6 +798,8 @@ export namespace foundation::rhi::vk
         {
             if (t)
             {
+                m_counters.TextureFreed(static_cast<VkTextureImpl*>(t)->allocationSize(),
+                                        CountsAsRenderTarget(t->desc));
                 static_cast<VkTextureImpl*>(t)->cleanup(m_device);
                 m_allocator.Delete(static_cast<VkTextureImpl*>(t));
                 t = nullptr;
@@ -985,6 +1023,7 @@ export namespace foundation::rhi::vk
         bool m_bindlessEnabled = false;
         bool m_validationEnabled = false;
         PFN_vkGetCalibratedTimestampsEXT m_getCalibratedTimestamps = nullptr;
+        DeviceCounterBlock m_counters; // what its encoders recorded and its resources hold
         BindingShifts m_bindingShifts = BindingShifts::standard();
         VkDescriptorPoolManager* m_poolManager = nullptr;
 

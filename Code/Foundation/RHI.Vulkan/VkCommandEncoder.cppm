@@ -43,8 +43,10 @@ export namespace foundation::rhi::vk
         VkCommandEncoderImpl(VkCommandBuffer cmdBuf, VkDevice device, VkCommandPoolImpl* pool,
                              IAllocator& allocator)
             : m_cmdBuf(cmdBuf), m_device(device), m_pool(pool), m_allocator(allocator),
-              m_rpe(cmdBuf, device), m_cpe(cmdBuf)
+              m_rpe(cmdBuf, device), m_cpe(cmdBuf), m_counters(pool != nullptr ? pool->counters : nullptr)
         {
+            m_rpe.setCounters(m_counters);
+            m_cpe.setCounters(m_counters);
         }
 
         // ---- CommandEncoder ----
@@ -142,10 +144,17 @@ export namespace foundation::rhi::vk
                 ri.flags |= VK_RENDERING_CONTENTS_SECONDARY_COMMAND_BUFFERS_BIT;
 
             vkCmdBeginRendering(m_cmdBuf, &ri);
+            if (m_counters)
+                m_counters->RenderPass();
             return &m_rpe;
         }
 
-        ComputePassEncoder* BeginComputePass(StringView) override { return &m_cpe; }
+        ComputePassEncoder* BeginComputePass(StringView) override
+        {
+            if (m_counters)
+                m_counters->ComputePass();
+            return &m_cpe;
+        }
 
         RenderBundleEncoder* CreateRenderBundleEncoder(const RenderBundleDesc& desc) override
         {
@@ -584,6 +593,7 @@ export namespace foundation::rhi::vk
         IAllocator& m_allocator;
         VkRenderPassEncoderImpl m_rpe;
         VkComputePassEncoderImpl m_cpe;
+        DeviceCounterBlock* m_counters = nullptr;
 
         // RT state.
         VkRayTracingPipelineImpl* m_currentRtPipeline = nullptr;
@@ -600,6 +610,8 @@ export namespace foundation::rhi::vk
         if (m_currentRtPipeline)
             vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
                               m_currentRtPipeline->handle());
+        if (m_counters)
+            m_counters->PipelineBinds();
     }
 
     inline void VkCommandEncoderImpl::SetBindGroup(u32 index, BindGroup* group,
@@ -612,6 +624,8 @@ export namespace foundation::rhi::vk
         vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR,
                                 m_currentRtPipeline->vkLayout()->handle(), index, 1, &set,
                                 static_cast<u32>(dynOffsets.Size()), dynOffsets.Data());
+        if (m_counters)
+            m_counters->BindGroupBinds();
     }
 
     inline void VkCommandEncoderImpl::SetPushConstants(ShaderStage stages, u32 offset, u32 size,
@@ -652,6 +666,8 @@ export namespace foundation::rhi::vk
                 vkGetDeviceProcAddr(m_device, "vkCmdTraceRaysKHR"));
         if (m_pfnTrace)
             m_pfnTrace(m_cmdBuf, &rgn, &msn, &htn, &cal, w, h, d);
+        if (m_pfnTrace && m_counters)
+            m_counters->Dispatches(); // a trace counts as a dispatch
     }
 
     inline void VkCommandEncoderImpl::BuildBottomLevelAccelStruct(
@@ -812,6 +828,8 @@ export namespace foundation::rhi::vk
         if (m_currentMeshPipeline)
             vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                               m_currentMeshPipeline->handle());
+        if (m_counters)
+            m_counters->PipelineBinds();
     }
 
     void VkRenderPassEncoderImpl::DrawMeshTasks(u32 gx, u32 gy, u32 gz)
@@ -821,6 +839,8 @@ export namespace foundation::rhi::vk
                 vkGetDeviceProcAddr(m_device, "vkCmdDrawMeshTasksEXT"));
         if (m_pfnDrawMesh)
             m_pfnDrawMesh(m_cmdBuf, gx, gy, gz);
+        if (m_pfnDrawMesh && m_counters)
+            m_counters->Draws();
     }
 
     void VkRenderPassEncoderImpl::DrawMeshTasksIndirect(Buffer* buf, u64 offset, u32 drawCount,
@@ -835,6 +855,8 @@ export namespace foundation::rhi::vk
         if (m_pfnDrawMeshIndirect)
             m_pfnDrawMeshIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount,
                                   stride > 0 ? stride : 12);
+        if (m_pfnDrawMeshIndirect && m_counters)
+            m_counters->Draws(drawCount);
     }
 
     void VkRenderPassEncoderImpl::DrawMeshTasksIndirectCount(Buffer* buf, u64 offset,
@@ -851,6 +873,8 @@ export namespace foundation::rhi::vk
         if (m_pfnDrawMeshIndCount)
             m_pfnDrawMeshIndCount(m_cmdBuf, vkBuf->handle(), offset, vkCb->handle(), countOffset,
                                   maxDrawCount, stride > 0 ? stride : 12);
+        if (m_pfnDrawMeshIndCount && m_counters)
+            m_counters->Draws(maxDrawCount); // the count is on the GPU: at most this many
     }
 
     // ---- CommandPool out-of-line implementations ----

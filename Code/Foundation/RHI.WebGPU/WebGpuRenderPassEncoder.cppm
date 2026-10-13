@@ -31,6 +31,8 @@ export namespace foundation::rhi::webgpu
     class WebGpuRenderPassEncoder final : public RenderPassEncoder
     {
     public:
+        DeviceCounterBlock* counters = nullptr; // the device's counts; set by the command encoder
+
         // `width` x `height`: the pass's render area (its attachments' size), which scissors are
         // clipped to.
         void Begin(const WebGpuApi& api, WGPUDevice device, WGPURenderPassEncoder encoder, u32 width,
@@ -48,6 +50,8 @@ export namespace foundation::rhi::webgpu
             auto* wgpuPipeline = static_cast<WebGpuRenderPipeline*>(pipeline);
             m_api->wgpuRenderPassEncoderSetPipeline(m_encoder, wgpuPipeline->Handle());
             m_pushConstants.SetPipeline(wgpuPipeline->PushConstants());
+            if (counters)
+                counters->PipelineBinds();
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
@@ -55,6 +59,8 @@ export namespace foundation::rhi::webgpu
             m_api->wgpuRenderPassEncoderSetBindGroup(
                 m_encoder, index, static_cast<WebGpuBindGroup*>(group)->Handle(),
                 dynamicOffsets.Size(), dynamicOffsets.Data());
+            if (counters)
+                counters->BindGroupBinds();
         }
 
         void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override
@@ -125,6 +131,8 @@ export namespace foundation::rhi::webgpu
             FlushPushConstants();
             m_api->wgpuRenderPassEncoderDraw(m_encoder, vertexCount, instanceCount, firstVertex,
                                              firstInstance);
+            if (counters)
+                counters->Draws();
         }
 
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
@@ -133,6 +141,8 @@ export namespace foundation::rhi::webgpu
             FlushPushConstants();
             m_api->wgpuRenderPassEncoderDrawIndexed(m_encoder, indexCount, instanceCount,
                                                     firstIndex, baseVertex, firstInstance);
+            if (counters)
+                counters->Draws();
         }
 
         void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
@@ -144,6 +154,8 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuRenderPassEncoderDrawIndirect(m_encoder, handle,
                                                          offset + static_cast<u64>(i) * stride);
             }
+            if (counters)
+                counters->Draws(drawCount);
         }
 
         void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
@@ -155,6 +167,8 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuRenderPassEncoderDrawIndexedIndirect(
                     m_encoder, handle, offset + static_cast<u64>(i) * stride);
             }
+            if (counters)
+                counters->Draws(drawCount);
         }
 
         void ExecuteBundles(Span<RenderBundle* const> bundles) override
@@ -169,6 +183,8 @@ export namespace foundation::rhi::webgpu
                     count = 0;
                 }
                 handles[count++] = static_cast<WebGpuRenderBundle*>(bundle)->Handle();
+                if (counters) // a bundle's recorded work, each time it runs
+                    static_cast<WebGpuRenderBundle*>(bundle)->counts.AddTo(*counters);
             }
             if (count > 0)
             {

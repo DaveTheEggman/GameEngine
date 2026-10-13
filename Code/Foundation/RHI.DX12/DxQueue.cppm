@@ -30,6 +30,8 @@ export namespace foundation::rhi::dx12
     public:
         explicit DxQueueImpl(IAllocator& allocator) noexcept : m_allocator(allocator) {}
 
+        DeviceCounterBlock* counters = nullptr; // the device's counts; its transfer batches bump them
+
         Status init(ID3D12Device* device, QueueType type, DxDeviceImpl* owner)
         {
             queueType = type;
@@ -108,6 +110,7 @@ export namespace foundation::rhi::dx12
                 m_allocator.Delete(batch);
                 return ErrorCode::Unknown;
             }
+            batch->counters = counters;
             out = batch;
             return ErrorCode::Ok;
         }

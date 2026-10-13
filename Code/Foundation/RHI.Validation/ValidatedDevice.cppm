@@ -72,6 +72,11 @@ export namespace foundation::rhi::validation
         {
             return m_inner->GetFormatSupport(f);
         }
+        DeviceCounters Counters() const noexcept override { return m_inner->Counters(); }
+        bool MemoryBudget(u64& budgetBytes, u64& usedBytes) const override
+        {
+            return m_inner->MemoryBudget(budgetBytes, usedBytes);
+        }
         u32 QueryResultSize(QueryType type) const noexcept override
         {
             return m_inner->QueryResultSize(type);

@@ -47,6 +47,8 @@ export namespace foundation::rhi::webgpu
 
         [[nodiscard]] WGPURenderBundle Handle() const { return m_bundle; }
 
+        RecordedCounts counts; // what it recorded, counted each time it is executed
+
     private:
         const WebGpuApi* m_api = nullptr;
         WGPURenderBundle m_bundle = nullptr;
@@ -86,6 +88,7 @@ export namespace foundation::rhi::webgpu
             auto* wgpuPipeline = static_cast<WebGpuRenderPipeline*>(pipeline);
             m_api->wgpuRenderBundleEncoderSetPipeline(m_encoder, wgpuPipeline->Handle());
             m_pushConstants.SetPipeline(wgpuPipeline->PushConstants());
+            ++m_recorded.pipelineBinds;
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynamicOffsets) override
@@ -93,6 +96,7 @@ export namespace foundation::rhi::webgpu
             m_api->wgpuRenderBundleEncoderSetBindGroup(
                 m_encoder, index, static_cast<WebGpuBindGroup*>(group)->Handle(),
                 dynamicOffsets.Size(), dynamicOffsets.Data());
+            ++m_recorded.bindGroupBinds;
         }
 
         void SetPushConstants(ShaderStage, u32 offset, u32 size, const void* data) override
@@ -127,6 +131,7 @@ export namespace foundation::rhi::webgpu
             FlushPushConstants();
             m_api->wgpuRenderBundleEncoderDraw(m_encoder, vertexCount, instanceCount,
                                                firstVertex, firstInstance);
+            ++m_recorded.draws;
         }
 
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
@@ -135,6 +140,7 @@ export namespace foundation::rhi::webgpu
             FlushPushConstants();
             m_api->wgpuRenderBundleEncoderDrawIndexed(m_encoder, indexCount, instanceCount,
                                                       firstIndex, baseVertex, firstInstance);
+            ++m_recorded.draws;
         }
 
         void DrawIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
@@ -146,6 +152,7 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuRenderBundleEncoderDrawIndirect(
                     m_encoder, handle, offset + static_cast<u64>(i) * stride);
             }
+            m_recorded.draws += drawCount;
         }
 
         void DrawIndexedIndirect(Buffer* buffer, u64 offset, u32 drawCount, u32 stride) override
@@ -157,6 +164,7 @@ export namespace foundation::rhi::webgpu
                 m_api->wgpuRenderBundleEncoderDrawIndexedIndirect(
                     m_encoder, handle, offset + static_cast<u64>(i) * stride);
             }
+            m_recorded.draws += drawCount;
         }
 
         RenderBundle* Finish() override
@@ -168,6 +176,7 @@ export namespace foundation::rhi::webgpu
             m_encoder = nullptr;
             auto* bundle = m_allocator->New<WebGpuRenderBundle>();
             bundle->Adopt(*m_api, handle);
+            bundle->counts = m_recorded;
             m_bundles.PushBack(bundle); // owned until the encoder wrapper dies
             return bundle;
         }
@@ -185,6 +194,8 @@ export namespace foundation::rhi::webgpu
         }
 
     private:
+        RecordedCounts m_recorded;
+
         /// Upload + bind any pending emulated push-constant block before a bundle draw. The
         /// value is captured once here at record time (bundles are static). No-op for pipelines
         /// that use native immediates.

@@ -28,6 +28,8 @@ export namespace foundation::rhi::webgpu
     class WebGpuCommandPool final : public CommandPool
     {
     public:
+        DeviceCounterBlock* counters = nullptr; // the device's counts; set by the device
+
         void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator,
                         WebGpuBlitHelper& blitHelper)
         {
@@ -41,6 +43,7 @@ export namespace foundation::rhi::webgpu
         {
             auto* encoder = m_allocator->New<WebGpuCommandEncoder>();
             encoder->Initialize(*m_api, m_device, *m_allocator, *m_blitHelper);
+            encoder->SetCounters(counters);
             m_encoders.PushBack(encoder);
             out = encoder;
             return ErrorCode::Ok;

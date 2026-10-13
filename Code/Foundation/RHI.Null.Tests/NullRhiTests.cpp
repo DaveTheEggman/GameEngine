@@ -137,3 +137,95 @@ TEST_CASE("rhi.format: every uncompressed format has a byte size, every compress
     CHECK(BytesPerPixel(TextureFormat::RGBA16Snorm) == 8u);
 }
 
+
+TEST_CASE("rhi.counters: a frame of known work counts what it did, a bundle each time it runs")
+{
+    // The device's counts for the profiler (Specs/profiler.md, P2): totals since it was made.
+    null::NullDevice device{DefaultAllocator()};
+    CommandPool* pool = nullptr;
+    REQUIRE(device.CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* enc = nullptr;
+    REQUIRE(pool->CreateEncoder(enc).IsOk());
+
+    // A bundle of two draws and a bind, recorded once.
+    RenderBundleEncoder* bundleEncoder = enc->CreateRenderBundleEncoder(RenderBundleDesc{});
+    REQUIRE(bundleEncoder != nullptr);
+    bundleEncoder->SetBindGroup(0, nullptr, {});
+    bundleEncoder->Draw(3);
+    bundleEncoder->DrawIndexed(6);
+    RenderBundle* bundle = bundleEncoder->Finish();
+    CHECK(device.Counters().draws == 0u); // recording a bundle draws nothing yet
+
+    RenderPassEncoder* pass = enc->BeginRenderPass(RenderPassDesc{});
+    pass->SetPipeline(nullptr);
+    pass->SetBindGroup(0, nullptr, {});
+    pass->SetBindGroup(1, nullptr, {});
+    pass->Draw(3);
+    pass->DrawIndexed(36);
+    pass->DrawIndirect(nullptr, 0, 4, 16);
+    RenderBundle* bundles[] = {bundle, bundle};
+    pass->ExecuteBundles(Span<RenderBundle* const>(bundles, 2)); // the bundle runs twice
+    pass->End();
+    ComputePassEncoder* compute = enc->BeginComputePass();
+    compute->SetPipeline(nullptr);
+    compute->Dispatch(8, 8, 1);
+    compute->DispatchIndirect(nullptr, 0);
+    compute->End();
+    TransferBatch* batch = nullptr;
+    REQUIRE(device.GetQueue(QueueType::Graphics, 0)->CreateTransferBatch(batch).IsOk());
+    const u8 bytes[100] = {};
+    batch->WriteBuffer(nullptr, 0, Span<const u8>(bytes, 100));
+
+    const DeviceCounters c = device.Counters();
+    CHECK(c.draws == 2u + 4u + 2u * 2u); // two direct, four indirect, the bundle's two twice
+    CHECK(c.renderPasses == 1u);
+    CHECK(c.computePasses == 1u);
+    CHECK(c.dispatches == 2u);
+    CHECK(c.pipelineBinds == 2u);       // render and compute
+    CHECK(c.bindGroupBinds == 2u + 2u); // the pass's two, the bundle's one twice
+    CHECK(c.transferBytes == 100u);
+    device.DestroyCommandPool(pool);
+}
+
+TEST_CASE("rhi.counters: memory held rises and falls with buffers and textures, render targets apart")
+{
+    null::NullDevice device{DefaultAllocator()};
+    BufferDesc bd{};
+    bd.size = 1024;
+    Buffer* buffer = nullptr;
+    REQUIRE(device.CreateBuffer(bd, buffer).IsOk());
+    TextureDesc td{};
+    td.format = TextureFormat::RGBA8Unorm;
+    td.width = 64;
+    td.height = 64;
+    td.usage = TextureUsage::Sampled;
+    Texture* texture = nullptr;
+    REQUIRE(device.CreateTexture(td, texture).IsOk());
+    Texture* target = nullptr;
+    REQUIRE(device.CreateTexture(TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 32, 32), target).IsOk());
+
+    DeviceCounters c = device.Counters();
+    CHECK(c.bufferBytes == 1024u);
+    CHECK(c.buffers == 1u);
+    CHECK(c.textureBytes == 64u * 64u * 4u);
+    CHECK(c.renderTargetBytes == 32u * 32u * 4u);
+    CHECK(c.textures == 2u);
+
+    device.DestroyTexture(target);
+    device.DestroyBuffer(buffer);
+    c = device.Counters();
+    CHECK(c.bufferBytes == 0u);
+    CHECK(c.renderTargetBytes == 0u);
+    CHECK(c.textureBytes == 64u * 64u * 4u);
+    CHECK(c.textures == 1u);
+    device.DestroyTexture(texture);
+    CHECK(device.Counters().textures == 0u);
+
+    // Every mip, every layer: a 64x64 RGBA8 with a full chain of 7 levels, 2 layers.
+    td.mipLevelCount = 7;
+    td.arrayLayerCount = 2;
+    CHECK(EstimateTextureBytes(td) == 2u * 4u * (4096u + 1024u + 256u + 64u + 16u + 4u + 1u));
+    u64 budget = 5, used = 6;
+    CHECK_FALSE(device.MemoryBudget(budget, used)); // no driver to ask
+    CHECK(budget == 5u);
+}

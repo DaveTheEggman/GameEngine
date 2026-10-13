@@ -168,3 +168,49 @@ TEST_CASE("vk.queries: a statistics query resolves to a record the device decode
     device->DestroyQuerySet(set);
     device->Destroy();
 }
+
+TEST_CASE("vk.counters: memory held follows real allocations, and the driver reports its budget")
+{
+    Backend* backend = nullptr;
+    Device* device = MakeDevice(backend);
+    if (device == nullptr)
+    {
+        MESSAGE("no Vulkan adapter - skipped");
+        return;
+    }
+    const DeviceCounters before = device->Counters();
+    BufferDesc bd{};
+    bd.size = 1u << 20;
+    bd.usage = BufferUsage::Storage;
+    bd.label = u8"vk.counters.buffer";
+    Buffer* buffer = nullptr;
+    REQUIRE(device->CreateBuffer(bd, buffer).IsOk());
+    Texture* target = nullptr;
+    REQUIRE(device->CreateTexture(TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 256, 256), target).IsOk());
+    const DeviceCounters held = device->Counters();
+    // What the driver allocated: at least what was asked (it may round up).
+    CHECK(held.bufferBytes - before.bufferBytes >= bd.size);
+    CHECK(held.renderTargetBytes - before.renderTargetBytes >= 256u * 256u * 4u);
+    CHECK(held.buffers == before.buffers + 1u);
+    CHECK(held.textures == before.textures + 1u);
+    device->DestroyTexture(target);
+    device->DestroyBuffer(buffer);
+    const DeviceCounters after = device->Counters();
+    CHECK(after.bufferBytes == before.bufferBytes);
+    CHECK(after.renderTargetBytes == before.renderTargetBytes);
+
+    u64 budget = 0, used = 0;
+    if (device->features.memoryBudget)
+    {
+        REQUIRE(device->MemoryBudget(budget, used));
+        MESSAGE("memory budget ", budget >> 20, " MiB, used ", used >> 20, " MiB");
+        CHECK(budget > 0u);
+        CHECK(used <= budget * 2u);
+    }
+    else
+    {
+        CHECK_FALSE(device->MemoryBudget(budget, used));
+        MESSAGE("no VK_EXT_memory_budget on this adapter");
+    }
+    device->Destroy();
+}

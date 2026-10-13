@@ -31,6 +31,8 @@ export namespace foundation::rhi::dx12
     class DxTransferBatchImpl : public TransferBatch
     {
     public:
+        DeviceCounterBlock* counters = nullptr; // the device's counts (transfer bytes)
+
         Status init(ID3D12Device* device, ID3D12CommandQueue* queue, QueueType queueType)
         {
             m_device = device;
@@ -79,6 +81,8 @@ export namespace foundation::rhi::dx12
             auto* dxDst = static_cast<DxBufferImpl*>(dst);
             if (!dxDst || data.Size() == 0)
                 return;
+            if (counters)
+                counters->Transfer(data.Size());
 
             ensureRecording();
 
@@ -125,6 +129,8 @@ export namespace foundation::rhi::dx12
             auto* dxTex = static_cast<DxTextureImpl*>(dst);
             if (!dxTex || data.Size() == 0)
                 return;
+            if (counters)
+                counters->Transfer(data.Size());
 
             ensureRecording();
 

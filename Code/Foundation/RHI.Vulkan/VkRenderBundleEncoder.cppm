@@ -35,8 +35,13 @@ export namespace foundation::rhi::vk
     class VkRenderBundleImpl : public RenderBundle
     {
     public:
-        explicit VkRenderBundleImpl(VkCommandBuffer cmdBuf) : m_cmdBuf(cmdBuf) {}
+        VkRenderBundleImpl(VkCommandBuffer cmdBuf, const RecordedCounts& recorded)
+            : counts(recorded), m_cmdBuf(cmdBuf)
+        {
+        }
         [[nodiscard]] VkCommandBuffer handle() const noexcept { return m_cmdBuf; }
+
+        RecordedCounts counts; // what it recorded, counted each time it is executed
 
     private:
         VkCommandBuffer m_cmdBuf = VK_NULL_HANDLE;
@@ -62,6 +67,7 @@ export namespace foundation::rhi::vk
             if (m_currentPipeline)
                 vkCmdBindPipeline(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS,
                                   m_currentPipeline->handle());
+            ++m_recorded.pipelineBinds;
         }
 
         void SetBindGroup(u32 index, BindGroup* group, Span<const u32> dynOffsets) override
@@ -74,6 +80,7 @@ export namespace foundation::rhi::vk
             vkCmdBindDescriptorSets(m_cmdBuf, VK_PIPELINE_BIND_POINT_GRAPHICS, layout->handle(),
                                     index, 1, &set, static_cast<u32>(dynOffsets.Size()),
                                     dynOffsets.Data());
+            ++m_recorded.bindGroupBinds;
         }
 
         void SetPushConstants(ShaderStage stages, u32 offset, u32 size, const void* data) override
@@ -105,6 +112,7 @@ export namespace foundation::rhi::vk
         void Draw(u32 vertexCount, u32 instanceCount, u32 firstVertex, u32 firstInstance) override
         {
             vkCmdDraw(m_cmdBuf, vertexCount, instanceCount, firstVertex, firstInstance);
+            ++m_recorded.draws;
         }
 
         void DrawIndexed(u32 indexCount, u32 instanceCount, u32 firstIndex, i32 baseVertex,
@@ -112,6 +120,7 @@ export namespace foundation::rhi::vk
         {
             vkCmdDrawIndexed(m_cmdBuf, indexCount, instanceCount, firstIndex, baseVertex,
                              firstInstance);
+            ++m_recorded.draws;
         }
 
         void DrawIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override
@@ -121,6 +130,7 @@ export namespace foundation::rhi::vk
                 return;
             vkCmdDrawIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount,
                               stride > 0 ? stride : 16);
+            m_recorded.draws += drawCount;
         }
 
         void DrawIndexedIndirect(Buffer* buf, u64 offset, u32 drawCount, u32 stride) override
@@ -130,6 +140,7 @@ export namespace foundation::rhi::vk
                 return;
             vkCmdDrawIndexedIndirect(m_cmdBuf, vkBuf->handle(), offset, drawCount,
                                      stride > 0 ? stride : 20);
+            m_recorded.draws += drawCount;
         }
 
         // End recording; the produced bundle (owned by the pool) wraps the secondary buffer.
@@ -141,7 +152,7 @@ export namespace foundation::rhi::vk
             }
             m_finished = true;
             vkEndCommandBuffer(m_cmdBuf);
-            m_bundle = m_allocator.New<VkRenderBundleImpl>(m_cmdBuf);
+            m_bundle = m_allocator.New<VkRenderBundleImpl>(m_cmdBuf, m_recorded);
             return m_bundle;
         }
 
@@ -153,6 +164,7 @@ export namespace foundation::rhi::vk
         VkRenderPipelineImpl* m_currentPipeline = nullptr;
         VkRenderBundleImpl* m_bundle = nullptr;
         bool m_finished = false;
+        RecordedCounts m_recorded;
     };
 
 } // namespace foundation::rhi::vk

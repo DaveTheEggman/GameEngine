@@ -53,7 +53,7 @@ export namespace foundation::rhi::vk
         Status CreateTransferBatch(TransferBatch*& out) override
         {
             out = m_allocator.New<VkTransferBatchImpl>(m_vkDevice, m_queue, m_familyIndex,
-                                                       m_physDevice);
+                                                       m_physDevice, counters);
             return ErrorCode::Ok;
         }
         void DestroyTransferBatch(TransferBatch*& batch) override
@@ -74,6 +74,8 @@ export namespace foundation::rhi::vk
         [[nodiscard]] VkQueue handle() const { return m_queue; }
         [[nodiscard]] u32 familyIndex() const { return m_familyIndex; }
         [[nodiscard]] VkDeviceImpl* owner() const { return m_device; }
+        /// The device's counts its transfer batches bump (Device::Counters).
+        DeviceCounterBlock* counters = nullptr;
 
     private:
         VkQueue m_queue = VK_NULL_HANDLE;

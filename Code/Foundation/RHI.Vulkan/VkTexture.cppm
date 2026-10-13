@@ -76,6 +76,7 @@ export namespace foundation::rhi::vk
             ai.memoryTypeIndex = static_cast<u32>(memType);
 
             const VkResult memRes = vkAllocateMemory(device, &ai, nullptr, &m_memory);
+            m_allocationSize = memRes == VK_SUCCESS ? memReqs.size : 0;
             if (memRes != VK_SUCCESS)
             {
                 // GPU texture allocation failed. Log it (throttled so a failure storm can't flood): the
@@ -183,7 +184,11 @@ export namespace foundation::rhi::vk
             m_subresourceLayouts.Clear();
         }
 
+        /// The bytes the driver allocated for it (Device::Counters); 0 for an image it does not own.
+        [[nodiscard]] u64 allocationSize() const noexcept { return m_allocationSize; }
+
     private:
+        u64 m_allocationSize = 0;
         VkImage m_image = VK_NULL_HANDLE;
         VkDeviceMemory m_memory = VK_NULL_HANDLE;
         bool m_ownsImage = true;

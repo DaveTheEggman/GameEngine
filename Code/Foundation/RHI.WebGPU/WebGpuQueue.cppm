@@ -33,6 +33,8 @@ export namespace foundation::rhi::webgpu
     public:
         WebGpuQueue() = default;
 
+        DeviceCounterBlock* counters = nullptr; // the device's counts; its transfer batches bump them
+
         void Initialize(const WebGpuApi& api, WGPUInstance instance, WGPUDevice device,
                         WGPUQueue queue, IAllocator& allocator, QueueType type,
                         WebGpuBufferRegistry& bufferRegistry)
@@ -149,6 +151,7 @@ export namespace foundation::rhi::webgpu
         {
             auto* batch = m_allocator->New<WebGpuTransferBatch>();
             batch->Initialize(*m_api, m_instance, m_device, m_queue, *m_allocator);
+            batch->counters = counters;
             out = batch;
             return ErrorCode::Ok;
         }

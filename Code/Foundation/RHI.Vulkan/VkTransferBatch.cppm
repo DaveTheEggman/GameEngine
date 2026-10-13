@@ -29,9 +29,9 @@ export namespace foundation::rhi::vk
     {
     public:
         VkTransferBatchImpl(VkDevice device, VkQueue queue, u32 queueFamilyIndex,
-                            VkPhysicalDevice physDevice)
+                            VkPhysicalDevice physDevice, DeviceCounterBlock* counters)
             : m_device(device), m_physDevice(physDevice), m_queue(queue),
-              m_queueFamilyIndex(queueFamilyIndex)
+              m_queueFamilyIndex(queueFamilyIndex), m_counters(counters)
         {
         }
 
@@ -44,6 +44,10 @@ export namespace foundation::rhi::vk
             if (!mapped)
                 return;
             std::memcpy(static_cast<u8*>(mapped) + m_stagingOffset, data.Data(), data.Size());
+            if (m_counters)
+                m_counters->Transfer(data.Size());
+            if (m_counters)
+                m_counters->Transfer(data.Size());
             m_bufferCopies.PushBack({dst, dstOffset, m_stagingOffset, data.Size()});
             m_stagingOffset = (m_stagingOffset + data.Size() + 15) & ~static_cast<u64>(15);
         }
@@ -351,6 +355,7 @@ export namespace foundation::rhi::vk
         Array<TexCopy> m_textureCopies;
         VkFenceImpl* m_asyncFence = nullptr;
         u64 m_asyncValue = 0;
+        DeviceCounterBlock* m_counters = nullptr; // the device's counts (transfer bytes)
     };
 
 } // namespace foundation::rhi::vk

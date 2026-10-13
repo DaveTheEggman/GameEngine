@@ -39,6 +39,9 @@ export namespace foundation::rhi::webgpu
     class WebGpuCommandEncoder final : public CommandEncoder
     {
     public:
+        /// The device's counts this encoder and its passes bump (Device::Counters).
+        void SetCounters(DeviceCounterBlock* counters) noexcept { m_counters = counters; }
+
         void Initialize(const WebGpuApi& api, WGPUDevice device, IAllocator& allocator,
                         WebGpuBlitHelper& blitHelper)
         {
@@ -155,6 +158,9 @@ export namespace foundation::rhi::webgpu
                 height = Max(sized->texture->desc.height >> sized->desc.baseMipLevel, 1u);
             }
             m_renderPass.Begin(*m_api, m_device, pass, width, height);
+            m_renderPass.counters = m_counters;
+            if (m_counters)
+                m_counters->RenderPass();
             return &m_renderPass;
         }
 
@@ -166,6 +172,9 @@ export namespace foundation::rhi::webgpu
             const WGPUComputePassEncoder pass =
                 m_api->wgpuCommandEncoderBeginComputePass(m_encoder, &wgpuDesc);
             m_computePass.Begin(*m_api, m_device, pass);
+            m_computePass.counters = m_counters;
+            if (m_counters)
+                m_counters->ComputePass();
             return &m_computePass;
         }
 
@@ -480,6 +489,7 @@ export namespace foundation::rhi::webgpu
         WGPUCommandEncoder m_encoder = nullptr;
         WebGpuRenderPassEncoder m_renderPass;
         WebGpuComputePassEncoder m_computePass;
+        DeviceCounterBlock* m_counters = nullptr;
         WebGpuCommandBuffer m_commandBuffer;
         WGPUBuffer m_queryScratch = nullptr;
         u64 m_queryScratchSize = 0;
