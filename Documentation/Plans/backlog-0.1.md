@@ -53,6 +53,11 @@
   payloads, on both languages; the fifth sample needs it. The networking docs page's "What is
   missing" list then loses its first line.
 
+- **Debug views hold still under TAA** (user 2026-10-13): a debug view (albedo, normals,
+  roughness, depth, ...) shows a buffer from before the TAA resolve, which TAA's sub-pixel jitter
+  shifts every frame, so its edges shimmer. While a view shows a debug view, draw it unjittered
+  (the pipeline applies the jitter where `post.taaEnabled`), with a test that a debug view's
+  projection carries no jitter.
 - **Smoother shadow edges** (user 2026-10-12; found checking the toon's shadows): a directional
   shadow is filtered by a fixed 3x3 PCF grid (`SampleCascade` in `Data/Shaders/lighting.hlsli`),
   at 1024 texels per cascade (`kShadowResolution`, `ShadowSystem.cppm`). Soft shading hides the
@@ -129,12 +134,7 @@ website and the flagship game.
   - **a showcase game**: the engine's flagship, released on Steam. Separate from the sample
     games in this repository and not part of it (its own project and repository); the samples
     stay the engine's examples.
-  The items marked for 0.1 above (the documentation, the shader gallery and the fifth sample
-  below) belong to it.
-- **Shader Gallery, the custom shaders sample, before 0.1** (user 2026-10-12): a sample project
-  of eleven commented lesson shaders, surface and low-level, in a hall to fly through, a list that
-  flies the camera to each. PLAN: `Specs/shader-gallery.md`. It takes the custom shader showcase
-  over from the fifth sample.
+  The items marked for 0.1 above (the documentation and the fifth sample below) belong to it.
 - **A fifth sample game, on networking and crowds, before 0.1** (user 2026-10-09): no sample
   project uses the network stack or crowds yet, so neither has been showcased or stressed in a
   game. The fifth sample in `Data/SampleProjects/` built around both: players over the network
