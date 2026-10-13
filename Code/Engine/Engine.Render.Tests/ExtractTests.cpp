@@ -303,6 +303,37 @@ TEST_CASE("ExtractSceneInto carries a mesh's fade, clamped, and draws a faded op
     CHECK(glassy == 1u);
 }
 
+TEST_CASE("extract: a skinned mesh in a scene that is not simulating reports no motion")
+{
+    // The animator's last two poses stay a step apart while nothing advances them; drawn as
+    // motion, TAA kept dropping its history on a paused character.
+    scene::Scene scene{DefaultAllocator()};
+    auto* meshes = scene.AddSystem<MeshComponentManager>();
+    RefPtr<geometry::StaticMesh> mesh = geometry::Primitives::Quad(DefaultAllocator());
+    const Float4x4 pose[1] = {Float4x4::Translation(Float3{0.1f, 0.0f, 0.0f})};
+    const Float4x4 lastPose[1] = {Float4x4::Identity()};
+    MeshComponent& m = meshes->Add(scene.CreateEntity());
+    m.mesh = mesh;
+    m.SetMaterial(materials::MaterialBuilder(u8"skin").Shader(u8"forward").Build());
+    m.boneMatrices = pose;
+    m.prevBoneMatrices = lastPose;
+    m.boneCount = 1;
+    scene.UpdateTransforms();
+
+    ExtractedScene running{DefaultAllocator()};
+    ExtractSceneInto(scene, running);
+    REQUIRE(running.Size() == 1);
+    CHECK(static_cast<const MeshRenderData*>(running.Items()[0])->prevBoneMatrices == lastPose);
+
+    scene.SetSimulationEnabled(false);
+    ExtractedScene paused{DefaultAllocator()};
+    ExtractSceneInto(scene, paused);
+    REQUIRE(paused.Size() == 1);
+    const auto* md = static_cast<const MeshRenderData*>(paused.Items()[0]);
+    CHECK(md->boneMatrices == pose);         // still drawn in its pose
+    CHECK(md->prevBoneMatrices == nullptr);  // and that pose as last frame's: no motion
+}
+
 TEST_CASE("instanced-mesh: seeded identity instance + entity-relative composition")
 {
     scene::Scene scene(DefaultAllocator(), u8"world");

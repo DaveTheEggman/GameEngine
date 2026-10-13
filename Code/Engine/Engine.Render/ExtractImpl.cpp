@@ -103,7 +103,11 @@ namespace engine::render
         // its default 0 - the MeshRenderer is the first-registered renderer, so mesh data routes to it.
         rd.sortBatchKey = BatchKey(mc.mesh.Get(), primary);
         rd.boneMatrices = mc.boneMatrices; // borrowed for the frame (GPU skinning); null => static
-        rd.prevBoneMatrices = mc.prevBoneMatrices; // borrowed; null => reuse current (no motion)
+        // Borrowed; null => reuse current (no motion). A scene that is not simulating (the Game tab's
+        // pause, a debugger break) runs no animation, so the pose holds still, but the animator's
+        // last two poses stay a step apart: drawn as motion, TAA dropped its history on every
+        // skinned character every frame and they shimmered.
+        rd.prevBoneMatrices = scene.SimulationEnabled() ? mc.prevBoneMatrices : nullptr;
         rd.boneCount = mc.boneCount;
         rd.lodBias = mc.lodBias; // per-view selection happens in the renderer (one snapshot, N views)
         rd.forceLod = mc.forceLod;
