@@ -182,13 +182,17 @@ export namespace foundation::net
         [[nodiscard]] Span<const NetPeer> Peers() const noexcept { return m_peers.AsSpan(); }
         [[nodiscard]] usize PeerCount() const noexcept { return m_peers.Size(); }
         [[nodiscard]] PeerId ServerPeer() const noexcept { return m_serverPeer; } // client-side
+        /// Client: the id the server gave this client (its PeerId on the server), from the welcome
+        /// the server sends when it accepts the connection; kInvalidPeer until then, and on a server.
+        [[nodiscard]] PeerId LocalPeer() const noexcept { return m_localPeer; }
         [[nodiscard]] TransportStats Stats(PeerId peer) const { return m_transport.Stats(peer); }
         [[nodiscard]] ReliableTransport& Transport() noexcept { return m_transport; }
 
     private:
         enum class ControlType : u8
         {
-            TimeSync = 0
+            TimeSync = 0,
+            Welcome = 1, // server -> a new client: the PeerId the server knows it by
         };
 
         void AddPeer(PeerId id)
@@ -201,6 +205,14 @@ export namespace foundation::net
                 }
             }
             m_peers.PushBack(NetPeer{id, m_nowMs});
+            if (IsServer())
+            {
+                // Tell the client who it is here: it names its own entities (an owner) by this id.
+                BitWriter w;
+                w.WriteU8(static_cast<u8>(ControlType::Welcome));
+                w.WriteU32(id);
+                m_transport.Send(id, kControlChannel, w.Data(), Reliability::ReliableOrdered);
+            }
         }
         void RemovePeer(PeerId id)
         {
@@ -221,6 +233,15 @@ export namespace foundation::net
             const u8 type = r.ReadU8();
             if (!r.Ok())
             {
+                return;
+            }
+            if (static_cast<ControlType>(type) == ControlType::Welcome && !IsServer())
+            {
+                const PeerId self = r.ReadU32();
+                if (r.Ok())
+                {
+                    m_localPeer = self;
+                }
                 return;
             }
             if (static_cast<ControlType>(type) == ControlType::TimeSync && !IsServer())
@@ -245,6 +266,7 @@ export namespace foundation::net
         ReliableTransport m_transport;
         NetRole m_role = NetRole::None;
         PeerId m_serverPeer = kInvalidPeer;
+        PeerId m_localPeer = kInvalidPeer; // client: its id on the server (the welcome)
         f64 m_nowMs = 0.0;
         Array<NetPeer> m_peers;
         Array<NetEvent> m_events;

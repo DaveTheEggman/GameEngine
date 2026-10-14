@@ -90,6 +90,42 @@ TEST_CASE("session: server tracks connected clients; disconnect updates the regi
     CHECK(server.PeerCount() == 1u);
 }
 
+TEST_CASE("session: the server welcomes each client with the id it knows it by")
+{
+    net::SimConditions sim;
+    sim.latencyMs = 20.0f;
+    sim.lossPct = 0.2f; // the welcome is reliable
+    sim.seed = 5;
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), sim);
+    net::IDatagramSocket* sv = network.CreateSocket();
+    net::NetSession server(*sv);
+    net::NetSession clientA(*network.CreateSocket());
+    net::NetSession clientB(*network.CreateSocket());
+    server.StartServer();
+    CHECK(clientA.LocalPeer() == net::kInvalidPeer); // not welcomed yet
+    clientA.Connect(sv->LocalEndpoint());
+    clientB.Connect(sv->LocalEndpoint());
+    for (int i = 0; i < 60; ++i)
+    {
+        network.Advance(10.0f);
+        server.Update(10.0f);
+        clientA.Update(10.0f);
+        clientB.Update(10.0f);
+    }
+    REQUIRE(server.PeerCount() == 2u);
+    CHECK(clientA.LocalPeer() != net::kInvalidPeer);
+    CHECK(clientB.LocalPeer() != net::kInvalidPeer);
+    CHECK(clientA.LocalPeer() != clientB.LocalPeer());
+    // Each client's id is one the server holds for it.
+    const bool aKnown = server.Peers()[0].id == clientA.LocalPeer() || server.Peers()[1].id == clientA.LocalPeer();
+    const bool bKnown = server.Peers()[0].id == clientB.LocalPeer() || server.Peers()[1].id == clientB.LocalPeer();
+    CHECK(aKnown);
+    CHECK(bKnown);
+    CHECK(server.LocalPeer() == net::kInvalidPeer); // the server is no one's client
+    // The welcome is the session's own business: no Received event leaks to the game.
+    CHECK(DrainReceived(clientA).IsEmpty());
+}
+
 TEST_CASE("session: client clock syncs to the server's authoritative time (RTT-adjusted)")
 {
     net::SimConditions sim;
