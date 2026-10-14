@@ -149,16 +149,19 @@ export namespace engine::navigation
                     // Live steering-profile changes (setSpeed / navigateAt / an inspector
                     // edit) push into the crowd - value-compared, so unchanged agents are
                     // one float compare each.
-                    if (a.maxSpeed != a.appliedSpeed || a.maxAcceleration != a.appliedAcceleration)
+                    if (a.maxSpeed != a.appliedSpeed || a.maxAcceleration != a.appliedAcceleration ||
+                        a.avoidOthers != a.appliedAvoidOthers)
                     {
                         nav::NavigationAgentParams params;
                         params.radius = a.radius;
                         params.height = a.height;
                         params.maxSpeed = a.maxSpeed;
                         params.maxAcceleration = a.maxAcceleration;
+                        params.avoidOthers = a.avoidOthers;
                         rz.crowd->SetAgentParams(a.agentId, params);
                         a.appliedSpeed = a.maxSpeed;
                         a.appliedAcceleration = a.maxAcceleration;
+                        a.appliedAvoidOthers = a.avoidOthers;
                     }
                     if (a.targetDirty)
                     {
@@ -170,6 +173,11 @@ export namespace engine::navigation
                     {
                         rz.crowd->ClearTarget(a.agentId);
                         a.stopRequested = false;
+                    }
+                    if (a.velocityDirty)
+                    {
+                        (void)rz.crowd->SetVelocity(a.agentId, TransformDirection(a.steerVelocity, rz.invWorld));
+                        a.velocityDirty = false;
                     }
                 });
 
@@ -204,7 +212,7 @@ export namespace engine::navigation
                     a.crowdDesiredSpeed = st.desiredSpeed;
                     a.pathCorners = st.cornerCount;
 
-                    if (a.moveEntity && a.hasTarget)
+                    if (a.moveEntity && (a.hasTarget || a.steering))
                     {
                         // NOTE: assumes an unparented agent (local transform == world). A
                         // parented agent would need a world->parent-local conversion.
@@ -328,6 +336,7 @@ export namespace engine::navigation
                         }
                         a.agentId = AddToCrowd(rz, a, m_scene->GetWorldPosition(entity));
                         a.targetDirty = a.hasTarget && !a.finished; // on its way again
+                        a.velocityDirty = a.steering;               // or moving as it was
                     });
             }
         }
@@ -372,8 +381,10 @@ export namespace engine::navigation
             ap.height = a.height;
             ap.maxSpeed = a.maxSpeed;
             ap.maxAcceleration = a.maxAcceleration;
+            ap.avoidOthers = a.avoidOthers;
             a.appliedSpeed = a.maxSpeed; // the live-change compare starts in sync
             a.appliedAcceleration = a.maxAcceleration;
+            a.appliedAvoidOthers = a.avoidOthers;
             return rz.crowd->AddAgent(TransformPoint(worldPos, rz.invWorld), ap);
         }
 

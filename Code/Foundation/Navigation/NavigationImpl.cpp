@@ -1085,6 +1085,21 @@ namespace foundation::navigation
 
     bool NavigationCrowd::IsValid() const noexcept { return m_impl->crowd != nullptr; }
 
+    namespace
+    {
+        // The crowd behaviours an agent runs: always the path smoothing, and the avoidance and
+        // separation unless it goes straight where it is sent.
+        unsigned char UpdateFlags(const NavigationAgentParams& params)
+        {
+            unsigned char flags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_VIS | DT_CROWD_OPTIMIZE_TOPO;
+            if (params.avoidOthers)
+            {
+                flags |= DT_CROWD_OBSTACLE_AVOIDANCE | DT_CROWD_SEPARATION;
+            }
+            return flags;
+        }
+    }
+
     i32 NavigationCrowd::AddAgent(Float3 position, const NavigationAgentParams& params)
     {
         if (m_impl->crowd == nullptr)
@@ -1101,8 +1116,7 @@ namespace foundation::navigation
         ap.pathOptimizationRange = params.radius * 30.0f;
         ap.separationWeight = 2.0f;
         ap.obstacleAvoidanceType = 3;
-        ap.updateFlags = DT_CROWD_ANTICIPATE_TURNS | DT_CROWD_OPTIMIZE_VIS |
-                         DT_CROWD_OPTIMIZE_TOPO | DT_CROWD_OBSTACLE_AVOIDANCE | DT_CROWD_SEPARATION;
+        ap.updateFlags = UpdateFlags(params);
         const float pos[3] = {position.x, position.y, position.z};
         return m_impl->crowd->addAgent(pos, &ap);
     }
@@ -1161,6 +1175,7 @@ namespace foundation::navigation
         ap.maxAcceleration = params.maxAcceleration;
         ap.collisionQueryRange = params.radius * 12.0f;
         ap.pathOptimizationRange = params.radius * 30.0f;
+        ap.updateFlags = UpdateFlags(params);
         m_impl->crowd->updateAgentParameters(agentId, &ap);
     }
 
@@ -1189,6 +1204,16 @@ namespace foundation::navigation
             return false;
         }
         return m_impl->crowd->requestMoveTarget(agentId, ref, nearest);
+    }
+
+    bool NavigationCrowd::SetVelocity(i32 agentId, Float3 velocity)
+    {
+        if (m_impl->crowd == nullptr || agentId < 0)
+        {
+            return false;
+        }
+        const float v[3] = {velocity.x, velocity.y, velocity.z};
+        return m_impl->crowd->requestMoveVelocity(agentId, v);
     }
 
     void NavigationCrowd::ClearTarget(i32 agentId)

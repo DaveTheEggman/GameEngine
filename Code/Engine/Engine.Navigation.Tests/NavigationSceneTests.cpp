@@ -641,3 +641,180 @@ TEST_CASE("navigation.scene: a warped agent is where it was sent, and walks on f
     scene.Stop();
     RemoveTree(u8"scratch_navwarp_db");
 }
+
+// move(vx, vz): an agent driven by a velocity (a player's stick) instead of to a point. No path is
+// planned, so it starts the frame it is asked, keeps the speed asked, and stands on move(0, 0).
+TEST_CASE("navigation.scene: an agent moved by a velocity goes at once, at that speed")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navmove_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navmove_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(DefaultAllocator(), u8"nav");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zoneComp.extents = Float3{15, 10, 15};
+    zoneComp.zone.SetId(zoneInstance->Id());
+    zoneComp.zone.Bind(manager);
+    scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
+    scene.SetLocalPosition(agentEntity, Float3{-5, 0, 0});
+    NavAgentComponent* agent = &scene.GetSystem<NavAgentComponentManager>()->Add(agentEntity);
+    agent->maxSpeed = 3.0f;
+    scene.UpdateTransforms();
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+    REQUIRE(agent->agentId >= 0);
+
+    // East at 1.5 m/s: moving within a few frames, then 1.5 m a second.
+    const f32 dt = 1.0f / 30.0f;
+    for (int step = 0; step < 3; ++step)
+    {
+        agent->move(1.5f, 0.0f);
+        scene.Update(dt);
+    }
+    CHECK(scene.GetWorldPosition(agentEntity).x > -5.0f + 0.01f);
+    const f32 before = scene.GetWorldPosition(agentEntity).x;
+    for (int step = 0; step < 60; ++step)
+    {
+        agent->move(1.5f, 0.0f);
+        scene.Update(dt);
+    }
+    const f32 travelled = scene.GetWorldPosition(agentEntity).x - before;
+    CHECK(travelled == doctest::Approx(3.0f).epsilon(0.1)); // 2 s at 1.5 m/s
+    CHECK(std::abs(scene.GetWorldPosition(agentEntity).z) < 0.1f);
+
+    // move(0, 0): it stands where it is, still in the crowd.
+    for (int step = 0; step < 30; ++step)
+    {
+        agent->move(0.0f, 0.0f);
+        scene.Update(dt);
+    }
+    const f32 stood = scene.GetWorldPosition(agentEntity).x;
+    for (int step = 0; step < 15; ++step)
+    {
+        scene.Update(dt);
+    }
+    CHECK(std::abs(scene.GetWorldPosition(agentEntity).x - stood) < 0.02f);
+
+    scene.SetSimulationEnabled(false);
+    scene.Stop();
+    RemoveTree(u8"scratch_navmove_db");
+}
+
+TEST_CASE("navigation.scene: a version 2 agent record reads as one that avoids others")
+{
+    RegisterNavigationComponentReflection();
+    const TypeInfo& type = TypeOf<NavAgentComponent>();
+    CHECK(type.dataVersion == 3u);
+    CHECK(type.minReadDataVersion == 2u);
+    foundation::xml::XmlDocument doc(DefaultAllocator());
+    REQUIRE(doc.Parse(u8"<root><f32 name=\"radius\">0.3</f32><f32 name=\"height\">1.7</f32>"
+                      u8"<f32 name=\"maxSpeed\">3</f32><f32 name=\"maxAcceleration\">6</f32>"
+                      u8"<bool name=\"moveEntity\">true</bool><f32 name=\"stopDistance\">0</f32></root>") ==
+            foundation::xml::XmlResult::Ok);
+    foundation::xml::XmlSerializer reader(doc);
+    const SerializedDataVersion chain[] = {{type.id, 2}};
+    reader.PushVersionScope(chain, 1);
+    NavAgentComponent agent;
+    Serialize(reader, agent);
+    reader.PopVersionScope();
+    CHECK(reader.IsOk()); // no avoidOthers asked of a version 2 record
+    CHECK(agent.avoidOthers);
+    CHECK(agent.radius == doctest::Approx(0.3f));
+}
+
+// avoidOthers: a velocity-driven agent that avoids others holds back from one standing in its way
+// (Detour's avoidance will not close on it: to a player, an invisible wall); one that does not
+// shoulders past, the crowd's collision step pushing the two apart as it goes.
+TEST_CASE("navigation.scene: an agent that does not avoid others shoulders past one in its way")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navavoid_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navavoid_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    // How far off its line (|z|) a walker driven east past a standing agent strays, the least gap
+    // between them, and where it ends up.
+    struct Run
+    {
+        f32 stray = 0.0f;
+        f32 closest = 100.0f;
+        f32 endX = 0.0f;
+    };
+    auto walk = [&](bool avoidOthers) -> Run
+    {
+        scene::Scene scene(DefaultAllocator(), u8"nav");
+        AddNavigationSceneManagers(scene);
+        scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+        NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+        zoneComp.extents = Float3{15, 10, 15};
+        zoneComp.zone.SetId(zoneInstance->Id());
+        zoneComp.zone.Bind(manager);
+        auto* agents = scene.GetSystem<NavAgentComponentManager>();
+        scene::EntityHandle standing = scene.CreateEntity(u8"standing");
+        scene.SetLocalPosition(standing, Float3{0, 0, 0.15f}); // a little off the line, as people are
+        agents->Add(standing).radius = 0.4f;
+        scene::EntityHandle walker = scene.CreateEntity(u8"walker");
+        scene.SetLocalPosition(walker, Float3{-4, 0, 0});
+        NavAgentComponent* w = &agents->Add(walker);
+        w->radius = 0.4f;
+        w->avoidOthers = avoidOthers;
+        scene.UpdateTransforms();
+        scene.Start();
+        scene.SetSimulationEnabled(true);
+        Run run;
+        for (int step = 0; step < 150; ++step) // 5 s at 30 Hz, 1.5 m/s
+        {
+            w = agents->Get(walker);
+            w->move(1.5f, 0.0f);
+            scene.Update(1.0f / 30.0f);
+            const Float3 p = scene.GetWorldPosition(walker);
+            const Float3 q = scene.GetWorldPosition(standing);
+            run.stray = Max(run.stray, std::abs(p.z));
+            run.closest = Min(run.closest, std::sqrt((p.x - q.x) * (p.x - q.x) + (p.z - q.z) * (p.z - q.z)));
+        }
+        run.endX = scene.GetWorldPosition(walker).x;
+        scene.SetSimulationEnabled(false);
+        scene.Stop();
+        return run;
+    };
+
+    const Run avoiding = walk(true);
+    const Run straight = walk(false);
+    CHECK(avoiding.closest > 1.0f);   // held back, short of the one in its way
+    CHECK(avoiding.endX < 0.0f);      // and never got past it
+    CHECK(straight.endX > 1.0f);      // past it
+    CHECK(straight.closest > 0.3f);   // brushing it aside (radii 0.4 + 0.4), not through its middle
+    CHECK(straight.stray < 0.5f);     // near its line
+    RemoveTree(u8"scratch_navavoid_db");
+}

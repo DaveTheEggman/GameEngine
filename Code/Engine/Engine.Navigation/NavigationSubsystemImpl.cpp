@@ -207,12 +207,18 @@ namespace engine::navigation
             .Attribute("description",
                        String(u8"Steers the entity to targets over the navigation mesh, "
                               u8"avoiding other agents."))
-            .DataVersion(2) // v2: stopDistance
+            .DataVersion(3) // v3: avoidOthers (v2: stopDistance)
+            .ReadsDataVersionsFrom(2) // a version 2 agent avoids others, as all did
             .Property<&NavAgentComponent::radius>("radius")
             .Property<&NavAgentComponent::height>("height")
             .Property<&NavAgentComponent::maxSpeed>("maxSpeed")
             .Property<&NavAgentComponent::maxAcceleration>("maxAcceleration")
             .Property<&NavAgentComponent::stopDistance>("stopDistance")
+            .Property<&NavAgentComponent::avoidOthers>("avoidOthers")
+            .PropAttribute("displayName", String(u8"Avoid Others"))
+            .PropAttribute("description",
+                           String(u8"Steer round other agents. Off, it goes straight where it is sent "
+                                  u8"and shoulders past anyone in its way (a player's character)"))
             .Property<&NavAgentComponent::moveEntity>("moveEntity")
             // Runtime API (Track A): NavAgent.of(entity) -> a re-resolving handle.
             .Method<&foundation::script::ComponentOf<NavAgentComponent>, NavAgentComponent>("of")
@@ -228,6 +234,7 @@ namespace engine::navigation
             .Method<&NavAgentComponent::corners>("corners")
             .Method<&NavAgentComponent::stop>("stop")
             .Method<&NavAgentComponent::warp>("warp", {"x", "y", "z"})
+            .Method<&NavAgentComponent::move>("move", {"vx", "vz"})
             .Method<&NavAgentComponent::finishedNav>("finished")
             .Method<&NavAgentComponent::remaining>("remaining")
             .Method<&NavAgentComponent::velocityX>("velocityX")

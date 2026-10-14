@@ -64,6 +64,10 @@ export namespace engine::navigation
         // MoveEntity (default): the agent writes the entity transform from crowd output.
         // ReportOnly: the entity is NOT moved; script/physics reads the desired velocity instead.
         bool moveEntity = true;
+        // Steer round other agents (on, the default: a guest in a crowd). Off, it goes straight
+        // where it is sent and shoulders past anyone in its way, the crowd pushing them apart (a
+        // player's character: avoiding, a velocity-driven agent holds back from anyone ahead of it).
+        bool avoidOthers = true;
 
         // Runtime (transient):
         i32 agentId = -1;   // crowd agent handle within its zone, -1 = not registered
@@ -73,12 +77,16 @@ export namespace engine::navigation
         bool targetDirty = false;   // a navigate() request the tick has not applied yet
         bool stopRequested = false; // a stop() request the tick has not applied yet
         bool warpRequested = false; // a warp() request the tick has not applied yet
+        bool steering = false;      // moving by move() (a velocity), not to a target
+        bool velocityDirty = false; // a move() request the tick has not applied yet
+        Float3 steerVelocity{0, 0, 0};
         Float3 warpTo{0, 0, 0};
         bool finished = true;
         f32 remainingDistance = 0.0f;
         Float3 desiredVelocity{0, 0, 0}; // crowd steering output (world space), for ReportOnly
         f32 appliedSpeed = -1.0f;        // steering profile last pushed into the crowd - the
         f32 appliedAcceleration = -1.0f; // tick re-applies on ANY change (script or inspector)
+        bool appliedAvoidOthers = true;
         // Introspection cache (filled from the crowd each tick; see the foundation enums):
         u8 crowdState = 0;       // NavAgentCrowdState: 0 invalid, 1 walking, 2 off-mesh
         u8 crowdTargetState = 0; // NavAgentTargetState: 0 none, 1 requesting, 2 valid,
@@ -91,6 +99,7 @@ export namespace engine::navigation
         void navigate(f32 x, f32 y, f32 z)
         {
             target = Float3{x, y, z};
+            steering = false;
             hasTarget = true;
             targetDirty = true;
             stopRequested = false;
@@ -99,6 +108,7 @@ export namespace engine::navigation
         // Halt where the agent is.
         void stop()
         {
+            steering = false;
             hasTarget = false;
             stopRequested = true;
             finished = true;
@@ -111,10 +121,25 @@ export namespace engine::navigation
         {
             warpTo = Float3{x, y, z};
             warpRequested = true;
+            steering = false;
             hasTarget = false;
             targetDirty = false;
             stopRequested = false;
             finished = true;
+        }
+        // Move at a velocity across the ground (m/s, world X and Z) instead of to a point: a
+        // player's stick, sent each frame. No path is planned, so it is answered at once; the crowd
+        // keeps the agent on the navmesh and out of others' way, and others out of its. Lasts until
+        // navigate(), stop() or warp(); move(0, 0) stands still, still in the crowd.
+        void move(f32 vx, f32 vz)
+        {
+            steerVelocity = Float3{vx, 0, vz};
+            steering = true;
+            velocityDirty = true;
+            hasTarget = false;
+            targetDirty = false;
+            stopRequested = false;
+            finished = vx == 0.0f && vz == 0.0f;
         }
         // Per-call speed control (Lumix parity): applies to the LIVE crowd agent next tick.
         void setSpeed(f32 speed) { maxSpeed = speed; }
@@ -190,6 +215,10 @@ export namespace engine::navigation
         foundation::core::Serialize(ar, "maxAcceleration", c.maxAcceleration);
         foundation::core::Serialize(ar, "moveEntity", c.moveEntity);
         foundation::core::Serialize(ar, "stopDistance", c.stopDistance);
+        if (ar.Mode() == SerializeMode::Write || ar.Version() >= 3) // a version 2 agent avoids others
+        {
+            foundation::core::Serialize(ar, "avoidOthers", c.avoidOthers);
+        }
     }
 
     class NavMeshZoneComponentManager final

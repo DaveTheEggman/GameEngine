@@ -62,6 +62,10 @@ export namespace foundation::navigation
         f32 height = 2.0f;
         f32 maxSpeed = 3.5f;
         f32 maxAcceleration = 8.0f;
+        // Steer round the others (velocity-sampled avoidance and separation). Off, the agent goes
+        // straight where it is sent (a player's character) and shoulders past anyone in its way:
+        // the crowd's collision step pushes the two apart, softly.
+        bool avoidOthers = true;
     };
 
     // A loaded single-tile navmesh (from NavigationMeshBuilder::Build output). Move-only; owns
@@ -161,6 +165,9 @@ export namespace foundation::navigation
         // Steer the agent toward `target` (snapped to the nearest polygon). False if the agent
         // is invalid or the target has no polygon within the search box.
         [[nodiscard]] bool SetTarget(i32 agentId, Float3 target);
+        // Drive the agent at `velocity` (m/s, the crowd's space) instead of to a point: no path, the
+        // crowd keeps it on the navmesh and avoiding others (a player's stick). False if invalid.
+        [[nodiscard]] bool SetVelocity(i32 agentId, Float3 velocity);
         void ClearTarget(i32 agentId);
 
         void Update(f32 deltaTime);
