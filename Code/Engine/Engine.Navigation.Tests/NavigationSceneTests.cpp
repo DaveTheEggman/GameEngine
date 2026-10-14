@@ -18,6 +18,8 @@ import foundation.scene;
 import foundation.navigation;
 import foundation.navigation.resource;
 import engine.navigation;
+import foundation.xml;               // XmlDocument (a version 1 zone record)
+import foundation.xml.serialization; // XmlSerializer
 
 using namespace foundation::core;
 using namespace foundation::navigation;
@@ -486,4 +488,82 @@ TEST_CASE("navigation.scene: a zone with no usable navmesh says so")
     CHECK(warnings.messages[0].AsView().StartsWith(u8"navigation zone 'Block zone' has no usable navmesh"));
     CHECK(scene.GetSystem<NavMeshZoneComponentManager>()->Get(zoneEntity)->runtimeIndex < 0);
     scene.Stop();
+}
+
+TEST_CASE("navigation.scene: a zone's maxAgents is how many agents its crowd moves")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navmax_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navmax_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob, 30.0f);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    // Joined agents in a zone of `limit` with `count` placed on its mesh.
+    auto joined = [&](i32 limit, i32 count)
+    {
+        scene::Scene scene(DefaultAllocator(), u8"navmax");
+        AddNavigationSceneManagers(scene);
+        const scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+        NavMeshZoneComponent& zone = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+        zone.extents = Float3{35, 10, 35};
+        zone.maxAgents = limit;
+        zone.zone.SetId(zoneInstance->Id());
+        zone.zone.Bind(manager);
+        auto* agents = scene.GetSystem<NavAgentComponentManager>();
+        for (i32 i = 0; i < count; ++i)
+        {
+            const scene::EntityHandle e = scene.CreateEntity();
+            scene.SetLocalPosition(e, Float3{-25.0f + static_cast<f32>(i % 25) * 2.0f, 0, -25.0f + static_cast<f32>(i / 25) * 2.0f});
+            NavAgentComponent& agent = agents->Add(e);
+            agent.radius = 0.3f;
+        }
+        scene.UpdateTransforms();
+        scene.Start();
+        i32 n = 0;
+        agents->ForEach([&](NavAgentComponent& a, scene::EntityHandle) { n += a.agentId >= 0 ? 1 : 0; });
+        scene.Stop();
+        return n;
+    };
+    CHECK(joined(200, 150) == 150); // Masquerade's crowd: past the old fixed 128
+    CHECK(joined(3, 5) == 3);       // a small zone takes only what it was given
+    RemoveTree(u8"scratch_navmax_db");
+}
+
+TEST_CASE("navigation.scene: a version 1 zone record reads with the default agent limit")
+{
+    RegisterNavigationComponentReflection();
+    const TypeInfo& type = TypeOf<NavMeshZoneComponent>();
+    CHECK(type.dataVersion == 2u);
+    CHECK(type.minReadDataVersion == 1u);
+    foundation::xml::XmlDocument doc(DefaultAllocator());
+    REQUIRE(doc.Parse(u8"<root><Float3 name=\"extents\"><f32 name=\"x\">20</f32><f32 name=\"y\">10</f32>"
+                      u8"<f32 name=\"z\">20</f32></Float3>"
+                      u8"<f32 name=\"cellSize\">0.3</f32><f32 name=\"cellHeight\">0.2</f32>"
+                      u8"<f32 name=\"agentRadius\">0.6</f32><f32 name=\"agentHeight\">2</f32>"
+                      u8"<f32 name=\"agentMaxClimb\">0.9</f32><f32 name=\"agentMaxSlopeDegrees\">45</f32>"
+                      u8"<string name=\"zone\">00000000-0000-0000-0000-000000000000</string></root>") ==
+            foundation::xml::XmlResult::Ok);
+    foundation::xml::XmlSerializer reader(doc);
+    const SerializedDataVersion chain[] = {{type.id, 1}};
+    reader.PushVersionScope(chain, 1);
+    NavMeshZoneComponent zone;
+    zone.maxAgents = 7;
+    Serialize(reader, zone);
+    reader.PopVersionScope();
+    CHECK(reader.IsOk()); // no maxAgents asked of a version 1 record
+    CHECK(zone.maxAgents == 7); // left as it was: the component's default (128) for a fresh one
+    CHECK(zone.agentRadius == doctest::Approx(0.6f));
 }

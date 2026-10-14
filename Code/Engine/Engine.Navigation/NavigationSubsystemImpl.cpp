@@ -186,7 +186,8 @@ namespace engine::navigation
             .Attribute("description",
                        String(u8"Marks a box where a navigation mesh is baked, and loads that "
                               u8"baked mesh for agents at run time."))
-            .DataVersion(1)
+            .DataVersion(2) // v2: maxAgents
+            .ReadsDataVersionsFrom(1)
             .Property<&NavMeshZoneComponent::extents>("extents")
             .Property<&NavMeshZoneComponent::cellSize>("cellSize")
             .Property<&NavMeshZoneComponent::cellHeight>("cellHeight")
@@ -194,7 +195,9 @@ namespace engine::navigation
             .Property<&NavMeshZoneComponent::agentHeight>("agentHeight")
             .Property<&NavMeshZoneComponent::agentMaxClimb>("agentMaxClimb")
             .Property<&NavMeshZoneComponent::agentMaxSlopeDegrees>("agentMaxSlopeDegrees")
-            .Property<&NavMeshZoneComponent::zone>("zone");
+            .Property<&NavMeshZoneComponent::zone>("zone")
+            .Property<&NavMeshZoneComponent::maxAgents>("maxAgents")
+            .PropAttribute("description", String(u8"The most agents that move in this zone at once"));
     }
 
     REFLECT_VALUE(NavAgentComponent, "rtti::engine::navigation")

@@ -42,6 +42,9 @@ export namespace engine::navigation
         f32 agentMaxSlopeDegrees = 45.0f;
         // The cooked navmesh this zone loads at runtime.
         foundation::resource::Ref<nav::NavigationZoneResource> zone;
+        // The most agents its crowd moves at once (data version 2; before, 128 fixed). A crowd
+        // reserves its agents up front, so ask for what the scene will use.
+        i32 maxAgents = 128;
 
         // Runtime (transient): index into the subsystem's live-zone list, -1 until started.
         i32 runtimeIndex = -1;
@@ -152,6 +155,10 @@ export namespace engine::navigation
         foundation::core::Serialize(ar, "agentMaxClimb", c.agentMaxClimb);
         foundation::core::Serialize(ar, "agentMaxSlopeDegrees", c.agentMaxSlopeDegrees);
         foundation::core::Serialize(ar, "zone", c.zone);
+        if (ar.Mode() == SerializeMode::Write || ar.Version() >= 2) // a version 1 zone keeps the default
+        {
+            foundation::core::Serialize(ar, "maxAgents", c.maxAgents);
+        }
     }
 
     inline void ResolveResources(foundation::resource::ResourceManager& manager,

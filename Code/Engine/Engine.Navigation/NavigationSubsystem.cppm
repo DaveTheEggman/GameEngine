@@ -228,8 +228,6 @@ export namespace engine::navigation
         }
 
     private:
-        static constexpr i32 kMaxAgentsPerZone = 128;
-
         struct RuntimeZone
         {
             // The navmesh product the crowd and query were built over, held so a reload (a re-bake
@@ -286,8 +284,11 @@ export namespace engine::navigation
             rz.product = RefPtr<nav::NavigationZoneResource>(&product);
             const f32 radius =
                 product.mesh.BakedAgentRadius() > 0.0f ? product.mesh.BakedAgentRadius() : 0.6f;
+            const NavMeshZoneComponent* zone =
+                m_scene != nullptr ? m_scene->GetSystem<NavMeshZoneComponentManager>()->Get(rz.entity) : nullptr;
+            const i32 maxAgents = zone != nullptr && zone->maxAgents > 0 ? zone->maxAgents : 128;
             rz.crowd = MakeUnique<nav::NavigationCrowd>(*m_allocator, *m_allocator, product.mesh,
-                                                        kMaxAgentsPerZone, radius);
+                                                        maxAgents, radius);
             rz.query = MakeUnique<nav::NavigationMeshQuery>(*m_allocator, *m_allocator, product.mesh);
         }
 
