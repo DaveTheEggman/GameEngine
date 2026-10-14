@@ -115,7 +115,7 @@ pattern ([[scene-ecs-port]]):
 ```
 InstancedMeshComponent {
  RefPtr<StaticMesh> mesh // shared by every instance
- RefPtr<Material> material
+ Array<Ref<Material>> materials // one per submesh slot, as MeshComponent's (slot 0 the whole mesh)
  Array<Mat4> instances // CPU source of truth (or compact TRS to halve size)
  Array<Color> tints // optional per-instance tint (else one shared)
  DirtyRegions dirty // block bitset (à la Godot MULTIMESH_DIRTY_REGION_SIZE)

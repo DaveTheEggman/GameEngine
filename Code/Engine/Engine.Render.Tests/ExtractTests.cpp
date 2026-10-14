@@ -636,6 +636,51 @@ TEST_CASE("extraction refreshes the material cache from the refs EVERY frame (la
     }
 }
 
+TEST_CASE("instanced-mesh: a material list draws a part per slot, and late binds heal")
+{
+    // An instanced mesh of several parts (a guest's body, gown and mask) carries a material per
+    // submesh slot, as a mesh does: slot 0 is the primary, several slots route per submesh, and
+    // the view is refreshed from the refs every frame.
+    scene::Scene scene(DefaultAllocator(), u8"world");
+    auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    RefPtr<materials::Material> matA = materials::MaterialBuilder(u8"a").Shader(u8"forward").Build();
+    RefPtr<materials::Material> matB = materials::MaterialBuilder(u8"b").Shader(u8"forward").Build();
+
+    InstancedMeshComponent& c = mgr->Add(scene.CreateEntity(u8"crowd"));
+    c.mesh = cube;
+    c.materials.PushBack(foundation::resource::Ref<materials::Material>(matA));
+    foundation::resource::Ref<materials::Material> late;
+    late.SetId(Guid{0x1, 0x2});
+    c.materials.PushBack(late);
+    scene.UpdateTransforms();
+
+    ExtractedScene first{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, first);
+    REQUIRE(first.Items().Size() == 1u);
+    {
+        const auto* rd = static_cast<const MultiMeshRenderData*>(first.Items()[0]);
+        CHECK(rd->material == matA.Get());
+        REQUIRE(rd->submeshMaterialCount == 2u);
+        CHECK(rd->submeshMaterials[1].Get() == nullptr); // not cooked yet
+    }
+
+    c.materials[1].SetDirect(RefPtr<materials::Material>(matB.Get()));
+    ExtractedScene second{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, second);
+    CHECK(static_cast<const MultiMeshRenderData*>(second.Items()[0])->submeshMaterials[1].Get() == matB.Get());
+
+    // One material covers the whole mesh: no submesh routing.
+    c.SetMaterial(matB);
+    ExtractedScene third{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, third);
+    {
+        const auto* rd = static_cast<const MultiMeshRenderData*>(third.Items()[0]);
+        CHECK(rd->material == matB.Get());
+        CHECK(rd->submeshMaterialCount == 0u);
+    }
+}
+
 TEST_CASE("extract: postTonemap sprites land in the WorldUI category (authored colors)")
 {
     scene::Scene scene{DefaultAllocator(), u8"world"};

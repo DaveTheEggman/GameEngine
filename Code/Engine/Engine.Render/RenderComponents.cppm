@@ -144,15 +144,21 @@ export namespace engine::render
     struct InstancedMeshComponent
     {
         foundation::resource::Ref<geometry::StaticMesh> mesh;
-        foundation::resource::Ref<materials::Material> material;
+        // The material list, indexed by SubMesh::materialIndex, as MeshComponent's: slot 0 doubles as
+        // the whole-mesh material, so a single-material mesh holds one entry, and a multi-material one
+        // (a character of several parts) one per slot. Saved and edited like a mesh's; `materialCache`
+        // is the raw view extraction refreshes from the refs each frame (runtime-only).
+        Array<foundation::resource::Ref<materials::Material>> materials;
+        Array<RefPtr<materials::Material>> materialCache;
         // Seed one identity instance so a freshly added component (editor workflow) renders its mesh
         // at the entity's transform immediately; authored sets replace it (SetInstances/load).
         InstancedMeshComponent() { instances.PushBack(Float4x4::Identity()); }
-        // Optional per-submesh materials (multi-material meshes): indexed by SubMesh::materialIndex. When
-        // non-empty each submesh draws with its own material; otherwise `material` covers the whole mesh.
-        // Runtime-only (RefPtr, not serialized) like MeshComponent's: per-submesh material REFS are
-        // owned by prefabs, which own the model->entity workflow.
-        Array<RefPtr<materials::Material>> submeshMaterials;
+        // One material for the whole mesh (native code's common case).
+        void SetMaterial(const RefPtr<materials::Material>& material)
+        {
+            materials.Resize(1);
+            materials[0] = material;
+        }
         // Per-instance transforms, ENTITY-RELATIVE: instance i draws at instances[i] * entityWorld,
         // so moving the owning entity moves the whole set (extraction composes + caches the world
         // array; a set on an unmoved identity entity costs the same as before).
@@ -506,7 +512,7 @@ export namespace engine::render
     inline void Serialize(ISerializer& ar, InstancedMeshComponent& c)
     {
         foundation::core::Serialize(ar, "mesh", c.mesh);
-        foundation::core::Serialize(ar, "material", c.material);
+        foundation::core::Serialize(ar, "materials", c.materials);
         foundation::core::Serialize(ar, "instances", c.instances);
         foundation::core::Serialize(ar, "color", c.color);
         foundation::core::Serialize(ar, "tints", c.tints);
@@ -522,7 +528,10 @@ export namespace engine::render
                                  InstancedMeshComponent& c)
     {
         c.mesh.Bind(manager);
-        c.material.Bind(manager);
+        for (foundation::resource::Ref<materials::Material>& material : c.materials)
+        {
+            material.Bind(manager);
+        }
     }
 
     // An entity drawn as one instance of another entity's InstancedMeshComponent, at its own world

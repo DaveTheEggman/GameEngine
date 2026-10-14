@@ -339,16 +339,23 @@ namespace engine::render
                 rd->instanceCount = drawnCount;
                 rd->version = c.composedVersion;
                 rd->mesh = c.mesh.Get();
-                rd->material = c.material.Get();
-                rd->submeshMaterials =
-                    c.submeshMaterials.IsEmpty() ? nullptr : c.submeshMaterials.Data();
-                rd->submeshMaterialCount = static_cast<u32>(c.submeshMaterials.Size());
+                // The raw material view, refreshed from the refs every frame (as a mesh's), so a late
+                // cook or a hot reload heals live; one per slot only when there are several.
+                c.materialCache.Resize(c.materials.Size());
+                for (usize m = 0; m < c.materials.Size(); ++m)
+                {
+                    c.materialCache[m] = RefPtr<materials::Material>(c.materials[m].Get());
+                }
+                materials::Material* primary = c.materialCache.IsEmpty() ? nullptr : c.materialCache[0].Get();
+                rd->material = primary;
+                rd->submeshMaterials = c.materialCache.Size() > 1 ? c.materialCache.Data() : nullptr;
+                rd->submeshMaterialCount = c.materialCache.Size() > 1 ? static_cast<u32>(c.materialCache.Size()) : 0u;
                 rd->color = ToLinear(c.color);
                 rd->worldCenter = c.cachedCenter; // merged bounds -> single-AABB cull + depth sort
                 rd->worldRadius = c.cachedRadius;
                 rd->entityId = PackEntity(e);
-                rd->category = CategoryForMaterial(c.material.Get());
-                rd->sortBatchKey = BatchKey(c.mesh.Get(), c.material.Get());
+                rd->category = CategoryForMaterial(primary);
+                rd->sortBatchKey = BatchKey(c.mesh.Get(), primary);
                 rd->posePool = c.posePool; // skinned crowds: shared pose pool (null => static)
                 rd->prevPosePool = c.prevPosePool;
                 rd->poseCount = c.poseCount;

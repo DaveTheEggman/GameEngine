@@ -536,7 +536,7 @@ namespace
                                                     ? *imm->Get(m_multiMeshEntity)
                                                     : imm->Add(m_multiMeshEntity);
             c.mesh = m_sphere;
-            c.material = m_sharedMat;
+            c.SetMaterial(m_sharedMat);
             c.SetInstances(
                 core::Span<const core::Float4x4>{m_mmTransforms.Data(), m_mmTransforms.Size()});
         }

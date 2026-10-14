@@ -215,6 +215,7 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
     Random rng(7);
     const Guid meshId = Guid::Generate(rng);
     const Guid matId = Guid::Generate(rng);
+    const Guid maskId = Guid::Generate(rng); // a second part: a multi-material mesh
 
     MemoryStream blob;
     {
@@ -223,7 +224,9 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
         const scene::EntityHandle e = scene.CreateEntity(u8"Scatter");
         InstancedMeshComponent& c = scene.GetSystem<InstancedMeshComponentManager>()->Add(e);
         c.mesh.SetId(meshId);
-        c.material.SetId(matId);
+        c.materials.Resize(2); // one per submesh slot
+        c.materials[0].SetId(matId);
+        c.materials[1].SetId(maskId);
         // Replace the editor-workflow seed (a fresh component starts with ONE identity instance).
         REQUIRE(c.Count() == 1u);
         const Float4x4 xf[2] = {Float4x4::Translation(Float3{1, 0, 0}),
@@ -256,7 +259,9 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
         [&](InstancedMeshComponent& ic, scene::EntityHandle) { c = &ic; });
     REQUIRE(c != nullptr);
     CHECK(c->mesh.id == meshId);
-    CHECK(c->material.id == matId);
+    REQUIRE(c->materials.Size() == 2u);
+    CHECK(c->materials[0].id == matId);
+    CHECK(c->materials[1].id == maskId);
     REQUIRE(c->Count() == 2u);
     CHECK(c->instances[0].m[3][0] == doctest::Approx(1.0f));
     CHECK(c->instances[1].m[3][1] == doctest::Approx(2.0f));

@@ -532,8 +532,18 @@ namespace
                     scene::EntityHandle e = m_scene->CreateEntity(u8"crowd_part");
                     engine::render::InstancedMeshComponent& c = imm->Add(e);
                     c.mesh = drawMeshes[p];
-                    c.material = drawMats[p];
-                    c.submeshMaterials = drawSubMats[p];
+                    if (drawSubMats[p].IsEmpty())
+                    {
+                        c.SetMaterial(drawMats[p]);
+                    }
+                    else
+                    {
+                        c.materials.Resize(drawSubMats[p].Size()); // one per submesh slot
+                        for (core::usize m = 0; m < drawSubMats[p].Size(); ++m)
+                        {
+                            c.materials[m] = drawSubMats[p][m];
+                        }
+                    }
                     c.tints =
                         clipTint[g]; // set BEFORE SetInstances (the version bump uploads them)
                     c.poseAssignment =

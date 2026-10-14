@@ -118,14 +118,14 @@ namespace engine::render
             .Method<&foundation::script::ComponentOf<InstancedMeshComponent>, InstancedMeshComponent>(
                 "of")
             .Property<&InstancedMeshComponent::mesh>("mesh")
-            .Property<&InstancedMeshComponent::material>("material")
+            .Property<&InstancedMeshComponent::materials>("materials")
             .Property<&InstancedMeshComponent::color>("color")
             .Property<&InstancedMeshComponent::visible>("visible")
             .Property<&InstancedMeshComponent::poseAssignment>("poseAssignment")
             .PropAttribute("description",
                            String(u8"How an animated instance picks its phase: Hashed (scattered), Sequential "
                                   u8"(by its order), Explicit (its pose index), Unison (all in step)"));
-        builder.DataVersion(1); // v1: poseAssignment, poseIndices, instanceClips
+        builder.DataVersion(1); // v1: the materials list, poseAssignment, poseIndices, instanceClips
     }
 
     REFLECT_VALUE(InstanceMemberComponent, "rtti::engine::render")

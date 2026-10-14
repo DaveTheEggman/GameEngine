@@ -425,8 +425,8 @@ namespace samples
             scene::EntityHandle ring = m_scene->CreateEntity(u8"ring");
             engine::render::InstancedMeshComponent& ic = instanced->Add(ring);
             ic.mesh = geometry::Primitives::Cube(AppRoot(), 0.3f);
-            ic.material = materials::CreatePBR(
-                u8"web.ring", core::Float4{0.3f, 0.8f, 0.5f, 1.0f}, 0.2f, 0.5f);
+            ic.SetMaterial(materials::CreatePBR(
+                u8"web.ring", core::Float4{0.3f, 0.8f, 0.5f, 1.0f}, 0.2f, 0.5f));
             ic.instances.Clear();
             constexpr core::u32 kCount = 256;
             for (core::u32 i = 0; i < kCount; ++i)
