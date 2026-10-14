@@ -52,6 +52,11 @@ TEST_CASE("editor-shell: builds the chrome with the global panels only")
     CHECK(shell.ProjectPanel()->PersistenceId() == u8"welcome");
     CHECK(shell.ConsolePanel()->PersistenceId() == u8"console");
     CHECK(shell.AssetsPanel()->PersistenceId() == u8"assets");
+    REQUIRE(shell.ProfilerTab() != nullptr);
+    CHECK(shell.ProfilerTab()->PersistenceId() == u8"profiler");
+    CHECK(shell.ProfilerTab()->Title() == StringView(u8"Profiler"));
+    CHECK(shell.Profiler() != nullptr);
+    CHECK_FALSE(shell.Profiler()->IsRecording()); // off until Record
     CHECK(shell.Docks()->FindPanelById(u8"assets") == shell.AssetsPanel());
     CHECK(shell.Docks()->FindPanelById(u8"viewport") == nullptr); // no global viewport panel
 
@@ -78,7 +83,11 @@ TEST_CASE("editor-shell: the default layout gives the document 70%, and the bott
     REQUIRE(consoleGroup != nullptr);
     CHECK(assetsGroup != consoleGroup);
     CHECK(assetsGroup->PanelCount() == 1);
-    CHECK(consoleGroup->PanelCount() == 1);
+    // The Console's group holds the Profiler tab too, the Console in front.
+    REQUIRE(consoleGroup->PanelCount() == 2);
+    CHECK(consoleGroup->GetPanel(0) == shell.ConsolePanel());
+    CHECK(consoleGroup->GetPanel(1) == shell.ProfilerTab());
+    CHECK(consoleGroup->SelectedIndex() == 0);
     auto* pane = Cast<ui::toolkit::DockSplit>(assetsGroup->Parent);
     REQUIRE(pane != nullptr);
     CHECK(pane == consoleGroup->Parent);
@@ -277,4 +286,60 @@ TEST_CASE("editor-layout: layout node round-trips nested splits through XML")
     CHECK(loaded.First->Second->ActiveTabIndex == 1);
     REQUIRE(loaded.Second->PanelIds.Size() == 1);
     CHECK(loaded.Second->PanelIds[0] == u8"d");
+}
+
+TEST_CASE("editor-shell: a layout saved before the Profiler tab puts it with the Console, not floating")
+{
+    EditorContext ctx{DefaultAllocator()};
+    EditorShell shell;
+    shell.Build(ctx, nullptr, 1280, 720);
+    RegisterEditorProjectSettingsTypes();
+
+    // A saved layout that does not name the Profiler: take it out of the tree, then save.
+    shell.Docks()->UndockPanel(shell.ProfilerTab());
+    foundation::settings::Settings store(foundation::core::DefaultAllocator());
+    REQUIRE(shell.SaveLayout(store).IsOk());
+    struct Find
+    {
+        static bool Id(const ui::toolkit::DockLayoutNode* node, StringView id)
+        {
+            if (node == nullptr)
+            {
+                return false;
+            }
+            for (const String& panel : node->PanelIds)
+            {
+                if (panel.AsView() == id)
+                {
+                    return true;
+                }
+            }
+            return Id(node->First.Get(), id) || Id(node->Second.Get(), id);
+        }
+    };
+    REQUIRE_FALSE(Find::Id(store.Find<EditorDockLayoutSettings>()->root.Get(), u8"profiler"));
+
+    REQUIRE(shell.RestoreLayout(store).IsOk());
+    CHECK(shell.ProfilerTab()->Parent == shell.ConsolePanel()->Parent); // docked with it
+    auto* group = Cast<ui::toolkit::DockTabGroup>(shell.ConsolePanel()->Parent);
+    REQUIRE(group != nullptr);
+    CHECK(group->GetPanel(group->SelectedIndex()) == shell.ConsolePanel());
+
+    // View > Profiler brings it forward.
+    shell.ShowProfiler();
+    CHECK(group->GetPanel(group->SelectedIndex()) == shell.ProfilerTab());
+
+    // Closed (its close button), a tool panel hides, it is not destroyed, and the recording
+    // stops; View > Profiler docks it with the Console again.
+    shell.Profiler()->Start();
+    REQUIRE(shell.Profiler()->IsRecording());
+    shell.ProfilerTab()->RequestClose();
+    CHECK_FALSE(shell.Profiler()->IsRecording());
+    REQUIRE(shell.Docks()->FindPanelById(u8"profiler") == shell.ProfilerTab());
+    CHECK(shell.ProfilerTab()->Parent == nullptr);
+    shell.ShowProfiler();
+    CHECK(shell.ProfilerTab()->Parent == shell.ConsolePanel()->Parent);
+    auto* again = Cast<ui::toolkit::DockTabGroup>(shell.ProfilerTab()->Parent);
+    REQUIRE(again != nullptr);
+    CHECK(again->GetPanel(again->SelectedIndex()) == shell.ProfilerTab());
 }

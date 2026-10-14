@@ -1,8 +1,8 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: P0 (the capture store), P1 (GPU timings and statistics), P2 (the RHI's counters), P3
-> (the stream, capture files and `profiler_capture`) and P4 (`Profiler.UI` and the overlay) BUILT
-> 2026-10-13; P5 (the editor's panel) to come. Decisions taken and revised the same day (below). Backlog entry it closes:
+> STATUS: BUILT 2026-10-13, P0 to P5: the capture store, GPU timings and statistics, the RHI's
+> counters, the stream with capture files and `profiler_capture`, `Profiler.UI` with the overlay,
+> and the editor's Profiler tab. Decisions taken and revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -232,10 +232,10 @@ The two assemblies:
   shows the editor process as a whole, and says so: every page, preview and Play-in-editor run
   in one frame, never presented as one game's. A game's own numbers come from its player (the
   overlay, or a capture from it opened in the panel). So it never disturbs another viewer: its
-  Pause freezes its own view, never the store; it does not change the store's history length
+  Stop freezes its own recording, never the store; it does not change the store's history length
   while anything watches (that clears the history), copying frames out instead when it wants
-  more; and it saves captures through the process's one recorder, saying so when a capture is
-  already running.
+  more; and it saves its recording with the same writer as the process's recorder, which a
+  capture already running does not block.
 
 A game can embed any piece itself (a debug menu of its own showing `FrameTimeGraph`), since they
 are ordinary views.
@@ -302,5 +302,17 @@ are ordinary views.
   assembled from them with the P4 views; opening a capture; the user docs page. Tests: a
   `Timeline` lays out a known frame's lanes and nesting, zoom keeps the point under the pointer,
   a table row selects its bars. The user checks it by eye.
+  As built: the panel records into its own `ProfileRecording` (Foundation.Profiler: frames copied
+  from the store once their GPU passes have landed, 3,600 kept), so Stop, the selection and the
+  longer history never touch the store; Record and Stop replace a separate Pause. The toolbar is
+  the editor's (Record, Clear, Open..., Save, Live), not a `Profiler.UI` view: it is editor UI.
+  Save writes the .aeprofile and the Chrome JSON together through `WriteCaptureFiles`
+  (Profiler.Capture, shared with the recorder), so there is no separate Export. Open picks from
+  `<user-data>/profiles`. The tab's parts keep their natural sizes and scroll in a smaller pane
+  (user 2026-10-13); closing the tab stops its recording (user 2026-10-13), and View > Profiler re-docks it beside
+  the Console, and a layout saved
+  before the tab existed docks it there rather than floating it. `profiler.record` (View >
+  Profiler Record) toggles recording, so an agent drives it through `action_execute`. The user
+  page is `editor/profiler` in the docs repo.
 - **After 0.1**: a live connection to a running player (backlog-0.2): a socket source and a
   player-side server answering the control messages.

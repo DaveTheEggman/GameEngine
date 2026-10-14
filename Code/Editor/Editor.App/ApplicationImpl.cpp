@@ -980,6 +980,10 @@ namespace editor::app
         }
 
         DrainLog();
+        if (ProfilerPanel* profiler = m_shell.Profiler())
+        {
+            profiler->Update(); // the frames that settled since, while it records
+        }
         SyncPageTitles();
         // Background-cook progress -> status bar (log lines reach the Console via the
         // logger); a finished cook refreshes the Assets badges through OnCookFinished.
@@ -3267,6 +3271,36 @@ namespace editor::app
             {
                 m_shell.ResetLayout();
                 m_context.SetStatus(u8"Layout reset to default.");
+            };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"view.profiler", u8"Profiler",
+                        u8"Show the Profiler tab beside the Console: record the editor process, open a "
+                        u8"player's capture",
+                        u8"View/Profiler", 200);
+            d.readOnly = true; // shows a panel; nothing in the project changes
+            d.execute = [this](editor::EditorPage*) { m_shell.ShowProfiler(); };
+            (void)actions.Register(Move(d));
+        }
+        {
+            EditorActionDeclaration d =
+                Declare(u8"profiler.record", u8"Profiler Record",
+                        u8"Record the editor process in the Profiler tab (every page, preview and "
+                        u8"Play-in-editor run), or stop",
+                        u8"View/Profiler Record", 201);
+            d.kind = EditorActionKind::Toggle;
+            d.readOnly = true; // the profiler's state, not the project's
+            d.checked = [this](editor::EditorPage*)
+            { return m_shell.Profiler() != nullptr && m_shell.Profiler()->IsRecording(); };
+            d.execute = [this](editor::EditorPage*)
+            {
+                if (ProfilerPanel* profiler = m_shell.Profiler())
+                {
+                    m_shell.ShowProfiler();
+                    profiler->IsRecording() ? profiler->Stop() : profiler->Start();
+                }
             };
             (void)actions.Register(Move(d));
         }

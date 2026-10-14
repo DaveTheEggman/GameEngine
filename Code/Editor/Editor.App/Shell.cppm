@@ -4,7 +4,8 @@
 // Editor::App - :shell partition.
 //
 // EditorShell: the editor chrome - a RootView holding
-// [MenuBar / DockManager (grow) / StatusBar]. GLOBAL panels are Assets + Console only:
+// [MenuBar / DockManager (grow) / StatusBar]. GLOBAL panels are Assets, Console and Profiler (a
+// tab with the Console) only:
 // everything scene-scoped (viewport, hierarchy, inspector, selection,
 // camera) lives INSIDE each editor page, because multi-scene editing means several scene
 // pages can be open at once - per-page views, never global panels. The dock CENTER is
@@ -25,6 +26,9 @@ import foundation.ui.toolkit;
 import editor.core;
 import :layout;
 import :log_view;
+import :profiler_panel;
+import foundation.profiler;         // the process's store the Profiler panel records
+import foundation.profiler.capture; // the process's recorder (a saved capture's platform and build)
 
 using namespace foundation::core;
 
@@ -37,6 +41,7 @@ export namespace editor::app
     inline constexpr StringView kPanelProject = u8"welcome";
     inline constexpr StringView kPanelConsole = u8"console";
     inline constexpr StringView kPanelAssets = u8"assets";
+    inline constexpr StringView kPanelProfiler = u8"profiler";
 
     class EditorShell
     {
@@ -131,6 +136,25 @@ export namespace editor::app
         /// The Console panel's log view (fed by the app's EditorLogBuffer drain).
         [[nodiscard]] LogView* Console() const noexcept { return m_logView.Get(); }
 
+        /// The Profiler tab (docked with the Console) and its panel, which the app updates each frame.
+        [[nodiscard]] ui::toolkit::DockablePanel* ProfilerTab() const noexcept { return m_profilerTab; }
+        [[nodiscard]] ProfilerPanel* Profiler() const noexcept { return m_profilerPanel.Get(); }
+
+        /// Bring the Profiler tab forward (View > Profiler); closed (a tool panel hides on close),
+        /// it docks beside the Console again first.
+        void ShowProfiler()
+        {
+            if (m_profilerTab == nullptr)
+            {
+                return;
+            }
+            if (m_profilerTab->Parent == nullptr)
+            {
+                DockWithConsole(m_profilerTab);
+            }
+            m_dock->ActivatePanel(m_profilerTab);
+        }
+
         // === Document area ===
 
         /// Dock a page's content view as a closable tab in the center document area (tabbed
@@ -153,7 +177,15 @@ export namespace editor::app
         }
         [[nodiscard]] Status RestoreLayout(foundation::settings::Settings& store) const
         {
-            return ApplyDockLayout(*m_dock, store);
+            const Status applied = ApplyDockLayout(*m_dock, store);
+            // A layout saved before the Profiler tab existed does not place it, and the dock
+            // floats what a layout leaves out: put it with the Console instead.
+            const EditorDockLayoutSettings* section = store.Find<EditorDockLayoutSettings>();
+            if (applied.IsOk() && section != nullptr && section->root && !LayoutPlaces(*section->root, kPanelProfiler))
+            {
+                DockWithConsole(m_profilerTab);
+            }
+            return applied;
         }
 
         /// Rebuild the default arrangement (View > Reset Layout).
@@ -199,6 +231,17 @@ export namespace editor::app
             m_console = m_dock->AddPanel(u8"Console", m_logView.Get());
             m_console->SetPersistenceId(kPanelConsole);
 
+            ProfilerPanelSeams profilerSeams;
+            profilerSeams.store = &foundation::profiler::Profiler::Get();
+            profilerSeams.recorder = &foundation::profiler::CaptureRecorder::Get();
+            profilerSeams.folder = []() { return PathJoin(GetUserDataDirectory().AsView(), u8"profiles"); };
+            m_profilerPanel = MakeRef<ProfilerPanel>(editor::EditorRootAllocator(), Move(profilerSeams));
+            m_profilerTab = m_dock->AddPanel(u8"Profiler", m_profilerPanel.Get());
+            m_profilerTab->SetPersistenceId(kPanelProfiler);
+            // Closing the tab stops the recording: nothing records out of sight.
+            ProfilerPanel* profilerPanel = m_profilerPanel.Get();
+            m_profilerTab->OnCloseRequested.Add([profilerPanel](ui::toolkit::DockablePanel*) { profilerPanel->Stop(); });
+
             m_assets = m_dock->AddPanel(
                 u8"Assets",
                 MakeRef<ui::Label>(editor::EditorRootAllocator(), StringView(u8"Asset browser (phase 6)"))
@@ -219,6 +262,7 @@ export namespace editor::app
             m_dock->DockPanel(m_assets, ui::toolkit::DockPosition::Bottom);
             m_dock->DockPanelRelativeTo(m_console, ui::toolkit::DockPosition::Right,
                                         m_assets->Parent);
+            DockWithConsole(m_profilerTab);
             if (auto* split = Cast<ui::toolkit::DockSplit>(m_dock->RootNode()))
             {
                 split->SetSplitRatio(kDefaultDocumentShare);
@@ -228,6 +272,30 @@ export namespace editor::app
             {
                 pane->SetSplitRatio(kDefaultAssetsShare);
             }
+        }
+
+        // `panel` as a tab beside the Console, the Console staying in front.
+        void DockWithConsole(ui::toolkit::DockablePanel* panel) const
+        {
+            if (panel == nullptr || m_console == nullptr || m_console->Parent == nullptr)
+            {
+                return;
+            }
+            m_dock->DockPanelRelativeTo(panel, ui::toolkit::DockPosition::Center, m_console->Parent);
+            m_dock->ActivatePanel(m_console);
+        }
+
+        // Whether a saved layout places the panel `id` anywhere in its tree.
+        [[nodiscard]] static bool LayoutPlaces(const ui::toolkit::DockLayoutNode& node, StringView id)
+        {
+            for (const String& panel : node.PanelIds)
+            {
+                if (panel.AsView() == id)
+                {
+                    return true;
+                }
+            }
+            return (node.First && LayoutPlaces(*node.First, id)) || (node.Second && LayoutPlaces(*node.Second, id));
         }
 
         /// The document area's share of the main window height in the default layout.
@@ -246,5 +314,7 @@ export namespace editor::app
         ui::DrawablePtr m_logo; // the Project panel's heading without a project (null: the name)
         ui::toolkit::DockablePanel* m_console = nullptr;
         ui::toolkit::DockablePanel* m_assets = nullptr;
+        RefPtr<ProfilerPanel> m_profilerPanel;
+        ui::toolkit::DockablePanel* m_profilerTab = nullptr;
     };
 }

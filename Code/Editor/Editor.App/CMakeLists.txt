@@ -10,7 +10,7 @@ target_link_libraries(Editor.App
         Foundation::Fonts Foundation::Fonts.TrueType Foundation::Fonts.Resource Foundation::Fonts.DistanceField.Baker
         Foundation::UI Foundation::UI.Toolkit Foundation::UI.Runtime Foundation::UI.Application
         Foundation::UI.Resource Engine::UI
-        Foundation::Input Engine::Input Editor::Preview
+        Foundation::Input Engine::Input Editor::Preview Foundation::Profiler.UI
         Editor::Core Editor::ViewportTools Foundation::Settings Foundation::Policy
         Editor::Mcp Foundation::Mcp Foundation::Mcp.Http) # the MCP host: the shared engine surface over HTTP
 
@@ -72,6 +72,7 @@ target_sources(Editor.App
             WindowCapture.cppm
             EditorWindowTools.cppm
             EditorProfilerTools.cppm
+            ProfilerPanel.cppm
             EditorMcpHost.cppm
             EditorProjectOperations.cppm
             EditorPageTools.cppm
