@@ -31,6 +31,7 @@ target_sources(Editor.App
         ListHeaderImpl.cpp
         ViewModeTogglesImpl.cpp
         EditorWindowToolsImpl.cpp
+        EditorProfilerToolsImpl.cpp
         EditorMcpHostImpl.cpp
         EditorProjectOperationsImpl.cpp
         EditorPageToolsImpl.cpp EditorActionToolsImpl.cpp
@@ -70,6 +71,7 @@ target_sources(Editor.App
             EditorSplash.cppm
             WindowCapture.cppm
             EditorWindowTools.cppm
+            EditorProfilerTools.cppm
             EditorMcpHost.cppm
             EditorProjectOperations.cppm
             EditorPageTools.cppm

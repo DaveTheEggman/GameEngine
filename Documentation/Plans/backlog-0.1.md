@@ -80,8 +80,9 @@
   what each brings). The heist plan already had a Luau-only game coming after Lamplight.
 
 - **The profiler: CPU and GPU on one timeline, an overlay and a panel** (user 2026-08-26 and
-  2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0, the capture store, built
-  2026-10-13 (week-2026-10-10).
+  2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0 to P3 (the store, GPU
+  timings, the device's counters, capture files and `profiler_capture`) built 2026-10-13
+  (week-2026-10-10).
 
 ## Other
 

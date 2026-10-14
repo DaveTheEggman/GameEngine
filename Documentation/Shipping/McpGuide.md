@@ -39,7 +39,8 @@ viewport never renders - move the camera, shoot, read the file; `editor_screensh
 the whole editor window as the user sees it (panels, pages, menus, dialogs, toasts) the same
 way, `window: "all"` adding each floating window beside it, for checking the editor's own UI
 rather than a scene (the user's View > Screenshot Editor, F12, writes the same under
-`<user-data>/screenshots`); `navigation_bake` bakes a
+`<user-data>/screenshots`); `profiler_capture` profiles the editor's next few seconds, PIE
+included (see **Performance** below); `navigation_bake` bakes a
 zone, as the inspector's Bake Navigation button does: the static geometry inside the zone's
 box (static, non-trigger rigid bodies and terrain; render meshes are not read, so a floor or
 an obstacle agents should respect needs a static body, and what moves never bakes) into the
@@ -231,6 +232,20 @@ leaves it in its old layout, warned about on every cook.
 **Diagnostics**: `log_write` a marker -> do the risky thing -> `log_read` with
 `sinceSequence` = the marker's sequence to see exactly what the engine said after it.
 
+**Performance** (the editor host): `profiler_capture` with `seconds` (3 by default, at most 30)
+records the editor's next frames, its pages and a running PIE game alike since they share the
+process, and answers a summary: `frameMs` (min, median, max), `topScopes` (CPU scopes by total
+time over the capture, nested ones counted inside their parents too) and `topGpuPasses` (render
+graph passes on the GPU), each with its count, and `counterAverages` (draws, passes, pipeline
+and bind group binds, GPU memory held and the budget). Set up what to measure first (`pie_start`
+and play to the moment, or `viewport_camera_set` on a heavy view), capture, and compare two
+captures rather than reading one number in isolation. The files stay: `path` is the
+`.aeprofile` (`<user-data>/profiles/Editor-<ticks>.aeprofile`), `chromeTrace` the same frames as
+Chrome trace JSON for Perfetto or chrome://tracing; hand those to the user for a timeline. A
+debug editor is slower than an exported game, so measure the game's own timing in its player:
+`<dist>/<player> --profile-capture <seconds>` writes the same two files under
+`<user-data>/profiles` (F9 in any running game does too).
+
 **Screenshots**: four ways in, by what the picture is of. Each writes a PNG, by default under
 `<user-data>/screenshots` (`~/.local/share/gameengine/screenshots` on Linux), and answers its path;
 read the file before trusting it, and leave the judgement of how it looks to the user.
@@ -290,6 +305,9 @@ the preset's `includeShaderSource` is set.
   `dropped` means the ring overflowed and old lines are gone.
 - `asset_cook` and `project_export` are long-running calls (a full cook may run inside
   them); do not assume a hang before minutes have passed.
+- `profiler_capture` keeps the call open for the capture plus a few frames for the GPU's
+  last passes; the editor must be drawing (not minimised), or it gives up. One capture runs
+  at a time, a game's F9 included.
 - `project_export` failures say little in the response by design - the detail is in
   `log_read` (Cook/Export categories).
 

@@ -47,6 +47,8 @@ import foundation.resource;
 import pipeline.core;
 import editor.core;
 import foundation.settings;
+import foundation.profiler;
+import foundation.profiler.capture;
 import editor.mcp; // EngineToolPaths + LocateShippingDocs (the host's composition)
 import :assets_view;
 import :mcp_host;
@@ -2548,6 +2550,13 @@ namespace editor::app
         { m_windowCapture.Request(requests); };
         windowSeams.shots = [this]() { return m_windowCapture.Shots(); };
         RegisterWindowTools(m_mcpHost->Server(), Move(windowSeams));
+        // profiler_capture: the process's recorder, which the host advances after each frame.
+        ProfilerToolSeams profilerSeams;
+        profilerSeams.profiler = &foundation::profiler::Profiler::Get();
+        profilerSeams.recorder = &foundation::profiler::CaptureRecorder::Get();
+        profilerSeams.recorder->SetApplication(u8"Editor"); // its captures' names and header
+        profilerSeams.folder = []() { return PathJoin(GetUserDataDirectory().AsView(), u8"profiles"); };
+        RegisterProfilerTools(m_mcpHost->Server(), Move(profilerSeams));
         // The action bridge: everything a user can do by command, unattended (the dialogs an
         // action opens are suppressed and reported).
         ActionToolSeams actionSeams;

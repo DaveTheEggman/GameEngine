@@ -1,7 +1,7 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: P0 (the capture store), P1 (GPU timings and statistics) and P2 (the RHI's counters)
-> BUILT 2026-10-13; P3 onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
+> STATUS: P0 (the capture store), P1 (GPU timings and statistics), P2 (the RHI's counters) and
+> P3 (the stream, capture files and `profiler_capture`) BUILT 2026-10-13; P4 onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -231,7 +231,11 @@ are ordinary views.
   opens one (Open Capture), and Export writes Chrome trace JSON beside it, for Perfetto or
   chrome://tracing (a frames lane, a lane per thread, the GPU lane, counters). So an exported game
   on a Steam Deck or a phone is profiled without the editor: capture there, open here.
-- **MCP**: `profiler_capture` arms the profiler for N frames (of the editor or a PIE instance),
+  As built (P3), every capture writes both files at once, the JSON beside the stream; the key is
+  F9 (five seconds) in any game on the default application, and captures land in
+  `<user-data>/profiles` as `<application>-<ticks>.aeprofile` and `.json`.
+- **MCP**: `profiler_capture` arms the profiler for N seconds (of the editor or a PIE instance;
+  seconds, as built, since a frame count means different lengths in a debug and a release build),
   writes the capture and answers a summary: frame times (min, median, max), the top scopes and
   GPU passes by total time, the counters, and the path. Documented in the McpGuide; the tool
   count bumps.
@@ -264,7 +268,10 @@ are ordinary views.
 - **P3 the stream, capture files and MCP**: `ProfileStream` write and read, `.aeprofile`, the
   Chrome export, the player key and flag, `IProfileSource` (live, file), the control messages,
   `profiler_capture`. Tests: a captured stream reads back frame for frame; the JSON holds frames,
-  threads, the GPU lane and nesting; the tool answers its summary.
+  threads, the GPU lane and nesting; the tool answers its summary. As built, the control messages
+  are function calls on the store and the recorder (`Arm`, `Disarm`, `CaptureRecorder::Start`);
+  their wire form waits for the 0.2 transport that would carry them. The editor host alone serves
+  the tool: the headless host runs no frames to capture.
 - **P4 `Profiler.UI` and the overlay**: the views `FrameTimeGraph`, `FrameStats`, `TopList`,
   `CounterStrip`, and the overlay assembled from them; off by default; F3, `--profile-overlay`, a
   script call; Engine.UI pushes it as a global screen overlay; Game tab and players, web
