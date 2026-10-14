@@ -199,8 +199,10 @@ class Builder:
         d.add(guests, "instanced_skinning", skeleton=first["skeleton"], clips=strings(clips),
               poseCount=POSES_PER_CLIP, targets=strings(meshes[c] for c in COSTUMES))
 
-        # The crowd: parents at the origin (agents write their position as local).
+        # The crowd and the players: parents at the origin (agents write their position as local).
         guest_script = asset("ScriptClassAsset", "Guest")
+        players = d.stable_id("entity")
+        d.entity("Players", eid=players)
         crowd = d.stable_id("entity")
         d.entity("Crowd", eid=crowd)
         groups = {}
@@ -215,22 +217,24 @@ class Builder:
                      yaw(self.rng.uniform(-180, 180)), parent=groups[costume], eid=e)
             self.agent(e)
             d.add(e, "instance_member", instancedMesh=meshes[costume], clip=0)
-            d.script(e, (guest_script, {"spots": ("entity", self.spots)}))
+            d.script(e, (guest_script, {"spots": ("entity", self.spots), "players": ("entity", players)}))
 
-        # The hunters: the player at the gate, the bots among the guests.
+        # The hunters: the player at the gate (under Players, whom guests make way for), the bots
+        # among the guests.
         x, z = player_at
-        player = self.hunter("Player", (x, 0.0, z), meshes, avoid=False)
+        player = self.hunter("Player", (x, 0.0, z), meshes, avoid=False, parent=players)
         cam = d.stable_id("entity")
         d.entity("Camera", (x, 9.0, z + 7.0), pitch(-48.0), eid=cam)
         d.add(cam, "camera", fovYRadians=0.9)
-        d.script(player, (asset("ScriptClassAsset", "Player"), {"camera": ("entity", cam), "seat": 0}))
+        d.script(player, (asset("ScriptClassAsset", "Player"), {"camera": ("entity", cam), "crowd": ("entity", crowd),
+                                                                "seat": 0}))
         d.script(cam, (asset("ScriptClassAsset", "CameraRig"), {"target": ("entity", player), "distance": 7.0,
                                                                  "height": 9.0}))
         bots = []
         for k in range(3):
             bx, bz = self.rng.choice(spots)
             bot = self.hunter("Bot%d" % (k + 1), (bx + 1.0, 0.0, bz), meshes)
-            d.script(bot, (guest_script, {"spots": ("entity", self.spots)}))
+            d.script(bot, (guest_script, {"spots": ("entity", self.spots), "players": ("entity", players)}))
             bots.append(bot)
 
         ball = d.stable_id("entity")
@@ -239,13 +243,13 @@ class Builder:
             "player": ("entity", player), "bot1": ("entity", bots[0]), "bot2": ("entity", bots[1]),
             "bot3": ("entity", bots[2]), "crowd": ("entity", crowd), "spots": ("entity", self.spots)}))
 
-    def hunter(self, name, pos, meshes, avoid=True):
+    def hunter(self, name, pos, meshes, avoid=True, parent=None):
         """A hunter: an agent like any guest, wearing one of six looks (a child per costume, each an
         Instance Member of its costume's mesh; only the first shown until Ball.as dresses it), and
         a Flare light over its head for when its mask flares (off until then)."""
         d = self.d
         e = d.stable_id("entity")
-        d.entity(name, pos, eid=e)
+        d.entity(name, pos, parent=parent, eid=e)
         self.agent(e, avoid)
         for k, c in enumerate(COSTUMES):
             look = d.stable_id("entity")

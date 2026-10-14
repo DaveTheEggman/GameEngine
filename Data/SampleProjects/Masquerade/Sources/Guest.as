@@ -10,7 +10,8 @@
 //
 // A bot hunter is a guest too (Ball.as hunts for it): it wears its costume on a child, one of six
 // looks, so the clip goes to whichever it wears, and Ball sends it "Approach" (walk to someone, a
-// little brisk) and "Resume" (back to the ball). `activity` is replicated: the host decides it,
+// little brisk) and "Resume" (back to the ball). A guest standing in a player's way steps aside,
+// as people at a ball do, then back to its group (walking guests already steer round). `activity` is replicated: the host decides it,
 // and every peer's guest plays it.
 
 const int kIdle = 0; // the clips, in the Guests entity's instanced skinning order
@@ -27,6 +28,8 @@ class Guest
     private Entity@ self;
 
     [null, "The places guests wander to: its children"] Entity@ spots;
+    [null, "The players guests make way for: its children"] Entity@ players;
+    [1.3, "How near a player coming at a standing guest makes it step aside (m)"] float makeWayRange;
     [1.0, "Walking speed (m/s): the Walk clip's"] float walkSpeed;
     [2.0, "How far from a place a guest stands (m), so groups spread round it"] float spread;
     [8.0, "Shortest stop at a place (s)"] float stayMin;
@@ -47,6 +50,10 @@ class Guest
     private float m_walked = 0.0f;                      // seconds on the way
     private array<Entity@> m_spots;
     private bool m_approaching = false; // a bot walking to someone it means to tag
+    private bool m_aside = false;       // stepping out of a player's way
+    private float m_asideFor = 0.0f;
+    private int m_asideActivity = 0;    // what it was doing, to go back to
+    private float m_wayCheck = 0.0f;    // until the next look for a player coming
 
     Guest(Entity@ entity) { @self = entity; }
 
@@ -58,6 +65,7 @@ class Guest
         // Start mid-evening: some walking, some standing, some talking.
         m_stay = Random::range(0.0f, stayMax);
         activity = Random::boolean() ? kTalk : kIdle;
+        m_wayCheck = Random::range(0.0f, 0.25f); // not every guest looks on the same frame
     }
 
     void onCue(int cue)
@@ -134,6 +142,10 @@ class Guest
     private void decide(float d)
     {
         NavAgentComponent@ agent = NavAgentComponent::of(self);
+        if (makeWay(agent, d))
+        {
+            return;
+        }
         if (m_approaching)
         {
             if (agent.finished())
@@ -191,6 +203,65 @@ class Guest
         agent.navigateAt(at.x, at.y, at.z, walkSpeed, 0.4f);
         activity = kWalk;
         m_going = true;
+    }
+
+    // A standing guest a player is coming at steps aside, to the side it already stands on, and
+    // after a moment goes back to what it was doing. True while it is out of the way.
+    private bool makeWay(NavAgentComponent@ agent, float d)
+    {
+        if (m_aside)
+        {
+            m_asideFor -= d;
+            if (m_asideFor <= 0.0f)
+            {
+                m_aside = false;
+                agent.stop();
+                activity = m_asideActivity;
+            }
+            return true;
+        }
+        if (m_going || m_approaching || players is null || !players.isValid())
+        {
+            return false;
+        }
+        m_wayCheck -= d;
+        if (m_wayCheck > 0.0f)
+        {
+            return false;
+        }
+        m_wayCheck = 0.25f;
+        Float3 p = self.worldPosition();
+        Entity@ player = players.firstChild();
+        while (player !is null && player.isValid())
+        {
+            Float3 q = player.worldPosition();
+            float dx = p.x - q.x;
+            float dz = p.z - q.z;
+            float distance = Math::Sqrt(dx * dx + dz * dz);
+            NavAgentComponent@ walker = NavAgentComponent::of(player);
+            if (walker !is null && distance < makeWayRange && distance > 0.01f)
+            {
+                float vx = walker.velocityX();
+                float vz = walker.velocityZ();
+                float speed = Math::Sqrt(vx * vx + vz * vz);
+                // Coming at it: moving, and this guest ahead of it.
+                if (speed > 0.3f && (dx * vx + dz * vz) / (distance * speed) > 0.5f)
+                {
+                    // Out of the line it walks, on the side the guest is already on.
+                    float side = (vx * dz - vz * dx) > 0.0f ? 1.0f : -1.0f;
+                    float ox = -vz / speed * side;
+                    float oz = vx / speed * side;
+                    agent.navigateAt(p.x + ox * 0.9f, p.y, p.z + oz * 0.9f, 1.4f, 0.1f);
+                    m_asideActivity = activity;
+                    activity = kWalk;
+                    m_aside = true;
+                    m_asideFor = 1.2f;
+                    return true;
+                }
+            }
+            @player = player.nextSibling();
+        }
+        return false;
     }
 
     // There, or as near as the crowd lets it: a place is a group, and its middle is taken. Close
