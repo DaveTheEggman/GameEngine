@@ -102,6 +102,14 @@ host to one player; `Net.onJoin(fn(player))` / `Net.onLeave(fn(player))` through
 join once welcomed, and the host leave as 0). On a client a `Net.on` handler's sender is 0, the
 host. Orders are RPCs the host checks itself (it knows the sender); who leaves and what happens to
 their entities is the game's call in its `onLeave`.
+Script behaviour properties replicate when marked (Masquerade P1, built 2026-10-14):
+`ScriptPropertyDesc::replicated`, from AngelScript's `replicated` metadata word or a Luau class's
+`replicated` list (the cook refuses an unknown word or name, and an entity or asset property).
+Replication reaches them through `scene::IReplicatedStateSource`, a component manager's own state
+beside reflected `net.replicated` fields: `ScriptComponentManager` writes each networked entity's
+replicated properties (live from the script object on the host), and a client writes them into
+its behaviour (an override, plus the setter when the instance runs). The blob is compared with each
+peer's last, so only a change is sent.
 `NetworkComponent.of(entity).authority` exposes
 ownership to script. Certified on AngelScript + Luau (see `Integration.ScriptFacades`; Wren was
 retired 2026-08-19).

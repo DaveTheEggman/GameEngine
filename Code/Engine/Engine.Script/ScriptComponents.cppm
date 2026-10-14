@@ -124,10 +124,22 @@ export namespace engine::script
     class ScriptSceneSystem; // forward (:subsystem) - the destroy hook dispatches onDestroy
 
     class ScriptComponentManager final
-        : public foundation::scene::SerializableComponentManager<ScriptComponent>
+        : public foundation::scene::SerializableComponentManager<ScriptComponent>,
+          public foundation::scene::IReplicatedStateSource
     {
     public:
         ScriptComponentManager() : SerializableComponentManager<ScriptComponent>(u8"script") {}
+
+        /// A networked entity's behaviours keep their replicated properties (ScriptPropertyDesc::
+        /// replicated) the same on every peer: the host writes their live values, a client writes
+        /// them back in (and keeps them as overrides, for an instance made later). Bodies in
+        /// ScriptSubsystemImpl.cpp.
+        [[nodiscard]] foundation::scene::IReplicatedStateSource* AsReplicatedStateSource() noexcept override
+        {
+            return this;
+        }
+        [[nodiscard]] bool WriteReplicatedState(foundation::scene::EntityHandle entity, Array<byte>& out) override;
+        void ReadReplicatedState(foundation::scene::EntityHandle entity, Span<const byte> state) override;
 
         /// The per-scene script system, wired by the subsystem right after AddSystem -
         /// entity/component destruction routes onDestroy through it.

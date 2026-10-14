@@ -21,6 +21,7 @@ import foundation.script;
 import foundation.script.resource;
 
 using namespace foundation::core;
+using namespace foundation::script; // ScriptPropertyDesc / ScriptPropertyValue / ScriptClass (the replicated state)
 
 namespace engine::script
 {
@@ -71,6 +72,189 @@ namespace engine::script
                                   u8"instantiated once per scene"))
             .Property<&SceneScriptSettings::enabled>("enabled")
             .PropAttribute("displayName", String(u8"Enabled"));
+    }
+
+    namespace
+    {
+        // A script's live property value, as the property's own kind (numbers come back as f64).
+        [[nodiscard]] bool VariantToPropertyValue(const Variant& value, ScriptPropertyType type,
+                                                  ScriptPropertyValue& out)
+        {
+            out.kind = type;
+            switch (type)
+            {
+            case ScriptPropertyType::Float:
+            case ScriptPropertyType::Int:
+                if (const f64* n = value.TryGet<f64>())
+                {
+                    out.number = *n;
+                    return true;
+                }
+                if (const f32* f = value.TryGet<f32>())
+                {
+                    out.number = *f;
+                    return true;
+                }
+                if (const i32* i = value.TryGet<i32>())
+                {
+                    out.number = *i;
+                    return true;
+                }
+                return false;
+            case ScriptPropertyType::Bool:
+                if (const bool* b = value.TryGet<bool>())
+                {
+                    out.boolean = *b;
+                    return true;
+                }
+                return false;
+            case ScriptPropertyType::String:
+                if (const String* t = value.TryGet<String>())
+                {
+                    out.text = *t;
+                    return true;
+                }
+                return false;
+            case ScriptPropertyType::Color:
+                if (const Color* c = value.TryGet<Color>())
+                {
+                    out.color = *c;
+                    return true;
+                }
+                return false;
+            case ScriptPropertyType::Vec3:
+                if (const Float3* v = value.TryGet<Float3>())
+                {
+                    out.vector = *v;
+                    return true;
+                }
+                return false;
+            default:
+                return false; // entity and asset references are never replicated (refused at cook)
+            }
+        }
+
+        // One replicated property of one behaviour, as the bytes carry it.
+        struct ReplicatedEntry
+        {
+            u32 behavior = 0;
+            u64 classHash = 0; // which class the behaviour was, so a mismatch is never applied
+            u64 property = 0;
+            ScriptPropertyValue value;
+        };
+
+        void Serialize(ISerializer& ar, ReplicatedEntry& e)
+        {
+            foundation::core::Serialize(ar, "behavior", e.behavior);
+            foundation::core::Serialize(ar, "class", e.classHash);
+            foundation::core::Serialize(ar, "property", e.property);
+            foundation::core::Serialize(ar, "value", e.value);
+        }
+    }
+
+    bool ScriptComponentManager::WriteReplicatedState(foundation::scene::EntityHandle entity, Array<byte>& out)
+    {
+        const ScriptComponent* component = Get(entity);
+        if (component == nullptr)
+        {
+            return false;
+        }
+        Array<ReplicatedEntry> entries;
+        for (usize b = 0; b < component->behaviors.Size(); ++b)
+        {
+            const ScriptBehavior& behavior = component->behaviors[b];
+            const ScriptClass* scriptClass = behavior.script.Get();
+            if (scriptClass == nullptr)
+            {
+                continue;
+            }
+            for (const ScriptPropertyDesc& property : scriptClass->properties)
+            {
+                if (!property.replicated)
+                {
+                    continue;
+                }
+                ReplicatedEntry entry;
+                entry.behavior = static_cast<u32>(b);
+                entry.classHash = ScriptPropertyNameHash(scriptClass->className.AsView());
+                entry.property = property.hash;
+                // The live value when the script runs; else what it would start with.
+                bool live = false;
+                if (behavior.instance.Get() != nullptr)
+                {
+                    const Result<Variant> current = behavior.instance->GetProperty(property.name.AsView());
+                    live = current.HasValue() && VariantToPropertyValue(current.Value(), property.type, entry.value);
+                }
+                if (!live)
+                {
+                    const ScriptPropertyOverride* over = behavior.FindOverride(property.hash);
+                    entry.value = over != nullptr ? over->value : property.defaultValue;
+                    entry.value.kind = property.type;
+                }
+                entries.PushBack(Move(entry));
+            }
+        }
+        if (entries.IsEmpty())
+        {
+            return false;
+        }
+        MemoryStream stream;
+        {
+            BinarySerializer writer(stream, SerializeMode::Write);
+            foundation::core::Serialize(writer, "entries", entries);
+        }
+        out.Clear();
+        for (const byte b : stream.Bytes())
+        {
+            out.PushBack(b);
+        }
+        return true;
+    }
+
+    void ScriptComponentManager::ReadReplicatedState(foundation::scene::EntityHandle entity, Span<const byte> state)
+    {
+        ScriptComponent* component = Get(entity);
+        if (component == nullptr)
+        {
+            return;
+        }
+        MemoryStream stream;
+        (void)stream.Write(state.Data(), state.Size());
+        (void)stream.Seek(0, SeekOrigin::Begin);
+        Array<ReplicatedEntry> entries;
+        {
+            BinarySerializer reader(stream, SerializeMode::Read);
+            foundation::core::Serialize(reader, "entries", entries);
+        }
+        for (const ReplicatedEntry& entry : entries)
+        {
+            if (entry.behavior >= component->behaviors.Size())
+            {
+                continue;
+            }
+            ScriptBehavior& behavior = component->behaviors[entry.behavior];
+            const ScriptClass* scriptClass = behavior.script.Get();
+            if (scriptClass == nullptr ||
+                ScriptPropertyNameHash(scriptClass->className.AsView()) != entry.classHash)
+            {
+                continue; // not the behaviour the host meant
+            }
+            for (const ScriptPropertyDesc& property : scriptClass->properties)
+            {
+                if (property.hash != entry.property || !property.replicated)
+                {
+                    continue;
+                }
+                behavior.SetOverride(property.hash, entry.value); // for an instance made later
+                if (behavior.instance.Get() != nullptr)
+                {
+                    String setter(property.name.AsView());
+                    setter += u8"=";
+                    Variant args[1] = {ScriptPropertyValueToVariant(entry.value, property.type, nullptr)};
+                    (void)behavior.instance->Invoke(setter.AsView(), Span<Variant>{args, 1});
+                }
+            }
+        }
     }
 
     void RegisterScriptComponentReflection()

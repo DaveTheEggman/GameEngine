@@ -1,6 +1,7 @@
 # Masquerade - the fifth sample, social stealth in a crowd over the network
 
-> STATUS: APPROVED 2026-10-14. P0 (network commands for scripts) BUILT 2026-10-14; P1 next. Agreed (user 2026-10-14): the masked
+> STATUS: APPROVED 2026-10-14. P0 (network commands for scripts) and P1 (replicated state) BUILT
+> 2026-10-14; P2 next. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -104,6 +105,10 @@ From a survey of the code (2026-10-14):
   game's to decide in `onLeave`. The plan's slice 4 (a cube demo) is this game instead.
 - **P1 Replicated state** (gap 5): what a guest is doing and how a player looks, replicated and
   read by scripts on every peer. Tests: a host's change reaches a late joiner.
+  As built (the user chose script-marked properties, 2026-10-14): a behaviour property marked
+  `replicated` (AngelScript metadata word; Luau `Class.replicated = { ... }`) is kept the same on
+  every peer, through a scene seam (`IReplicatedStateSource`) the script component implements.
+  Clients run the same behaviours, so the game changes replicated values on the host only.
 - **P2 Crowds at scale** (gaps 6 and 7): the agent limit a zone setting; a crowd that moves
   instanced skinned guests with navigation agents, each guest choosing its clip (walk, idle, talk,
   dance) from per-clip pose pools; a script facade. Tests: agents drive their instances, a clip

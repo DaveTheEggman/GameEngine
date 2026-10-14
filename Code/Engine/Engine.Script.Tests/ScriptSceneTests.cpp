@@ -45,6 +45,7 @@ import engine.animation;   // *.of + SceneAnimation (animation surface)
 import foundation.particles;          // ParticleEffectComponent + manager (particle surface)
 import engine.particles;   // *.of + SceneParticles (particle surface)
 import foundation.net.replication;    // NetworkComponent + manager + .of (net surface)
+import foundation.net;                // BitWriter / BitReader (a delta carried by hand)
 import engine.ui;          // world-space UI components + managers + .of (UI surface)
 import engine.ui.script;   // the typed view handles a component's root() returns
 import foundation.ui;      // core views (a world panel's tree, built by hand)
@@ -5510,4 +5511,132 @@ TEST_CASE("script.scene: DebugDraw draws by Float3 and Color, over the scene wit
     CHECK(drawn.OverlayLineVertices()[1].position.z == doctest::Approx(6.0f));
     CHECK(drawn.TextCommands3D().Size() == 1u);
     CHECK(drawn.Commands2D().Size() >= 1u);
+}
+
+namespace
+{
+    [[nodiscard]] ScriptPropertyDesc Replicated(ScriptPropertyDesc desc)
+    {
+        desc.replicated = true;
+        return desc;
+    }
+
+    [[nodiscard]] ScriptPropertyValue Number(f64 value)
+    {
+        ScriptPropertyValue v;
+        v.kind = ScriptPropertyType::Float;
+        v.number = value;
+        return v;
+    }
+
+    // A host and a client scene running the same Guest behaviour, and one replication between them
+    // carried by hand (the delta the host's endpoint would send). The host's copy is the one that
+    // drives (`driver` 1, set as an override: local-only); `activity` is replicated, `chatty` not.
+    void ReplicateBehaviourState(StringView language, StringView source, StringView otherSource)
+    {
+        const RefPtr<ScriptClass> guest =
+            MakeClassLang(language, u8"Guest", source, {u8"onUpdate"},
+                          {Replicated(FloatProperty(u8"activity", 0.0)), FloatProperty(u8"chatty", 5.0),
+                           FloatProperty(u8"driver", 0.0)});
+        const RefPtr<ScriptClass> other =
+            MakeClassLang(language, u8"Other", otherSource, {u8"onUpdate"}, {Replicated(FloatProperty(u8"activity", 0.0))});
+        foundation::net::RegisterReplicationComponents();
+
+        ScriptedScene host;
+        foundation::net::AddNetworkSceneManagers(host.scene);
+        const scene::EntityHandle onHost = host.AddScripted(guest, u8"Guest");
+        host.components->Get(onHost)->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"driver"),
+                                                               Number(1.0));
+        host.Start();
+        foundation::net::StateReplication rep;
+        rep.AssignNetworkId(host.scene, onHost, Guid{5, 5});
+
+        ScriptedScene client;
+        foundation::net::AddNetworkSceneManagers(client.scene);
+        client.Start();
+        foundation::net::StateReplication crep;
+        ScriptedScene* clientScene = &client;
+        RefPtr<ScriptClass> spawnClass = guest;
+        crep.SetSpawnHandler( // the prefab brings the same behaviour
+            [clientScene, &spawnClass](scene::Scene&, const Guid&, foundation::net::NetworkId) -> scene::EntityHandle
+            { return clientScene->AddScripted(spawnClass, u8"Guest"); });
+        auto send = [&]()
+        {
+            foundation::net::BitWriter w;
+            rep.CaptureDelta(host.scene, /*peer=*/1, w);
+            foundation::net::BitReader r(w.Data());
+            crep.ApplyDelta(client.scene, r);
+        };
+        auto clientValue = [&](StringView name) -> f64
+        {
+            const scene::EntityHandle e = client.scene.FindEntityByName(u8"Guest");
+            ScriptObject* instance = client.components->Get(e)->behaviors[0].instance.Get();
+            REQUIRE(instance != nullptr);
+            const Result<Variant> v = instance->GetProperty(name);
+            REQUIRE(v.HasValue());
+            return *v.Value().TryGet<f64>();
+        };
+
+        host.Frame(); // the host's script moves activity to 1
+        send();       // spawn record: the client's behaviour has no instance yet, so it is kept
+        client.Frame(); // the instance is made with the host's value
+        CHECK(clientValue(u8"activity") == doctest::Approx(1.0));
+        host.Frame();
+        host.Frame(); // 3
+        send();       // the live instance is written
+        CHECK(clientValue(u8"activity") == doctest::Approx(3.0));
+        CHECK(clientValue(u8"chatty") == doctest::Approx(5.0)); // not replicated: the client's own
+
+        // A different class in that slot (not the behaviour the host meant) is left alone.
+        spawnClass = other;
+        const scene::EntityHandle onHost2 = host.AddScripted(guest, u8"Second");
+        host.components->Get(onHost2)->behaviors[0].SetOverride(ScriptPropertyNameHash(u8"driver"),
+                                                                Number(1.0));
+        rep.AssignNetworkId(host.scene, onHost2, Guid{6, 6});
+        host.Frame();
+        host.Frame();
+        send();
+        client.Frame();
+        bool sawOther = false;
+        client.components->ForEach(
+            [&](ScriptComponent& c, scene::EntityHandle)
+            {
+                if (c.behaviors[0].script.Get() == other.Get())
+                {
+                    sawOther = true;
+                    const ScriptPropertyOverride* over = c.behaviors[0].FindOverride(ScriptPropertyNameHash(u8"activity"));
+                    CHECK(over == nullptr); // the Guest's value never reached an Other
+                }
+            });
+        CHECK(sawOther);
+    }
+}
+
+TEST_CASE("script.scene: an AngelScript behaviour's replicated property reaches the client's instance")
+{
+    ReplicateBehaviourState(u8"angelscript", u8"class Guest {\n"
+                                             u8"    private Entity@ self;\n"
+                                             u8"    float activity; float chatty; float driver;\n"
+                                             u8"    Guest(Entity@ e) { @self = e; }\n"
+                                             u8"    void onUpdate(double dt) { if (driver > 0) activity = activity + 1; }\n"
+                                             u8"}\n",
+                            u8"class Other {\n"
+                                             u8"    private Entity@ self;\n"
+                                             u8"    float activity;\n"
+                                             u8"    Other(Entity@ e) { @self = e; }\n"
+                                             u8"    void onUpdate(double dt) {}\n"
+                                             u8"}\n");
+}
+
+TEST_CASE("script.scene: a Luau behaviour's replicated property reaches the client's instance")
+{
+    ReplicateBehaviourState(u8"luau", u8"Guest = {}\n"
+                                      u8"Guest.__index = Guest\n"
+                                      u8"function Guest.new(owner) local s = setmetatable({}, Guest)\n"
+                                      u8"  s.self = owner; s.activity = 0; s.chatty = 0; s.driver = 0; return s end\n"
+                                      u8"function Guest:onUpdate(dt) if self.driver > 0 then self.activity = self.activity + 1 end end\n",
+                            u8"Other = {}\n"
+                                      u8"Other.__index = Other\n"
+                                      u8"function Other.new(owner) local s = setmetatable({}, Other); s.activity = 0; return s end\n"
+                                      u8"function Other:onUpdate(dt) end\n");
 }
