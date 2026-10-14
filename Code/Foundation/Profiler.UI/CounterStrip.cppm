@@ -47,6 +47,7 @@ export namespace foundation::profiler::ui
         void OnDraw(foundation::ui::UIDrawContext& ctx) override
         {
             const f32 column = Width() / static_cast<f32>(kColumns);
+            ctx.VG().PushClipRect(Rectangle{0, 0, Width(), Height()}); // given less room, it clips
             for (usize i = 0; i < m_rows.Size(); ++i)
             {
                 const f32 x = static_cast<f32>(i % kColumns) * column;
@@ -55,6 +56,7 @@ export namespace foundation::profiler::ui
                 DrawLabel(ctx, m_rows[i].value.AsView(), Rectangle{x + column - 72, y, 68, kLineHeight}, palette.text,
                           fonts::TextAlignment::Right);
             }
+            ctx.VG().PopClip();
         }
 
     protected:

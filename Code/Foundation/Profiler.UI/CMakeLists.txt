@@ -15,5 +15,7 @@ target_sources(Profiler.UI
             FrameStats.cppm
             TopList.cppm
             CounterStrip.cppm
+            Timeline.cppm
+            ScopeTable.cppm
             ProfilerOverlay.cppm
             ProfilerUIModule.cppm)

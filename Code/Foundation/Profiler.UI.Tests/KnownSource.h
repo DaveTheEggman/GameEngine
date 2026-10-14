@@ -17,6 +17,7 @@ namespace profiler_ui_tests
                         m_frames(DefaultAllocator())
         {
             ThreadInfo main;
+            main.index = 0;
             main.name = String(u8"Main");
             m_threads.PushBack(Move(main));
         }
@@ -60,6 +61,36 @@ namespace profiler_ui_tests
         static void AddScope(FrameRecord& frame, NameId name, u32 depth, u64 begin, u64 end)
         {
             frame.threads[0].scopes.PushBack(ScopeEvent{name, depth, frame.beginTick + begin, frame.beginTick + end});
+        }
+
+        /// A second thread's table entry; its scopes go in with AddScopeOn.
+        u32 Thread(StringView name)
+        {
+            ThreadInfo info;
+            info.index = static_cast<u32>(m_threads.Size());
+            info.name = String(name);
+            m_threads.PushBack(Move(info));
+            return static_cast<u32>(m_threads.Size() - 1);
+        }
+
+        static void AddScopeOn(FrameRecord& frame, u32 thread, NameId name, u32 depth, u64 begin, u64 end)
+        {
+            ThreadFrame* lane = nullptr;
+            for (ThreadFrame& t : frame.threads)
+            {
+                if (t.thread == thread)
+                {
+                    lane = &t;
+                }
+            }
+            if (lane == nullptr)
+            {
+                ThreadFrame added(DefaultAllocator());
+                added.thread = thread;
+                frame.threads.PushBack(Move(added));
+                lane = &frame.threads[frame.threads.Size() - 1];
+            }
+            lane->scopes.PushBack(ScopeEvent{name, depth, frame.beginTick + begin, frame.beginTick + end});
         }
 
         static void AddPass(FrameRecord& frame, NameId name, u64 begin, u64 end)

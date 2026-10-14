@@ -35,6 +35,9 @@ export namespace foundation::profiler::ui
         Color cpu{0.36f, 0.70f, 1.0f, 1.0f};
         Color gpu{1.0f, 0.64f, 0.26f, 1.0f};
         Color budget{1.0f, 1.0f, 1.0f, 0.28f};
+        Color selection{0.36f, 0.70f, 1.0f, 0.18f};
+        Color highlight{1.0f, 1.0f, 1.0f, 0.9f};
+        Color grid{1.0f, 1.0f, 1.0f, 0.10f};
     };
 
     /// A source with no frames: what a view reads before it is given one.
@@ -74,6 +77,14 @@ export namespace foundation::profiler::ui
         }
         [[nodiscard]] u32 FrameCount() const noexcept { return m_frameCount; }
 
+        /// Look at exactly these frames (the panel's selection) instead of the newest FrameCount;
+        /// an empty range goes back to the newest.
+        void SetRange(FrameRange range)
+        {
+            m_range = range;
+            Refresh();
+        }
+
         /// Recompute what it shows from the source (a new frame arrived) and ask for a draw.
         void Refresh()
         {
@@ -103,6 +114,10 @@ export namespace foundation::profiler::ui
 
         [[nodiscard]] FrameRange Range() const noexcept
         {
+            if (!m_range.empty)
+            {
+                return m_range;
+            }
             return m_source != nullptr ? LastFrames(*m_source, m_frameCount) : FrameRange{};
         }
 
@@ -121,6 +136,7 @@ export namespace foundation::profiler::ui
 
         const IProfileSource* m_source = nullptr;
         u32 m_frameCount = 120;
+        FrameRange m_range; // set: exactly these frames
 
     private:
         IAllocator* m_allocator;

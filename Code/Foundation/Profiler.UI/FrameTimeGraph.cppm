@@ -6,7 +6,9 @@
 /// The frame times of the newest frames as lines, newest at the right: the CPU's over a filled
 /// area, the GPU's on top, and the 60 and 30 fps budgets (16.7 and 33.3 ms) as faint lines where
 /// they fit. The scale steps up in doublings from 20 ms so a hitch neither flattens the rest for
-/// long nor makes the graph jitter frame to frame.
+/// long nor makes the graph jitter frame to frame. In the editor's panel it is the frame strip:
+/// fitted to every frame its source holds, and interactive, a click selecting a frame and a drag
+/// a range, which the panel's timeline and table then show.
 
 module;
 #include "Core/Prelude.h"
@@ -43,6 +45,92 @@ export namespace foundation::profiler::ui
         [[nodiscard]] Span<const Float2> CpuPoints() const noexcept { return m_cpuPoints.AsSpan(); }
         [[nodiscard]] Span<const Float2> GpuPoints() const noexcept { return m_gpuPoints.AsSpan(); }
 
+        /// Show every frame the source holds across the width (the panel's strip), rather than
+        /// the newest FrameCount.
+        void SetFitToSource(bool fit)
+        {
+            m_fit = fit;
+            Refresh();
+        }
+
+        /// Take the pointer: a click selects the frame under it, a drag the frames it spans.
+        void SetInteractive(bool interactive) noexcept { IsHitTestVisible = interactive; }
+
+        /// The frames selected (empty for none), and who hears when a click or drag changes it.
+        [[nodiscard]] FrameRange Selection() const noexcept { return m_selection; }
+        void SetSelection(FrameRange selection)
+        {
+            m_selection = selection;
+            InvalidateVisual();
+        }
+        Function<void(FrameRange)> onSelectionChanged;
+
+        /// The frame drawn nearest `x` in the view (none when it shows no frames).
+        [[nodiscard]] FrameRange FrameAt(f32 x) const noexcept
+        {
+            FrameRange at;
+            if (m_times.IsEmpty())
+            {
+                return at;
+            }
+            const u64 newest = m_times[m_times.Size() - 1].frame;
+            const f32 back = m_step > 0.0f ? (Width() - x) / m_step + 0.5f : 0.0f;
+            const u64 steps = back <= 0.0f ? 0 : static_cast<u64>(back);
+            const u64 oldest = m_times[0].frame;
+            at.first = at.last = steps > newest - oldest ? oldest : newest - steps;
+            at.empty = false;
+            return at;
+        }
+
+        void OnMouseDown(foundation::ui::MouseEventArgs& e) override
+        {
+            const FrameRange at = FrameAt(e.X);
+            if (e.Button != foundation::ui::MouseButton::Left || at.empty)
+            {
+                return;
+            }
+            m_anchor = at.first;
+            m_dragging = true;
+            Select(at);
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->SetCapture(this);
+            }
+            e.Handled = true;
+        }
+
+        void OnMouseMove(foundation::ui::MouseEventArgs& e) override
+        {
+            const FrameRange at = FrameAt(e.X);
+            if (!m_dragging || at.empty)
+            {
+                return;
+            }
+            FrameRange range;
+            range.first = Min(m_anchor, at.first);
+            range.last = Max(m_anchor, at.first);
+            range.empty = false;
+            if (range.first != m_selection.first || range.last != m_selection.last)
+            {
+                Select(range);
+            }
+            e.Handled = true;
+        }
+
+        void OnMouseUp(foundation::ui::MouseEventArgs& e) override
+        {
+            if (!m_dragging)
+            {
+                return;
+            }
+            m_dragging = false;
+            if (Context != nullptr)
+            {
+                Context->GetFocusManager()->ReleaseCapture();
+            }
+            e.Handled = true;
+        }
+
         /// The scale for a highest time: 20 ms doubled until it holds it.
         [[nodiscard]] static f32 ScaleFor(f32 highestMs) noexcept
         {
@@ -60,6 +148,12 @@ export namespace foundation::profiler::ui
             const f32 w = Width();
             const f32 h = Height();
             ctx.VG().FillRect(Rectangle{0, 0, w, h}, palette.plot);
+            if (!m_selection.empty && !m_times.IsEmpty())
+            {
+                const f32 x0 = XOf(m_selection.first) - m_step * 0.5f;
+                const f32 x1 = XOf(m_selection.last) + m_step * 0.5f;
+                ctx.VG().FillRect(Rectangle{x0, 0, Max(x1 - x0, 2.0f), h}, palette.selection);
+            }
             for (const f32 budget : kBudgets)
             {
                 if (budget < m_scaleMs)
@@ -100,7 +194,15 @@ export namespace foundation::profiler::ui
 
         void Compute() override
         {
-            CollectFrameTimes(SourceOrEmpty(), Range(), m_times);
+            const IProfileSource& source = SourceOrEmpty();
+            FrameRange range = Range();
+            if (m_fit && source.HasFrames())
+            {
+                range.first = source.OldestFrame();
+                range.last = source.NewestFrame();
+                range.empty = false;
+            }
+            CollectFrameTimes(source, range, m_times);
             f32 highest = 0.0f;
             for (const FrameTime& t : m_times)
             {
@@ -111,12 +213,11 @@ export namespace foundation::profiler::ui
             // from the right rather than stretching.
             m_cpuPoints.Clear();
             m_gpuPoints.Clear();
-            const f32 w = Width();
-            const f32 step = m_frameCount > 1 ? w / static_cast<f32>(m_frameCount - 1) : w;
-            const u64 newest = m_times.IsEmpty() ? 0 : m_times[m_times.Size() - 1].frame;
+            const u64 slots = m_fit ? (range.empty ? 1 : range.last - range.first + 1) : m_frameCount;
+            m_step = slots > 1 ? Width() / static_cast<f32>(slots - 1) : Width();
             for (const FrameTime& t : m_times)
             {
-                const f32 x = w - static_cast<f32>(newest - t.frame) * step;
+                const f32 x = XOf(t.frame);
                 m_cpuPoints.PushBack(Float2{x, YOf(t.cpuMs)});
                 if (t.hasGpu)
                 {
@@ -126,6 +227,22 @@ export namespace foundation::profiler::ui
         }
 
     private:
+        void Select(FrameRange range)
+        {
+            SetSelection(range);
+            if (onSelectionChanged)
+            {
+                onSelectionChanged(range);
+            }
+        }
+
+        // Newest at the right edge, a step a frame back from there.
+        [[nodiscard]] f32 XOf(u64 frame) const noexcept
+        {
+            const u64 newest = m_times.IsEmpty() ? 0 : m_times[m_times.Size() - 1].frame;
+            return Width() - static_cast<f32>(newest - frame) * m_step;
+        }
+
         [[nodiscard]] f32 YOf(f32 ms) const noexcept
         {
             return Height() * (1.0f - Min(ms / m_scaleMs, 1.0f));
@@ -146,5 +263,10 @@ export namespace foundation::profiler::ui
         Array<Float2> m_cpuPoints;
         Array<Float2> m_gpuPoints;
         f32 m_scaleMs = 20.0f;
+        f32 m_step = 0.0f; // view units a frame
+        bool m_fit = false;
+        FrameRange m_selection;
+        u64 m_anchor = 0; // the frame a drag began on
+        bool m_dragging = false;
     };
 }

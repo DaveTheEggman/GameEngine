@@ -148,6 +148,103 @@ export namespace foundation::profiler::ui
         return stats;
     }
 
+    /// A name's time over a range of frames: every scope (or GPU pass) by that name, their total
+    /// time, their own time (children taken out; a pass's is its total) and their count.
+    struct NameTotal
+    {
+        NameId name = 0;
+        bool gpu = false;
+        u64 totalTicks = 0;
+        u64 selfTicks = 0;
+        u64 count = 0;
+    };
+
+    /// Totals by name over `range`, CPU scopes on every thread and GPU passes apart; `frames` is
+    /// how many frames had a record (for the scopes; the passes count frames whose passes landed).
+    struct RangeTotals
+    {
+        Array<NameTotal> scopes;
+        Array<NameTotal> passes;
+        u32 frames = 0;
+        u32 gpuFrames = 0;
+
+        explicit RangeTotals(IAllocator& allocator) : scopes(allocator), passes(allocator) {}
+    };
+
+    inline void CollectTotals(const IProfileSource& source, FrameRange range, RangeTotals& out)
+    {
+        out.scopes.Clear();
+        out.passes.Clear();
+        out.frames = 0;
+        out.gpuFrames = 0;
+        if (range.empty)
+        {
+            return;
+        }
+        IAllocator& allocator = out.scopes.Allocator();
+        Array<i32> scopeAt(allocator); // by name id: its index in out.scopes, or -1
+        Array<i32> passAt(allocator);
+        Array<u64> childTicks(allocator); // per depth: the time the scopes ended below it took
+        auto entry = [](Array<NameTotal>& list, Array<i32>& at, NameId name, bool gpu) -> NameTotal&
+        {
+            if (name >= at.Size())
+            {
+                at.Resize(name + 1, -1);
+            }
+            if (at[name] < 0)
+            {
+                at[name] = static_cast<i32>(list.Size());
+                NameTotal total;
+                total.name = name;
+                total.gpu = gpu;
+                list.PushBack(total);
+            }
+            return list[static_cast<usize>(at[name])];
+        };
+        for (u64 n = range.first; n <= range.last; ++n)
+        {
+            const FrameRecord* frame = source.Frame(n);
+            if (frame == nullptr)
+            {
+                continue;
+            }
+            ++out.frames;
+            // A thread's scopes are in the order they ended, so a scope's children come before
+            // it: what ended one level deeper since the last scope at its depth is its children.
+            for (const ThreadFrame& thread : frame->threads)
+            {
+                childTicks.Clear();
+                for (const ScopeEvent& scope : thread.scopes)
+                {
+                    if (childTicks.Size() < scope.depth + 2)
+                    {
+                        childTicks.Resize(scope.depth + 2, 0);
+                    }
+                    const u64 duration = scope.endTick - scope.beginTick;
+                    const u64 children = Min(childTicks[scope.depth + 1], duration);
+                    childTicks[scope.depth + 1] = 0;
+                    childTicks[scope.depth] += duration;
+                    NameTotal& total = entry(out.scopes, scopeAt, scope.name, false);
+                    total.totalTicks += duration;
+                    total.selfTicks += duration - children;
+                    ++total.count;
+                }
+            }
+            if (frame->gpuValid)
+            {
+                ++out.gpuFrames;
+                for (const GpuPassEvent& pass : frame->gpu)
+                {
+                    NameTotal& total = entry(out.passes, passAt, pass.name, true);
+                    const u64 duration = pass.endTick - pass.beginTick;
+                    total.totalTicks += duration;
+                    total.selfTicks += duration;
+                    ++total.count;
+                }
+            }
+        }
+    }
+
     /// Which events a top list ranks.
     enum class TopLane : u8
     {
@@ -164,81 +261,27 @@ export namespace foundation::profiler::ui
         f32 callsPerFrame = 0.0f;
     };
 
-    /// The `count` names that took longest over `range`, longest first.
+    /// The `count` names that took longest over `range` (scopes by their own time), longest first.
     inline void CollectTop(const IProfileSource& source, FrameRange range, TopLane lane, u32 count,
                            Array<TopEntry>& out)
     {
         out.Clear();
-        if (range.empty)
-        {
-            return;
-        }
-        IAllocator& allocator = out.Allocator();
-        Array<u64> ticks(allocator);  // by name id
-        Array<u64> calls(allocator);
-        Array<u64> childTicks(allocator); // per depth: the time the scopes ended below it took
-        u32 frames = 0;
-        auto add = [&](NameId name, u64 duration)
-        {
-            if (name >= ticks.Size())
-            {
-                ticks.Resize(name + 1, 0);
-                calls.Resize(name + 1, 0);
-            }
-            ticks[name] += duration;
-            ++calls[name];
-        };
-        for (u64 n = range.first; n <= range.last; ++n)
-        {
-            const FrameRecord* frame = source.Frame(n);
-            if (frame == nullptr || (lane == TopLane::GpuPasses && !frame->gpuValid))
-            {
-                continue;
-            }
-            ++frames;
-            if (lane == TopLane::GpuPasses)
-            {
-                for (const GpuPassEvent& pass : frame->gpu)
-                {
-                    add(pass.name, pass.endTick - pass.beginTick);
-                }
-                continue;
-            }
-            // A thread's scopes are in the order they ended, so a scope's children come before
-            // it: what ended one level deeper since the last scope at its depth is its children.
-            for (const ThreadFrame& thread : frame->threads)
-            {
-                childTicks.Clear();
-                for (const ScopeEvent& scope : thread.scopes)
-                {
-                    if (childTicks.Size() < scope.depth + 2)
-                    {
-                        childTicks.Resize(scope.depth + 2, 0);
-                    }
-                    const u64 duration = scope.endTick - scope.beginTick;
-                    const u64 children = Min(childTicks[scope.depth + 1], duration);
-                    childTicks[scope.depth + 1] = 0;
-                    childTicks[scope.depth] += duration;
-                    add(scope.name, duration - children);
-                }
-            }
-        }
+        RangeTotals totals(out.Allocator());
+        CollectTotals(source, range, totals);
+        const bool gpu = lane == TopLane::GpuPasses;
+        const u32 frames = gpu ? totals.gpuFrames : totals.frames;
         if (frames == 0)
         {
             return;
         }
         const u64 frequency = source.TickFrequency();
-        for (usize id = 0; id < ticks.Size(); ++id)
+        for (const NameTotal& total : gpu ? totals.passes : totals.scopes)
         {
-            if (calls[id] == 0)
-            {
-                continue;
-            }
             TopEntry entry;
-            entry.name = static_cast<NameId>(id);
-            entry.msPerFrame = TicksToMs(ticks[id], frequency) / static_cast<f32>(frames);
-            entry.callsPerFrame = static_cast<f32>(calls[id]) / static_cast<f32>(frames);
-            // Insert in order, longest first, keeping `count`.
+            entry.name = total.name;
+            entry.msPerFrame = TicksToMs(total.selfTicks, frequency) / static_cast<f32>(frames);
+            entry.callsPerFrame = static_cast<f32>(total.count) / static_cast<f32>(frames);
+            // Insert in order, longest first (the earlier name first on a tie), keeping `count`.
             usize at = out.Size();
             while (at > 0 && out[at - 1].msPerFrame < entry.msPerFrame)
             {

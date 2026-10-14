@@ -3,7 +3,8 @@
 
 /// Foundation::Profiler.UI - `foundation.profiler.ui` (Specs/profiler.md, P4): what the views show,
 /// computed from a source (:window), the views themselves (:frame_time_graph, :frame_stats,
-/// :top_list, :counter_strip) and the in-game overlay assembled from them (:overlay).
+/// :top_list, :counter_strip, and the panel's :timeline and :scope_table) and the in-game overlay
+/// assembled from them (:overlay).
 
 export module foundation.profiler.ui;
 
@@ -13,4 +14,6 @@ export import :frame_time_graph;
 export import :frame_stats;
 export import :top_list;
 export import :counter_strip;
+export import :timeline;
+export import :scope_table;
 export import :overlay;
