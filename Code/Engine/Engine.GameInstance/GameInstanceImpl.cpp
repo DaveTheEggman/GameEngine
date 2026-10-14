@@ -79,6 +79,8 @@ namespace engine::runtime
         builder.Method<&Run::timeScale>("timeScale");
         builder.Method<&Run::realDeltaTime>("realDeltaTime"); // unscaled: runs while paused
         builder.Method<&Run::realTime>("realTime");
+        builder.Method<&Run::setProfilerOverlay>("setProfilerOverlay", {"shown"}); // the app's overlay
+        builder.Method<&Run::profilerAvailable>("profilerAvailable");             // false in Shipping
         builder.Constructor();
     }
 

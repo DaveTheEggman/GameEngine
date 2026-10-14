@@ -950,6 +950,72 @@ TEST_CASE("game-instance: run.setTimeScale/timeScale route from script to the ru
     gi.StopScript();
 }
 
+TEST_CASE("game-instance: run.setProfilerOverlay/profilerAvailable route to the app, a no-op unwired")
+{
+    // Every build binds both calls (a script compiles the same in Shipping); the app decides what
+    // they do, and an app that wires nothing leaves them harmless.
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    const char8_t* source = u8"bool Available = true;\n"
+                            u8"class Game {\n"
+                            u8"  Game() {}\n"
+                            u8"  void launch() { Available = run::profilerAvailable(); run::setProfilerOverlay(true); }\n"
+                            u8"  void update(float dt) {}\n"
+                            u8"  void exit() { run::setProfilerOverlay(false); }\n"
+                            u8"}\n";
+
+    {
+        engine::runtime::GameInstance unwired;
+        REQUIRE(unwired.StartScript(source, u8"game.as", Span<const String>{}));
+        REQUIRE(unwired.ScriptContext() != nullptr);
+        CHECK_FALSE(unwired.ScriptContext()->GetGlobal(u8"Available").Get<bool>());
+        unwired.StopScript();
+    }
+
+    engine::runtime::GameInstance gi;
+    Array<bool> calls(DefaultAllocator());
+    gi.RunBinding().setProfilerOverlay = Function<void(bool)>{[&calls](bool shown) { calls.PushBack(shown); }};
+    gi.RunBinding().profilerAvailable = Function<bool()>{[]() { return true; }};
+    REQUIRE(gi.StartScript(source, u8"game.as", Span<const String>{}));
+    CHECK(gi.ScriptContext()->GetGlobal(u8"Available").Get<bool>());
+    REQUIRE(calls.Size() == 1);
+    CHECK(calls[0]);
+    gi.StopScript(); // exit() hides it
+    REQUIRE(calls.Size() == 2);
+    CHECK_FALSE(calls[1]);
+}
+
+TEST_CASE("game-instance: run.setProfilerOverlay/profilerAvailable route to the app (Luau)")
+{
+    RegisterCoreTypes();
+    foundation::script::RegisterScriptFacadeReflection();
+    engine::runtime::RegisterRunScriptFacade();
+    foundation::script::RegisterLuauScriptBackend();
+
+    engine::runtime::GameInstance gi;
+    Array<bool> calls(DefaultAllocator());
+    gi.RunBinding().setProfilerOverlay = Function<void(bool)>{[&calls](bool shown) { calls.PushBack(shown); }};
+    gi.RunBinding().profilerAvailable = Function<bool()>{[]() { return true; }};
+    REQUIRE(gi.StartScript(u8"Available = false\n"
+                           u8"Game = {}\n"
+                           u8"Game.__index = Game\n"
+                           u8"function Game.new() return setmetatable({}, Game) end\n"
+                           u8"function Game:launch()\n"
+                           u8"  Available = run.profilerAvailable()\n"
+                           u8"  run.setProfilerOverlay(true)\n"
+                           u8"end\n"
+                           u8"function Game:update(dt) end\n"
+                           u8"function Game:exit() end\n",
+                           u8"game.luau", Span<const String>{}));
+    REQUIRE(gi.ScriptContext() != nullptr);
+    CHECK(gi.ScriptContext()->GetGlobal(u8"Available").Get<bool>());
+    REQUIRE(calls.Size() == 1);
+    CHECK(calls[0]);
+    gi.StopScript();
+}
+
 TEST_CASE("game-instance: ClearScenes resets the run-scoped group time scale to 1")
 {
     engine::runtime::GameInstance gi;

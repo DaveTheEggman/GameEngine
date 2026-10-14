@@ -86,6 +86,11 @@ export namespace engine::runtime
                                                                // real time); the Game orchestrator keeps
                                                                // running so it can resume.
         core::Function<f32()> timeScale;                       // the run's current scene-group time scale
+        // The app's profiler overlay (Specs/profiler.md, P4): show or hide it, and whether the app
+        // can show one (a build with the profiler, an app that has an overlay). Unwired: nothing
+        // shows and it is unavailable, so a script calls them the same in every build.
+        core::Function<void(bool)> setProfilerOverlay;
+        core::Function<bool()> profilerAvailable;
         // This frame's seconds before any time scale, and the seconds of frames since the run
         // started (RunTime): what a pause menu, a banner or a fade times itself by, since
         // update(dt) and coroutine waits stand still at time scale 0. The GameInstance writes them.
@@ -232,6 +237,24 @@ export namespace engine::runtime
         {
             RunScriptBinding* b = Resolve();
             return b != nullptr ? b->realSeconds : 0.0;
+        }
+        /// run.setProfilerOverlay(shown): show or hide the app's profiler overlay (frame times, the
+        /// longest scopes and GPU passes, the counters). The app decides what that means; in a build
+        /// without the profiler (Shipping) nothing shows. Unwired -> a safe no-op.
+        static void setProfilerOverlay(bool shown)
+        {
+            RunScriptBinding* b = Resolve();
+            if (b != nullptr && b->setProfilerOverlay)
+            {
+                b->setProfilerOverlay(shown);
+            }
+        }
+        /// Whether setProfilerOverlay can show anything here: false in Shipping and where the app has
+        /// no overlay, so a debug menu can hide its entry (false if unwired).
+        [[nodiscard]] static bool profilerAvailable()
+        {
+            RunScriptBinding* b = Resolve();
+            return b != nullptr && b->profilerAvailable && b->profilerAvailable();
         }
     };
 
