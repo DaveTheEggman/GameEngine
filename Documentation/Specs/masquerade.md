@@ -1,6 +1,6 @@
 # Masquerade - the fifth sample, social stealth in a crowd over the network
 
-> STATUS: APPROVED 2026-10-14; nothing built yet. Agreed (user 2026-10-14): the masked
+> STATUS: APPROVED 2026-10-14. P0 (network commands for scripts) BUILT 2026-10-14; P1 next. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -97,6 +97,11 @@ From a survey of the code (2026-10-14):
   `Net.on` with number and text payloads in both languages, `Net.spawn`, an owner peer and
   input to the host, join and leave events. Tests in Net and the script backends; the networking
   docs page's "What is missing" list shrinks.
+  As built: `Net.on(name, fn(sender[, value]))`; `Net.spawn` and `Net.spawnFor(player, ...)`;
+  player ids (0 the host, a client the id the session's welcome gives it), `Net.localPlayer`,
+  `Net.isMine`, `NetworkComponent.owner`; `Net.rpcTo` (and number, text); `Net.onJoin` /
+  `Net.onLeave`. Input to the host is an RPC whose sender the host checks; a leaver's guest is the
+  game's to decide in `onLeave`. The plan's slice 4 (a cube demo) is this game instead.
 - **P1 Replicated state** (gap 5): what a guest is doing and how a player looks, replicated and
   read by scripts on every peer. Tests: a host's change reaches a late joiner.
 - **P2 Crowds at scale** (gaps 6 and 7): the agent limit a zone setting; a crowd that moves
