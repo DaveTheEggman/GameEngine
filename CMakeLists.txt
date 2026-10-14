@@ -151,6 +151,11 @@ if(EMSCRIPTEN)
     # OPTION_EXTENSION_IMGUI stays available on web: Dear ImGui + extensions.imgui compile for
     # wasm (the renderer is pure RHI, the subsystem consumes the shell's input), so the debug
     # panel works in the browser too (WebScene's tweak UI).
+
+    # One link at a time (Ninja job pool): a wasm link runs wasm-opt, which alone peaks near 5 GB,
+    # so -j4 linking four tests at once runs the box out of memory. Compiles keep -j4.
+    set_property(GLOBAL APPEND PROPERTY JOB_POOLS wasm_link=1)
+    set(CMAKE_JOB_POOL_LINK wasm_link)
 endif()
 
 # --- Product binary basenames: single source of truth ------------------------
