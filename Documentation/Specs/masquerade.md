@@ -1,7 +1,8 @@
 # Masquerade - the fifth sample, social stealth in a crowd over the network
 
 > STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
-> (the crowd's engine features) BUILT 2026-10-14; P3 next. Agreed (user 2026-10-14): the masked
+> (the crowd's engine features) BUILT 2026-10-14; P3 in progress (the Palace, its guests and the
+> player). Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -136,6 +137,12 @@ From a survey of the code (2026-10-14):
 - **P3 The ball, solo**: the guests (Blender), the Palace first (the generator), guests
   wandering, gathering and dancing to cues, one player and bots, tagging and scoring; then the
   Canal and the Gardens, and choosing a map.
+  So far: six costumes (three gowns, three coats, masked) on one rig with Idle, Walk, Talk and
+  Dance; the Palace (ballroom, colonnade, courtyard, fountain) from its kit; 150 guests drawn as
+  instances of their costume's mesh, one Instanced Skinning driving all six; guests stroll between
+  some 40 places, gather at the nearest when the orchestra calls, and dance where they stand; the
+  player steers a navigation agent, so the crowd makes way for it as for a guest. A multi-part
+  guest needed a materials list on the instanced mesh (an engine change, as a mesh's).
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
   browser.
