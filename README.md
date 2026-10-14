@@ -17,9 +17,9 @@ skeletal animation with graphs and IK, terrain and vegetation; gameplay scriptin
 or Luau; and a CSS-styled UI framework.
 
 It is built to be worked by agents as well as people. An MCP host exposes the engine's
-reflection, its script API, project operations and play in editor, and the four sample games in
-this repository were each built and playtested through those tools, then shipped to the web and
-the Steam Deck.
+reflection, its script API, project operations and play in editor, and the five sample projects
+in this repository were each built and playtested through those tools, then shipped to the web
+(the four games to the Steam Deck too).
 
 ![The editor](Documentation/Images/Editor.png)
 
@@ -120,8 +120,9 @@ Add `--mcp` to serve the open project to an agent over MCP while you work in the
 ## Sample projects
 
 Game projects under `Data/SampleProjects/`, opened from the editor's project manager. The four
-games are built through the engine's MCP tools and ship to the web and the Steam Deck;
-[the website](https://assiduousengine.github.io/#games) plays them in a browser.
+games and the Shader Gallery are built through the engine's MCP tools and ship to the web (the
+games to the Steam Deck too); [the website](https://assiduousengine.github.io/#games) plays them in
+a browser.
 
 **Sky Hopper** (`PlatformerGame`) is a small 3D platformer, played through to the end over the
 MCP tools by an AI agent while it was built: five levels, coins, enemies and hazards, three lives
@@ -172,6 +173,16 @@ scenes, generated sounds.
 | The Gardens | The Ground Floor | Away like a ghost |
 |:---:|:---:|:---:|
 | ![Gardens](Documentation/Images/Lamplight-Gardens.png) | ![Ground Floor](Documentation/Images/Lamplight-GroundFloor.png) | ![Results](Documentation/Images/Lamplight-Results.png) |
+
+**Shader Gallery** (`ShaderGallery`) is the custom shaders sample: a hall of lesson shaders to
+fly through, each on its own plinth, each `.hlsl` a short commented lesson that builds on the one
+before. Surface shaders first (unlit colour, textures, lava, a hologram, triplanar rock, dissolve,
+waves, wind and the engine's own PBR written as a surface), then two low-level shaders that light
+themselves: toon bands, and lighting that walks the scene's lights. Its lessons are listed in [its README](Data/SampleProjects/ShaderGallery/README.md).
+
+| The hall | Hologram | Dissolve | Toon |
+|:---:|:---:|:---:|:---:|
+| ![The hall](Documentation/Images/ShaderGallery-Hall.png) | ![Hologram](Documentation/Images/ShaderGallery-Hologram.png) | ![Dissolve](Documentation/Images/ShaderGallery-Dissolve.png) | ![Toon](Documentation/Images/ShaderGallery-Toon.png) |
 
 **NativeSample** is the reference for a game with native C++ code beside its scripts.
 
