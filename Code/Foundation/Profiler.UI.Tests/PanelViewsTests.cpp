@@ -146,7 +146,7 @@ TEST_CASE("profiler panel views: the timeline lays a frame's lanes and nesting o
     CHECK(timeline->Lanes()[1].y > timeline->Lanes()[0].y + timeline->Lanes()[0].height);
 
     // The whole frame in view: 16 ms across 600 units.
-    CHECK(timeline->XAt(timeline->ViewBegin()) == doctest::Approx(Timeline::kHeaderWidth));
+    CHECK(timeline->XAt(timeline->ViewBegin()) == doctest::Approx(f32{Timeline::kHeaderWidth}));
     CHECK(timeline->ViewEnd() - timeline->ViewBegin() == doctest::Approx(16.0));
     REQUIRE(timeline->Bars().Size() == 6);
     const Timeline::Bar* update = nullptr;
@@ -164,7 +164,7 @@ TEST_CASE("profiler panel views: the timeline lays a frame's lanes and nesting o
     }
     REQUIRE(update != nullptr);
     REQUIRE(physics != nullptr);
-    CHECK(update->rect.x == doctest::Approx(Timeline::kHeaderWidth));
+    CHECK(update->rect.x == doctest::Approx(f32{Timeline::kHeaderWidth}));
     CHECK(update->rect.width == doctest::Approx(600.0f * 10.0f / 16.0f));
     CHECK(physics->depth == 1u);
     CHECK(physics->rect.y == doctest::Approx(update->rect.y + Timeline::kRowHeight)); // nested under it

@@ -84,7 +84,7 @@ TEST_CASE("profiler_capture: registered once")
     CaptureRecorder recorder(DefaultAllocator());
     McpServer server;
     app::RegisterProfilerTools(server, SeamsFor(profiler, recorder, u8"scratch_profiler_tool"));
-    CHECK(server.ToolCount() == app::kProfilerToolCount);
+    CHECK(server.ToolCount() == usize{app::kProfilerToolCount});
 }
 
 #if BUILD_PROFILING

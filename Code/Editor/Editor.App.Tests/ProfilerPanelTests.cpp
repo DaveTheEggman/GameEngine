@@ -157,9 +157,9 @@ TEST_CASE("profiler panel: its parts keep their sizes; a smaller pane scrolls, a
     // The Console's pane in the default layout, about 560 by 180: the body keeps its minimum and
     // the pane scrolls it.
     layOut(560, 180);
-    CHECK(panel->Body().Width() == doctest::Approx(ProfilerPanelBody::kMinWidth));
-    CHECK(panel->Body().Height() == doctest::Approx(ProfilerPanelBody::kMinHeight));
-    CHECK(panel->Strip().Height() == doctest::Approx(pui::FrameTimeGraph::kHeight));
+    CHECK(panel->Body().Width() == doctest::Approx(f32{ProfilerPanelBody::kMinWidth}));
+    CHECK(panel->Body().Height() == doctest::Approx(f32{ProfilerPanelBody::kMinHeight}));
+    CHECK(panel->Strip().Height() == doctest::Approx(f32{pui::FrameTimeGraph::kHeight}));
     CHECK(panel->Scroller().Width() == doctest::Approx(560.0f));
     CHECK(panel->Scroller().Height() == doctest::Approx(180.0f));
     const f32 tableTop = panel->Table().Bounds.y;
@@ -170,8 +170,8 @@ TEST_CASE("profiler panel: its parts keep their sizes; a smaller pane scrolls, a
     layOut(1600, 600);
     CHECK(panel->Body().Width() == doctest::Approx(1600.0f));
     CHECK(panel->Body().Height() == doctest::Approx(600.0f));
-    CHECK(panel->Table().Width() == doctest::Approx(ProfilerPanelBody::kSideMax));
+    CHECK(panel->Table().Width() == doctest::Approx(f32{ProfilerPanelBody::kSideMax}));
     CHECK(panel->TimelineView().Width() == doctest::Approx(1600.0f - ProfilerPanelBody::kSideMax - ProfilerPanelBody::kGap));
-    CHECK(ProfilerPanelBody::SideWidth(640.0f) == doctest::Approx(ProfilerPanelBody::kSideMin));
+    CHECK(ProfilerPanelBody::SideWidth(640.0f) == doctest::Approx(f32{ProfilerPanelBody::kSideMin}));
     context.RemoveRootView(root.Get());
 }

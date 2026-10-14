@@ -150,9 +150,9 @@ TEST_CASE("profiler views: the overlay stacks the views on a panel in its corner
     Stage stage(*overlay, Float2{1280, 720});
 
     const Rectangle panel = overlay->Panel();
-    CHECK(panel.width == doctest::Approx(ProfilerOverlay::kPanelWidth));
+    CHECK(panel.width == doctest::Approx(f32{ProfilerOverlay::kPanelWidth}));
     CHECK(panel.x == doctest::Approx(1280.0f - ProfilerOverlay::kMargin - ProfilerOverlay::kPanelWidth));
-    CHECK(panel.y == doctest::Approx(ProfilerOverlay::kMargin));
+    CHECK(panel.y == doctest::Approx(f32{ProfilerOverlay::kMargin}));
     // The views inside the panel, one under the next.
     CHECK(overlay->Graph().Width() == doctest::Approx(ProfilerOverlay::kPanelWidth - 2 * ProfilerOverlay::kPadding));
     CHECK(overlay->Stats().Bounds.y > overlay->Graph().Bounds.y);
@@ -163,6 +163,6 @@ TEST_CASE("profiler views: the overlay stacks the views on a panel in its corner
     overlay->SetCorner(OverlayCorner::BottomLeft);
     stage.root->Measure(fui::BoxConstraints::Tight(1280, 720));
     stage.root->Layout(0, 0, 1280, 720);
-    CHECK(overlay->Panel().x == doctest::Approx(ProfilerOverlay::kMargin));
+    CHECK(overlay->Panel().x == doctest::Approx(f32{ProfilerOverlay::kMargin}));
     CHECK(overlay->Panel().y + overlay->Panel().height == doctest::Approx(720.0f - ProfilerOverlay::kMargin));
 }
