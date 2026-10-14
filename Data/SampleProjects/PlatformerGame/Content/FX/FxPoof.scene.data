@@ -8,20 +8,20 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 	</array>
 	<array name="components" count="2">

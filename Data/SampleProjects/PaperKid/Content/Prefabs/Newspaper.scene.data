@@ -8,20 +8,20 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 	</array>
 	<array name="components" count="2">
@@ -80,20 +80,20 @@
 		<string name="prefab">87b8eb50-5a0c-4bfc-ae15-b99b829ca6ee</string>
 		<string name="parent">f3fc9065-df79-5daf-8884-caa6a3389241</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="rootLive">258536df-b6a6-5689-aca5-0819786c15c6</string>
 		<string name="owner">00000000-0000-0000-0000-000000000000</string>

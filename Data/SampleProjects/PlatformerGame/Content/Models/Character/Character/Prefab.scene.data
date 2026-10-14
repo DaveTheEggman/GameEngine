@@ -814,7 +814,7 @@
 			<object name="data">
 				<array name="dataVersions" count="1">
 					<u64 name="type">564966493257515046</u64>
-					<u32 name="version">1</u32>
+					<u32 name="version">2</u32>
 				</array>
 				<string name="skeleton">b63651b9-95b6-4907-9f73-a8bb6fec2101</string>
 				<string name="clip">9208bf59-c1d7-4556-baf2-4535e81488c9</string>
@@ -827,6 +827,8 @@
 					<string>88f54d0a-f4e6-4858-ab09-2342446713ae</string>
 					<string>57836044-efc5-4eee-849d-c68b39fb1e3a</string>
 				</array>
+				<u8 name="rootMotion">0</u8>
+				<string name="rootMotionTarget">00000000-0000-0000-0000-000000000000</string>
 			</object>
 		</object>
 	</array>

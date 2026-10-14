@@ -8,40 +8,40 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="id">1263de8c-ed24-5584-9b71-7cab19ab0e55</string>
 		<string name="name">Collider</string>
 		<u8 name="active">1</u8>
 		<string name="parent">d00962e0-ed1f-5605-83ad-2dfb90ec704e</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">2.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">2</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 	</array>
 	<array name="components" count="1">
@@ -84,20 +84,20 @@
 		<string name="prefab">99c6a76a-abcc-420a-b453-c2eaa79c6f0f</string>
 		<string name="parent">d00962e0-ed1f-5605-83ad-2dfb90ec704e</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="rootLive">6123c7a7-f1d9-5458-abd7-27f4a5316a63</string>
 		<string name="owner">00000000-0000-0000-0000-000000000000</string>

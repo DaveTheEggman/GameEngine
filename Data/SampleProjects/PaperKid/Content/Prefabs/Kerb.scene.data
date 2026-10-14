@@ -8,40 +8,40 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="id">05e76baa-db14-5ca5-8f1f-fbd0d5dde471</string>
 		<string name="name">Stone</string>
 		<u8 name="active">1</u8>
 		<string name="parent">82fc0876-cd40-5fbf-a496-5712737eab4d</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
+			<f32 name="x">0</f32>
 			<f32 name="y">0.1</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.4</f32>
 			<f32 name="y">0.2</f32>
-			<f32 name="z">8.0</f32>
+			<f32 name="z">8</f32>
 		</object>
 	</array>
 	<array name="components" count="1">
@@ -59,7 +59,7 @@
 					<f32 name="r">0.68</f32>
 					<f32 name="g">0.68</f32>
 					<f32 name="b">0.66</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>

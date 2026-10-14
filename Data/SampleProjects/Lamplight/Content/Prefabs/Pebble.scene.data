@@ -8,35 +8,35 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="id">b0df9ade-526f-5efd-9e85-5ae880083bb2</string>
 		<string name="name">Stone</string>
 		<u8 name="active">1</u8>
 		<string name="parent">ba0a9791-5000-5142-988e-76b56bd27325</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.08</f32>
@@ -45,6 +45,30 @@
 		</object>
 	</array>
 	<array name="components" count="3">
+		<object>
+			<string name="owner">b0df9ade-526f-5efd-9e85-5ae880083bb2</string>
+			<string name="type">mesh</string>
+			<object name="data">
+				<array name="dataVersions" count="1">
+					<u64 name="type">17486421469838262082</u64>
+					<u32 name="version">5</u32>
+				</array>
+				<string name="mesh">aab2c271-2550-4e14-92c1-72224963cd47</string>
+				<array name="materials" count="1">
+					<string>6fc5b2a6-fc3b-439a-ad52-d6acf0179c24</string>
+				</array>
+				<object name="color">
+					<f32 name="r">1</f32>
+					<f32 name="g">1</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
+				</object>
+				<bool name="visible">true</bool>
+				<f32 name="fade">0</f32>
+				<f32 name="lodBias">0</f32>
+				<i32 name="forceLod">-1</i32>
+			</object>
+		</object>
 		<object>
 			<string name="owner">ba0a9791-5000-5142-988e-76b56bd27325</string>
 			<string name="type">physics.RigidBody</string>
@@ -75,30 +99,6 @@
 				<string name="heightfield">00000000-0000-0000-0000-000000000000</string>
 				<bool name="continuousCollision">true</bool>
 				<f32 name="mass">0.1</f32>
-			</object>
-		</object>
-		<object>
-			<string name="owner">b0df9ade-526f-5efd-9e85-5ae880083bb2</string>
-			<string name="type">mesh</string>
-			<object name="data">
-				<array name="dataVersions" count="1">
-					<u64 name="type">17486421469838262082</u64>
-					<u32 name="version">5</u32>
-				</array>
-				<string name="mesh">aab2c271-2550-4e14-92c1-72224963cd47</string>
-				<array name="materials" count="1">
-					<string>6fc5b2a6-fc3b-439a-ad52-d6acf0179c24</string>
-				</array>
-				<object name="color">
-					<f32 name="r">1</f32>
-					<f32 name="g">1</f32>
-					<f32 name="b">1</f32>
-					<f32 name="a">1</f32>
-				</object>
-				<bool name="visible">true</bool>
-				<f32 name="fade">0</f32>
-				<f32 name="lodBias">0</f32>
-				<i32 name="forceLod">-1</i32>
 			</object>
 		</object>
 		<object>

@@ -783,18 +783,6 @@
 	</array>
 	<array name="systemSettings" count="5">
 		<object>
-			<string name="system">navigation</string>
-			<array name="dataVersions" count="1">
-				<u64 name="type">17060359306528790095</u64>
-				<u32 name="version">2</u32>
-			</array>
-			<object name="settings">
-				<bool name="debugDraw">false</bool>
-				<bool name="debugDrawPaths">false</bool>
-				<bool name="debugDrawBakeStages">false</bool>
-			</object>
-		</object>
-		<object>
 			<string name="system">sceneScript</string>
 			<array name="dataVersions" count="1">
 				<u64 name="type">17871001856427645353</u64>
@@ -804,6 +792,18 @@
 				<string name="script">00000000-0000-0000-0000-000000000000</string>
 				<bool name="enabled">true</bool>
 				<array name="overrides" count="0"/>
+			</object>
+		</object>
+		<object>
+			<string name="system">navigation</string>
+			<array name="dataVersions" count="1">
+				<u64 name="type">17060359306528790095</u64>
+				<u32 name="version">2</u32>
+			</array>
+			<object name="settings">
+				<bool name="debugDraw">false</bool>
+				<bool name="debugDrawPaths">false</bool>
+				<bool name="debugDrawBakeStages">false</bool>
 			</object>
 		</object>
 		<object>

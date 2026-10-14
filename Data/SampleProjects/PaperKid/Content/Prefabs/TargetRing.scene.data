@@ -8,35 +8,35 @@
 		<u8 name="active">1</u8>
 		<string name="parent">00000000-0000-0000-0000-000000000000</string>
 		<object name="position">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.0</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">1.0</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">1</f32>
 		</object>
 		<object name="scale">
-			<f32 name="x">1.0</f32>
-			<f32 name="y">1.0</f32>
-			<f32 name="z">1.0</f32>
+			<f32 name="x">1</f32>
+			<f32 name="y">1</f32>
+			<f32 name="z">1</f32>
 		</object>
 		<string name="id">708393a2-7a0a-5e9d-8e73-502d49e82fdc</string>
 		<string name="name">Dash</string>
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">1.5705952052691874</f32>
+			<f32 name="x">1.5705953</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">0.6505618350206526</f32>
+			<f32 name="z">0.6505618</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.8314696123025452</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">0.5555702330196023</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.8314696</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">0.55557024</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -48,15 +48,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">0.6505618350206527</f32>
+			<f32 name="x">0.6505618</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">1.5705952052691874</f32>
+			<f32 name="z">1.5705953</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.9807852804032304</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">0.19509032201612833</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.98078525</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">0.19509032</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -68,15 +68,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">-0.6505618350206526</f32>
+			<f32 name="x">-0.6505618</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">1.5705952052691874</f32>
+			<f32 name="z">1.5705953</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.9807852804032304</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.1950903220161282</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.98078525</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.19509032</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -88,15 +88,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">-1.5705952052691874</f32>
+			<f32 name="x">-1.5705953</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">0.6505618350206528</f32>
+			<f32 name="z">0.6505618</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.8314696123025451</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.5555702330196023</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.8314696</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.55557024</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -108,15 +108,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">-1.5705952052691876</f32>
+			<f32 name="x">-1.5705953</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">-0.6505618350206525</f32>
+			<f32 name="z">-0.6505618</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.5555702330196022</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.8314696123025453</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.55557024</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.8314696</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -128,15 +128,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">-0.6505618350206521</f32>
+			<f32 name="x">-0.6505618</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">-1.5705952052691876</f32>
+			<f32 name="z">-1.5705953</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">-0.19509032201612816</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.9807852804032304</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">-0.19509032</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.98078525</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -148,15 +148,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">0.650561835020653</f32>
+			<f32 name="x">0.6505618</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">-1.5705952052691872</f32>
+			<f32 name="z">-1.5705953</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.19509032201612836</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.9807852804032304</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0.19509032</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.98078525</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -168,15 +168,15 @@
 		<u8 name="active">1</u8>
 		<string name="parent">95a97b05-8e79-551d-96b5-544f6457d2f8</string>
 		<object name="position">
-			<f32 name="x">1.5705952052691876</f32>
+			<f32 name="x">1.5705953</f32>
 			<f32 name="y">0.05</f32>
-			<f32 name="z">-0.6505618350206522</f32>
+			<f32 name="z">-0.6505618</f32>
 		</object>
 		<object name="rotation">
-			<f32 name="x">0.0</f32>
-			<f32 name="y">0.5555702330196023</f32>
-			<f32 name="z">0.0</f32>
-			<f32 name="w">-0.8314696123025452</f32>
+			<f32 name="x">0</f32>
+			<f32 name="y">0.55557024</f32>
+			<f32 name="z">0</f32>
+			<f32 name="w">-0.8314696</f32>
 		</object>
 		<object name="scale">
 			<f32 name="x">0.9</f32>
@@ -200,8 +200,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -224,8 +224,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -248,8 +248,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -272,8 +272,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -296,8 +296,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -320,8 +320,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -344,8 +344,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
@@ -368,8 +368,8 @@
 				<object name="color">
 					<f32 name="r">0.1</f32>
 					<f32 name="g">0.7</f32>
-					<f32 name="b">1.0</f32>
-					<f32 name="a">1.0</f32>
+					<f32 name="b">1</f32>
+					<f32 name="a">1</f32>
 				</object>
 				<bool name="visible">true</bool>
 				<f32 name="fade">0</f32>
