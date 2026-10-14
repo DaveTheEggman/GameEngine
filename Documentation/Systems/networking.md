@@ -91,6 +91,17 @@ delegate shapes (`RegisterDelegateShape`). `Net.spawn(prefab, x, y, z)` (P3 slic
 2026-10-14), host only: spawns the prefab in the replicated scene through the scene's own
 `PrefabSpawnSystem` (as `scene.spawn`) and assigns its NetworkId with the prefab, so each client's
 spawn handler builds its copy and a late joiner gets it in the snapshot; null on a client.
+Players (P3 slice 3, built 2026-10-14): a script names a player by an id, 0 the host and a client
+the PeerId the host gave it, which the session's `Welcome` control message (sent reliably as the
+host accepts) tells the client (`NetSession::LocalPeer`). `NetworkComponent.owner` is that id,
+set by `Net.spawnFor(player, prefab, x, y, z)` (`spawn` is the host's) and sent in the spawn
+record after the prefab, so every peer knows whose an entity is (`Net.isMine(entity)`,
+`NetworkComponent.of(e).owner`). `Net.localPlayer()`; `Net.rpcTo` / `rpcNumberTo` / `rpcTextTo`,
+host to one player; `Net.onJoin(fn(player))` / `Net.onLeave(fn(player))` through
+`NetworkManager::SetPlayerEvents` (the host hears clients come and go; a client hears its own
+join once welcomed, and the host leave as 0). On a client a `Net.on` handler's sender is 0, the
+host. Orders are RPCs the host checks itself (it knows the sender); who leaves and what happens to
+their entities is the game's call in its `onLeave`.
 `NetworkComponent.of(entity).authority` exposes
 ownership to script. Certified on AngelScript + Luau (see `Integration.ScriptFacades`; Wren was
 retired 2026-08-19).
@@ -98,7 +109,7 @@ retired 2026-08-19).
 ## Deferred
 
 - **P3 - commands/orders layer** (script-facing: receive-RPC-into-script, spawn-a-networked-entity
-  from script, ownership + orders, demo content): slices 1 and 2 (`Net.on`, `Net.spawn`) built 2026-10-14, the rest in
+  from script, ownership + orders, demo content): slices 1 to 3 (`Net.on`, `Net.spawn`, players and owners) built 2026-10-14, the demo slice is
   progress for Masquerade (`Specs/masquerade.md`, P0). Plan: `Documentation/Plans/networking-commands.md`.
 - Backlog (web WebSocket client, replication refinements, transport/deployment, matchmaking/
   services hooks): `Documentation/Backlog/networking-followups.md`.

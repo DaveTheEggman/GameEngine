@@ -42,6 +42,13 @@ prefab ref, or a script asset-ref facade) - smallest for the demo is a known pro
 
 ## Slice 3 - ownership + orders (the "controls it" part)
 
+> BUILT 2026-10-14 (Masquerade P0): player ids (0 the host, a client its PeerId there, told by the
+> session's Welcome), `NetworkComponent.owner` sent in the spawn record, `Net.spawnFor`,
+> `Net.isMine`, `Net.localPlayer`, `Net.rpcTo` (and number, text), `Net.onJoin` / `Net.onLeave`.
+> Validation: the host's handler knows the sender, so it checks the order itself. Disconnect
+> policy: the game decides in `onLeave` (Masquerade turns a leaver's guest into a bot rather than
+> despawning it), so the engine despawns nothing.
+
 Server-authoritative control: add an owner `PeerId` to `NetworkComponent` (0 = server-owned);
 `Net.spawn` tags owner = the requesting client. The client sends movement orders
 (`Net.rpcNumber("move", dir)`); the server's `Net.on("move", ...)` resolves sender -> its owned cube

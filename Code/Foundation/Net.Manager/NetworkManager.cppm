@@ -74,6 +74,9 @@ export namespace foundation::net
             RefPtr<IScriptDelegate> handler;
         };
         Array<ScriptRpcHandler> rpcHandlers;
+        /// Net.onJoin / Net.onLeave: called with the player id (SetPlayerEvents says who that is).
+        RefPtr<IScriptDelegate> joinHandler;
+        RefPtr<IScriptDelegate> leaveHandler;
     };
 
     /// What a script RPC carries after its id: the Net facade writes the kind first, so Net.on's
@@ -196,13 +199,28 @@ export namespace foundation::net
                     {
                         m_replication.ForgetPeer(ev.peer);
                     }
+                    ReportPlayer(ev);
                     if (onEvent)
                     {
                         onEvent(ev);
                     }
                 }
             }
+            // A client has joined once the server has said who it is (the session's welcome).
+            if (m_session.IsClient() && !m_welcomed && m_session.LocalPeer() != kInvalidPeer)
+            {
+                m_welcomed = true;
+                if (m_playerEvents)
+                {
+                    m_playerEvents(true, m_session.LocalPeer());
+                }
+            }
         }
+
+        /// Players joining and leaving, by player id (0 = the host, else a client's PeerId on the
+        /// server). On the host: a client joined or left. On a client: it joined itself (its own id,
+        /// once the server welcomed it), or the host left (0).
+        void SetPlayerEvents(Function<void(bool joined, u32 player)> handler) { m_playerEvents = Move(handler); }
 
         // Replication HALF (per-scene FIXED lane): server captures the
         // scene's networked state + pushes a per-peer delta; client samples buffered interpolation into
@@ -290,7 +308,30 @@ export namespace foundation::net
         // sim/test ctor); a UdpSocket or WebSocketHybridSocket from the factories otherwise.
         core::UniquePtr<IDatagramSocket> m_ownedSocket;
         NetSession m_session;
+        // The player a session event is about, to SetPlayerEvents' handler (see there).
+        void ReportPlayer(const NetEvent& ev)
+        {
+            if (!m_playerEvents)
+            {
+                return;
+            }
+            if (m_session.IsServer() && ev.kind == NetEventKind::Connected)
+            {
+                m_playerEvents(true, ev.peer);
+            }
+            else if (m_session.IsServer() && ev.kind == NetEventKind::Disconnected)
+            {
+                m_playerEvents(false, ev.peer);
+            }
+            else if (m_session.IsClient() && ev.kind == NetEventKind::Disconnected)
+            {
+                m_playerEvents(false, 0u); // the host went
+            }
+        }
+
         RpcTable m_rpc;
+        Function<void(bool joined, u32 player)> m_playerEvents;
+        bool m_welcomed = false; // client: the welcome has been reported
         StateReplication m_replication;
         InterpolationBuffer m_interp;    // client-side smoothing of received states
         scene::Scene* m_scene = nullptr; // the replicated world (null = no replication)
@@ -384,34 +425,58 @@ export namespace foundation::net
         }
 
         // Fire an RPC (no args). Client -> the server; server -> broadcast to all clients.
-        static void rpc(String name)
-        {
-            CallRpc(name.AsView(), [](BitWriter& w) { w.WriteU8(static_cast<u8>(ScriptRpcKind::None)); });
-        }
+        static void rpc(String name) { CallRpc(name.AsView(), WriteNothing()); }
         // Fire an RPC with one number / one text argument (the common turn-based-order shapes).
-        static void rpcNumber(String name, f64 value)
+        static void rpcNumber(String name, f64 value) { CallRpc(name.AsView(), WriteNumber(value)); }
+        static void rpcText(String name, String text) { CallRpc(name.AsView(), WriteText(Move(text))); }
+
+        /// Host only: send to one player (a client's player id), as rpc / rpcNumber / rpcText send
+        /// to all. Nothing for the host itself (0), an unknown player, or on a client.
+        static void rpcTo(i32 player, String name) { CallRpcTo(player, name.AsView(), WriteNothing()); }
+        static void rpcNumberTo(i32 player, String name, f64 value)
         {
-            CallRpc(name.AsView(),
-                    [value](BitWriter& w)
-                    {
-                        w.WriteU8(static_cast<u8>(ScriptRpcKind::Number));
-                        u64 bits = 0;
-                        MemCopy(&bits, &value, sizeof(bits));
-                        w.WriteU64(bits);
-                    });
+            CallRpcTo(player, name.AsView(), WriteNumber(value));
         }
-        static void rpcText(String name, String text)
+        static void rpcTextTo(i32 player, String name, String text)
         {
-            String owned(text);
-            CallRpc(name.AsView(),
-                    [owned](BitWriter& w)
-                    {
-                        w.WriteU8(static_cast<u8>(ScriptRpcKind::Text));
-                        w.WriteVarU32(static_cast<u32>(owned.Size()));
-                        w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()),
-                                                      owned.Size()));
-                    });
+            CallRpcTo(player, name.AsView(), WriteText(Move(text)));
         }
+
+        /// This game's own player id: 0 on the host, the id the host gave it on a client (from the
+        /// host's welcome), -1 offline or before the welcome.
+        [[nodiscard]] static i32 localPlayer()
+        {
+            NetworkManager* m = Endpoint();
+            if (m == nullptr)
+            {
+                return -1;
+            }
+            if (m->Session().IsServer())
+            {
+                return 0;
+            }
+            const PeerId self = m->Session().LocalPeer();
+            return self != kInvalidPeer ? static_cast<i32>(self) : -1;
+        }
+
+        /// Whether `entity` is this player's: its owner is localPlayer(). False for an entity that
+        /// is not networked, or offline.
+        [[nodiscard]] static bool isMine(foundation::script::Entity entity)
+        {
+            if (!entity.Live())
+            {
+                return false;
+            }
+            auto* networked = entity.scene->GetSystem<NetworkComponentManager>();
+            const NetworkComponent* nc = networked != nullptr ? networked->Get(entity.Handle()) : nullptr;
+            const i32 self = localPlayer();
+            return nc != nullptr && self >= 0 && nc->owner == static_cast<u32>(self);
+        }
+
+        /// Called with the player id when a player joins, and when one leaves: on the host, a
+        /// client; on a client, itself once the host has welcomed it, and the host (0) if it goes.
+        static void onJoin(RefPtr<IScriptDelegate> handler) { SetPlayerHandler(handler, /*join=*/true); }
+        static void onLeave(RefPtr<IScriptDelegate> handler) { SetPlayerHandler(handler, /*join=*/false); }
 
         /// Host only: spawn `prefab` at (x, y, z) in the replicated scene, as `scene.spawn` does,
         /// and give it a network id with the prefab, so every client spawns its own copy (and a
@@ -419,6 +484,13 @@ export namespace foundation::net
         /// Transform for its movement to follow. A null entity on a client, offline, or for a
         /// prefab the scene cannot spawn.
         [[nodiscard]] static foundation::script::Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
+        {
+            return spawnFor(0, prefab, x, y, z);
+        }
+
+        /// Host only: spawn as `spawn` does, owned by `player` (0 = the host), so that player's
+        /// isMine says yes for it and its owner shows on every peer.
+        [[nodiscard]] static foundation::script::Entity spawnFor(i32 player, Guid prefab, f32 x, f32 y, f32 z)
         {
             NetworkManager* m = Endpoint();
             if (m == nullptr || !m->Session().IsServer() || m->ReplicatedScene() == nullptr)
@@ -430,7 +502,8 @@ export namespace foundation::net
             foundation::script::Entity entity = world.spawn(prefab, x, y, z);
             if (entity.Live())
             {
-                (void)m->Replication().AssignNetworkId(*world.scene, entity.Handle(), prefab);
+                (void)m->Replication().AssignNetworkId(*world.scene, entity.Handle(), prefab,
+                                                       player > 0 ? static_cast<u32>(player) : 0u);
             }
             return entity;
         }
@@ -470,9 +543,16 @@ export namespace foundation::net
         /// controller opens: InstallScriptRpcHandlers).
         static void InstallScriptRpcHandler(NetworkManager& endpoint, StringView name, RefPtr<IScriptDelegate> handler)
         {
+            NetworkManager* at = &endpoint; // the table belongs to it, so it outlives the handler
             endpoint.Rpc().On(name,
-                              [handler](PeerId sender, BitReader& r)
+                              [handler, at](PeerId sender, BitReader& r)
                               {
+                                  // A client hears only from the host: player 0 (its own id for
+                                  // the host connection means nothing to a script).
+                                  if (at->Session().IsClient())
+                                  {
+                                      sender = 0;
+                                  }
                                   const u8 kind = r.ReadU8();
                                   if (!r.Ok())
                                   {
@@ -509,7 +589,80 @@ export namespace foundation::net
                               });
         }
 
+        /// Point `endpoint`'s join and leave reporting at the binding's script handlers (Net.onJoin,
+        /// Net.onLeave, and every endpoint a controller opens).
+        static void InstallPlayerHandlers(NetworkManager& endpoint, const NetScriptBinding& binding)
+        {
+            RefPtr<IScriptDelegate> join = binding.joinHandler;
+            RefPtr<IScriptDelegate> leave = binding.leaveHandler;
+            endpoint.SetPlayerEvents(
+                [join, leave](bool joined, u32 player)
+                {
+                    const RefPtr<IScriptDelegate>& handler = joined ? join : leave;
+                    if (handler)
+                    {
+                        Variant args[1] = {Variant::From(static_cast<i32>(player))};
+                        (void)handler->Invoke(Span<Variant>(args, 1));
+                    }
+                });
+        }
+
     private:
+        static Function<void(BitWriter&)> WriteNothing()
+        {
+            return [](BitWriter& w) { w.WriteU8(static_cast<u8>(ScriptRpcKind::None)); };
+        }
+        static Function<void(BitWriter&)> WriteNumber(f64 value)
+        {
+            return [value](BitWriter& w)
+            {
+                w.WriteU8(static_cast<u8>(ScriptRpcKind::Number));
+                u64 bits = 0;
+                MemCopy(&bits, &value, sizeof(bits));
+                w.WriteU64(bits);
+            };
+        }
+        static Function<void(BitWriter&)> WriteText(String text)
+        {
+            return [owned = Move(text)](BitWriter& w)
+            {
+                w.WriteU8(static_cast<u8>(ScriptRpcKind::Text));
+                w.WriteVarU32(static_cast<u32>(owned.Size()));
+                w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()), owned.Size()));
+            };
+        }
+
+        static void CallRpcTo(i32 player, StringView name, const Function<void(BitWriter&)>& writeArgs)
+        {
+            NetworkManager* m = Endpoint();
+            if (m == nullptr || !m->Session().IsServer() || player <= 0)
+            {
+                return;
+            }
+            for (const NetPeer& peer : m->Session().Peers())
+            {
+                if (peer.id == static_cast<PeerId>(player))
+                {
+                    m->Rpc().Call(m->Session(), peer.id, name, writeArgs);
+                    return;
+                }
+            }
+        }
+
+        static void SetPlayerHandler(RefPtr<IScriptDelegate> handler, bool join)
+        {
+            NetScriptBinding* b = Resolve();
+            if (b == nullptr)
+            {
+                return;
+            }
+            (join ? b->joinHandler : b->leaveHandler) = handler;
+            if (NetworkManager* m = Endpoint())
+            {
+                InstallPlayerHandlers(*m, *b);
+            }
+        }
+
         [[nodiscard]] static INetworkController* Controller()
         {
             NetScriptBinding* b = Resolve();
@@ -575,14 +728,15 @@ export namespace foundation::net
     [[nodiscard]] NetworkRuntime StartNetworking(core::IAllocator& allocator,
                                                  const NetworkStartup& config);
 
-    /// Every Net.on handler a binding holds, on a new endpoint (the controller calls it when it
-    /// hosts or joins).
+    /// Every Net.on, Net.onJoin and Net.onLeave handler a binding holds, on a new endpoint (the
+    /// controller calls it when it hosts or joins).
     inline void InstallScriptRpcHandlers(const NetScriptBinding& binding, NetworkManager& endpoint)
     {
         for (const NetScriptBinding::ScriptRpcHandler& entry : binding.rpcHandlers)
         {
             Net::InstallScriptRpcHandler(endpoint, entry.name.AsView(), entry.handler);
         }
+        Net::InstallPlayerHandlers(endpoint, binding);
     }
 
     /// Register the Net facade type (call before a script manager is created, like

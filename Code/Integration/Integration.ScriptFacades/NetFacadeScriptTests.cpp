@@ -9,6 +9,7 @@
 // for the extensibility hook (registry -> AngelScript).
 #include <doctest/doctest.h>
 #include <filesystem>
+#include <utility>
 #include "Core/Prelude.h"
 
 import foundation.core;
@@ -195,6 +196,185 @@ namespace
         CHECK(at.z == doctest::Approx(3.0f));
     }
 }
+
+namespace
+{
+    // The host and two clients, each with a scene, a controller and a script context, and the
+    // Guest prefab to spawn: what slice 3 (owners, one-player sends, joins and leaves) needs.
+    struct Players
+    {
+        GuestPrefab prefab;
+        net::SimDatagramNetwork network{foundation::core::DefaultAllocator(), net::SimConditions{}};
+        net::IDatagramSocket* hostSocket = network.CreateSocket();
+        net::NetworkManager host{*hostSocket};
+        net::NetworkManager a{*network.CreateSocket()};
+        net::NetworkManager b{*network.CreateSocket()};
+        PeerController hostController, aController, bController;
+        foundation::scene::Scene hostScene{DefaultAllocator(), u8"host"};
+        foundation::scene::Scene aScene{DefaultAllocator(), u8"a"};
+        foundation::scene::Scene bScene{DefaultAllocator(), u8"b"};
+        RefPtr<IScriptContext> hostCtx, aCtx, bCtx;
+
+        explicit Players(IScriptManager& manager)
+        {
+            net::AddNetworkSceneManagers(hostScene);
+            hostScene.AddSystem<foundation::scene::PrefabSpawnSystem>()->SetSource(prefab.db.Get(), nullptr);
+            host.SetReplicatedScene(&hostScene);
+            foundation::content::ContentDatabase* db = prefab.db.Get();
+            for (auto [endpoint, scene] : {std::pair{&a, &aScene}, std::pair{&b, &bScene}})
+            {
+                net::AddNetworkSceneManagers(*scene);
+                endpoint->SetReplicatedScene(scene);
+                endpoint->Replication().SetSpawnHandler(
+                    [db](foundation::scene::Scene& s, const Guid& p, net::NetworkId)
+                    { return foundation::scene::PrefabSpawnSystem::SpawnInto(s, db, nullptr, p); });
+            }
+            hostCtx = manager.CreateContext();
+            aCtx = manager.CreateContext();
+            bCtx = manager.CreateContext();
+            net::InstallNetScriptService(*hostCtx, hostController.binding);
+            net::InstallNetScriptService(*aCtx, aController.binding);
+            net::InstallNetScriptService(*bCtx, bController.binding);
+        }
+
+        void Open()
+        {
+            host.StartServer(/*dedicated=*/false);
+            hostController.endpoint = &host;
+            net::InstallScriptRpcHandlers(hostController.binding, host);
+            for (auto [endpoint, controller] : {std::pair{&a, &aController}, std::pair{&b, &bController}})
+            {
+                (void)endpoint->ConnectTo(hostSocket->LocalEndpoint());
+                controller->endpoint = endpoint;
+                net::InstallScriptRpcHandlers(controller->binding, *endpoint);
+            }
+            Pump(60);
+            REQUIRE(host.Session().PeerCount() == 2u);
+        }
+
+        void Pump(int steps)
+        {
+            for (int i = 0; i < steps; ++i)
+            {
+                network.Advance(10.0f);
+                host.Update(10.0f);
+                a.Update(10.0f);
+                b.Update(10.0f);
+            }
+        }
+    };
+
+    // Each backend's script for the host and for a client, the same game in its own words.
+    struct PlayerScripts
+    {
+        StringView host;   // Joins, LastJoin, Left
+        StringView client; // Me, Told, From
+    };
+
+    void PlayTogether(RefPtr<IScriptManager> manager, const PlayerScripts& scripts)
+    {
+        RegisterReflectedTypes(*manager);
+        Players p(*manager);
+        REQUIRE(p.hostCtx->Load(scripts.host, u8"host").IsOk());
+        REQUIRE(p.aCtx->Load(scripts.client, u8"a").IsOk());
+        REQUIRE(p.bCtx->Load(scripts.client, u8"b").IsOk());
+        p.Open();
+
+        // Joins: the host hears both clients; each client learns its own id.
+        CHECK(p.hostCtx->GetGlobal(u8"Joins").Get<f64>() == doctest::Approx(2.0));
+        const f64 aId = p.aCtx->GetGlobal(u8"Me").Get<f64>();
+        const f64 bId = p.bCtx->GetGlobal(u8"Me").Get<f64>();
+        CHECK(aId == doctest::Approx(static_cast<f64>(p.a.Session().LocalPeer())));
+        CHECK(bId == doctest::Approx(static_cast<f64>(p.b.Session().LocalPeer())));
+        CHECK(aId != bId);
+        {
+            ScriptCallScope scope(p.hostCtx.Get());
+            CHECK(net::Net::localPlayer() == 0);
+            // A number to client a alone, from the host (player 0).
+            net::Net::rpcNumberTo(static_cast<i32>(aId), String(u8"secret"), 7.0);
+        }
+        p.Pump(30);
+        CHECK(p.aCtx->GetGlobal(u8"Told").Get<f64>() == doctest::Approx(7.0));
+        CHECK(p.aCtx->GetGlobal(u8"From").Get<f64>() == doctest::Approx(0.0));
+        CHECK(p.bCtx->GetGlobal(u8"Told").Get<f64>() == doctest::Approx(0.0)); // not b's
+
+        // A Guest for client a: a's, on every peer; neither the host's nor b's.
+        foundation::script::Entity onHost;
+        {
+            ScriptCallScope scope(p.hostCtx.Get());
+            onHost = net::Net::spawnFor(static_cast<i32>(aId), p.prefab.guest, 1, 0, 0);
+            REQUIRE(onHost.Live());
+            CHECK_FALSE(net::Net::isMine(onHost));
+        }
+        p.Pump(40);
+        auto guestIn = [](foundation::scene::Scene& scene)
+        {
+            foundation::script::Entity e;
+            e.scene = &scene;
+            const foundation::scene::EntityHandle h = scene.FindEntityByName(u8"Guest");
+            e.entityIndex = h.index;
+            e.entityGeneration = h.generation;
+            return e;
+        };
+        const foundation::script::Entity onA = guestIn(p.aScene);
+        const foundation::script::Entity onB = guestIn(p.bScene);
+        REQUIRE(onA.Live());
+        REQUIRE(onB.Live());
+        {
+            ScriptCallScope scope(p.aCtx.Get());
+            CHECK(net::Net::isMine(onA));
+        }
+        {
+            ScriptCallScope scope(p.bCtx.Get());
+            CHECK_FALSE(net::Net::isMine(onB));
+        }
+        CHECK(p.bScene.GetSystem<net::NetworkComponentManager>()->Get(onB.Handle())->owner ==
+              static_cast<u32>(aId)); // b sees whose it is
+
+        // Client b leaves: the host hears its id.
+        p.b.Session().Disconnect(p.b.Session().ServerPeer());
+        p.Pump(60);
+        CHECK(p.hostCtx->GetGlobal(u8"Left").Get<f64>() == doctest::Approx(bId));
+    }
+}
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("net-facade: AngelScript players join, are told things alone, own what is spawned for them, leave")
+{
+    RegisterCoreTypes();
+    RegisterScriptFacadeReflection();
+    net::RegisterReplicationComponents();
+    net::RegisterNetScriptFacade();
+    PlayTogether(angelscript::CreateScriptManager(DefaultAllocator()),
+                 PlayerScripts{u8"double Joins = 0; double LastJoin = -1; double Left = -1;\n"
+                               u8"void joined(int p) { Joins++; LastJoin = p; }\n"
+                               u8"void left(int p) { Left = p; }\n"
+                               u8"void main() { NetHandler @j = joined; Net::onJoin(j);\n"
+                               u8"  NetHandler @l = left; Net::onLeave(l); }\n",
+                               u8"double Me = -1; double Told = 0; double From = -1;\n"
+                               u8"void joined(int p) { Me = p; }\n"
+                               u8"void secret(int sender, double value) { Told = value; From = sender; }\n"
+                               u8"void main() { NetHandler @j = joined; Net::onJoin(j);\n"
+                               u8"  NetNumberHandler @s = secret; Net::on(\"secret\", s); }\n"});
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("net-facade: Luau players join, are told things alone, own what is spawned for them, leave")
+{
+    RegisterCoreTypes();
+    RegisterScriptFacadeReflection();
+    net::RegisterReplicationComponents();
+    net::RegisterNetScriptFacade();
+    PlayTogether(CreateLuauScriptManager(DefaultAllocator()),
+                 PlayerScripts{u8"Joins = 0; LastJoin = -1; Left = -1\n"
+                               u8"Net.onJoin(function(p) Joins = Joins + 1; LastJoin = p end)\n"
+                               u8"Net.onLeave(function(p) Left = p end)\n",
+                               u8"Me = -1; Told = 0; From = -1\n"
+                               u8"Net.onJoin(function(p) Me = p end)\n"
+                               u8"Net.on('secret', function(sender, value) Told = value; From = sender end)\n"});
+}
+#endif // OPTION_HAS_LUAU
 
 #ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("net-facade: AngelScript Net.spawn puts a prefab in every peer's scene, from the host only")
