@@ -18,8 +18,8 @@ or Luau; and a CSS-styled UI framework.
 
 It is built to be worked by agents as well as people. An MCP host exposes the engine's
 reflection, its script API, project operations and play in editor, and the five sample projects
-in this repository were each built and playtested through those tools, then shipped to the web
-(the four games to the Steam Deck too).
+in this repository were each built and playtested through those tools, and ship to the web and
+the Steam Deck.
 
 ![The editor](Documentation/Images/Editor.png)
 
@@ -120,9 +120,8 @@ Add `--mcp` to serve the open project to an agent over MCP while you work in the
 ## Sample projects
 
 Game projects under `Data/SampleProjects/`, opened from the editor's project manager. The four
-games and the Shader Gallery are built through the engine's MCP tools and ship to the web (the
-games to the Steam Deck too); [the website](https://assiduousengine.github.io/#games) plays them in
-a browser.
+games and the Shader Gallery are built through the engine's MCP tools and ship to the web and the
+Steam Deck; [the website](https://assiduousengine.github.io/#games) plays them in a browser.
 
 **Sky Hopper** (`PlatformerGame`) is a small 3D platformer, played through to the end over the
 MCP tools by an AI agent while it was built: five levels, coins, enemies and hazards, three lives
