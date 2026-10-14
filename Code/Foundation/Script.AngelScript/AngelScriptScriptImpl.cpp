@@ -1783,6 +1783,15 @@ namespace foundation::script::angelscript
             }
             (void)m_engine->RegisterFuncdef("void Action()");
             (void)m_engine->RegisterFuncdef(kScriptDelegateFuncdef);
+            // The shapes facades registered for their own callbacks (Net.on's handlers, ...).
+            for (const core::String& shape : DelegateShapes())
+            {
+                const std::string declaration(reinterpret_cast<const char*>(shape.Data()), shape.Size());
+                if (m_engine->RegisterFuncdef(declaration.c_str()) < 0)
+                {
+                    LOG_ERROR(u8"Script", u8"the delegate shape '{}' did not declare", shape.AsView());
+                }
+            }
         }
 
         // Marshals `args` into a prepared context's argument slots against `function`'s

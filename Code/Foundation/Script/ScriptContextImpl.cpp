@@ -28,3 +28,31 @@ namespace foundation::script::detail
         return slot;
     }
 } // namespace foundation::script::detail
+
+namespace foundation::script
+{
+    // The facades' delegate shapes: one store per process, beside the context slot, since the
+    // registering facades and the declaring backends live in different libraries.
+    namespace
+    {
+        core::Array<core::String>& DelegateShapeStorage()
+        {
+            static core::Array<core::String> shapes;
+            return shapes;
+        }
+    }
+
+    void RegisterDelegateShape(core::StringView declaration)
+    {
+        for (const core::String& existing : DelegateShapeStorage())
+        {
+            if (existing.AsView() == declaration)
+            {
+                return; // idempotent
+            }
+        }
+        DelegateShapeStorage().PushBack(core::String(declaration));
+    }
+
+    core::Span<const core::String> DelegateShapes() { return DelegateShapeStorage().AsSpan(); }
+} // namespace foundation::script

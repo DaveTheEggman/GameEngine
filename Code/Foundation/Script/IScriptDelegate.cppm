@@ -40,6 +40,15 @@ export namespace foundation::script
         [[nodiscard]] virtual core::Result<core::Variant>
         Invoke(core::Span<core::Variant> args) = 0;
     };
+
+    /// Name a function type a facade's callbacks take, in AngelScript's funcdef form (for example
+    /// `void NetNumberHandler(int sender, double value)`), so scripts can pass a handler of that
+    /// type without declaring it. A backend that needs named types (AngelScript) declares every
+    /// registered one when it starts; one whose functions are plain values (Luau) ignores them.
+    /// Call before a script manager is created, beside the facade's own registration. Idempotent.
+    void RegisterDelegateShape(core::StringView declaration);
+    /// The function types registered so far, in registration order.
+    [[nodiscard]] core::Span<const core::String> DelegateShapes();
 }
 
 namespace foundation::script

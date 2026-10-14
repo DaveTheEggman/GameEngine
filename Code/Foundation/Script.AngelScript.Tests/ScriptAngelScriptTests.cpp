@@ -1586,6 +1586,32 @@ TEST_CASE("angelscript: a delegate callback scopes its owning context (facades r
     CHECK(flag == 42);  // the handler's facade resolved THIS context's service
 }
 
+TEST_CASE("angelscript: a facade's delegate shape is a type scripts use without declaring it")
+{
+    // A facade registers the function type its callbacks take (Net.on's handlers, say); a manager
+    // made after declares it, so a script names it like the built-in Action.
+    RegisterDelegateShape(u8"double ProbeShape(double a, double b)");
+    RegisterDelegateShape(u8"double ProbeShape(double a, double b)"); // again: kept once
+    usize found = 0;
+    for (const String& shape : DelegateShapes())
+    {
+        found += shape.AsView() == StringView(u8"double ProbeShape(double a, double b)") ? 1u : 0u;
+    }
+    CHECK(found == 1u);
+
+    RefPtr<IScriptManager> manager = angelscript::CreateScriptManager(foundation::core::DefaultAllocator());
+    RefPtr<IScriptContext> ctx = manager->CreateContext();
+    conformance::CapturedErrors errors;
+    ctx->SetErrorHandler(&errors);
+    REQUIRE(ctx->Load(u8"double add(double a, double b) { return a + b; }\n"
+                      u8"double Sum = 0;\n"
+                      u8"void main() { ProbeShape @f = add; Sum = f(2, 3); }\n",
+                      u8"main")
+                .IsOk());
+    CHECK(errors.count == 0);
+    CHECK(ctx->GetGlobal(u8"Sum").Get<f64>() == doctest::Approx(5.0));
+}
+
 TEST_CASE("angelscript: a METHOD delegate is a native callback via IScriptDelegate")
 {
     // The first real use of a delegate-to-method (`ScriptDelegate(h.bump)`, an asFUNC_DELEGATE
