@@ -317,6 +317,46 @@ TEST_CASE("profiler: a scope opened while unarmed is not closed by arming inside
     p.Disarm();
 }
 
+TEST_CASE("profiler: a scope skipped while unarmed leaves its recorded parent open")
+{
+    // The case above cannot tell: its outer scope is at depth 0, so a stray close finds the stack
+    // empty. Here the skipped scope sits inside a recorded parent; closing it must not close the
+    // parent, or the child after it lands at depth 0, outside the parent.
+    Profiler& p = Profiler::Get();
+    REQUIRE_FALSE(p.Armed());
+    p.Arm();
+    p.BeginFrame();
+    {
+        ScopedProfile parent("Parent");
+        p.Disarm();
+        {
+            ScopedProfile skipped("Skipped");
+            p.Arm();
+        }
+        {
+            ScopedProfile child("Child");
+        }
+    }
+    p.EndFrame();
+    const FrameRecord* frame = p.LatestFrame();
+    REQUIRE(frame != nullptr);
+    usize found = 0;
+    for (const ThreadFrame& thread : frame->threads)
+    {
+        for (const ScopeEvent& scope : thread.scopes)
+        {
+            CHECK(p.NameOf(scope.name) != StringView(u8"Skipped"));
+            if (p.NameOf(scope.name) == StringView(u8"Child"))
+            {
+                CHECK(scope.depth == 1u);
+                ++found;
+            }
+        }
+    }
+    CHECK(found == 1u);
+    p.Disarm();
+}
+
 TEST_CASE("profiler: GPU passes join their frame's record when they arrive")
 {
     Profiler p(DefaultAllocator());
