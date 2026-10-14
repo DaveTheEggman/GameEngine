@@ -29,6 +29,10 @@ the whole "server game logic reacts to client input" surface.
 
 ## Slice 2 - spawn-a-networked-entity from script (server side)
 
+> BUILT 2026-10-14 (Masquerade P0): `Net.spawn(prefab, x, y, z)` returns the entity, spawned
+> through the scene's `PrefabSpawnSystem` and given its NetworkId with the prefab. The prefab is
+> named by its Guid, as `scene.spawn` takes it (the sub-gap below closes that way).
+
 `NetworkId Net.spawn(prefab, x, y, z)` (server-only): spawn the prefab into the replicated scene
 (reuse `Scene.spawn`), `AssignNetworkId`, set `NetworkComponent.prefab`. Client reconstruction is
 already built (the per-instance `SetSpawnHandler` rebuilds from the spawn record; late-joiners via

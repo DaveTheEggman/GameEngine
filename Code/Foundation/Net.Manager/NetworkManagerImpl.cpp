@@ -36,6 +36,7 @@ namespace foundation::net
         builder.Method<&Net::rpcNumber>("rpcNumber");
         builder.Method<&Net::rpcText>("rpcText");
         builder.Method<&Net::on>("on", {"name", "handler"}); // receive: handler(sender[, value])
+        builder.Method<&Net::spawn>("spawn", {"prefab", "x", "y", "z"}); // host: a prefab every peer sees
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 

@@ -10,6 +10,7 @@ target_link_libraries(Integration.ScriptFacades PRIVATE
     Engine::UI.Script Foundation::UI Foundation::UI.Gamekit
     Foundation::Audio Engine::Audio Foundation::Audio.Resource
     Foundation::Content Foundation::Resource Foundation::VFS
+    Foundation::Scene Foundation::Scene.Resource Foundation::Net.Replication
     ${SCRIPTLIB_ANGELSCRIPT} ${SCRIPTLIB_LUAU}
     doctest::doctest)
 target_compile_definitions(Integration.ScriptFacades PRIVATE DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

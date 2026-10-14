@@ -87,14 +87,18 @@ a one-byte kind (`ScriptRpcKind`) after the RPC id so the receiver knows what fo
 live in the instance's `NetScriptBinding`, so a script registers them before it hosts or joins and
 every endpoint the controller opens gets them (`InstallScriptRpcHandlers`); AngelScript gets the
 handler types `NetHandler`, `NetNumberHandler` and `NetTextHandler` through the script layer's
-delegate shapes (`RegisterDelegateShape`). `NetworkComponent.of(entity).authority` exposes
+delegate shapes (`RegisterDelegateShape`). `Net.spawn(prefab, x, y, z)` (P3 slice 2, built
+2026-10-14), host only: spawns the prefab in the replicated scene through the scene's own
+`PrefabSpawnSystem` (as `scene.spawn`) and assigns its NetworkId with the prefab, so each client's
+spawn handler builds its copy and a late joiner gets it in the snapshot; null on a client.
+`NetworkComponent.of(entity).authority` exposes
 ownership to script. Certified on AngelScript + Luau (see `Integration.ScriptFacades`; Wren was
 retired 2026-08-19).
 
 ## Deferred
 
 - **P3 - commands/orders layer** (script-facing: receive-RPC-into-script, spawn-a-networked-entity
-  from script, ownership + orders, demo content): slice 1 (`Net.on`) built 2026-10-14, the rest in
+  from script, ownership + orders, demo content): slices 1 and 2 (`Net.on`, `Net.spawn`) built 2026-10-14, the rest in
   progress for Masquerade (`Specs/masquerade.md`, P0). Plan: `Documentation/Plans/networking-commands.md`.
 - Backlog (web WebSocket client, replication refinements, transport/deployment, matchmaking/
   services hooks): `Documentation/Backlog/networking-followups.md`.

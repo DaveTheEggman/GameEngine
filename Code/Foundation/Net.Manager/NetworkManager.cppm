@@ -24,6 +24,7 @@ import foundation.net.replication; // StateReplication / InterpolationBuffer (sa
 import foundation.net.websocket;   // WebSocketHybridSocket (UDP natives + WS browser clients)
 import foundation.scene;           // Scene (the replicated world)
 import foundation.script;          // Object / IScriptContext / CurrentScriptContext / SetService
+import foundation.script.facades;  // the Scene and Entity handles Net.spawn spawns through and returns
 
 using namespace foundation::core;
 namespace core = foundation::core;
@@ -272,6 +273,8 @@ export namespace foundation::net
             }
         }
         [[nodiscard]] StateReplication& Replication() noexcept { return m_replication; }
+        /// The replicated world (null = no replication).
+        [[nodiscard]] scene::Scene* ReplicatedScene() const noexcept { return m_scene; }
         // How far behind synced network time the client renders (interpolation delay). ~2x the server
         // send interval hides one lost/late update. Default 100 ms.
         void SetInterpolationDelayMs(f64 ms) noexcept { m_interpDelayMs = ms; }
@@ -408,6 +411,28 @@ export namespace foundation::net
                         w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()),
                                                       owned.Size()));
                     });
+        }
+
+        /// Host only: spawn `prefab` at (x, y, z) in the replicated scene, as `scene.spawn` does,
+        /// and give it a network id with the prefab, so every client spawns its own copy (and a
+        /// player who joins later gets it in the snapshot). The prefab's root needs a Networked
+        /// Transform for its movement to follow. A null entity on a client, offline, or for a
+        /// prefab the scene cannot spawn.
+        [[nodiscard]] static foundation::script::Entity spawn(Guid prefab, f32 x, f32 y, f32 z)
+        {
+            NetworkManager* m = Endpoint();
+            if (m == nullptr || !m->Session().IsServer() || m->ReplicatedScene() == nullptr)
+            {
+                return foundation::script::Entity{};
+            }
+            foundation::script::Scene world;
+            world.scene = m->ReplicatedScene();
+            foundation::script::Entity entity = world.spawn(prefab, x, y, z);
+            if (entity.Live())
+            {
+                (void)m->Replication().AssignNetworkId(*world.scene, entity.Handle(), prefab);
+            }
+            return entity;
         }
 
         /// Receive the RPC `name`: `handler` is called with the sender's peer id, then the number or

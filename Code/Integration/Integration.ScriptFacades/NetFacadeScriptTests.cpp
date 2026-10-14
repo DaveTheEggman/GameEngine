@@ -8,12 +8,19 @@
 // Net.isServer()/isClient()/peerCount() and we read the results back. This is the acceptance test
 // for the extensibility hook (registry -> AngelScript).
 #include <doctest/doctest.h>
+#include <filesystem>
 #include "Core/Prelude.h"
 
 import foundation.core;
 import foundation.net;
 import foundation.net.manager;
+import foundation.net.replication;
+import foundation.scene;
+import foundation.scene.resource;
+import foundation.content;
+import foundation.vfs;
 import foundation.script;
+import foundation.script.facades;
 #ifdef OPTION_HAS_ANGELSCRIPT
 import foundation.script.angelscript;
 #endif
@@ -103,6 +110,131 @@ namespace
         [[nodiscard]] f64 ClientPeerOnHost() { return static_cast<f64>(host.Session().Peers()[0].id); }
     };
 }
+
+namespace
+{
+    // A content database on disk holding one prefab, "Guest": a root with a Networked Transform.
+    struct GuestPrefab
+    {
+        std::filesystem::path dir = "scratch_net_spawn";
+        UniquePtr<foundation::vfs::NativeFileSystem> mount;
+        UniquePtr<foundation::content::ContentDatabase> db;
+        Guid guest;
+        utf8char text[37] = {};
+
+        GuestPrefab()
+        {
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+            std::filesystem::create_directories(dir, ec);
+            mount = MakeUnique<foundation::vfs::NativeFileSystem>(DefaultAllocator(), u8"scratch_net_spawn",
+                                                                   DefaultAllocator());
+            db = MakeUnique<foundation::content::ContentDatabase>(DefaultAllocator(), DefaultAllocator(), *mount,
+                                                                  BinarySerializerFactory(), u8".rasset");
+            foundation::scene::Scene author(DefaultAllocator(), u8"author");
+            net::AddNetworkSceneManagers(author);
+            const foundation::scene::EntityHandle root = author.CreateEntity(u8"Guest");
+            author.GetSystem<net::NetworkedTransformComponentManager>()->Add(root);
+            MemoryStream payload;
+            REQUIRE(foundation::scene::CapturePrefab(author, root, payload).IsOk());
+            foundation::content::Instance* prefab =
+                db->RootGroup()->CreateInstance(u8"Guest", foundation::scene::PrefabDocument::StaticType());
+            REQUIRE(prefab != nullptr);
+            REQUIRE(prefab->WriteData(u8"scene", payload.Bytes()).IsOk());
+            guest = prefab->Id();
+            guest.ToChars(text);
+        }
+        ~GuestPrefab()
+        {
+            db.Reset();
+            mount.Reset();
+            std::error_code ec;
+            std::filesystem::remove_all(dir, ec);
+        }
+    };
+
+    // The host's script spawns the Guest at (1, 2, 3) with Net.spawn; the client's own copy
+    // appears through its spawn handler and follows; a client's Net.spawn spawns nothing.
+    void SpawnOverTheNetwork(RefPtr<IScriptManager> manager, const Function<String(StringView)>& hostScript,
+                             const Function<String(StringView)>& clientScript, StringView name)
+    {
+        RegisterReflectedTypes(*manager);
+        GuestPrefab prefab;
+        HostAndClient fx;
+        foundation::scene::Scene hostScene(DefaultAllocator(), u8"host");
+        net::AddNetworkSceneManagers(hostScene);
+        hostScene.AddSystem<foundation::scene::PrefabSpawnSystem>()->SetSource(prefab.db.Get(), nullptr);
+        foundation::scene::Scene clientScene(DefaultAllocator(), u8"client");
+        net::AddNetworkSceneManagers(clientScene);
+        fx.host.SetReplicatedScene(&hostScene);
+        fx.client.SetReplicatedScene(&clientScene);
+        foundation::content::ContentDatabase* db = prefab.db.Get();
+        fx.client.Replication().SetSpawnHandler(
+            [db](foundation::scene::Scene& s, const Guid& p, net::NetworkId) -> foundation::scene::EntityHandle
+            { return foundation::scene::PrefabSpawnSystem::SpawnInto(s, db, nullptr, p); });
+        fx.Open();
+
+        RefPtr<IScriptContext> hostCtx = manager->CreateContext();
+        RefPtr<IScriptContext> clientCtx = manager->CreateContext();
+        net::InstallNetScriptService(*hostCtx, fx.hostController.binding);
+        net::InstallNetScriptService(*clientCtx, fx.clientController.binding);
+        REQUIRE(hostCtx->Load(hostScript(StringView(prefab.text)).AsView(), name).IsOk());
+        REQUIRE(clientCtx->Load(clientScript(StringView(prefab.text)).AsView(), name).IsOk());
+        CHECK(hostCtx->GetGlobal(u8"Spawned").Get<bool>());
+        CHECK_FALSE(clientCtx->GetGlobal(u8"Spawned").Get<bool>()); // only the host spawns
+        fx.Pump(80);
+
+        const foundation::scene::EntityHandle onHost = hostScene.FindEntityByName(u8"Guest");
+        REQUIRE(hostScene.IsValid(onHost));
+        CHECK(hostScene.GetSystem<net::NetworkComponentManager>()->Get(onHost) != nullptr);
+        const foundation::scene::EntityHandle onClient = clientScene.FindEntityByName(u8"Guest");
+        REQUIRE(clientScene.IsValid(onClient)); // the client spawned its own from the prefab
+        const Float3 at = clientScene.GetLocalTransform(onClient).position;
+        CHECK(at.x == doctest::Approx(1.0f));
+        CHECK(at.y == doctest::Approx(2.0f));
+        CHECK(at.z == doctest::Approx(3.0f));
+    }
+}
+
+#ifdef OPTION_HAS_ANGELSCRIPT
+TEST_CASE("net-facade: AngelScript Net.spawn puts a prefab in every peer's scene, from the host only")
+{
+    RegisterCoreTypes();
+    RegisterScriptFacadeReflection(); // Entity, which Net.spawn returns
+    net::RegisterReplicationComponents(); // the Networked Transform the prefab carries
+    net::RegisterNetScriptFacade();
+    SpawnOverTheNetwork(angelscript::CreateScriptManager(DefaultAllocator()),
+                        [](StringView id)
+                        {
+                            return Format(u8"bool Spawned = false;\n"
+                                          u8"void main() {{ Spawned = Net::spawn(Guid(\"{}\"), 1, 2, 3).isValid(); }}\n",
+                                          id);
+                        },
+                        [](StringView id)
+                        {
+                            return Format(u8"bool Spawned = true;\n"
+                                          u8"void main() {{ Spawned = Net::spawn(Guid(\"{}\"), 4, 5, 6).isValid(); }}\n",
+                                          id);
+                        },
+                        u8"spawn");
+}
+#endif // OPTION_HAS_ANGELSCRIPT
+
+#ifdef OPTION_HAS_LUAU
+TEST_CASE("net-facade: Luau Net.spawn puts a prefab in every peer's scene, from the host only")
+{
+    RegisterCoreTypes();
+    RegisterScriptFacadeReflection(); // Entity, which Net.spawn returns
+    net::RegisterReplicationComponents(); // the Networked Transform the prefab carries
+    net::RegisterNetScriptFacade();
+    SpawnOverTheNetwork(CreateLuauScriptManager(DefaultAllocator()),
+                        [](StringView id)
+                        { return Format(u8"Spawned = Net.spawn(Guid.new(\"{}\"), 1, 2, 3):isValid()\n", id); },
+                        [](StringView id)
+                        { return Format(u8"Spawned = Net.spawn(Guid.new(\"{}\"), 4, 5, 6):isValid()\n", id); },
+                        u8"spawn");
+}
+#endif // OPTION_HAS_LUAU
 
 #ifdef OPTION_HAS_ANGELSCRIPT
 TEST_CASE("net-facade: AngelScript Net.on receives a number, a text and a bare RPC, and replies")
