@@ -92,5 +92,6 @@ export namespace engine
     // 40 = + TwoBoneIkComponent + AimIkComponent (inverse kinematics on scene entities).
     // 41 = + FootIkComponent.
     // 42 = + PathFollowComponent: PathFollowComponent.of(entity), a script drives its follower.
-    inline constexpr usize kSubsystemFacadeNameCount = 42;
+    // 43 = + InstanceMemberComponent: an entity drawn as an instance of an instanced mesh, its clip.
+    inline constexpr usize kSubsystemFacadeNameCount = 43;
 }

@@ -281,11 +281,14 @@ export namespace foundation::render
     // Sequential (i % M) makes a phase gradient/wave; Explicit lets the CALLER supply a per-instance pose
     // index (needed for layout-aware looks the renderer can't compute from the flat index i - columns,
     // spatial clusters, gameplay state). Explicit with a null/mismatched index array falls back to Hashed.
+    // Unison puts every instance on a clip at the same phase: a crowd that moves in step (dancers on
+    // a beat, a column marching).
     enum class PoseAssignment : u8
     {
         Hashed,
         Sequential,
-        Explicit
+        Explicit,
+        Unison
     };
 
     struct MultiMeshRenderData : MeshRenderData
@@ -320,6 +323,11 @@ export namespace foundation::render
         // was present and correctly sized; the renderer then falls back to Hashed.
         PoseAssignment poseAssignment = PoseAssignment::Hashed;
         const u32* poseIndices = nullptr;
+        // A pool of several clips: `posesPerClip` palettes per clip, a block per clip in order
+        // (0 = one clip: the whole pool), and each instance's clip index (borrowed, instanceCount
+        // entries; null = every instance on clip 0). The clip picks the block; the policy the phase.
+        const u32* instanceClips = nullptr;
+        u32 posesPerClip = 0;
     };
     static_assert(std::is_trivially_destructible_v<MultiMeshRenderData>);
 
@@ -329,22 +337,35 @@ export namespace foundation::render
     // Hashed). Sequential = i % M (a phase gradient, but only meaningful when a set's instances ARE laid
     // out in the order you want the gradient). Hashed = splitmix-scattered, decorrelated from any layout.
     // poseCount == 0 returns 0. All branches index within [0, poseCount).
+    //
+    // A pool of several clips (`posesPerClip` > 0, a block of that many palettes per clip): `clip`
+    // picks the block (wrapped to the clips the pool holds) and the policy picks the phase inside it,
+    // so Explicit indices are phases within the clip. Unison is phase 0 for every instance: a clip's
+    // instances move in step. One clip (posesPerClip 0, or the whole pool) selects as before.
     [[nodiscard]] inline u32 SelectPose(PoseAssignment policy, u32 i, u32 poseCount,
-                                        const u32* explicitIndices) noexcept
+                                        const u32* explicitIndices, u32 clip = 0,
+                                        u32 posesPerClip = 0) noexcept
     {
         if (poseCount == 0)
         {
             return 0;
         }
+        const u32 m = (posesPerClip > 0 && posesPerClip <= poseCount) ? posesPerClip : poseCount;
+        const u32 clips = poseCount / m;
+        const u32 block = (clips > 0 ? clip % clips : 0) * m;
         if (policy == PoseAssignment::Explicit && explicitIndices != nullptr)
         {
-            return explicitIndices[i] % poseCount;
+            return block + explicitIndices[i] % m;
         }
         if (policy == PoseAssignment::Sequential)
         {
-            return i % poseCount;
+            return block + i % m;
         }
-        return static_cast<u32>(HashInteger(i) % poseCount);
+        if (policy == PoseAssignment::Unison)
+        {
+            return block;
+        }
+        return block + static_cast<u32>(HashInteger(i) % m);
     }
 
     // Crowd-authoring helpers for building an Explicit per-instance pose-index array from a character's GRID

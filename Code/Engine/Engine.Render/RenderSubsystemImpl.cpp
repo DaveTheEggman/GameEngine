@@ -80,6 +80,7 @@ namespace engine::render
     {
         scene.AddSystem<MeshComponentManager>();
         scene.AddSystem<InstancedMeshComponentManager>();
+        scene.AddSystem<InstanceMemberComponentManager>();
         scene.AddSystem<SpriteComponentManager>();
         scene.AddSystem<DecalComponentManager>();
         scene.AddSystem<CameraComponentManager>();

@@ -386,6 +386,78 @@ TEST_CASE("instanced-mesh: seeded identity instance + entity-relative compositio
     CHECK(Near(rd4->transforms[1].m[3][0], 4.0f)); // -1 + entity x=5
 }
 
+TEST_CASE("instanced-mesh: members draw after the authored instances, where they are, on their clips")
+{
+    scene::Scene scene(DefaultAllocator(), u8"world");
+    auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
+    auto* members = scene.AddSystem<InstanceMemberComponentManager>();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+
+    // A crowd: the set's own entity at x = 5 with one authored instance on clip 1, and two guests
+    // moved as entities, on clips 2 and 3.
+    const scene::EntityHandle crowd = scene.CreateEntity(u8"Guests");
+    scene.SetLocalPosition(crowd, Float3{5, 0, 0});
+    InstancedMeshComponent& set = mgr->Add(crowd);
+    set.mesh = cube;
+    set.instanceClips.PushBack(1);
+    auto guest = [&](StringView name, Float3 at, u32 clip)
+    {
+        const scene::EntityHandle e = scene.CreateEntity(name);
+        scene.SetLocalPosition(e, at);
+        InstanceMemberComponent& m = members->Add(e);
+        m.instancedMesh = scene.GetEntityId(crowd);
+        m.clip = clip;
+        return e;
+    };
+    const scene::EntityHandle a = guest(u8"A", Float3{10, 0, 0}, 2);
+    const scene::EntityHandle b = guest(u8"B", Float3{0, 0, 20}, 3);
+    scene.UpdateTransforms();
+
+    ExtractedScene out{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, out);
+    REQUIRE(out.Items().Size() == 1u);
+    const auto* rd = static_cast<const MultiMeshRenderData*>(out.Items()[0]);
+    REQUIRE(rd->instanceCount == 3u);
+    CHECK(Near(rd->transforms[0].m[3][0], 5.0f));  // the authored instance, entity-relative
+    CHECK(Near(rd->transforms[1].m[3][0], 10.0f)); // A at its own world position
+    CHECK(Near(rd->transforms[2].m[3][2], 20.0f)); // B
+    REQUIRE(rd->instanceClips != nullptr);
+    CHECK(rd->instanceClips[0] == 1u);
+    CHECK(rd->instanceClips[1] == 2u);
+    CHECK(rd->instanceClips[2] == 3u);
+    const u32 firstVersion = rd->version;
+
+    // A member moves: its instance follows on the next extract (a new upload).
+    scene.SetLocalPosition(a, Float3{12, 0, 0});
+    scene.UpdateTransforms();
+    ExtractedScene moved{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, moved);
+    const auto* rd2 = static_cast<const MultiMeshRenderData*>(moved.Items()[0]);
+    CHECK(Near(rd2->transforms[1].m[3][0], 12.0f));
+    CHECK(rd2->version != firstVersion);
+
+    // An inactive member, or one naming no instanced mesh, is not drawn.
+    scene.SetActive(b, false);
+    const scene::EntityHandle stray = scene.CreateEntity(u8"Stray");
+    members->Add(stray).instancedMesh = Guid{9, 9};
+    ExtractedScene fewer{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, fewer);
+    CHECK(static_cast<const MultiMeshRenderData*>(fewer.Items()[0])->instanceCount == 2u);
+
+    // With no authored instances the set draws its members alone.
+    set.SetInstances(Span<const Float4x4>{});
+    set.instanceClips.Clear();
+    ExtractedScene only{DefaultAllocator()};
+    ExtractInstancedMeshesInto(scene, only);
+    REQUIRE(only.Items().Size() == 1u);
+    const auto* rd3 = static_cast<const MultiMeshRenderData*>(only.Items()[0]);
+    REQUIRE(rd3->instanceCount == 1u);
+    CHECK(Near(rd3->transforms[0].m[3][0], 12.0f));
+    CHECK(rd3->instanceClips[0] == 2u);
+    // Members are drawn, never authored: the set's own list stays empty for a save.
+    CHECK(set.instances.IsEmpty());
+}
+
 TEST_CASE("extract: authored (sRGB) colours reach render data decoded to linear")
 {
     // What is entered is what is seen: every authored colour is sRGB, like an sRGB image, and

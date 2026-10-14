@@ -182,6 +182,12 @@ export namespace engine::render
         // frame during the offsets fill, not uploaded to the instance buffer).
         PoseAssignment poseAssignment = PoseAssignment::Hashed;
         Array<u32> poseIndices;
+        // A clip per instance (parallel to `instances`) when the pool holds several clips (an
+        // InstancedSkinningComponent with a clip list): the clip picks its block of poses, the policy
+        // the phase in it. Empty or mismatched = every instance on clip 0. Read each frame, like
+        // poseIndices: not a mutator. `posesPerClip` is set with the pool (runtime).
+        Array<u32> instanceClips;
+        u32 posesPerClip = 0;
 
         // Change counter: bumped by every mutator so the renderer knows to re-upload and extraction knows to
         // recompute the merged bounds. Starts at 1 so the first extract (uploadedVersion 0) always uploads.
@@ -201,6 +207,15 @@ export namespace engine::render
         Float3 cachedCenter = Float3{0, 0, 0};
         f32 cachedRadius = 0.0f;
         u32 boundsVersion = 0;
+        // Its InstanceMemberComponents this frame (world transforms and clips), gathered by
+        // extraction and drawn after the authored instances; never saved. `drawTransforms`,
+        // `drawClips` and `drawTints` are the authored and member lists together, when there are
+        // members. Runtime-only.
+        Array<Float4x4> memberWorld;
+        Array<u32> memberClips;
+        Array<Float4x4> drawTransforms;
+        Array<u32> drawClips;
+        Array<Color> drawTints;
 
         [[nodiscard]] u32 Count() const noexcept { return static_cast<u32>(instances.Size()); }
 
@@ -496,6 +511,12 @@ export namespace engine::render
         foundation::core::Serialize(ar, "color", c.color);
         foundation::core::Serialize(ar, "tints", c.tints);
         foundation::core::Serialize(ar, "visible", c.visible);
+        // Data version 1: how instances pick their poses is authored too.
+        u8 policy = static_cast<u8>(c.poseAssignment);
+        foundation::core::Serialize(ar, "poseAssignment", policy);
+        c.poseAssignment = static_cast<PoseAssignment>(policy);
+        foundation::core::Serialize(ar, "poseIndices", c.poseIndices);
+        foundation::core::Serialize(ar, "instanceClips", c.instanceClips);
     }
     inline void ResolveResources(foundation::resource::ResourceManager& manager,
                                  InstancedMeshComponent& c)
@@ -503,6 +524,33 @@ export namespace engine::render
         c.mesh.Bind(manager);
         c.material.Bind(manager);
     }
+
+    // An entity drawn as one instance of another entity's InstancedMeshComponent, at its own world
+    // transform and on its clip (an index into the pose pool's clips: an InstancedSkinningComponent's
+    // list), instead of a mesh of its own. Whatever moves the entity moves the instance: navigation,
+    // physics, replication, a script, the editor's gizmo. Many entities, one draw: pickups, props,
+    // units, the guests of a crowd. Extraction adds the members after the instanced mesh's own
+    // authored instances each frame; nothing of theirs is saved into the instanced mesh.
+    struct InstanceMemberComponent
+    {
+        scene::EntityRef instancedMesh; // the entity whose InstancedMeshComponent draws it
+        u32 clip = 0;                   // its clip in that mesh's pose pool
+    };
+
+    inline void Serialize(ISerializer& ar, InstanceMemberComponent& c)
+    {
+        foundation::core::Serialize(ar, "instancedMesh", c.instancedMesh);
+        foundation::core::Serialize(ar, "clip", c.clip);
+    }
+
+    class InstanceMemberComponentManager final : public scene::SerializableComponentManager<InstanceMemberComponent>
+    {
+    public:
+        InstanceMemberComponentManager()
+            : scene::SerializableComponentManager<InstanceMemberComponent>(u8"instance_member")
+        {
+        }
+    };
 
     // Measures its entities for the scene (ISceneEntityBounds): the set's merged world sphere,
     // which extraction keeps current, as a box.

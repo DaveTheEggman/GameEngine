@@ -156,3 +156,31 @@ TEST_CASE("ClusterPose: constant within a cell, and neighbouring cells differ")
     }
     CHECK(differ > pairs * 3 / 4); // the vast majority of neighbouring cells differ (hash spread)
 }
+
+TEST_CASE("SelectPose: a clip per instance picks its block; the policy the phase inside it")
+{
+    // Three clips at 4 poses each: clip c's poses are 4c .. 4c + 3.
+    constexpr u32 kPerClip = 4;
+    constexpr u32 kPool = 3 * kPerClip;
+    for (u32 i = 0; i < 40; ++i)
+    {
+        for (u32 clip = 0; clip < 3; ++clip)
+        {
+            const u32 hashed = SelectPose(PoseAssignment::Hashed, i, kPool, nullptr, clip, kPerClip);
+            CHECK(hashed / kPerClip == clip); // in its clip's block
+            CHECK(hashed % kPerClip == SelectPose(PoseAssignment::Hashed, i, kPerClip, nullptr)); // same phase
+            CHECK(SelectPose(PoseAssignment::Sequential, i, kPool, nullptr, clip, kPerClip) ==
+                  clip * kPerClip + i % kPerClip);
+            // Unison: every instance on a clip at that clip's one phase (a crowd in step).
+            CHECK(SelectPose(PoseAssignment::Unison, i, kPool, nullptr, clip, kPerClip) == clip * kPerClip);
+        }
+    }
+    // Explicit indices are phases within the clip.
+    const u32 phases[] = {1, 6};
+    CHECK(SelectPose(PoseAssignment::Explicit, 0, kPool, phases, 2, kPerClip) == 2 * kPerClip + 1);
+    CHECK(SelectPose(PoseAssignment::Explicit, 1, kPool, phases, 1, kPerClip) == 1 * kPerClip + 2); // 6 % 4
+    // A clip past the pool wraps; one clip (no posesPerClip) selects as before.
+    CHECK(SelectPose(PoseAssignment::Unison, 0, kPool, nullptr, 4, kPerClip) == 1 * kPerClip);
+    CHECK(SelectPose(PoseAssignment::Sequential, 7, kPool, nullptr) == 7u);
+    CHECK(SelectPose(PoseAssignment::Unison, 9, 8, nullptr) == 0u);
+}

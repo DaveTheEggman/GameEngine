@@ -20,6 +20,7 @@ import foundation.materials;
 import foundation.materials.resource;
 import foundation.scene;
 import foundation.scene.resource;
+import foundation.render; // PoseAssignment (an instanced set's policy)
 import engine.render;
 
 using namespace foundation::core;
@@ -230,6 +231,11 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
         c.SetInstances(Span<const Float4x4>{xf, 2});
         c.tints.PushBack(Color{1, 0, 0, 1});
         c.tints.PushBack(Color{0, 1, 0, 1});
+        c.poseAssignment = PoseAssignment::Unison; // how the animated instances pick poses
+        c.poseIndices.PushBack(3);
+        c.poseIndices.PushBack(5);
+        c.instanceClips.PushBack(0);
+        c.instanceClips.PushBack(2);
 
         BinarySerializer ar(blob, SerializeMode::Write);
         scene::SerializeScene(ar, scene);
@@ -256,6 +262,11 @@ TEST_CASE("resource-ref: instanced-mesh refs + authored placement round-trip")
     CHECK(c->instances[1].m[3][1] == doctest::Approx(2.0f));
     REQUIRE(c->tints.Size() == 2u);
     CHECK(c->tints[1].g == doctest::Approx(1.0f));
+    CHECK(c->poseAssignment == PoseAssignment::Unison);
+    REQUIRE(c->poseIndices.Size() == 2u);
+    CHECK(c->poseIndices[1] == 5u);
+    REQUIRE(c->instanceClips.Size() == 2u);
+    CHECK(c->instanceClips[1] == 2u);
     // Runtime state starts fresh: version 1 vs boundsVersion 0 => first extract re-uploads.
     CHECK(c->version >= 1u);
     CHECK(c->boundsVersion == 0u);

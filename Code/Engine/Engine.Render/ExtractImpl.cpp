@@ -215,6 +215,33 @@ namespace engine::render
         {
             return;
         }
+        // This frame's members: each active InstanceMemberComponent's world transform and clip, on
+        // the instanced mesh it names (drawn after that mesh's authored instances).
+        mgr->ForEach(
+            [](InstancedMeshComponent& c, scene::EntityHandle)
+            {
+                c.memberWorld.Clear();
+                c.memberClips.Clear();
+            });
+        if (auto* members = scene.GetSystem<InstanceMemberComponentManager>())
+        {
+            members->ForEach(
+                [&](InstanceMemberComponent& m, scene::EntityHandle e)
+                {
+                    if (!scene.IsEffectivelyActive(e) || m.instancedMesh.id.IsNil())
+                    {
+                        return;
+                    }
+                    const scene::EntityHandle target = scene.FindEntity(m.instancedMesh.id);
+                    InstancedMeshComponent* set = scene.IsValid(target) ? mgr->Get(target) : nullptr;
+                    if (set == nullptr)
+                    {
+                        return;
+                    }
+                    set->memberWorld.PushBack(scene.GetWorldMatrix(e));
+                    set->memberClips.PushBack(m.clip);
+                });
+        }
         mgr->ForEach(
             [&](InstancedMeshComponent& c, scene::EntityHandle e)
             {
@@ -222,7 +249,7 @@ namespace engine::render
                 // the snapshot (the renderer draws from the snapshot; the persistent GPU buffer
                 // is only a cache and revalidates by version when the set returns).
                 if (!scene.IsEffectivelyActive(e) || !c.visible || c.mesh.Get() == nullptr ||
-                    c.Count() == 0)
+                    (c.Count() == 0 && c.memberWorld.IsEmpty()))
                 {
                     return;
                 }
@@ -248,13 +275,33 @@ namespace engine::render
                     ++c.composedVersion;
                 }
 
+                // Members join after the authored instances, every frame (they move): the drawn list
+                // is both, re-uploaded each frame they exist.
+                const bool hasMembers = !c.memberWorld.IsEmpty();
+                const u32 drawnCount = c.Count() + static_cast<u32>(c.memberWorld.Size());
+                if (hasMembers)
+                {
+                    c.drawTransforms.Clear();
+                    c.drawTransforms.Reserve(drawnCount);
+                    for (const Float4x4& xf : c.worldTransforms)
+                    {
+                        c.drawTransforms.PushBack(xf);
+                    }
+                    for (const Float4x4& xf : c.memberWorld)
+                    {
+                        c.drawTransforms.PushBack(xf);
+                    }
+                    ++c.composedVersion;
+                }
+                const Array<Float4x4>& drawn = hasMembers ? c.drawTransforms : c.worldTransforms;
+
                 // Merged bounds: union of the mesh's local AABB transformed by every composed instance.
                 // Cached on the component and only rebuilt when the composed set changed.
                 if (c.boundsVersion != c.composedVersion)
                 {
                     const AABB lb = c.mesh->bounds;
                     AABB acc = AABB::Empty();
-                    for (const Float4x4& xf : c.worldTransforms)
+                    for (const Float4x4& xf : drawn)
                     {
                         const Float3 ctr = TransformPoint(lb.Center(), xf);
                         const f32 r = WorldBoundsRadius(lb, xf);
@@ -273,12 +320,23 @@ namespace engine::render
                 }
                 rd->multiMesh = true;
                 rd->key = PackEntity(e);
-                rd->transforms =
-                    c.worldTransforms.Data(); // borrowed for the frame (immutable snapshot)
-                rd->tints = (!c.linearTints.IsEmpty() && c.linearTints.Size() == c.instances.Size())
-                                ? c.linearTints.Data()
-                                : nullptr;
-                rd->instanceCount = c.Count();
+                rd->transforms = drawn.Data(); // borrowed for the frame (immutable snapshot)
+                const bool tinted = !c.linearTints.IsEmpty() && c.linearTints.Size() == c.instances.Size();
+                if (tinted && hasMembers)
+                {
+                    // The authored tints, then members untinted.
+                    c.drawTints.Clear();
+                    for (const Color& tint : c.linearTints)
+                    {
+                        c.drawTints.PushBack(tint);
+                    }
+                    for (usize i = 0; i < c.memberWorld.Size(); ++i)
+                    {
+                        c.drawTints.PushBack(Color{1.0f, 1.0f, 1.0f, 1.0f});
+                    }
+                }
+                rd->tints = tinted ? (hasMembers ? c.drawTints.Data() : c.linearTints.Data()) : nullptr;
+                rd->instanceCount = drawnCount;
                 rd->version = c.composedVersion;
                 rd->mesh = c.mesh.Get();
                 rd->material = c.material.Get();
@@ -298,10 +356,32 @@ namespace engine::render
                 rd->poseAssignment = c.poseAssignment;
                 // Only borrow the explicit index array when the policy asks for it AND it's correctly sized;
                 // otherwise leave it null so the renderer falls back to the Hashed default.
-                rd->poseIndices = (c.poseAssignment == PoseAssignment::Explicit &&
+                rd->poseIndices = (c.poseAssignment == PoseAssignment::Explicit && !hasMembers &&
                                    c.poseIndices.Size() == c.instances.Size())
                                       ? c.poseIndices.Data()
                                       : nullptr;
+                // A clip per instance: the authored list when it matches the instances (else clip 0),
+                // then each member's own.
+                const bool authoredClips = c.instanceClips.Size() == c.instances.Size();
+                if (hasMembers)
+                {
+                    c.drawClips.Clear();
+                    c.drawClips.Reserve(drawnCount);
+                    for (usize i = 0; i < c.instances.Size(); ++i)
+                    {
+                        c.drawClips.PushBack(authoredClips ? c.instanceClips[i] : 0u);
+                    }
+                    for (const u32 clip : c.memberClips)
+                    {
+                        c.drawClips.PushBack(clip);
+                    }
+                    rd->instanceClips = c.drawClips.Data();
+                }
+                else
+                {
+                    rd->instanceClips = authoredClips ? c.instanceClips.Data() : nullptr;
+                }
+                rd->posesPerClip = c.posesPerClip;
                 // rendererId stays 0 (the MeshRenderer draws it); `world` stays identity (per-instance
                 // transforms ride in `transforms`, uploaded to the renderer's persistent buffer).
             });

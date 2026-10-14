@@ -901,7 +901,9 @@ namespace foundation::render
                 // Pick this instance's pose out of the M shared palettes per the caller's policy (pure,
                 // unit-tested in SelectPose). Exactly M palette evaluations regardless; the slot is stable
                 // per i across frames, so motion blur (prev pose) is unaffected.
-                const u32 pose = SelectPose(mm->poseAssignment, i, M, mm->poseIndices);
+                const u32 pose = SelectPose(mm->poseAssignment, i, M, mm->poseIndices,
+                                            mm->instanceClips != nullptr ? mm->instanceClips[i] : 0u,
+                                            mm->posesPerClip);
                 const u32 bucket = pose * mm->boneCount;     // matrix-unit offset within a palette
                 const u32 curBase = pool->base + bucket;     // current pose
                 const u32 prvBase = pool->prevBase + bucket; // last frame's pose (motion vectors)

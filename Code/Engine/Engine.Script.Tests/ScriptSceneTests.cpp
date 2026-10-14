@@ -3939,6 +3939,32 @@ TEST_CASE("script.scene: MeshComponent.of / LightComponent.of set live render pr
     CHECK_FALSE(lights->Get(e)->enabled);
 }
 
+TEST_CASE("script.scene: a behaviour sets its member's clip and its crowd's pose policy")
+{
+    engine::render::RegisterRenderScriptFacade();
+    ScriptedScene bed;
+    auto* sets = bed.scene.AddSystem<engine::render::InstancedMeshComponentManager>();
+    auto* members = bed.scene.AddSystem<engine::render::InstanceMemberComponentManager>();
+    RefPtr<ScriptClass> dancer =
+        MakeClass(u8"Dancer",
+                  u8"class Dancer {\n"
+                  u8"    private Entity@ self;\n"
+                  u8"    Dancer(Entity@ entity) { @self = entity; }\n"
+                  u8"    void onStart() {\n"
+                  u8"        InstanceMemberComponent::of(self).clip = 3;\n"
+                  u8"        InstancedMeshComponent::of(self).poseAssignment = PoseAssignment::Unison;\n"
+                  u8"    }\n"
+                  u8"}\n",
+                  {u8"onStart"});
+    const scene::EntityHandle e = bed.AddScripted(dancer, u8"e");
+    sets->Add(e);
+    members->Add(e).clip = 0;
+    bed.Start();
+    bed.Frame();
+    CHECK(members->Get(e)->clip == 3u);
+    CHECK(sets->Get(e)->poseAssignment == foundation::render::PoseAssignment::Unison);
+}
+
 TEST_CASE("script.scene: MeshComponent::of / LightComponent::of set live render props (AngelScript)")
 {
     foundation::script::angelscript::RegisterAngelScriptBackend();

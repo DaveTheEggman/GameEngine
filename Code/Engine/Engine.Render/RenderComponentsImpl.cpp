@@ -100,6 +100,14 @@ namespace engine::render
                                   u8"index has no slot."));
     }
 
+    REFLECT_ENUM(PoseAssignment, "rtti::engine::render")
+    {
+        builder.Value("Hashed", PoseAssignment::Hashed);
+        builder.Value("Sequential", PoseAssignment::Sequential);
+        builder.Value("Explicit", PoseAssignment::Explicit);
+        builder.Value("Unison", PoseAssignment::Unison);
+    }
+
     REFLECT_VALUE(InstancedMeshComponent, "rtti::engine::render")
     {
         builder.Attribute("displayName", String(u8"Instanced Mesh"))
@@ -112,7 +120,27 @@ namespace engine::render
             .Property<&InstancedMeshComponent::mesh>("mesh")
             .Property<&InstancedMeshComponent::material>("material")
             .Property<&InstancedMeshComponent::color>("color")
-            .Property<&InstancedMeshComponent::visible>("visible");
+            .Property<&InstancedMeshComponent::visible>("visible")
+            .Property<&InstancedMeshComponent::poseAssignment>("poseAssignment")
+            .PropAttribute("description",
+                           String(u8"How an animated instance picks its phase: Hashed (scattered), Sequential "
+                                  u8"(by its order), Explicit (its pose index), Unison (all in step)"));
+        builder.DataVersion(1); // v1: poseAssignment, poseIndices, instanceClips
+    }
+
+    REFLECT_VALUE(InstanceMemberComponent, "rtti::engine::render")
+    {
+        builder.Attribute("displayName", String(u8"Instance Member"))
+            .Attribute("category", String(u8"Rendering"))
+            .Attribute("description",
+                       String(u8"Draws this entity as one instance of another entity's instanced mesh, "
+                              u8"wherever it moves, on one of that mesh's animation clips."))
+            .Method<&foundation::script::ComponentOf<InstanceMemberComponent>, InstanceMemberComponent>("of")
+            .Property<&InstanceMemberComponent::instancedMesh>("instancedMesh")
+            .PropAttribute("description", String(u8"The entity whose instanced mesh draws this one"))
+            .Property<&InstanceMemberComponent::clip>("clip")
+            .PropAttribute("description",
+                           String(u8"Its clip: the index in the instanced skinning's clip list"));
     }
 
     REFLECT_VALUE(CameraComponent, "rtti::engine::render")
@@ -816,6 +844,7 @@ namespace engine::render
             RttiRegisterEnum_SpriteOrientation();
             RttiRegisterEnum_ShadowUpdateMode();
             RttiRegisterEnum_ProbeUpdateMode();
+            RttiRegisterEnum_PoseAssignment();
             RttiRegisterEnum_SkyMode();
             RttiRegisterEnum_SettingsSource();
             RttiRegisterValue_EnvironmentSettings();
@@ -826,6 +855,7 @@ namespace engine::render
             RegisterArrayType<foundation::resource::Ref<foundation::materials::Material>>();
             RttiRegisterValue_MeshComponent();
             RttiRegisterValue_InstancedMeshComponent();
+            RttiRegisterValue_InstanceMemberComponent();
             RttiRegisterValue_CameraComponent();
             RttiRegisterValue_LightComponent();
             RttiRegisterValue_SpriteComponent();
@@ -851,6 +881,7 @@ namespace engine::render
         const RenderComponentEntry components[] = {
             {&core::TypeOf<MeshComponent>(), u8"MeshComponent"},
             {&core::TypeOf<InstancedMeshComponent>(), u8"InstancedMeshComponent"},
+            {&core::TypeOf<InstanceMemberComponent>(), u8"InstanceMemberComponent"},
             {&core::TypeOf<CameraComponent>(), u8"CameraComponent"},
             {&core::TypeOf<LightComponent>(), u8"LightComponent"},
             {&core::TypeOf<SpriteComponent>(), u8"SpriteComponent"},
