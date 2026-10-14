@@ -13,9 +13,9 @@
 // through), so component payloads field-validate through their real managers, exactly as the
 // editor and the cooked-scene reader would parse them. A record whose type resolves to no
 // manager is now a GENUINELY unknown type; the reader skips it with a warning we capture and
-// surface. Writes validate FIRST and refuse with the reasons; a passing write stores the
-// agent's XML in the layout the editor saves in (XmlSerializer::Reformat: the same content, laid
-// out as the editor would), so a generated file reads like a saved one.
+// surface. Writes validate FIRST and refuse with the reasons; a passing write stores the scene
+// as the editor saves it (scene::SceneSourceText over the validated scratch), so a generated
+// file reads like a saved one.
 
 module;
 #include "Core/Prelude.h"
@@ -70,8 +70,11 @@ namespace editor::mcp::detail
 
     // Parse `xml` as a scene stream into a scratch Scene carrying the FULL engine manager set
     // (Engine.Composition), so component payloads validate through their real managers. Only a
-    // genuinely unknown component type is skipped (warning, captured above).
-    inline SceneParseReport ParseSceneXml(StringView xml)
+    // genuinely unknown component type is skipped (warning, captured above). With `sourceText`,
+    // a valid scene also comes back as the source text the editor would save for it (a scene with
+    // its settings, a prefab without): what a write stores.
+    inline SceneParseReport ParseSceneXml(StringView xml, String* sourceText = nullptr,
+                                          bool includeSettings = true)
     {
         SceneParseReport report;
         SceneLogCapture capture;
@@ -94,6 +97,17 @@ namespace editor::mcp::detail
                                   u8"and validate again",
                                   static_cast<i32>(transcoded.Error()));
             return report;
+        }
+        if (sourceText != nullptr)
+        {
+            Result<String> text = scene::SceneSourceText(scratch, includeSettings);
+            if (!text.HasValue())
+            {
+                report.error = Format(u8"the scene parsed but did not serialize (error {})",
+                                      static_cast<i32>(text.Error()));
+                return report;
+            }
+            *sourceText = Move(text.Value());
         }
         report.valid = true;
         report.sceneName = String(scratch.Name());
@@ -334,8 +348,8 @@ export namespace editor::mcp
                 Format(u8"Write a {}'s XML source. VALIDATES FIRST and refuses with the reasons "
                        u8"on failure (nothing is written then). Pass `guid` to overwrite an "
                        u8"existing {} OR `name` (+ optional `group` path) to create a new one. "
-                       u8"On success the XML is stored as the asset's source of truth, laid out as the "
-                       u8"editor saves (one element to a line), however it was passed.",
+                       u8"On success the scene is stored as the asset's source of truth exactly as the "
+                       u8"editor saves it (its layout and number formatting), however it was passed.",
                        kind, kind),
                 SchemaBuilder()
                     .Str(u8"xml", Format(u8"the {} XML text to store", kind).AsView(), true)
@@ -358,7 +372,13 @@ export namespace editor::mcp
                     {
                         return Err(String(u8"`xml` is required and was empty"));
                     }
-                    detail::SceneParseReport report = detail::ParseSceneXml(xml.AsView());
+                    // What is stored is the scene as the editor saves it, however the caller
+                    // laid it out or wrote its numbers (a script's one line, 1.0 for 1), so the
+                    // file reads like one the editor saved and a later save rewrites nothing.
+                    String stored;
+                    const bool isScene = wantedType.AsView() == StringView(u8"SceneDocument");
+                    detail::SceneParseReport report =
+                        detail::ParseSceneXml(xml.AsView(), &stored, /*includeSettings=*/isScene);
                     detail::CheckPrefabs(s->project, report);
                     if (!report.valid)
                     {
@@ -433,15 +453,6 @@ export namespace editor::mcp
                         {
                             return Err(String(u8"failed writing the prefab document envelope"));
                         }
-                    }
-                    // Stored in the layout the editor saves in, however the caller laid it out
-                    // (a script's one line, say), so the file reads the same as one the editor
-                    // wrote and a later save by the editor does not rewrite every line of it.
-                    String stored;
-                    if (!foundation::xml::XmlSerializer::Reformat(xml.AsView(), editor::EditorRootAllocator(),
-                                                                  stored))
-                    {
-                        return Err(String(u8"the XML validated but did not reparse to store"));
                     }
                     const Status wrote = instance->WriteData(
                         u8"scene",

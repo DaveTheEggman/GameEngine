@@ -1360,6 +1360,26 @@ export namespace foundation::scene
     // instance materializes + is discoverable, then the serialized world into the "scene"
     // data stream. The save-side mirror of LoadScene (pure serialize + content-DB writes -
     // no editor state - so it lives here beside LoadScene, not in a tooling module).
+    //
+    // The text a scene or prefab source holds: the world serialized as the editor saves it
+    // (prefab instances as ref+delta records; a scene with its system settings, a prefab
+    // without). Sources are TEXT: diffable, mergeable, hand-editable; export staging transcodes
+    // them to the binary wire for the player. Whatever writes a source writes this, so a file
+    // reads the same whoever wrote it and a later save changes only what changed.
+    [[nodiscard]] inline Result<String> SceneSourceText(Scene& scene, bool includeSettings)
+    {
+        foundation::xml::XmlSerializer ser(scene.Allocator());
+        SerializeScene(ser, scene, ScenePrefabMode::Referenced, includeSettings,
+                       detail::SceneStreamEncoding::Text);
+        if (!ser.IsOk())
+        {
+            return Err(ser.GetStatus().Code());
+        }
+        String text;
+        ser.GetOutput(text);
+        return text;
+    }
+
     inline Status SaveScene(Scene& scene, foundation::content::Instance& instance)
     {
         SceneDocument doc;
@@ -1370,20 +1390,15 @@ export namespace foundation::scene
             return wrote;
         }
 
-        // Sources are TEXT: diffable, mergeable, hand-editable.
-        // Export staging transcodes to the binary wire for the player.
-        foundation::xml::XmlSerializer ser(scene.Allocator());
-        SerializeScene(ser, scene, ScenePrefabMode::Referenced, true,
-                       detail::SceneStreamEncoding::Text);
-        if (!ser.IsOk())
+        const Result<String> text = SceneSourceText(scene, /*includeSettings=*/true);
+        if (!text.HasValue())
         {
-            return ser.GetStatus();
+            return Status{text.Error()};
         }
-        String text;
-        ser.GetOutput(text);
-        return instance.WriteData(
-            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()},
-            content::StreamEncoding::Text);
+        return instance.WriteData(u8"scene",
+                                  Span<const byte>{reinterpret_cast<const byte*>(text.Value().CStr()),
+                                                   text.Value().Size()},
+                                  content::StreamEncoding::Text);
     }
 
     // The prefab twin: PrefabDocument primary + the world serialized EXPANDED - any nested
@@ -1429,20 +1444,16 @@ export namespace foundation::scene
         }
 
         // Referenced + no settings: nested instances persist as ref+delta RECORDS - the
-        // flat forest SpawnPrefab replays - instead of flattening into plain entities. TEXT
-        // like scene saves (export transcodes).
-        foundation::xml::XmlSerializer ser(scene.Allocator());
-        SerializeScene(ser, scene, ScenePrefabMode::Referenced, /*includeSettings=*/false,
-                       detail::SceneStreamEncoding::Text);
-        if (!ser.IsOk())
+        // flat forest SpawnPrefab replays - instead of flattening into plain entities.
+        const Result<String> text = SceneSourceText(scene, /*includeSettings=*/false);
+        if (!text.HasValue())
         {
-            return ser.GetStatus();
+            return Status{text.Error()};
         }
-        String text;
-        ser.GetOutput(text);
-        return instance.WriteData(
-            u8"scene", Span<const byte>{reinterpret_cast<const byte*>(text.CStr()), text.Size()},
-            content::StreamEncoding::Text);
+        return instance.WriteData(u8"scene",
+                                  Span<const byte>{reinterpret_cast<const byte*>(text.Value().CStr()),
+                                                   text.Value().Size()},
+                                  content::StreamEncoding::Text);
     }
 
     // A full-scene snapshot for the editor's Simulate loop (play-in-editor design: snapshot ->

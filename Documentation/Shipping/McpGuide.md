@@ -127,9 +127,10 @@ entity outside a run, each running behaviour's properties under `live` beside wh
   involved. Do NOT run against a project that an open editor is actively editing - two
   writers, one set of files.
 - **Validate-first writes.** `scene_write`/`prefab_write` refuse invalid content with the
-  full report; a refusal is the tool working, never something to bypass. What they store is laid
-  out as the editor saves (one element to a line), however the XML was passed, so a generated
-  file reads like a saved one and a later save in the editor changes only what changed.
+  full report; a refusal is the tool working, never something to bypass. What they store is the scene
+  exactly as the editor saves it (its layout and number formatting), however the XML was
+  passed, so a generated file reads like a saved one and a later save in the editor changes only
+  what changed.
 - **Arguments are checked against the tool's schema.** One the schema does not declare is
   refused (`pie_run: no argument 'timeline' (it takes: pie, duration, input, ...)`), as are a
   missing required one and one of the wrong type, before the tool runs: a misspelt name never

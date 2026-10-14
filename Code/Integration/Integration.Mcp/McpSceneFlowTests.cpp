@@ -170,7 +170,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     Array<Guid> announced;
     session.onAssetWritten = [&announced](const Guid& id) { announced.PushBack(id); };
 
-    // scene_write CREATES a new scene from the XML; text already in the editor's layout (what
+    // scene_write CREATES a new scene from the XML; a scene as the editor saved it (what
     // scene_read gives) is stored byte-identical.
     JsonValue written = CallOk(
         server, u8"scene_write",
@@ -185,13 +185,15 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         CHECK(announced[0] == parsed);
     }
     JsonValue readBack = CallOk(server, u8"scene_read", With(Obj(), u8"guid", newGuid.AsView()));
-    CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // the layout is kept as is
+    CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // the editor's save, kept as is
 
-    // The same scene on one line (as a generator script writes it) is stored in the editor's
-    // layout, so the file reads like one the editor saved and a later save rewrites nothing.
+    // The same scene as a generator script writes it, on one line and with its numbers its own
+    // way (1.0 for 1), is stored as the editor saves it, so the file reads like one the editor
+    // saved and a later save rewrites nothing.
     {
-        const String oneLine = ReplaceAll(ReplaceAll(seedXml.AsView(), u8"\n", u8"").AsView(), u8"\t", u8"");
-        REQUIRE(oneLine != seedXml);
+        const String flat = ReplaceAll(ReplaceAll(seedXml.AsView(), u8"\n", u8"").AsView(), u8"\t", u8"");
+        const String oneLine = ReplaceAll(flat.AsView(), u8">1</f32>", u8">1.0</f32>");
+        REQUIRE(oneLine != flat); // the seed has a 1 to write as 1.0
         JsonValue compact = CallOk(server, u8"scene_write",
                                    With(With(Obj(), u8"xml", oneLine.AsView()), u8"name", u8"compact"));
         JsonValue stored =
