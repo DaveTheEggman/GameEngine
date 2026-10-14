@@ -127,12 +127,12 @@ class Doc:
         that has not changed writes the same file."""
         return str(uuid.uuid5(_NAMESPACE, "%s/%s/%d" % (self.name, kind, len(self.entities) + len(self.instances))))
 
-    def entity(self, name, pos=(0, 0, 0), rot=(0, 0, 0, 1), scale=(1, 1, 1), parent=None, eid=None):
+    def entity(self, name, pos=(0, 0, 0), rot=(0, 0, 0, 1), scale=(1, 1, 1), parent=None, eid=None, active=True):
         eid = eid or self.stable_id("entity")
-        self.entities.append('<string name="id">%s</string><string name="name">%s</string><u8 name="active">1</u8>'
+        self.entities.append('<string name="id">%s</string><string name="name">%s</string><u8 name="active">%d</u8>'
                              '<string name="parent">%s</string>%s%s%s' % (
-                                 eid, name, parent or NIL, vec("position", pos), vec("rotation", rot, "xyzw"),
-                                 vec("scale", scale)))
+                                 eid, name, 1 if active else 0, parent or NIL, vec("position", pos),
+                                 vec("rotation", rot, "xyzw"), vec("scale", scale)))
         return eid
 
     def add(self, owner, wire, **values):

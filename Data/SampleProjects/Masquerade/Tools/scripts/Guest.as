@@ -8,7 +8,10 @@
 // - Gather (1): go to the nearest place and talk there until the cue changes.
 // - Dance (2): dance, there and then, wherever the guest is (the music calls everyone).
 //
-// `activity` is replicated: the host decides it, and every peer's guest plays it.
+// A bot hunter is a guest too (Ball.as hunts for it): it wears its costume on a child, one of six
+// looks, so the clip goes to whichever it wears, and Ball sends it "Approach" (walk to someone, a
+// little brisk) and "Resume" (back to the ball). `activity` is replicated: the host decides it,
+// and every peer's guest plays it.
 
 const int kIdle = 0; // the clips, in the Guests entity's instanced skinning order
 const int kWalk = 1;
@@ -43,6 +46,7 @@ class Guest
     private float m_check = 0.0f;                       // until the next progress check
     private float m_walked = 0.0f;                      // seconds on the way
     private array<Entity@> m_spots;
+    private bool m_approaching = false; // a bot walking to someone it means to tag
 
     Guest(Entity@ entity) { @self = entity; }
 
@@ -63,7 +67,7 @@ class Guest
             return;
         }
         m_cue = cue;
-        if (authority())
+        if (authority() && !m_approaching)
         {
             // Not all at once: a guest finishes a sentence before following the music.
             m_stay = Random::range(0.0f, 2.5f);
@@ -83,17 +87,61 @@ class Guest
         {
             decide(d);
         }
+        playClip(uint(activity));
+        turn(d);
+    }
+
+    // A bot's orders (Ball.as). Approach: walk, a little brisk, to the point (where the one it
+    // suspects is now; sent again as they move). Resume: back to the ball, soon.
+    void onApproach(Float3 at)
+    {
+        m_approaching = true;
+        m_going = false;
+        NavAgentComponent::of(self).navigateAt(at.x, at.y, at.z, walkSpeed * 1.3f, 0.3f);
+        activity = kWalk;
+    }
+
+    void onResume(int unused)
+    {
+        m_approaching = false;
+        NavAgentComponent::of(self).stop();
+        activity = kIdle;
+        m_stay = Random::range(1.0f, 4.0f);
+    }
+
+    // The clip on the guest's own Instance Member, or (a hunter) on each of its looks: only the one
+    // it wears is drawn.
+    private void playClip(uint clip)
+    {
         InstanceMemberComponent@ member = InstanceMemberComponent::of(self);
         if (member !is null)
         {
-            member.clip = uint(activity);
+            member.clip = clip;
+            return;
         }
-        turn(d);
+        Entity@ child = self.firstChild();
+        while (child !is null && child.isValid())
+        {
+            InstanceMemberComponent@ look = InstanceMemberComponent::of(child);
+            if (look !is null)
+            {
+                look.clip = clip;
+            }
+            @child = child.nextSibling();
+        }
     }
 
     private void decide(float d)
     {
         NavAgentComponent@ agent = NavAgentComponent::of(self);
+        if (m_approaching)
+        {
+            if (agent.finished())
+            {
+                activity = kIdle; // there; Ball decides what comes next
+            }
+            return;
+        }
         if (m_going)
         {
             if (arrived(agent, d))

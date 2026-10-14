@@ -18,13 +18,17 @@ it makes, what it needs first and how to call it. Generated files land in `gener
      `Models/Guests`, a group per model.
 2. **Project setup**: `controls.py` (the input map, made the project's default) and `look.py` (the
    night environment and the post profile every map shares, written when a map is).
-3. **Scripts**: `importscripts.py` imports `scripts/*.as`: a guest (`Guest`: wandering, talking
-   and dancing to the cues), the player (`Player`), the orchestra and its cues (`Orchestra`), and
-   the camera (`CameraRig`).
+3. **Scripts**: `importscripts.py` imports `ui/*.sml` and then `scripts/*.as`, filling each
+   script's `{{UI:Hud}}`-style asset ids, and makes `Masquerade.as` (the game: the title, the
+   HUD, pause, the results, the best round in the save) the startup script. The rest: a guest
+   (`Guest`: wandering, talking and dancing to the cues; a bot is one too), the player (`Player`),
+   the round (`Ball`: four hunters in a ring of targets, tagging, the mask's flare, the bots'
+   hunting, the scores), the orchestra and its cues (`Orchestra`), and the camera (`CameraRig`).
 4. **The maps**: `maps.py` writes each map's scene (the Palace for now): the ground, walls and
    props with their colliders, the lights, the places guests go, the orchestra, 150 guests drawn
-   as instances of their costumes, the player and the camera; it bakes the map's navigation and
-   makes the Palace the project's default scene.
+   as instances of their costumes (grouped by costume under the Crowd), the four hunters with a
+   look per costume, the camera and the Ball; it bakes the map's navigation and makes the Palace
+   the project's default scene.
 
 `scenegen.py` (the scene document writer) and `mcp.py` (the MCP client) are the helpers the others
 share.

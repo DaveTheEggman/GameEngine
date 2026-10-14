@@ -2,7 +2,9 @@
 // Instance Member of a costume), so it looks like one. It moves where the stick points, relative
 // to where the camera looks, by steering its agent a step ahead each frame: the crowd makes way
 // round it and it round the crowd, as guests do for each other. A guest's stroll by default;
-// Sprint is faster (and marks you, Ball.as); Dance, held, dances. Its `activity` is a guest's.
+// Sprint is faster (and marks you, Ball.as); Dance, held, dances; Tag tells the ball (Ball.as
+// decides who is in reach). It wears its costume on a child, one of six looks (Ball.as picks), so
+// the clip goes to each look. Its `activity` is a guest's.
 
 const int kIdle = 0; // the clips, in the Guests entity's instanced skinning order
 const int kWalk = 1;
@@ -19,6 +21,7 @@ class Player
     [1.2, "How far ahead the agent is steered (m)"] float lead;
     [0, "What the player is doing (0 idle, 1 walk, 2 talk, 3 dance): the clip it plays", replicated] int activity;
     [false, "Sprinting now (a hunter sees it)", replicated] bool sprinting;
+    [0, "Its seat at the ball: the hunter it is in Ball.as"] int seat;
 
     private float m_yaw = 0.0f;
     private bool m_moving = false;
@@ -57,6 +60,10 @@ class Player
             agent.stop();
             m_moving = false;
         }
+        if (Input::wasPressed("Tag"))
+        {
+            self.scene.events.emit("Tag", seat);
+        }
         if (m_moving)
         {
             activity = kWalk;
@@ -65,10 +72,15 @@ class Player
         {
             activity = Input::isDown("Dance") ? kDance : kIdle;
         }
-        InstanceMemberComponent@ member = InstanceMemberComponent::of(self);
-        if (member !is null)
+        Entity@ child = self.firstChild();
+        while (child !is null && child.isValid())
         {
-            member.clip = uint(activity);
+            InstanceMemberComponent@ look = InstanceMemberComponent::of(child);
+            if (look !is null)
+            {
+                look.clip = uint(activity);
+            }
+            @child = child.nextSibling();
         }
     }
 

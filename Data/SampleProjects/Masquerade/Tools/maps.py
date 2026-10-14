@@ -9,8 +9,10 @@ camera; the navigation zone over it all, baked after writing.
 The guests are drawn by costume: a Guests entity carries the instanced skinning (the guests' rig
 and their clips: Idle, Walk, Talk, Dance, in that order, which Guest.as and Player.as count on)
 and a child per costume carries that costume's instanced mesh, with no instances of its own. Each
-guest is an entity of its own, a navigation agent with an Instance Member of its costume's mesh,
-so every guest in a costume is one draw wherever the crowd takes them.
+guest is an entity of its own under its costume's parent in the Crowd, a navigation agent with an
+Instance Member of its costume's mesh, so every guest in a costume is one draw wherever the crowd
+takes them. The four hunters (the player and three bots) wear six looks each, one shown, so the
+round (Ball.as) can change a hunter's costume.
 
 Metres throughout; the map's origin is its north-west corner, north being -Z. Cells (2 m: cell
 (i, j) spans x 2i..2i+2, z 2j..2j+2) for the ground.
@@ -175,10 +177,12 @@ class Builder:
             self.d.entity("%s%d" % (name[:-1] if name.endswith("s") else name, k), (x, 0.0, z), parent=parent)
         return parent
 
-    # ---- the guests ----
+    # ---- the guests, the hunters, the ball ----
     def crowd(self, count, spots, player_at):
-        """The Guests entity (instanced skinning over a costume mesh each), the guests, the player
-        and the camera."""
+        """The Guests entity (instanced skinning over a costume mesh each); the crowd, a parent per
+        costume with its guests under it (Ball.as tells a guest's costume by its parent); the four
+        hunters, the player and three bots, each wearing one of six looks (Ball.as picks); the
+        camera; the Ball, which runs the round."""
         d = self.d
         first = model("Models/Guests/Guest" + COSTUMES[0])
         clips = [asset("AnimationClipAsset", c, "Models/Guests/Guest" + COSTUMES[0]) for c in CLIPS]
@@ -195,32 +199,67 @@ class Builder:
         d.add(guests, "instanced_skinning", skeleton=first["skeleton"], clips=strings(clips),
               poseCount=POSES_PER_CLIP, targets=strings(meshes[c] for c in COSTUMES))
 
+        # The crowd: parents at the origin (agents write their position as local).
         guest_script = asset("ScriptClassAsset", "Guest")
-        spot_list = [p for p in spots]
-        for n in range(count):
-            x, z = self.rng.choice(spot_list)
+        crowd = d.stable_id("entity")
+        d.entity("Crowd", eid=crowd)
+        groups = {}
+        for c in COSTUMES:
+            groups[c] = d.stable_id("entity")
+            d.entity(c, parent=crowd, eid=groups[c])
+        placed = [(self.rng.choice(spots), self.rng.choice(COSTUMES)) for _ in range(count)]
+        for n, ((x, z), costume) in enumerate(placed):
             a, r = self.rng.uniform(-math.pi, math.pi), 1.6 * math.sqrt(self.rng.uniform(0.05, 1.0))
             e = d.stable_id("entity")
             d.entity("Guest%d" % (n + 1), (x + math.sin(a) * r, 0.0, z + math.cos(a) * r),
-                     yaw(self.rng.uniform(-180, 180)), eid=e)
-            self.person(e, meshes[self.rng.choice(COSTUMES)])
+                     yaw(self.rng.uniform(-180, 180)), parent=groups[costume], eid=e)
+            self.agent(e)
+            d.add(e, "instance_member", instancedMesh=meshes[costume], clip=0)
             d.script(e, (guest_script, {"spots": ("entity", self.spots)}))
 
+        # The hunters: the player at the gate, the bots among the guests.
         x, z = player_at
-        player = d.stable_id("entity")
-        d.entity("Player", (x, 0.0, z), eid=player)
-        self.person(player, meshes[self.rng.choice(COSTUMES)])
+        player = self.hunter("Player", (x, 0.0, z), meshes)
         cam = d.stable_id("entity")
         d.entity("Camera", (x, 9.0, z + 7.0), pitch(-48.0), eid=cam)
         d.add(cam, "camera", fovYRadians=0.9)
-        d.script(player, (asset("ScriptClassAsset", "Player"), {"camera": ("entity", cam)}))
+        d.script(player, (asset("ScriptClassAsset", "Player"), {"camera": ("entity", cam), "seat": 0}))
         d.script(cam, (asset("ScriptClassAsset", "CameraRig"), {"target": ("entity", player), "distance": 7.0,
                                                                  "height": 9.0}))
+        bots = []
+        for k in range(3):
+            bx, bz = self.rng.choice(spots)
+            bot = self.hunter("Bot%d" % (k + 1), (bx + 1.0, 0.0, bz), meshes)
+            d.script(bot, (guest_script, {"spots": ("entity", self.spots)}))
+            bots.append(bot)
 
-    def person(self, e, costume_mesh):
-        """A guest's body: an agent the crowd steers, drawn as one of its costume's instances."""
+        ball = d.stable_id("entity")
+        d.entity("Ball", eid=ball)
+        d.script(ball, (asset("ScriptClassAsset", "Ball"), {
+            "player": ("entity", player), "bot1": ("entity", bots[0]), "bot2": ("entity", bots[1]),
+            "bot3": ("entity", bots[2]), "crowd": ("entity", crowd), "spots": ("entity", self.spots)}))
+
+    def hunter(self, name, pos, meshes):
+        """A hunter: an agent like any guest, wearing one of six looks (a child per costume, each an
+        Instance Member of its costume's mesh; only the first shown until Ball.as dresses it), and
+        a Flare light over its head for when its mask flares (off until then)."""
+        d = self.d
+        e = d.stable_id("entity")
+        d.entity(name, pos, eid=e)
+        self.agent(e)
+        for k, c in enumerate(COSTUMES):
+            look = d.stable_id("entity")
+            d.entity("Look" + c, parent=e, eid=look, active=(k == 0))
+            d.add(look, "instance_member", instancedMesh=meshes[c], clip=0)
+        flare = d.stable_id("entity")
+        d.entity("Flare", (0.0, 2.1, 0.0), parent=e, eid=flare)
+        d.add(flare, "light", type=1, color={"r": 1.0, "g": 0.78, "b": 0.30, "a": 1.0}, intensity=0.0, range=6.0,
+              castsShadows=False)
+        return e
+
+    def agent(self, e):
+        """A guest's body: an agent the crowd steers."""
         self.d.add(e, "navigation.Agent", radius=0.3, height=1.7, maxSpeed=3.2, maxAcceleration=6.0)
-        self.d.add(e, "instance_member", instancedMesh=costume_mesh, clip=0)
 
     def navigation(self, bounds):
         x0, z0, x1, z1 = bounds

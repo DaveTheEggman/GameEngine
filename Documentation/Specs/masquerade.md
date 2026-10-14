@@ -143,6 +143,12 @@ From a survey of the code (2026-10-14):
   some 40 places, gather at the nearest when the orchestra calls, and dance where they stand; the
   player steers a navigation agent, so the crowd makes way for it as for a guest. A multi-part
   guest needed a materials list on the instanced mesh (an engine change, as a mesh's).
+  Then the round (Ball.as): four hunters (the player and three bots, each wearing one of six
+  looks) in a ring of targets; Tag takes the nearest in reach and in front; the target scores and
+  respawns elsewhere in a new costume (the engine's new `NavAgentComponent.warp`), anyone else
+  costs points and flares the tagger's mask; bots grow suspicious of a target that stands out
+  (sprinting, flaring, off the cue) and walk up to it, or guess; the game script gives a title,
+  the HUD, pause and the results. Next: the Canal and the Gardens, and choosing a map.
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
   browser.
