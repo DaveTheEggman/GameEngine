@@ -2734,11 +2734,31 @@ namespace foundation::script::angelscript
         ReleaseBox(static_cast<BoxedVariant*>(gen->GetObject()));
     }
 
+    // A handle whose object is gone (a component removed from its entity after the script took the
+    // handle) resolves to nothing: the access is the script's error, said where it happens, never a
+    // write through null. (Luau answers the same access with nil and ignores the write.)
+    [[nodiscard]] bool RefuseGone(const core::Instance& instance)
+    {
+        if (instance.Pointer() != nullptr)
+        {
+            return false;
+        }
+        if (asIScriptContext* active = asGetActiveContext())
+        {
+            active->SetException("the object is gone (a component no longer on its entity?)");
+        }
+        return true;
+    }
+
     void PropertyGetDispatch(asIScriptGeneric* gen)
     {
         const Binding* binding = static_cast<const Binding*>(gen->GetAuxiliary());
         BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
         core::Instance instance = core::ToInstance(self->value);
+        if (RefuseGone(instance))
+        {
+            return;
+        }
         binding->manager->SetGenericReturn(gen, core::GetProperty(*binding->property, instance));
     }
 
@@ -2749,6 +2769,10 @@ namespace foundation::script::angelscript
         core::Instance instance = core::ToInstance(self->value);
         const core::Variant value = binding->manager->ValueFromArg(gen, 0, binding->property->type);
         ReleaseHandleArgs(gen, binding->manager);
+        if (RefuseGone(instance))
+        {
+            return;
+        }
         (void)core::SetProperty(*binding->property, instance, value);
     }
 
@@ -2905,7 +2929,12 @@ namespace foundation::script::angelscript
         else
         {
             BoxedVariant* self = static_cast<BoxedVariant*>(gen->GetObject());
-            result = core::InvokeMethod(method, core::ToInstance(self->value), argSpan);
+            const core::Instance instance = core::ToInstance(self->value);
+            if (RefuseGone(instance))
+            {
+                return;
+            }
+            result = core::InvokeMethod(method, instance, argSpan);
         }
         binding->manager->SetGenericReturn(gen,
                                            result.HasValue() ? result.Value() : core::Variant{});

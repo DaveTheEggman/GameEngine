@@ -3172,6 +3172,79 @@ TEST_CASE("script.scene: OPTION 1 - Component::of(entity).field mutates the live
     CHECK(gadgets->Get(e)->power == doctest::Approx(5.0f)); // the LIVE component was mutated
 }
 
+// Component.of(entity) is null for an entity without the component, so the `!is null` test scripts
+// write reads as it says (it used to be a handle that resolved to nothing, and a write through it
+// crashed). A handle taken while the component was there, used after it is removed, is the
+// script's error, not a write through null: the behaviour faults (disabled, as any script error
+// leaves it) and the rest of the scene goes on.
+TEST_CASE("script.scene: Component::of is null without the component, and a gone one is an error (AngelScript)")
+{
+    foundation::script::angelscript::RegisterAngelScriptBackend();
+    EnsureGadgetRegistered();
+
+    ScriptedScene bed;
+    GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
+    RefPtr<ScriptClass> probe =
+        MakeClassLang(u8"angelscript", u8"Probe",
+                      u8"class Probe {\n"
+                      u8"    private Entity@ self;\n"
+                      u8"    private Gadget@ g;\n"
+                      u8"    Probe(Entity@ entity) { @self = entity; }\n"
+                      u8"    void onStart() {\n"
+                      u8"        @g = Gadget::of(self);\n"
+                      u8"        self.setName(g is null ? \"none\" : \"has\");\n"
+                      u8"    }\n"
+                      u8"    void onUpdate(double dt) {\n"
+                      u8"        if (g !is null) { g.power = g.power + 1.0f; }\n"
+                      u8"    }\n"
+                      u8"}\n",
+                      {u8"onStart", u8"onUpdate"});
+    const scene::EntityHandle bare = bed.AddScripted(probe, u8"bare");
+    const scene::EntityHandle with = bed.AddScripted(probe, u8"with");
+    gadgets->Add(with).power = 1.0f;
+
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(bare) == StringView(u8"none"));
+    CHECK(bed.scene.GetEntityName(with) == StringView(u8"has"));
+    REQUIRE(gadgets->Get(with) != nullptr);
+    CHECK(gadgets->Get(with)->power == doctest::Approx(2.0f));
+
+    gadgets->Remove(with);
+    bed.Frame(); // the handle's component is gone: a script error for that call, no crash
+    CHECK(gadgets->Get(with) == nullptr);
+    CHECK(bed.components->Get(with)->behaviors[0].faulted);
+    CHECK_FALSE(bed.components->Get(bare)->behaviors[0].faulted); // the others run on
+}
+
+TEST_CASE("script.scene: Component.of is nil without the component (Luau)")
+{
+    EnsureGadgetRegistered();
+
+    ScriptedScene bed;
+    GadgetManager* gadgets = bed.scene.AddSystem<GadgetManager>();
+    RefPtr<ScriptClass> probe =
+        MakeClassLang(u8"luau", u8"Probe",
+                      u8"Probe = {}\n"
+                      u8"Probe.__index = Probe\n"
+                      u8"function Probe.new(entity) return setmetatable({ entity = entity }, Probe) end\n"
+                      u8"function Probe:onStart()\n"
+                      u8"    local g = Gadget.of(self.entity)\n"
+                      u8"    self.entity:setName(g == nil and \"none\" or \"has\")\n"
+                      u8"    if g then g.power = 4.0 end\n"
+                      u8"end\n",
+                      {u8"onStart"});
+    const scene::EntityHandle bare = bed.AddScripted(probe, u8"bare");
+    const scene::EntityHandle with = bed.AddScripted(probe, u8"with");
+    gadgets->Add(with).power = 1.0f;
+
+    bed.Start();
+    bed.Frame();
+    CHECK(bed.scene.GetEntityName(bare) == StringView(u8"none"));
+    CHECK(bed.scene.GetEntityName(with) == StringView(u8"has"));
+    CHECK(gadgets->Get(with)->power == doctest::Approx(4.0f));
+}
+
 // PathFollowComponent.of(entity): a script starts a stopped follower and sets its pace (Snowline's
 // medal ghosts ride the course line this way), and the follower travels at that pace.
 TEST_CASE("script.scene: PathFollowComponent.of(entity) sets a follower's speed and starts it")

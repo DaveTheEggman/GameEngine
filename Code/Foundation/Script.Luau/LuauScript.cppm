@@ -1318,6 +1318,13 @@ namespace foundation::script
                 args.PushBack(context->ToVariantForParam(state, i, expected));
             }
 
+            if (!method.isStatic && ToInstance(*boxedSelf).Pointer() == nullptr)
+            {
+                // A handle whose object is gone (a component no longer on its entity): the
+                // script's error, said here, never a call through null.
+                lua_pushstring(state, "the object is gone (a component no longer on its entity?)");
+                lua_error(state);
+            }
             ScriptCallScope scope(context);
             Result<Variant> result =
                 method.isStatic

@@ -644,14 +644,18 @@ export namespace foundation::script
     /// ReturnType-override so the declared script return IS T:
     ///     builder.Method<&foundation::script::ComponentOf<T>, T>("of");
     /// GENERIC - every component-owning module reuses this one body; empty (a clean null in script)
-    /// when the entity's scene has no manager for T. The type must also be registered
+    /// when the entity has no T (or its scene no manager for T), so `if (c !is null)` / `if c then`
+    /// is the test it reads as. The type must also be registered
     /// (GlobalTypeRegistry) + seeded as an emission root + given an extra facade name.
     template <typename T>
     [[nodiscard]] Variant ComponentOf(Entity entity)
     {
-        return (entity.scene != nullptr)
-                   ? entity.scene->MakeComponentRef(entity.Handle(), TypeOf<T>())
-                   : Variant{};
+        if (entity.scene == nullptr)
+        {
+            return Variant{};
+        }
+        Variant component = entity.scene->MakeComponentRef(entity.Handle(), TypeOf<T>());
+        return ToInstance(component).Pointer() != nullptr ? component : Variant{};
     }
 
     /// The current run's resource manager (via the run binding's resolveResources getter), or null
