@@ -259,12 +259,19 @@ namespace engine::animation
             .Attribute("displayName", String(u8"Instanced Skinning"))
             .Attribute("category", String(u8"Animation"))
             .Attribute("description",
-                       String(u8"Animates an instanced mesh crowd from a small shared pool of "
-                              u8"poses of one clip."))
+                       String(u8"Animates an instanced mesh crowd from a small shared pool of poses, "
+                              u8"each instance on one of its clips."))
             .Method<&foundation::script::ComponentOf<InstancedSkinningComponent>,
                     InstancedSkinningComponent>("of")
+            .Property<&InstancedSkinningComponent::skeleton>("skeleton")
+            .Property<&InstancedSkinningComponent::clips>("clips")
+            .PropAttribute("description",
+                           String(u8"The clips the instances play; an instance's clip is its index here"))
             .Property<&InstancedSkinningComponent::poseCount>("poseCount")
-            .Property<&InstancedSkinningComponent::speed>("speed");
+            .PropAttribute("description", String(u8"Phases sampled per clip: more is a smoother spread, and costs more"))
+            .Property<&InstancedSkinningComponent::speed>("speed")
+            .Property<&InstancedSkinningComponent::targets>("targets")
+            .PropAttribute("description", String(u8"The instanced meshes it animates (none: its own)"));
     }
 
     REFLECT_ENUM(RootMotionMode, "rtti::engine::animation")

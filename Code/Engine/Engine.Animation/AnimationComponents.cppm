@@ -503,35 +503,59 @@ export namespace engine::animation
         scene::Scene* m_scene = nullptr;
     };
 
-    // Instanced skinning for CROWDS: the companion to a engine::render::InstancedMeshComponent (a "MultiMesh") that
-    // makes its N instances animate at only M = poseCount unique phases. Each frame the manager samples the
-    // clip at M evenly-spaced phases (advancing together on a shared clock) into a shared POSE POOL of M
-    // skinning palettes, and feeds the pool to the target InstancedMeshComponent - which draws instance i
-    // with pose (i % M). So a 30k crowd costs M palette computes, not 30k. Put it on the same entity as the
-    // InstancedMeshComponent (empty target) or point `target` at it. Borrowed skeleton/clip must outlive it.
+    // Instanced skinning for crowds: the companion to an engine::render::InstancedMeshComponent (a
+    // "MultiMesh") that makes its N instances animate from a few shared poses. Each frame the manager
+    // samples each of its clips at `poseCount` evenly spaced phases (each clip on its own clock) into
+    // one POSE POOL, a block of poseCount palettes per clip in list order, and feeds the pool to the
+    // target instanced meshes: an instance's clip index picks the block and the mesh's pose policy the
+    // phase (render::SelectPose). So a crowd of thousands costs clips x poseCount palette computes.
+    // Authored like SkeletalAnimationComponent: the skeleton and clips are asset references (or direct
+    // objects from native code), the targets entity references (empty = its own entity).
     struct InstancedSkinningComponent
     {
-        animation::Skeleton* skeleton = nullptr;  // borrowed; shared across the crowd
-        animation::AnimationClip* clip = nullptr; // borrowed; the clip the crowd plays
-        u32 poseCount = 32; // M unique phase buckets (more = smoother spread, more compute)
+        foundation::resource::Ref<animation::Skeleton> skeleton;
+        Array<foundation::resource::Ref<animation::AnimationClip>> clips; // an instance's clip index is its slot here
+        u32 poseCount = 32; // phases per clip (more = smoother spread, more compute)
         f32 speed = 1.0f;
-        Array<scene::EntityHandle> targets; // InstancedMeshComponent entities to feed (a multi-part
-        // character = one set per skinned mesh); empty => own entity
-
+        Array<scene::EntityRef> targets; // instanced meshes to feed (a multi-part character = one per
+                                         // skinned mesh); empty => its own entity
         // Manager-owned per-frame state (not authored).
-        Array<Float4x4> posePool; // poseCount * boneCount skinning matrices, recomputed each frame
+        Array<Float4x4> posePool; // clips x poseCount x boneCount skinning matrices, recomputed each frame
         Array<Float4x4>
             prevPosePool; // LAST frame's palettes (per-bone motion vectors); ping-ponged, not recomputed
         Array<BoneTransform> scratch; // boneCount scratch for SampleClip
-        f32 time = 0.0f;              // shared clock (wrapped to clip duration)
+        Array<f32> times;             // each clip's clock (wrapped to its duration)
         u32 boneCount = 0;
     };
 
+    inline void Serialize(ISerializer& ar, InstancedSkinningComponent& c)
+    {
+        foundation::core::Serialize(ar, "skeleton", c.skeleton);
+        foundation::core::Serialize(ar, "clips", c.clips);
+        foundation::core::Serialize(ar, "poseCount", c.poseCount);
+        foundation::core::Serialize(ar, "speed", c.speed);
+        foundation::core::Serialize(ar, "targets", c.targets);
+    }
+
+    inline void ResolveResources(foundation::resource::ResourceManager& manager,
+                                 InstancedSkinningComponent& c)
+    {
+        c.skeleton.Bind(manager);
+        for (foundation::resource::Ref<animation::AnimationClip>& clip : c.clips)
+        {
+            clip.Bind(manager);
+        }
+    }
+
     // Ticks every InstancedSkinningComponent in PostUpdate (before render extraction): advance the shared clock, sample
     // the clip at M phases into the pose pool, and hand the pool to the target InstancedMeshComponent.
-    class InstancedSkinningComponentManager final : public scene::ComponentManager<InstancedSkinningComponent>
+    class InstancedSkinningComponentManager final : public scene::SerializableComponentManager<InstancedSkinningComponent>
     {
     public:
+        InstancedSkinningComponentManager()
+            : scene::SerializableComponentManager<InstancedSkinningComponent>(u8"instanced_skinning")
+        {
+        }
         void OnSceneCreate(scene::Scene& scene) override { m_scene = &scene; }
         // Simulation-gated like the clip manager (see its comment).
         [[nodiscard]] bool IsSimulationOnly() const noexcept override { return true; }
@@ -556,17 +580,20 @@ export namespace engine::animation
                     {
                         return; // frozen
                     }
-                    if (s.skeleton == nullptr || s.clip == nullptr || s.poseCount == 0)
+                    animation::Skeleton* skeleton = s.skeleton.Get();
+                    const u32 clipCount = static_cast<u32>(s.clips.Size());
+                    if (skeleton == nullptr || clipCount == 0 || s.poseCount == 0)
                     {
                         return;
                     }
-                    const u32 boneCount = static_cast<u32>(s.skeleton->BoneCount());
+                    const u32 boneCount = static_cast<u32>(skeleton->BoneCount());
                     if (boneCount == 0)
                     {
                         return;
                     }
                     s.boneCount = boneCount;
-                    const usize poolSize = static_cast<usize>(s.poseCount) * boneCount;
+                    const u32 poses = clipCount * s.poseCount;
+                    const usize poolSize = static_cast<usize>(poses) * boneCount;
 
                     // Ping-pong: last frame's pool becomes this frame's PREV (per-bone motion vectors) - no re-sampling.
                     {
@@ -576,35 +603,47 @@ export namespace engine::animation
                     }
                     s.posePool.Resize(poolSize);
                     s.scratch.Resize(boneCount);
+                    s.times.Resize(clipCount, 0.0f);
 
-                    const f32 duration = (s.clip->duration > 0.0f) ? s.clip->duration : 1.0f;
-                    s.time += deltaTime * s.speed;
-                    while (s.time >= duration)
+                    // Each clip on its own clock, sampled at poseCount evenly spaced phases into its block.
+                    for (u32 k = 0; k < clipCount; ++k)
                     {
-                        s.time -= duration;
-                    }
-                    while (s.time < 0.0f)
-                    {
-                        s.time += duration;
-                    }
-
-                    // M palettes at M evenly-spaced phases (the whole crowd cycles through the clip together).
-                    for (u32 m = 0; m < s.poseCount; ++m)
-                    {
-                        f32 p = s.time +
-                                (static_cast<f32>(m) / static_cast<f32>(s.poseCount)) * duration;
-                        while (p >= duration)
+                        animation::AnimationClip* clip = s.clips[k].Get();
+                        const f32 duration = (clip != nullptr && clip->duration > 0.0f) ? clip->duration : 1.0f;
+                        f32& time = s.times[k];
+                        time += deltaTime * s.speed;
+                        while (time >= duration)
                         {
-                            p -= duration;
+                            time -= duration;
                         }
-                        SampleClip(*s.clip, *s.skeleton, p,
-                                   Span<BoneTransform>{s.scratch.Data(), s.scratch.Size()});
-                        s.skeleton->ComputeSkinningMatrices(
-                            Span<const BoneTransform>{s.scratch.Data(), s.scratch.Size()},
-                            Span<Float4x4>{s.posePool.Data() + static_cast<usize>(m) * boneCount,
-                                           boneCount});
+                        while (time < 0.0f)
+                        {
+                            time += duration;
+                        }
+                        for (u32 m = 0; m < s.poseCount; ++m)
+                        {
+                            Float4x4* palette = s.posePool.Data() + static_cast<usize>(k * s.poseCount + m) * boneCount;
+                            if (clip == nullptr)
+                            {
+                                // A clip not loaded (yet): its block holds the bind pose.
+                                for (u32 b = 0; b < boneCount; ++b)
+                                {
+                                    palette[b] = Float4x4::Identity();
+                                }
+                                continue;
+                            }
+                            f32 p = time + (static_cast<f32>(m) / static_cast<f32>(s.poseCount)) * duration;
+                            while (p >= duration)
+                            {
+                                p -= duration;
+                            }
+                            SampleClip(*clip, *skeleton, p, Span<BoneTransform>{s.scratch.Data(), s.scratch.Size()});
+                            skeleton->ComputeSkinningMatrices(
+                                Span<const BoneTransform>{s.scratch.Data(), s.scratch.Size()},
+                                Span<Float4x4>{palette, boneCount});
+                        }
                     }
-                    // First frame (or pose-count change): no prev yet -> prev = current (zero motion).
+                    // First frame (or a pool size change): no prev yet -> prev = current (zero motion).
                     if (s.prevPosePool.Size() != poolSize)
                     {
                         s.prevPosePool.Resize(poolSize);
@@ -625,7 +664,8 @@ export namespace engine::animation
                             c->prevPosePool =
                                 s.prevPosePool
                                     .Data(); // last frame's palettes (per-bone motion vectors)
-                            c->poseCount = s.poseCount;
+                            c->poseCount = poses;
+                            c->posesPerClip = s.poseCount; // a block per clip: the instance's clip picks it
                             c->boneCount = boneCount;
                         }
                     };
@@ -635,9 +675,9 @@ export namespace engine::animation
                     }
                     else
                     {
-                        for (scene::EntityHandle e : s.targets)
+                        for (const scene::EntityRef& target : s.targets)
                         {
-                            feed(e);
+                            feed(m_scene->FindEntity(target.id)); // guid -> live handle each frame
                         }
                     }
                 });

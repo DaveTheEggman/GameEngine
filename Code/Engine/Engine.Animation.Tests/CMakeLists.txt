@@ -4,6 +4,7 @@ add_executable(Engine.Animation.Tests
     ResourceRefTests.cpp
     IkComponentTests.cpp
     RootMotionApplyTests.cpp
+    InstancedSkinningTests.cpp
     PropertyAnimatorTests.cpp
     GraphParameterTests.cpp
     TestsMain.cpp)

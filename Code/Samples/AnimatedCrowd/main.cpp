@@ -549,10 +549,14 @@ namespace
                 }
                 scene::EntityHandle animE = m_scene->CreateEntity(u8"crowd_anim");
                 engine::animation::InstancedSkinningComponent& s = anims->Add(animE);
-                s.skeleton = m_model->skeleton.Get();
-                s.clip = m_clips[g];
+                s.skeleton = m_model->skeleton.Get(); // direct objects (no content to reference)
+                s.clips.Resize(1);
+                s.clips[0] = m_clips[g];
                 s.poseCount = kPoseCount;
-                s.targets = static_cast<core::Array<scene::EntityHandle>&&>(targets);
+                for (scene::EntityHandle target : targets)
+                {
+                    s.targets.PushBack(m_scene->GetEntityId(target)); // by id, as a scene saves it
+                }
                 m_crowdParts.PushBack(animE);
             }
 

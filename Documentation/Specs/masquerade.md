@@ -1,7 +1,7 @@
 # Masquerade - the fifth sample, social stealth in a crowd over the network
 
-> STATUS: APPROVED 2026-10-14. P0 (network commands for scripts) and P1 (replicated state) BUILT
-> 2026-10-14; P2 next. Agreed (user 2026-10-14): the masked
+> STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
+> (the crowd's engine features) BUILT 2026-10-14; P3 next. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -109,10 +109,30 @@ From a survey of the code (2026-10-14):
   `replicated` (AngelScript metadata word; Luau `Class.replicated = { ... }`) is kept the same on
   every peer, through a scene seam (`IReplicatedStateSource`) the script component implements.
   Clients run the same behaviours, so the game changes replicated values on the host only.
-- **P2 Crowds at scale** (gaps 6 and 7): the agent limit a zone setting; a crowd that moves
-  instanced skinned guests with navigation agents, each guest choosing its clip (walk, idle, talk,
-  dance) from per-clip pose pools; a script facade. Tests: agents drive their instances, a clip
-  change moves an instance to that clip's pool; the profiler measures 150 guests.
+- **P2 Crowds at scale** (gaps 6 and 7), as general engine features with nothing crowd- or
+  Masquerade-specific (user 2026-10-14). A survey found instanced skinning cannot be authored
+  (raw borrowed skeleton and clip, a manager that is not saved; only native samples use it), the
+  instanced mesh's pose policy and indices are not saved either, and nothing draws an entity as an
+  instance. The layers:
+  1. **Navigation**: the agents a zone takes is a field of the zone (today's 128 the default).
+  2. **Render, pose policy**: `PoseAssignment` and `poseIndices` saved and editable (inspector,
+     scripts); a `Unison` policy (every instance on a clip at the same phase: a synchronized
+     crowd), beside Hashed, Sequential and Explicit.
+  3. **Render, a clip per instance**: the pose pool laid out a block per clip; each instance's clip
+     index picks the block and the policy picks the phase inside it. One clip and no indices draw
+     as today.
+  4. **Animation, authorable instanced skinning**: the skeleton and a list of clips as asset
+     references (as SkeletalAnimationComponent), saved and inspected; the pool holds every clip at
+     its phases. The native samples (AnimatedCrowd, WebScene, RenderStressTest) move to it.
+  5. **Render, an entity drawn as an instance**: `InstanceMemberComponent` names an instanced
+     mesh and a clip index; each frame extraction adds the members' world transforms and clips
+     after the mesh's authored instances (never into its saved list). Anything moves a member:
+     navigation, physics, replication, a script, the editor's gizmo. Script facade
+     `InstanceMemberComponent.of(e).clip`, named like the other render components.
+  Masquerade then uses them: a Guests entity with an instanced mesh and instanced skinning (walk,
+  idle, talk, dance); each guest and player an entity with an agent or a controller and an
+  InstanceMember, its behaviour setting the clip from its replicated `activity`. Tests per layer;
+  the profiler measures 150 guests.
 - **P3 The ball, solo**: the guests (Blender), the Palace first (the generator), guests
   wandering, gathering and dancing to cues, one player and bots, tagging and scoring; then the
   Canal and the Gardens, and choosing a map.
