@@ -13,9 +13,9 @@
 // through), so component payloads field-validate through their real managers, exactly as the
 // editor and the cooked-scene reader would parse them. A record whose type resolves to no
 // manager is now a GENUINELY unknown type; the reader skips it with a warning we capture and
-// surface. Writes validate FIRST and refuse with the reasons; a passing write is
-// byte-preserving (the agent's XML is stored verbatim - the reader accepted it, so the editor
-// and cook will too).
+// surface. Writes validate FIRST and refuse with the reasons; a passing write stores the
+// agent's XML in the layout the editor saves in (XmlSerializer::Reformat: the same content, laid
+// out as the editor would), so a generated file reads like a saved one.
 
 module;
 #include "Core/Prelude.h"
@@ -334,7 +334,8 @@ export namespace editor::mcp
                 Format(u8"Write a {}'s XML source. VALIDATES FIRST and refuses with the reasons "
                        u8"on failure (nothing is written then). Pass `guid` to overwrite an "
                        u8"existing {} OR `name` (+ optional `group` path) to create a new one. "
-                       u8"On success the XML is stored verbatim as the asset's source of truth.",
+                       u8"On success the XML is stored as the asset's source of truth, laid out as the "
+                       u8"editor saves (one element to a line), however it was passed.",
                        kind, kind),
                 SchemaBuilder()
                     .Str(u8"xml", Format(u8"the {} XML text to store", kind).AsView(), true)
@@ -412,7 +413,7 @@ export namespace editor::mcp
                         }
                     }
 
-                    // Primary document (name discovery) + the verbatim XML stream.
+                    // Primary document (name discovery) + the XML stream.
                     if (wantedType.AsView() == StringView(u8"SceneDocument"))
                     {
                         scene::SceneDocument doc;
@@ -433,9 +434,18 @@ export namespace editor::mcp
                             return Err(String(u8"failed writing the prefab document envelope"));
                         }
                     }
+                    // Stored in the layout the editor saves in, however the caller laid it out
+                    // (a script's one line, say), so the file reads the same as one the editor
+                    // wrote and a later save by the editor does not rewrite every line of it.
+                    String stored;
+                    if (!foundation::xml::XmlSerializer::Reformat(xml.AsView(), editor::EditorRootAllocator(),
+                                                                  stored))
+                    {
+                        return Err(String(u8"the XML validated but did not reparse to store"));
+                    }
                     const Status wrote = instance->WriteData(
                         u8"scene",
-                        Span<const byte>{reinterpret_cast<const byte*>(xml.CStr()), xml.Size()},
+                        Span<const byte>{reinterpret_cast<const byte*>(stored.CStr()), stored.Size()},
                         content::StreamEncoding::Text);
                     if (!wrote.IsOk())
                     {

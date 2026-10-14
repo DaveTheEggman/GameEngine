@@ -170,7 +170,8 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
     Array<Guid> announced;
     session.onAssetWritten = [&announced](const Guid& id) { announced.PushBack(id); };
 
-    // scene_write CREATES a new scene from the XML; the stored stream is byte-identical.
+    // scene_write CREATES a new scene from the XML; text already in the editor's layout (what
+    // scene_read gives) is stored byte-identical.
     JsonValue written = CallOk(
         server, u8"scene_write",
         With(With(With(Obj(), u8"xml", seedXml.AsView()), u8"name", u8"authored"), u8"group",
@@ -184,7 +185,20 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         CHECK(announced[0] == parsed);
     }
     JsonValue readBack = CallOk(server, u8"scene_read", With(Obj(), u8"guid", newGuid.AsView()));
-    CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // verbatim storage
+    CHECK(readBack.Get(u8"xml").AsString() == seedXml.AsView()); // the layout is kept as is
+
+    // The same scene on one line (as a generator script writes it) is stored in the editor's
+    // layout, so the file reads like one the editor saved and a later save rewrites nothing.
+    {
+        const String oneLine = ReplaceAll(ReplaceAll(seedXml.AsView(), u8"\n", u8"").AsView(), u8"\t", u8"");
+        REQUIRE(oneLine != seedXml);
+        JsonValue compact = CallOk(server, u8"scene_write",
+                                   With(With(Obj(), u8"xml", oneLine.AsView()), u8"name", u8"compact"));
+        JsonValue stored =
+            CallOk(server, u8"scene_read", With(Obj(), u8"guid", compact.Get(u8"guid").AsString()));
+        CHECK(stored.Get(u8"xml").AsString() == seedXml.AsView());
+        CHECK(announced.Size() == 2u);
+    }
 
     // scene_validate by guid works on the stored stream too.
     JsonValue storedValid =
@@ -197,7 +211,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"scene_write",
         With(With(Obj(), u8"xml", u8"<not a scene>"), u8"name", u8"broken"));
     CHECK(garbage.Size() > 0u);
-    CHECK(announced.Size() == 1u); // nothing written, nothing announced
+    CHECK(announced.Size() == 2u); // nothing written, nothing announced
     // (b) a scene guid through the prefab tool redirects.
     const String redirect =
         CallErr(server, u8"prefab_read", With(Obj(), u8"guid", newGuid.AsView()));
@@ -207,7 +221,7 @@ TEST_CASE("integration.mcp: scene tools - author, validate, read back, and real 
         server, u8"prefab_write",
         With(With(Obj(), u8"xml", seedXml.AsView()), u8"name", u8"goodprefab"));
     CHECK(okPrefab.Get(u8"written").AsBool() == true);
-    CHECK(announced.Size() == 2u); // the prefab write announced too
+    CHECK(announced.Size() == 3u); // the prefab write announced too
     // ...and a MULTI-root one is refused with the single-root rule.
     {
         scene::Scene twoRoots(DefaultAllocator(), u8"pair");

@@ -52,13 +52,31 @@ export namespace foundation::xml
             ResetCursor(m_readStack[0]);
         }
 
-        // Write-mode output (declaration omitted).
-        void GetOutput(String& output) const
+        // The layout of what this serializer writes: indented, one element to a line, no
+        // declaration. Every file the engine saves is in it, so XML handed in as text (a tool's
+        // argument) is stored in it too (Reformat), and a file reads the same whoever wrote it.
+        [[nodiscard]] static XmlWriteSettings OutputSettings()
         {
             XmlWriteSettings settings = XmlWriteSettings::Default();
             settings.OmitDeclaration = true;
-            m_doc.WriteTo(output, settings);
+            return settings;
         }
+
+        // `text` in the output layout: parsed (whitespace between elements dropped) and written
+        // back as this serializer would. False, and `output` untouched, when it does not parse.
+        [[nodiscard]] static bool Reformat(StringView text, IAllocator& allocator, String& output)
+        {
+            XmlDocument document(allocator);
+            if (document.Parse(text) != XmlResult::Ok)
+            {
+                return false;
+            }
+            document.WriteTo(output, OutputSettings());
+            return true;
+        }
+
+        // Write-mode output, in the output layout.
+        void GetOutput(String& output) const { m_doc.WriteTo(output, OutputSettings()); }
         void GetOutput(String& output, XmlWriteSettings settings) const
         {
             m_doc.WriteTo(output, settings);
