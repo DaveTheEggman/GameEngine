@@ -79,6 +79,20 @@
   support two scripting languages (the cost of every script facade, test and doc twice, against
   what each brings). The heist plan already had a Luau-only game coming after Lamplight.
 
+- **Spec-gloss and legacy FBX materials keep their specular** (Sedulous's user, 2026-10-13; they
+  port it after): both model importers bring Bistro, and anything like it, in as flat dielectrics.
+  glTF (`GltfLoader.cppm`, the `KHR_materials_pbrSpecularGlossiness` branch): the diffuse stands in
+  for base colour, metallic 0, roughness 1 - glossiness factor, and the specular-glossiness texture
+  (RGB specular, A per-pixel glossiness) is ignored, so per-pixel roughness and any metal are lost.
+  Wanted: the standard spec-gloss to metal-rough conversion, metalness solved from diffuse and
+  specular as the Khronos sample viewer and gltf-transform do, and a metallic-roughness texture
+  baked per pixel at import. FBX (`FbxLoader.cppm`, the legacy Lambert/Phong path): metallic 0 and
+  roughness 0.8, the specular colour, its texture and the shininess never read. Bistro's FBX binds
+  its `*_Specular.dds` to Phong's SpecularColor slot, and its README says those maps pack occlusion
+  (R), roughness (G) and metalness (B), so all of its maps are dropped. Wanted: an import option to
+  read that slot as packed ORM (not the default: a true Phong specular map would turn to metal),
+  and the spec-gloss style conversion for real specular maps. Test against Bistro v5.2 (FBX only)
+  at `~/Downloads/Bistro_v5_2`.
 - **The profiler: CPU and GPU on one timeline, an overlay and a panel** (user 2026-08-26 and
   2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0 to P3 (the store, GPU
   timings, the device's counters, capture files and `profiler_capture`) built 2026-10-13
