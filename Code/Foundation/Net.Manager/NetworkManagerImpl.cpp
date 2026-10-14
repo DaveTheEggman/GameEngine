@@ -35,6 +35,7 @@ namespace foundation::net
         builder.Method<&Net::rpc>("rpc");
         builder.Method<&Net::rpcNumber>("rpcNumber");
         builder.Method<&Net::rpcText>("rpcText");
+        builder.Method<&Net::on>("on", {"name", "handler"}); // receive: handler(sender[, value])
         builder.Constructor(); // some backends only materialize constructible foreign classes
     }
 
@@ -43,6 +44,10 @@ namespace foundation::net
         static const bool once = []()
         {
             GlobalTypeRegistry().Register(Net::StaticType());
+            // Net.on's handler shapes, so an AngelScript game passes one without declaring it.
+            RegisterDelegateShape(u8"void NetHandler(int sender)");
+            RegisterDelegateShape(u8"void NetNumberHandler(int sender, double value)");
+            RegisterDelegateShape(u8"void NetTextHandler(int sender, const string &in text)");
             RegisterExtraFacadeName(
                 u8"Net"); // so the behavior prelude imports it (AngelScript binds by registry)
             return true;

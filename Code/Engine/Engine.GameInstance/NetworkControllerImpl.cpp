@@ -37,6 +37,7 @@ namespace engine::runtime
         }
         m_net->SetReplicatedScene(m_scene);
         WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
+        net::InstallScriptRpcHandlers(m_binding, *m_net); // the script's Net.on handlers, registered before
         if (m_spawnResolverFactory)
         {
             m_net->Replication().SetSpawnHandler(m_spawnResolverFactory()); // controller owns the wiring
@@ -71,6 +72,7 @@ namespace engine::runtime
         }
         m_net->SetReplicatedScene(m_scene);
         WireSceneSystem(m_net.Get()); // the replicated scene's fixed lane now drives this endpoint
+        net::InstallScriptRpcHandlers(m_binding, *m_net); // the script's Net.on handlers, registered before
         if (m_spawnResolverFactory)
         {
             m_net->Replication().SetSpawnHandler(m_spawnResolverFactory()); // controller owns the wiring

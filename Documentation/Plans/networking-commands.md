@@ -12,6 +12,11 @@ work is the script command layer. Four independently-landable, loopback-tested s
 
 ## Slice 1 - receive-RPC-into-script (the keystone)
 
+> BUILT 2026-10-14 (Masquerade P0): `Net.on(name, fn)`, the handler called with the sender and
+> the number or text; a one-byte kind after the RPC id; handlers kept in `NetScriptBinding` and
+> installed on every endpoint the controller opens; AngelScript's handler types through
+> `RegisterDelegateShape`. See `Systems/networking.md`.
+
 `RpcTable.On(name, handler)` is C++-only today and the `Net` facade only SENDS. Add the receive
 side: `Net.on(name, fn)` registers a script delegate (`IScriptDelegate`) that fires
 `fn(senderPeerId, value)` when RPC `name` arrives. `RpcTable.Dispatch` looks up the delegate and

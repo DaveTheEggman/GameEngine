@@ -63,6 +63,25 @@ export namespace foundation::net
     struct NetScriptBinding
     {
         INetworkController* controller = nullptr;
+
+        /// Net.on's handlers by RPC name. A script registers them whenever it likes, usually before
+        /// it hosts or joins; they live here, beside the controller, so every endpoint the controller
+        /// opens gets them (InstallScriptRpcHandlers) and a handler survives a disconnect.
+        struct ScriptRpcHandler
+        {
+            String name;
+            RefPtr<IScriptDelegate> handler;
+        };
+        Array<ScriptRpcHandler> rpcHandlers;
+    };
+
+    /// What a script RPC carries after its id: the Net facade writes the kind first, so Net.on's
+    /// handler knows how to read the rest (nothing, a number, or a text).
+    enum class ScriptRpcKind : u8
+    {
+        None = 0,
+        Number = 1,
+        Text = 2,
     };
 
     // A networked endpoint: owns the session + RPC table, driven each fixed step. Owned per running
@@ -362,13 +381,17 @@ export namespace foundation::net
         }
 
         // Fire an RPC (no args). Client -> the server; server -> broadcast to all clients.
-        static void rpc(String name) { CallRpc(name.AsView(), Function<void(BitWriter&)>{}); }
+        static void rpc(String name)
+        {
+            CallRpc(name.AsView(), [](BitWriter& w) { w.WriteU8(static_cast<u8>(ScriptRpcKind::None)); });
+        }
         // Fire an RPC with one number / one text argument (the common turn-based-order shapes).
         static void rpcNumber(String name, f64 value)
         {
             CallRpc(name.AsView(),
                     [value](BitWriter& w)
                     {
+                        w.WriteU8(static_cast<u8>(ScriptRpcKind::Number));
                         u64 bits = 0;
                         MemCopy(&bits, &value, sizeof(bits));
                         w.WriteU64(bits);
@@ -380,10 +403,85 @@ export namespace foundation::net
             CallRpc(name.AsView(),
                     [owned](BitWriter& w)
                     {
+                        w.WriteU8(static_cast<u8>(ScriptRpcKind::Text));
                         w.WriteVarU32(static_cast<u32>(owned.Size()));
                         w.WriteBytes(Span<const byte>(reinterpret_cast<const byte*>(owned.Data()),
                                                       owned.Size()));
                     });
+        }
+
+        /// Receive the RPC `name`: `handler` is called with the sender's peer id, then the number or
+        /// the text it carries, if any (`void f(int sender)`, `void f(int sender, double value)` or
+        /// `void f(int sender, const string &in text)`; a handler may take fewer arguments than
+        /// arrive). On the host the sender is the client that called; on a client, the host. Register
+        /// any time, before hosting or joining too; a later registration of the name replaces it.
+        static void on(String name, RefPtr<IScriptDelegate> handler)
+        {
+            NetScriptBinding* b = Resolve();
+            if (b == nullptr || !handler)
+            {
+                return;
+            }
+            bool replaced = false;
+            for (NetScriptBinding::ScriptRpcHandler& entry : b->rpcHandlers)
+            {
+                if (entry.name == name)
+                {
+                    entry.handler = handler;
+                    replaced = true;
+                }
+            }
+            if (!replaced)
+            {
+                b->rpcHandlers.PushBack(NetScriptBinding::ScriptRpcHandler{String(name), handler});
+            }
+            if (NetworkManager* m = Endpoint())
+            {
+                InstallScriptRpcHandler(*m, name.AsView(), handler);
+            }
+        }
+
+        /// Point the RPC `name` on `endpoint` at a script handler (Net.on, and every endpoint a
+        /// controller opens: InstallScriptRpcHandlers).
+        static void InstallScriptRpcHandler(NetworkManager& endpoint, StringView name, RefPtr<IScriptDelegate> handler)
+        {
+            endpoint.Rpc().On(name,
+                              [handler](PeerId sender, BitReader& r)
+                              {
+                                  const u8 kind = r.ReadU8();
+                                  if (!r.Ok())
+                                  {
+                                      return;
+                                  }
+                                  Variant args[2];
+                                  args[0] = Variant::From(static_cast<i32>(sender));
+                                  usize count = 1;
+                                  if (kind == static_cast<u8>(ScriptRpcKind::Number))
+                                  {
+                                      const u64 bits = r.ReadU64();
+                                      f64 value = 0.0;
+                                      MemCopy(&value, &bits, sizeof(value));
+                                      args[count++] = Variant::From(value);
+                                  }
+                                  else if (kind == static_cast<u8>(ScriptRpcKind::Text))
+                                  {
+                                      const u32 size = r.ReadVarU32();
+                                      if (!r.Ok() || size > (1u << 20))
+                                      {
+                                          return;
+                                      }
+                                      Array<byte> bytes;
+                                      bytes.Resize(size);
+                                      r.ReadBytes(bytes.AsSpan());
+                                      args[count++] = Variant::From(
+                                          String(StringView(reinterpret_cast<const utf8char*>(bytes.Data()), size)));
+                                  }
+                                  if (!r.Ok())
+                                  {
+                                      return; // truncated: nothing half-read reaches the script
+                                  }
+                                  (void)handler->Invoke(Span<Variant>(args, count));
+                              });
         }
 
     private:
@@ -452,8 +550,18 @@ export namespace foundation::net
     [[nodiscard]] NetworkRuntime StartNetworking(core::IAllocator& allocator,
                                                  const NetworkStartup& config);
 
+    /// Every Net.on handler a binding holds, on a new endpoint (the controller calls it when it
+    /// hosts or joins).
+    inline void InstallScriptRpcHandlers(const NetScriptBinding& binding, NetworkManager& endpoint)
+    {
+        for (const NetScriptBinding::ScriptRpcHandler& entry : binding.rpcHandlers)
+        {
+            Net::InstallScriptRpcHandler(endpoint, entry.name.AsView(), entry.handler);
+        }
+    }
+
     /// Register the Net facade type (call before a script manager is created, like
-    /// RegisterScriptFacadeReflection). Idempotent.
+    /// RegisterScriptFacadeReflection), and the shapes of Net.on's handlers. Idempotent.
     void RegisterNetScriptFacade();
 
 }

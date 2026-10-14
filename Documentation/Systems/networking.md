@@ -81,15 +81,21 @@ determinism caveat (lockstep needs bit-exact simulation - not promised by state 
 The `Net` facade (registered by `RegisterNetScriptFacade`, resolved per script context through
 the instance's `NetworkManager`): `Net.isServer()` / `isClient()` / `peerCount()` /
 `startServer(...)` / `connect(...)`, plus SEND-side RPC (`Net.rpc(...)` / `rpcNumber(...)` /
-`rpcText(...)`). `NetworkComponent.of(entity).authority` exposes ownership to script. Certified on
-AngelScript + Luau (see `Integration.ScriptFacades`; Wren was retired 2026-08-19). The RECEIVE side (`Net.on(name, fn)`) is not
-built - it is P3 slice 1 (see the commands plan).
+`rpcText(...)`), and the RECEIVE side, `Net.on(name, fn)` (P3 slice 1, built 2026-10-14): the
+handler is called with the sender's peer id, then the number or the text, if any. The sends write
+a one-byte kind (`ScriptRpcKind`) after the RPC id so the receiver knows what follows. Handlers
+live in the instance's `NetScriptBinding`, so a script registers them before it hosts or joins and
+every endpoint the controller opens gets them (`InstallScriptRpcHandlers`); AngelScript gets the
+handler types `NetHandler`, `NetNumberHandler` and `NetTextHandler` through the script layer's
+delegate shapes (`RegisterDelegateShape`). `NetworkComponent.of(entity).authority` exposes
+ownership to script. Certified on AngelScript + Luau (see `Integration.ScriptFacades`; Wren was
+retired 2026-08-19).
 
 ## Deferred
 
 - **P3 - commands/orders layer** (script-facing: receive-RPC-into-script, spawn-a-networked-entity
-  from script, ownership + orders, demo content): SKETCHED, not started. Plan:
-  `Documentation/Plans/networking-commands.md`.
+  from script, ownership + orders, demo content): slice 1 (`Net.on`) built 2026-10-14, the rest in
+  progress for Masquerade (`Specs/masquerade.md`, P0). Plan: `Documentation/Plans/networking-commands.md`.
 - Backlog (web WebSocket client, replication refinements, transport/deployment, matchmaking/
   services hooks): `Documentation/Backlog/networking-followups.md`.
 - **Beef port / unification with the legacy Sedulous.Net**: RULED 2026-09-09 - Raptor's stack is

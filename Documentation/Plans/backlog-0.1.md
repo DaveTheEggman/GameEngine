@@ -46,13 +46,6 @@
   rebinding. Apply the overrides when the input map binds at startup, and give scripts what a
   controls menu needs: list an action's bindings with their display names, listen for the next
   input to rebind one, reset to the map's own, and save. Then the input docs page gains a section.
-- **Scripts receive network messages** (user 2026-10-12; found writing the networking docs):
-  `Net.rpc`/`rpcNumber`/`rpcText` send, but nothing receives: `RpcTable::On` is registered only
-  in tests, and networking.md calls the receive side (`Net.on(name, fn)`) P3 slice 1 of the
-  commands plan (`Plans/networking-commands.md`). Build that slice, with its number and text
-  payloads, on both languages; the fifth sample needs it. The networking docs page's "What is
-  missing" list then loses its first line.
-
 - **Debug views hold still under TAA** (user 2026-10-13): a debug view (albedo, normals,
   roughness, depth, ...) shows a buffer from before the TAA resolve, which TAA's sub-pixel jitter
   shifts every frame, so its edges shimmer. While a view shows a debug view, draw it unjittered
