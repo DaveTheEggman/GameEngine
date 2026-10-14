@@ -11,5 +11,8 @@ target_sources(Profiler PRIVATE ProfilerImpl.cpp)
 target_sources(Profiler
     PUBLIC
         FILE_SET profiler_modules TYPE CXX_MODULES FILES
-            Profiler.cppm)
+            Profiler.cppm
+            ProfileSource.cppm
+            ProfileStream.cppm
+            ProfilerModule.cppm)
 

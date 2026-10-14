@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026-Present Robert Campbell
 
-/// Foundation::Profiler - `foundation.profiler`.
+/// Foundation::Profiler - `foundation.profiler`, :store partition.
 ///
 /// The capture store every profiler view reads (Specs/profiler.md). Threads record the scopes they
 /// finish into rings of their own, without a lock; at the end of each frame the frame thread
@@ -19,7 +19,7 @@
 module;
 #include "Core/Prelude.h"
 
-export module foundation.profiler;
+export module foundation.profiler:store;
 
 import foundation.core;
 
@@ -356,6 +356,15 @@ export namespace foundation::profiler
         [[nodiscard]] const FrameRecord* LatestFrame() const noexcept
         {
             return m_recordedFrames == 0 ? nullptr : Frame(m_latestRecorded);
+        }
+        /// Whether any frame was recorded; then the frames kept lie between OldestKeptFrame and
+        /// LatestRecordedFrame (an unarmed frame between them has no record).
+        [[nodiscard]] bool HasFrames() const noexcept { return m_recordedFrames > 0; }
+        [[nodiscard]] u64 LatestRecordedFrame() const noexcept { return m_latestRecorded; }
+        [[nodiscard]] u64 OldestKeptFrame() const noexcept
+        {
+            const u64 size = m_history.Size();
+            return m_latestRecorded + 1 > size ? m_latestRecorded + 1 - size : 0;
         }
 
         // ---- GPU passes (the frame thread) ---------------------------------------------------
