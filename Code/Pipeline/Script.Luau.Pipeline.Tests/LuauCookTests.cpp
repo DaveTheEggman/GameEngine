@@ -151,6 +151,40 @@ TEST_CASE("luau.cook: construct-and-walk harvest - each scalar kind, non-scalars
     CHECK(out.properties[3].defaultValue.number == doctest::Approx(2.5));
 }
 
+TEST_CASE("luau.cook: the class's replicated list marks its properties; an unknown name fails")
+{
+    IScriptLanguageCook* cook = LuauCook();
+    REQUIRE(cook != nullptr);
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        REQUIRE(cook->Cook(u8"Guest = {}\n"
+                           u8"Guest.__index = Guest\n"
+                           u8"Guest.replicated = { 'activity', 'pace' }\n"
+                           u8"function Guest.new(owner) local self = setmetatable({}, Guest)\n"
+                           u8"  self.activity = 0; self.pace = 1.5; self.chatty = true; return self end\n"
+                           u8"function Guest:update(dt) end\n",
+                           u8"Guest.luau", sink, out));
+        REQUIRE(out.properties.Size() == 3u); // the list itself is not a property
+        for (const ScriptPropertyDesc& p : out.properties)
+        {
+            CHECK(p.replicated == (p.name != u8"chatty"));
+        }
+    }
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        CHECK_FALSE(cook->Cook(u8"Guest = {}\n"
+                               u8"Guest.__index = Guest\n"
+                               u8"Guest.replicated = { 'activty' }\n"
+                               u8"function Guest.new(owner) local self = setmetatable({}, Guest)\n"
+                               u8"  self.activity = 0; return self end\n",
+                               u8"Guest.luau", sink, out));
+        REQUIRE_FALSE(sink.errors.IsEmpty());
+        CHECK(sink.errors[sink.errors.Size() - 1].message.AsView().ContainsIgnoreCase(u8"'activty'"));
+    }
+}
+
 TEST_CASE("luau.cook: a constructor that faults on the nil owner cooks with no properties")
 {
     IScriptLanguageCook* cook = LuauCook();

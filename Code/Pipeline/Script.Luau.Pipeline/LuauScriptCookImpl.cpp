@@ -73,6 +73,18 @@ namespace pipeline{
             p += u8"        drHarvestResult = out\n";
             p += u8"    end\n";
             p += u8"end\n";
+            // The class's `replicated` list (a field of the class table, not an instance field, so
+            // never a property itself): the names joined by \030.
+            p += u8"drReplicated = \"\"\n";
+            p += u8"if type(";
+            p += cls.AsView();
+            p += u8") == \"table\" and type(";
+            p += cls.AsView();
+            p += u8".replicated) == \"table\" then\n";
+            p += u8"    for _, name in ipairs(";
+            p += cls.AsView();
+            p += u8".replicated) do drReplicated = drReplicated .. tostring(name) .. \"\\030\" end\n";
+            p += u8"end\n";
             return p;
         }
 
@@ -156,6 +168,45 @@ namespace pipeline{
         // Constructs the class in the cook VM and harvests its scalar fields. A probe fault or a
         // constructor that faults on the nil owner is NOT a cook error (the class is valid at
         // runtime with a real owner) - it just yields no editor properties, with a note.
+        // Marks the properties the class's `replicated` list names. False, with the problem in
+        // `error`, for a name that is not one of its properties (a typo must not do nothing).
+        [[nodiscard]] bool MarkLuauReplicated(IScriptContext& context, Array<ScriptPropertyDesc>& properties,
+                                              String& error)
+        {
+            const Variant listVariant = context.GetGlobal(u8"drReplicated");
+            const String* list = listVariant.TryGet<String>();
+            if (list == nullptr)
+            {
+                return true;
+            }
+            const StringView text = list->AsView();
+            usize begin = 0;
+            for (usize i = 0; i < text.Size(); ++i)
+            {
+                if (text[i] != utf8char(0x1E))
+                {
+                    continue;
+                }
+                const StringView name = text.SubStr(begin, i - begin);
+                begin = i + 1;
+                bool found = false;
+                for (ScriptPropertyDesc& property : properties)
+                {
+                    if (property.name.AsView() == name)
+                    {
+                        property.replicated = true;
+                        found = true;
+                    }
+                }
+                if (!found)
+                {
+                    error = Format(u8"'{}' in the class's replicated list is not one of its properties", name);
+                    return false;
+                }
+            }
+            return true;
+        }
+
         void HarvestLuauProperties(IScriptContext& context, StringView fileName,
                                    StringView className, Array<ScriptPropertyDesc>& outProperties)
         {
@@ -299,6 +350,12 @@ namespace pipeline{
                 {
                     HarvestLuauProperties(*context, assetName, out.className.AsView(),
                                           out.properties);
+                    String replicatedError;
+                    if (!MarkLuauReplicated(*context, out.properties, replicatedError))
+                    {
+                        ReportCookProblem(sink, assetName, replicatedError);
+                        return false;
+                    }
                 }
                 return true;
             }

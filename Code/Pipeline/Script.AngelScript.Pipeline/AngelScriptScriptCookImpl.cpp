@@ -347,15 +347,6 @@ namespace pipeline{
             forward->sink->OnError(error);
         }
 
-        // A cook problem past the compile (a property the runtime could not fill), reported
-        // with the compile errors so whoever asked for the cook (script_validate, the asset
-        // cook) reads why, and logged as before.
-        void ReportCookProblem(CookScriptErrorSink& sink, StringView assetName, const String& message)
-        {
-            LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", assetName, message);
-            sink.OnError(ScriptError{ScriptErrorKind::Compile, assetName, -1, message.AsView()});
-        }
-
         // Walks the behavior class's member fields and appends one ScriptPropertyDesc per
         // field WITH metadata. Returns false (a cook error, reported to `sink`) when a metadata'd
         // field has an unsupported type. Fields without metadata are simply not properties.
@@ -432,10 +423,37 @@ namespace pipeline{
                     return false;
                 }
                 ParseDefault(desc.type, firstToken, desc.defaultValue);
-                // Description = the second top-level token, when a quoted string.
-                if (tokens.Size() > 1 && IsQuoted(tokens[1].AsView()))
+                // Description = the second top-level token, when a quoted string. After the
+                // default, a bare `replicated` keeps the property the same on every peer of a
+                // networked game; any other bare word is a mistake worth stopping the cook for.
+                for (usize t = 1; t < tokens.Size(); ++t)
                 {
-                    desc.description = Unquote(tokens[1].AsView());
+                    const StringView token = tokens[t].AsView();
+                    if (t == 1 && IsQuoted(token))
+                    {
+                        desc.description = Unquote(token);
+                    }
+                    else if (token == StringView(u8"replicated"))
+                    {
+                        desc.replicated = true;
+                    }
+                    else
+                    {
+                        ReportCookProblem(sink, assetName,
+                                          Format(u8"property '{}' has an unknown word '{}' in its metadata "
+                                                 u8"(after the default: a \"description\", then replicated)",
+                                                 desc.name, token));
+                        return false;
+                    }
+                }
+                if (desc.replicated &&
+                    (desc.type == ScriptPropertyType::Entity || desc.type == ScriptPropertyType::Asset))
+                {
+                    ReportCookProblem(sink, assetName,
+                                      Format(u8"property '{}' cannot be replicated: an entity or asset "
+                                             u8"reference means nothing on another machine",
+                                             desc.name));
+                    return false;
                 }
                 out.PushBack(Move(desc));
             }

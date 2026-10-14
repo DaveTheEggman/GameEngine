@@ -502,6 +502,15 @@ export namespace pipeline{
         }
     };
 
+    /// A cook problem past the compile (a property the runtime could not fill, a replicated list
+    /// naming no property), reported with the compile errors so whoever asked for the cook
+    /// (script_validate, the asset cook) reads why, and logged. Shared by every cook.
+    inline void ReportCookProblem(CookScriptErrorSink& sink, StringView assetName, const String& message)
+    {
+        LOG_ERROR(u8"Script", u8"'{}': {} - cook failed", assetName, message);
+        sink.OnError(ScriptError{ScriptErrorKind::Compile, assetName, -1, message.AsView()});
+    }
+
     /// Logs a cook's captured compile/runtime errors as cook errors with the asset's
     /// file/line. `preludeLines` is the line count any language framing injected AHEAD of
     /// the user source - subtracted back so reported lines match the authored file. Shared
@@ -643,10 +652,10 @@ export namespace pipeline{
         }
         [[nodiscard]] u32 Version() const override
         {
-            // Base cook-logic version (2: the cooked record gained a bytecode field) + every
-            // language cook's compiler version, so a Luau (or other bytecode) vendor bump recooks
-            // every script pack automatically.
-            return 2 + ScriptLanguageCookRegistry::Get().CombinedCookVersion();
+            // Base cook-logic version (2: the cooked record gained a bytecode field; 3: each
+            // property a replicated flag) + every language cook's compiler version, so a Luau (or
+            // other bytecode) vendor bump recooks every script pack automatically.
+            return 3 + ScriptLanguageCookRegistry::Get().CombinedCookVersion();
         }
 
         [[nodiscard]] Status Build(const pipeline::Asset& asset,

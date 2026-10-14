@@ -216,6 +216,56 @@ TEST_CASE("as.cook: a metadata'd field of an unsupported type FAILS the cook")
     CHECK(sink.errors[0].message.AsView().ContainsIgnoreCase(u8"'mystery' has unsupported type"));
 }
 
+TEST_CASE("as.cook: a `replicated` word marks a property; a stray word or a replicated reference fails")
+{
+    IScriptLanguageCook* cook = AngelScriptCook();
+    REQUIRE(cook != nullptr);
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        REQUIRE(cook->Cook(u8"class Guest {\n"
+                           u8"  [0, \"What the guest is doing\", replicated] int activity;\n"
+                           u8"  [1.5, replicated] float pace;\n"
+                           u8"  [true, \"Local only\"] bool chatty;\n"
+                           u8"  void onUpdate(double dt) {} }\n",
+                           u8"Guest.as", sink, out));
+        REQUIRE(out.properties.Size() == 3u);
+        for (const ScriptPropertyDesc& p : out.properties)
+        {
+            if (p.name == u8"activity")
+            {
+                CHECK(p.replicated);
+                CHECK(p.description == u8"What the guest is doing");
+            }
+            else if (p.name == u8"pace")
+            {
+                CHECK(p.replicated);
+                CHECK(p.defaultValue.number == doctest::Approx(1.5));
+            }
+            else
+            {
+                CHECK_FALSE(p.replicated);
+            }
+        }
+    }
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        CHECK_FALSE(cook->Cook(u8"class Guest { [0, replicate] int activity; void onUpdate(double dt) {} }\n",
+                               u8"Guest.as", sink, out));
+        REQUIRE(sink.errors.Size() == 1u);
+        CHECK(sink.errors[0].message.AsView().ContainsIgnoreCase(u8"unknown word 'replicate'"));
+    }
+    {
+        CookScriptErrorSink sink;
+        ScriptClassSource out;
+        CHECK_FALSE(cook->Cook(u8"class Guest { [null, replicated] Entity@ partner; void onUpdate(double dt) {} }\n",
+                               u8"Guest.as", sink, out));
+        REQUIRE(sink.errors.Size() == 1u);
+        CHECK(sink.errors[0].message.AsView().ContainsIgnoreCase(u8"cannot be replicated"));
+    }
+}
+
 // A reflected/resource property is a
 // reference type; declared as a VALUE member it silently drops its value at runtime, so the cook
 // REJECTS it with the exact fix ("declare it 'Guid@ mesh'"). The idiomatic handle form cooks fine.

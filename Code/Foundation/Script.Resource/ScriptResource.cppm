@@ -205,6 +205,11 @@ export namespace foundation::script
         String assetType; // Asset only: the product type name ("AudioClip")
         ScriptPropertyValue defaultValue;
         String description; // inspector tooltip
+        // Kept the same on every peer of a networked game: the host sends the live value of a
+        // networked entity's behaviour, clients write it in (AngelScript: a `replicated` token in the
+        // field's metadata; Luau: the name in the class's `replicated` list). Numbers, bools, text,
+        // colours and vectors; an entity or asset reference is refused at cook.
+        bool replicated = false;
     };
 
     inline void Serialize(ISerializer& ar, ScriptPropertyDesc& d)
@@ -217,6 +222,7 @@ export namespace foundation::script
         foundation::core::Serialize(ar, "assetType", d.assetType);
         foundation::core::Serialize(ar, "default", d.defaultValue);
         foundation::core::Serialize(ar, "description", d.description);
+        foundation::core::Serialize(ar, "replicated", d.replicated);
     }
 
     // ---- the cooked record ----
