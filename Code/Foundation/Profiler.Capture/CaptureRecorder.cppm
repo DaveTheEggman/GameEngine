@@ -24,6 +24,42 @@ using namespace foundation::core;
 
 export namespace foundation::profiler
 {
+    /// Write `source`'s frames `first` to `last` as a capture: `<base>.aeprofile`, the stream the
+    /// editor's panel opens, and `<base>.json` beside it, Chrome trace JSON for Perfetto. The
+    /// folder must exist. Answers the stream file's path, empty when it could not be written.
+    [[nodiscard]] inline String WriteCaptureFiles(IAllocator& allocator, const IProfileSource& source, u64 first,
+                                                  u64 last, StringView base, const StreamHeader& header)
+    {
+        String streamPath(allocator);
+        AppendFormat(streamPath, u8"{}.aeprofile", base);
+        {
+            FileStream file(streamPath.AsView(), FileMode::Write);
+            if (!file.IsValid())
+            {
+                LOG_WARNING(u8"Profiler", u8"capture: cannot write {}", streamPath.AsView());
+                return String(allocator);
+            }
+            ProfileStreamWriter writer(allocator, file);
+            writer.WriteHeader(header);
+            for (u64 n = first; n <= last; ++n)
+            {
+                if (const FrameRecord* frame = source.Frame(n))
+                {
+                    writer.WriteFrame(source, *frame);
+                }
+            }
+        }
+        String jsonPath(allocator);
+        AppendFormat(jsonPath, u8"{}.json", base);
+        const String json = WriteChromeTrace(source, first, last, header.application.AsView());
+        FileStream file(jsonPath.AsView(), FileMode::Write);
+        if (file.IsValid())
+        {
+            (void)file.Write(json.Data(), json.Size());
+        }
+        return streamPath;
+    }
+
     class CaptureRecorder
     {
     public:
@@ -42,6 +78,9 @@ export namespace foundation::profiler
 
         /// Who records: the application (a player sets its project's name), the platform and build
         /// (the host sets them), written into each capture's header.
+        [[nodiscard]] StringView Application() const noexcept { return m_application.AsView(); }
+        [[nodiscard]] StringView Platform() const noexcept { return m_platform.AsView(); }
+        [[nodiscard]] StringView Build() const noexcept { return m_build.AsView(); }
         void SetApplication(StringView name) { m_application = String(name, *m_allocator); }
         void SetBuild(StringView platform, StringView build)
         {
@@ -107,40 +146,17 @@ export namespace foundation::profiler
         {
             (void)CreateDirectories(m_folder.AsView());
             const LiveProfileSource source(profiler);
-            const u64 first = Max(m_firstFrame, source.OldestFrame());
-            String streamPath(*m_allocator);
-            AppendFormat(streamPath, u8"{}.aeprofile", m_base.AsView());
+            StreamHeader header;
+            header.tickFrequency = source.TickFrequency();
+            header.application = m_application;
+            header.platform = m_platform;
+            header.build = m_build;
+            String written = WriteCaptureFiles(*m_allocator, source, Max(m_firstFrame, source.OldestFrame()),
+                                               m_lastFrame, m_base.AsView(), header);
+            if (!written.IsEmpty())
             {
-                FileStream file(streamPath.AsView(), FileMode::Write);
-                if (!file.IsValid())
-                {
-                    LOG_WARNING(u8"Profiler", u8"capture: cannot write {}", streamPath.AsView());
-                    return;
-                }
-                ProfileStreamWriter writer(*m_allocator, file);
-                StreamHeader header;
-                header.tickFrequency = source.TickFrequency();
-                header.application = m_application;
-                header.platform = m_platform;
-                header.build = m_build;
-                writer.WriteHeader(header);
-                for (u64 n = first; n <= m_lastFrame; ++n)
-                {
-                    if (const FrameRecord* frame = source.Frame(n))
-                    {
-                        writer.WriteFrame(source, *frame);
-                    }
-                }
+                m_lastCapture = Move(written);
             }
-            String jsonPath(*m_allocator);
-            AppendFormat(jsonPath, u8"{}.json", m_base.AsView());
-            const String json = WriteChromeTrace(source, first, m_lastFrame, m_application.AsView());
-            FileStream file(jsonPath.AsView(), FileMode::Write);
-            if (file.IsValid())
-            {
-                (void)file.Write(json.Data(), json.Size());
-            }
-            m_lastCapture = streamPath;
         }
 
         IAllocator* m_allocator;

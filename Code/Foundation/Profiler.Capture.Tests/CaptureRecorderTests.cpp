@@ -67,3 +67,39 @@ TEST_CASE("capture recorder: a capture becomes a stream file and a Chrome trace,
     const String text(StringView(bytes.Data(), bytes.Size()));
     CHECK(json::JsonValue::Parse(text).Get(String(u8"traceEvents")).IsArray());
 }
+
+TEST_CASE("capture files: any source's frames, a recording's too, as the stream and the Chrome trace")
+{
+    // The editor's panel saves what it recorded this way, as the recorder writes a capture.
+    Profiler p(DefaultAllocator());
+    p.Arm();
+    LiveProfileSource live(p);
+    ProfileRecording recording(DefaultAllocator());
+    recording.Begin(live);
+    for (u32 f = 0; f < 3; ++f)
+    {
+        p.BeginFrame();
+        REQUIRE(p.BeginScope("Panel"));
+        p.EndScope();
+        p.EndFrame();
+    }
+    recording.Pull(live, 0);
+    REQUIRE(CreateDirectories(StringView(u8"scratch_capture_files")));
+    StreamHeader header;
+    header.tickFrequency = recording.TickFrequency();
+    header.application = String(u8"Editor");
+    const String path = WriteCaptureFiles(DefaultAllocator(), recording, recording.OldestFrame(),
+                                          recording.NewestFrame(), StringView(u8"scratch_capture_files/saved"), header);
+    CHECK(path == StringView(u8"scratch_capture_files/saved.aeprofile"));
+    FileStream file(path.AsView(), FileMode::Read);
+    REQUIRE(file.IsValid());
+    ProfileCapture capture(DefaultAllocator());
+    REQUIRE(capture.Read(file));
+    CHECK(capture.FrameCount() == 3u);
+    CHECK(capture.Header().application == String(u8"Editor"));
+    CHECK(FileExists(StringView(u8"scratch_capture_files/saved.json")));
+
+    // A folder that is not there: nothing written, an empty answer.
+    CHECK(WriteCaptureFiles(DefaultAllocator(), recording, 0, 0, StringView(u8"scratch_no_such_folder/x/saved"), header)
+              .IsEmpty());
+}
