@@ -14,5 +14,6 @@ target_sources(Profiler
             Profiler.cppm
             ProfileSource.cppm
             ProfileStream.cppm
+            ProfileRecording.cppm
             ProfilerModule.cppm)
 
