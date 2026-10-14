@@ -15,6 +15,7 @@ import foundation.core;
 import foundation.rhi;
 import :adapter;
 import :command_buffer;
+import :query_set; // kPipelineStatisticsFlags (a bundle inherits them)
 
 using namespace foundation::core;
 
@@ -38,6 +39,11 @@ export namespace foundation::rhi::vk
                 return ErrorCode::Unknown;
             m_familyIndex = static_cast<u32>(familyIndex);
             m_queueType = queueType;
+            // A statistics query may be active around a bundle (the profiler's, per pass); Vulkan
+            // then requires the bundle to inherit the query's flags, which the device can only
+            // when it enabled pipelineStatisticsQuery (it enables every feature the adapter has).
+            m_inheritedStatistics =
+                adapter->features10().pipelineStatisticsQuery ? kPipelineStatisticsFlags : 0;
 
             VkCommandPoolCreateInfo ci{};
             ci.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -124,6 +130,7 @@ export namespace foundation::rhi::vk
         IAllocator* m_allocator = nullptr;
         u32 m_familyIndex = 0;
         QueueType m_queueType = QueueType::Graphics;
+        VkQueryPipelineStatisticFlags m_inheritedStatistics = 0; // what a bundle inherits (init)
         Array<VkCommandBuffer> m_freeHandles;
         Array<VkCommandBufferImpl*> m_trackedBuffers;
         Array<VkCommandBuffer> m_freeSecondaries;            // recyclable secondary handles

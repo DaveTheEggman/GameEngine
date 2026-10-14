@@ -214,3 +214,84 @@ TEST_CASE("vk.counters: memory held follows real allocations, and the driver rep
     }
     device->Destroy();
 }
+
+TEST_CASE("vk.queries: a bundle runs inside a statistics query without a validation error")
+{
+    // The profiler wraps each pass in a statistics query, and a pass may run render bundles:
+    // Vulkan requires a secondary command buffer to inherit the active query's statistics flags,
+    // or vkCmdExecuteCommands is invalid (the profiler armed in any game that uses bundles).
+    Backend* backend = nullptr;
+    (void)vk::CreateBackend(vk::VkBackendDesc{.enableValidation = true}, backend);
+    if (backend == nullptr || backend->EnumerateAdapters().IsEmpty())
+    {
+        MESSAGE("no Vulkan adapter - skipped");
+        return;
+    }
+    Device* device = nullptr;
+    REQUIRE(backend->EnumerateAdapters()[0]->CreateDevice(DeviceDesc{}, device).IsOk());
+    if (!device->features.pipelineStatisticsQueries)
+    {
+        MESSAGE("no pipeline statistics on this adapter - skipped");
+        device->Destroy();
+        return;
+    }
+    const u32 errorsBefore = vk::ValidationErrorCount();
+
+    QuerySetDesc qd{};
+    qd.type = QueryType::PipelineStatistics;
+    qd.count = 1;
+    qd.label = u8"vk.queries.bundle_statistics";
+    QuerySet* set = nullptr;
+    REQUIRE(device->CreateQuerySet(qd, set).IsOk());
+    Texture* target = nullptr;
+    REQUIRE(device->CreateTexture(TextureDesc::RenderTarget(TextureFormat::RGBA8Unorm, 64, 64), target).IsOk());
+    TextureViewDesc vd{};
+    vd.format = TextureFormat::RGBA8Unorm;
+    TextureView* view = nullptr;
+    REQUIRE(device->CreateTextureView(target, vd, view).IsOk());
+
+    CommandPool* pool = nullptr;
+    REQUIRE(device->CreateCommandPool(QueueType::Graphics, pool).IsOk());
+    CommandEncoder* enc = nullptr;
+    REQUIRE(pool->CreateEncoder(enc).IsOk());
+    RenderBundleDesc bd{};
+    bd.colorFormats[0] = TextureFormat::RGBA8Unorm;
+    bd.colorFormatCount = 1;
+    bd.width = 64;
+    bd.height = 64;
+    bd.label = u8"vk.queries.bundle";
+    RenderBundleEncoder* bundleEncoder = enc->CreateRenderBundleEncoder(bd);
+    REQUIRE(bundleEncoder != nullptr);
+    RenderBundle* bundle = bundleEncoder->Finish();
+    REQUIRE(bundle != nullptr);
+
+    enc->ResetQuerySet(set, 0, 1);
+    enc->TransitionTexture(target, ResourceState::Undefined, ResourceState::RenderTarget);
+    enc->BeginPipelineStatisticsQuery(set, 0);
+    ColorAttachment ca{};
+    ca.view = view;
+    RenderPassDesc rpd{};
+    rpd.colorAttachments.Add(ca);
+    rpd.contents = RenderPassContents::SecondaryCommandBuffers;
+    RenderPassEncoder* pass = enc->BeginRenderPass(rpd);
+    RenderBundle* bundles[] = {bundle};
+    pass->ExecuteBundles(Span<RenderBundle* const>(bundles, 1));
+    pass->End();
+    enc->EndPipelineStatisticsQuery(set, 0);
+    CommandBuffer* cb = enc->Finish();
+    REQUIRE(cb != nullptr);
+    Fence* fence = nullptr;
+    REQUIRE(device->CreateFence(0, fence).IsOk());
+    CommandBuffer* cbs[] = {cb};
+    device->GetQueue(QueueType::Graphics)->Submit(Span<CommandBuffer* const>(cbs, 1), fence, 1);
+    REQUIRE(fence->Wait(1, ~0ull));
+    CHECK(vk::ValidationErrorCount() == errorsBefore);
+
+    pool->DestroyEncoder(enc);
+    device->DestroyFence(fence);
+    device->DestroyCommandPool(pool);
+    device->DestroyTextureView(view);
+    device->DestroyTexture(target);
+    device->DestroyQuerySet(set);
+    device->Destroy();
+}

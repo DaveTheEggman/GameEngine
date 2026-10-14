@@ -18,6 +18,17 @@ using namespace foundation::core;
 
 export namespace foundation::rhi::vk
 {
+    /// The RHI's six pipeline statistics, the flags of every statistics query pool; Vulkan writes
+    /// the enabled ones in bit order, which VkDeviceImpl::DecodePipelineStatistics reads back. A
+    /// render bundle inherits the same flags, since a pool's query may be active around it.
+    inline constexpr VkQueryPipelineStatisticFlags kPipelineStatisticsFlags =
+        VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+        VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+        VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+        VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+        VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
+        VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+
 
     class VkQuerySetImpl : public QuerySet
     {
@@ -44,15 +55,7 @@ export namespace foundation::rhi::vk
                 break;
             case QueryType::PipelineStatistics:
                 ci.queryType = VK_QUERY_TYPE_PIPELINE_STATISTICS;
-                // The RHI's six counters; Vulkan writes the enabled ones in bit order, which
-                // VkDeviceImpl::DecodePipelineStatistics reads back.
-                ci.pipelineStatistics =
-                    VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
-                    VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
-                    VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
-                    VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
-                    VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
-                    VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+                ci.pipelineStatistics = kPipelineStatisticsFlags;
                 break;
             }
 

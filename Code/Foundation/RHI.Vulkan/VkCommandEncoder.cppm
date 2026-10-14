@@ -962,6 +962,7 @@ export namespace foundation::rhi::vk
         VkCommandBufferInheritanceInfo ii{};
         ii.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
         ii.pNext = &inh;
+        ii.pipelineStatistics = m_inheritedStatistics; // a statistics query may be active around it
 
         VkCommandBufferBeginInfo bi{};
         bi.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
