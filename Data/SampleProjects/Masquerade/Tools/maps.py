@@ -219,7 +219,7 @@ class Builder:
 
         # The hunters: the player at the gate, the bots among the guests.
         x, z = player_at
-        player = self.hunter("Player", (x, 0.0, z), meshes)
+        player = self.hunter("Player", (x, 0.0, z), meshes, avoid=False)
         cam = d.stable_id("entity")
         d.entity("Camera", (x, 9.0, z + 7.0), pitch(-48.0), eid=cam)
         d.add(cam, "camera", fovYRadians=0.9)
@@ -239,14 +239,14 @@ class Builder:
             "player": ("entity", player), "bot1": ("entity", bots[0]), "bot2": ("entity", bots[1]),
             "bot3": ("entity", bots[2]), "crowd": ("entity", crowd), "spots": ("entity", self.spots)}))
 
-    def hunter(self, name, pos, meshes):
+    def hunter(self, name, pos, meshes, avoid=True):
         """A hunter: an agent like any guest, wearing one of six looks (a child per costume, each an
         Instance Member of its costume's mesh; only the first shown until Ball.as dresses it), and
         a Flare light over its head for when its mask flares (off until then)."""
         d = self.d
         e = d.stable_id("entity")
         d.entity(name, pos, eid=e)
-        self.agent(e)
+        self.agent(e, avoid)
         for k, c in enumerate(COSTUMES):
             look = d.stable_id("entity")
             d.entity("Look" + c, parent=e, eid=look, active=(k == 0))
@@ -257,9 +257,12 @@ class Builder:
               castsShadows=False)
         return e
 
-    def agent(self, e):
-        """A guest's body: an agent the crowd steers."""
-        self.d.add(e, "navigation.Agent", radius=0.3, height=1.7, maxSpeed=3.2, maxAcceleration=6.0)
+    def agent(self, e, avoid=True):
+        """A guest's body: an agent the crowd steers. The player's goes straight where the stick
+        sends it (avoid=False) and shoulders past guests in its way; avoiding, it would hold back
+        from anyone ahead, which plays as an invisible wall."""
+        self.d.add(e, "navigation.Agent", radius=0.3, height=1.7, maxSpeed=3.2, maxAcceleration=6.0,
+                   avoidOthers=avoid)
 
     def navigation(self, bounds):
         x0, z0, x1, z1 = bounds

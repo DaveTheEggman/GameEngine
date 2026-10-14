@@ -1,7 +1,7 @@
 // Player - a guest someone plays. On a guest's entity like any other (a navigation agent and an
 // Instance Member of a costume), so it looks like one. It moves where the stick points, relative
-// to where the camera looks, by steering its agent a step ahead each frame: the crowd makes way
-// round it and it round the crowd, as guests do for each other. A guest's stroll by default;
+// to where the camera looks, by driving its agent at that velocity (no path to wait for): the crowd
+// makes way round it and it round the crowd, as guests do for each other. A guest's stroll by default;
 // Sprint is faster (and marks you, Ball.as); Dance, held, dances; Tag tells the ball (Ball.as
 // decides who is in reach). It wears its costume on a child, one of six looks (Ball.as picks), so
 // the clip goes to each look. Its `activity` is a guest's.
@@ -18,7 +18,6 @@ class Player
     [null, "The camera whose facing makes forward"] Entity@ camera;
     [1.0, "Walking speed (m/s): a guest's, the Walk clip's"] float walkSpeed;
     [3.0, "Sprinting speed (m/s)"] float sprintSpeed;
-    [1.2, "How far ahead the agent is steered (m)"] float lead;
     [0, "What the player is doing (0 idle, 1 walk, 2 talk, 3 dance): the clip it plays", replicated] int activity;
     [false, "Sprinting now (a hunter sees it)", replicated] bool sprinting;
     [0, "Its seat at the ball: the hunter it is in Ball.as"] int seat;
@@ -50,14 +49,13 @@ class Player
             float dz = forward.z * stick.y + right.z * stick.x;
             sprinting = Input::isDown("Sprint");
             float speed = sprinting ? sprintSpeed : walkSpeed;
-            Float3 p = self.worldPosition();
-            agent.navigateAt(p.x + dx * lead, p.y, p.z + dz * lead, speed, 0.05f);
+            agent.move(dx * speed, dz * speed);
             m_moving = true;
             face(dx, dz, d);
         }
-        else if (m_moving)
+        else
         {
-            agent.stop();
+            agent.move(0.0f, 0.0f);
             m_moving = false;
         }
         if (Input::wasPressed("Tag"))
