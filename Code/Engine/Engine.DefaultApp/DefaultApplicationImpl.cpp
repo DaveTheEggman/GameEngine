@@ -56,6 +56,7 @@ import foundation.net.replication;     // NetworkId / StateReplication (the spaw
 import foundation.net.manager;   // NetworkManager + NetworkStartup/StartNetworking + the Net facade
 import engine.net; // NetworkSubsystem (injects the NetworkComponentManager into scenes)
 import foundation.profiler;      // the CPU scope profiler (P-key dump)
+import foundation.profiler.capture; // F9's capture
 
 namespace rhi = foundation::rhi;
 namespace core = foundation::core;
@@ -125,6 +126,18 @@ namespace engine::runtime
             core::String path;
             core::AppendFormat(path, u8"screenshot_{}.png", core::Clock::Now().Ticks());
             CaptureScreenshot(path.AsView());
+        }
+        if (kb != nullptr && kb->IsKeyPressed(KeyCode::F9))
+        {
+            // F9: a capture of the next five seconds, to <user-data>/profiles (a .aeprofile for the
+            // editor's profiler panel, a .json beside it for Perfetto).
+            core::String folder = core::GetUserDataDirectory();
+            folder.Append(u8"/profiles");
+            if (foundation::profiler::CaptureRecorder::Get().Start(foundation::profiler::Profiler::Get(), 5.0,
+                                                                   folder.AsView()))
+            {
+                LOG_INFO(u8"Profiler", u8"capturing five seconds to {}", folder);
+            }
         }
         if (kb == nullptr || !kb->IsKeyPressed(KeyCode::P))
         {

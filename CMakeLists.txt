@@ -331,6 +331,7 @@ add_subdirectory(Code/Foundation/Http)      # small HTTP/1.1 client+server+SSE o
 add_subdirectory(Code/Foundation/Xml)       # DOM XML parser + writer over Core
     add_subdirectory(Code/Foundation/Xml.Serialization)
 add_subdirectory(Code/Foundation/Json)      # hand-rolled JSON DOM (MCP wire + game data); RTTI-reflected for script
+add_subdirectory(Code/Foundation/Profiler.Capture) # profile captures outside the process: Chrome trace export (over Profiler + Json)
 add_subdirectory(Code/Foundation/Mcp)       # JSON-RPC 2.0 + MCP protocol (tool/resource registry, stdio); over Json
 add_subdirectory(Code/Foundation/Mcp.Http)  # MCP streamable-HTTP binding (bearer token + SSE channel); over Http + Mcp
 add_subdirectory(Code/Foundation/Mcp.Reflection)  # MCP reflection tools (type_list/type_info) over Mcp+Core
@@ -738,6 +739,7 @@ if(OPTION_BUILD_TESTS)
     util_test_suite(Code/Foundation/Physics.Tests                   Foundation::Physics)
     util_test_suite(Code/Foundation/Navigation.Tests                Foundation::Navigation)
     util_test_suite(Code/Foundation/Profiler.Tests                  Foundation::Profiler)
+    util_test_suite(Code/Foundation/Profiler.Capture.Tests          Foundation::Profiler.Capture)
     util_test_suite(Code/Foundation/RHI.Null.Tests                  Foundation::RHI.Null)
     util_test_suite(Code/Foundation/RHI.Validation.Tests            Foundation::RHI.Validation)
     if(TARGET Foundation::RHI.Vulkan)

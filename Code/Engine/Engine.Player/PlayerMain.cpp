@@ -16,6 +16,7 @@
 // both share PlayerApplication.h.
 //
 // Usage: Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
+//                      [--profile-capture <seconds>]
 //                      [--data-root <dir>]  (engine data; default = the Data/.dataroot walk)
 //                      [--screenshot <png> [--screenshot-frame N | --screenshot-after S]
 //                       [--screenshot-count N] [--screenshot-exit]]
@@ -54,6 +55,8 @@ import foundation.graphics;
 import foundation.graphics.gpu;
 import foundation.runtime;
 import foundation.runtime.client;
+import foundation.profiler;
+import foundation.profiler.capture;
 import foundation.runtime.desktop;
 import engine.defaultapp;
 import foundation.scene;
@@ -130,6 +133,7 @@ int engine::player::PlayerMain(int argc, char** argv,
 
     PlayerOptions options;
     f32 exitAfterSeconds = 0.0f;
+    f64 profileCaptureSeconds = 0.0; // --profile-capture: seconds to capture from the start
     if (argc > 1 && argv[1][0] != '-')
     {
         options.projectDir = String(StringView(reinterpret_cast<const utf8char*>(argv[1])));
@@ -172,6 +176,10 @@ int engine::player::PlayerMain(int argc, char** argv,
             options.exitAfterSeconds = static_cast<f32>(std::atof(argv[i + 1]));
             exitAfterSeconds = options.exitAfterSeconds;
         }
+        if (std::strcmp(argv[i], "--profile-capture") == 0)
+        {
+            profileCaptureSeconds = std::atof(argv[i + 1]);
+        }
     }
 
     // The window the game asked for, read before the window exists: the dist's player.xml, or a
@@ -184,6 +192,9 @@ int engine::player::PlayerMain(int argc, char** argv,
             LOG_WARNING(u8"Player", u8"no manifest in '{}', the default window", options.projectDir);
         }
     }
+    // Captures are named after the game.
+    foundation::profiler::CaptureRecorder::Get().SetApplication(
+        manifest.name.IsEmpty() ? StringView(u8"Player") : manifest.name.AsView());
     shell::WindowSettings ws;
     ws.title = manifest.name.IsEmpty() ? StringView(u8"Player") : manifest.name.AsView();
     ws.width = Max(manifest.windowWidth, 1u);
@@ -231,6 +242,16 @@ int engine::player::PlayerMain(int argc, char** argv,
     app.SetDataRoot(foundation::vfs::DataRootFromArguments(argc, argv).AsView());
     app.OnCommandLine(argc, argv); // the base app's flags (--screenshot ...)
     app.SetExitAfterSeconds(exitAfterSeconds); // was parsed and never applied before
+#if BUILD_PROFILING
+    // --profile-capture <seconds>: a capture from the start, to <user-data>/profiles.
+    if (profileCaptureSeconds > 0.0)
+    {
+        String folder = GetUserDataDirectory();
+        folder.Append(u8"/profiles");
+        (void)foundation::profiler::CaptureRecorder::Get().Start(foundation::profiler::Profiler::Get(),
+                                                                 profileCaptureSeconds, folder.AsView());
+    }
+#endif
     const int code = runtime::RunApplication(app, *shellPtr, gpu.Value().Get());
     GlobalLogger().RemoveSink(&consoleSink);
     return code;

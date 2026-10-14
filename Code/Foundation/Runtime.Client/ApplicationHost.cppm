@@ -35,6 +35,11 @@ import foundation.runtime;
 import foundation.shell;
 import foundation.graphics;
 import foundation.profiler;
+import foundation.profiler.capture;
+
+// The build identity compiled into Runtime.Client (AppMain.h). In the purview: GCC takes only
+// preprocessor inclusions in the global module fragment.
+extern "C" const char* BuildStamp();
 
 namespace core = foundation::core;
 using namespace foundation::shell; // IShell + input/window types (moved from foundation::runtime)
@@ -68,6 +73,9 @@ export namespace foundation::runtime
             m_shell = shell;
             m_graphics = graphics;
             m_settings = app.Settings();
+            // Captures say which build and platform recorded them.
+            foundation::profiler::CaptureRecorder::Get().SetBuild(
+                core::GetHostPlatformName(), core::StringView(reinterpret_cast<const char8_t*>(BuildStamp())));
             // The thread running the frames: its lane in the profiler, unless the app named it.
             if (core::CurrentThreadName().IsEmpty())
             {
@@ -194,6 +202,14 @@ export namespace foundation::runtime
             }
 #endif
             PROFILE_FRAME_END();
+#if BUILD_PROFILING
+            // A capture running (a key, a flag, a tool) writes its files once its time is up.
+            foundation::profiler::CaptureRecorder& recorder = foundation::profiler::CaptureRecorder::Get();
+            if (recorder.Capturing() && recorder.OnFrameEnd(foundation::profiler::Profiler::Get()))
+            {
+                LOG_INFO(u8"Profiler", u8"capture written: {}", recorder.LastCapture());
+            }
+#endif
         }
 
         /// Whether the last Tick had windows to show and presented none (every one minimized or

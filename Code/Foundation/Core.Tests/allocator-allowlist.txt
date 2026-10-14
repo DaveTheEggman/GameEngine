@@ -63,6 +63,7 @@ Code/Foundation/Particles/ParticleStreams.cppm
 Code/Foundation/Particles.Resource/ParticleEffectResource.cppm
 Code/Foundation/Physics/PhysicsWorldImpl.cpp
 Code/Foundation/Physics.Resource/PhysicsResource.cppm
+Code/Foundation/Profiler.Capture/ProfilerCaptureImpl.cpp
 Code/Foundation/Profiler/ProfilerImpl.cpp
 Code/Foundation/PropertyAnimation.Resource/PropertyAnimationResource.cppm
 Code/Foundation/RenderGraph/BarrierSolver.cppm
