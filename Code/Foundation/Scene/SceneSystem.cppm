@@ -150,6 +150,22 @@ export namespace foundation::scene
         virtual void MoveCharacter(EntityHandle entity, Float3 velocity) = 0;
     };
 
+    // Networked state a component manager supplies itself, for what its C++ reflection does not
+    // describe (a script behaviour's properties, declared by the script). Replication sends the bytes
+    // it writes for a networked entity, compares them with what each peer last had, and hands them
+    // back on every peer; the bytes are the manager's own format. Replication lives above the scene
+    // and does not depend on it: a manager that keeps its own networked state.
+    class IReplicatedStateSource
+    {
+    public:
+        virtual ~IReplicatedStateSource() = default;
+
+        // Write `entity`'s networked state into `out`; false when it has none (nothing is sent).
+        [[nodiscard]] virtual bool WriteReplicatedState(EntityHandle entity, Array<byte>& out) = 0;
+        // Apply state a peer wrote for `entity`.
+        virtual void ReadReplicatedState(EntityHandle entity, Span<const byte> state) = 0;
+    };
+
     class SceneSystem
     {
     public:
@@ -177,6 +193,8 @@ export namespace foundation::scene
         [[nodiscard]] virtual ISceneEntityBounds* AsEntityBounds() noexcept { return nullptr; }
         // And for one that answers rays against what it draws (ISceneSurfaceQuery).
         [[nodiscard]] virtual ISceneSurfaceQuery* AsSurfaceQuery() noexcept { return nullptr; }
+        // And for a component manager with networked state of its own (IReplicatedStateSource).
+        [[nodiscard]] virtual IReplicatedStateSource* AsReplicatedStateSource() noexcept { return nullptr; }
 
         // --- lifecycle (Scene calls these) ---
         virtual void OnSceneCreate(Scene& /*scene*/) {} // added to a scene

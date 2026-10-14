@@ -52,6 +52,59 @@ namespace
     };
 }
 
+namespace
+{
+    // State a manager keeps itself (as a script behaviour's properties are): no reflected field is
+    // marked replicated; the manager writes and reads its own bytes (IReplicatedStateSource).
+    struct Mood
+    {
+        i32 mood = 0;
+        i32 reads = 0; // how often a peer's state was applied
+    };
+    inline void Serialize(ISerializer& ar, Mood& m) { foundation::core::Serialize(ar, "mood", m.mood); }
+
+    class MoodManager final : public scene::SerializableComponentManager<Mood>, public scene::IReplicatedStateSource
+    {
+    public:
+        MoodManager() : SerializableComponentManager(u8"test.Mood") {}
+        scene::IReplicatedStateSource* AsReplicatedStateSource() noexcept override { return this; }
+        bool WriteReplicatedState(scene::EntityHandle entity, Array<byte>& out) override
+        {
+            const Mood* m = Get(entity);
+            if (m == nullptr || m->mood < 0)
+            {
+                return false; // a negative mood: nothing to send
+            }
+            out.Clear();
+            for (u32 i = 0; i < 4; ++i)
+            {
+                out.PushBack(static_cast<byte>((static_cast<u32>(m->mood) >> (8 * i)) & 0xFFu));
+            }
+            return true;
+        }
+        void ReadReplicatedState(scene::EntityHandle entity, Span<const byte> state) override
+        {
+            Mood* m = Get(entity);
+            if (m == nullptr || state.Size() != 4)
+            {
+                return;
+            }
+            u32 value = 0;
+            for (u32 i = 0; i < 4; ++i)
+            {
+                value |= static_cast<u32>(state[i]) << (8 * i);
+            }
+            m->mood = static_cast<i32>(value);
+            ++m->reads;
+        }
+    };
+}
+
+REFLECT_VALUE(Mood, "rtti::net::test")
+{
+    builder.Property<&Mood::mood>("mood"); // not marked: the manager sends it itself
+}
+
 REFLECT_VALUE(Mover, "rtti::net::test")
 {
     builder.Property<&Mover::position>("position").PropAttribute(net::kReplicatedAttribute, true);
@@ -530,6 +583,83 @@ TEST_CASE("replication: an entity's owner reaches a client in the delta and in a
         REQUIRE(owners.Size() == 2u);
         CHECK(((owners[0] == 0u && owners[1] == 7u) || (owners[0] == 7u && owners[1] == 0u)));
     }
+}
+
+TEST_CASE("replication: a manager's own state travels in the delta and the snapshot, sent when it changes")
+{
+    RttiRegisterValue_Mood();
+    foundation::net::RegisterReplicationComponents();
+    scene::Scene server{DefaultAllocator()};
+    server.AddSystem<net::NetworkComponentManager>();
+    MoodManager* moods = server.AddSystem<MoodManager>();
+    net::StateReplication rep;
+    const scene::EntityHandle guest = server.CreateEntity();
+    moods->Add(guest).mood = 3;
+    const scene::EntityHandle plain = server.CreateEntity(); // networked, no Mood: nothing of it
+    rep.AssignNetworkId(server, guest, Guid{1, 1});
+    rep.AssignNetworkId(server, plain, Guid{2, 2});
+
+    scene::Scene client{DefaultAllocator()};
+    client.AddSystem<net::NetworkComponentManager>();
+    MoodManager* clientMoods = client.AddSystem<MoodManager>();
+    net::StateReplication crep;
+    crep.SetSpawnHandler( // the prefab brings the component, as a behaviour's prefab does
+        [](scene::Scene& s, const Guid& p, net::NetworkId) -> scene::EntityHandle
+        {
+            const scene::EntityHandle e = s.CreateEntity();
+            if (p == Guid{1, 1})
+            {
+                s.GetSystem<MoodManager>()->Add(e);
+            }
+            return e;
+        });
+    auto send = [&]()
+    {
+        net::BitWriter w;
+        const usize n = rep.CaptureDelta(server, /*peer=*/1, w);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
+        return n;
+    };
+    auto clientMood = [&]() -> const Mood*
+    {
+        const Mood* found = nullptr;
+        clientMoods->ForEach([&](Mood& m, scene::EntityHandle) { found = &m; });
+        return found;
+    };
+
+    CHECK(send() == 2u); // both spawn
+    REQUIRE(clientMood() != nullptr);
+    CHECK(clientMood()->mood == 3);
+    CHECK(clientMood()->reads == 1);
+    CHECK(send() == 0u); // nothing changed: nothing sent
+    moods->Get(guest)->mood = 9;
+    CHECK(send() == 1u);
+    CHECK(clientMood()->mood == 9);
+    CHECK(clientMood()->reads == 2);
+
+    // A late joiner gets it in the snapshot.
+    scene::Scene late{DefaultAllocator()};
+    late.AddSystem<net::NetworkComponentManager>();
+    MoodManager* lateMoods = late.AddSystem<MoodManager>();
+    net::StateReplication lrep;
+    lrep.SetSpawnHandler(
+        [](scene::Scene& s, const Guid& p, net::NetworkId) -> scene::EntityHandle
+        {
+            const scene::EntityHandle e = s.CreateEntity();
+            if (p == Guid{1, 1})
+            {
+                s.GetSystem<MoodManager>()->Add(e);
+            }
+            return e;
+        });
+    net::BitWriter w;
+    rep.CaptureSnapshot(server, w);
+    net::BitReader r(w.Data());
+    lrep.ApplySnapshot(late, r);
+    i32 lateMood = -1;
+    lateMoods->ForEach([&](Mood& m, scene::EntityHandle) { lateMood = m.mood; });
+    CHECK(lateMood == 9);
 }
 
 TEST_CASE("replication: LerpFieldValue interpolates floats/vectors and snaps discrete types")

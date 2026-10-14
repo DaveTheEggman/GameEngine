@@ -659,6 +659,39 @@ namespace foundation::net
         return e;
     }
 
+    namespace
+    {
+        // One component's networked state for `entity`, as the bytes the wire carries: what a
+        // manager with state of its own writes (IReplicatedStateSource), else its reflected fields
+        // marked replicated. False when it contributes nothing (no state, no wire tag).
+        bool CaptureComponentState(scene::ComponentManagerBase& m, scene::EntityHandle entity, Array<byte>& out)
+        {
+            if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty())
+            {
+                return false; // need a wire tag
+            }
+            if (scene::IReplicatedStateSource* source = m.AsReplicatedStateSource())
+            {
+                return m.HasComponent(entity) && source->WriteReplicatedState(entity, out);
+            }
+            const Instance inst = m.GetComponentInstance(entity);
+            if (inst.Type() == nullptr || ReplicatedProperties(*inst.Type()).IsEmpty())
+            {
+                return false;
+            }
+            BitWriter fields;
+            (void)WriteReplicatedState(fields, inst);
+            const Span<const byte> blob = fields.Data();
+            out.Clear();
+            out.Reserve(blob.Size());
+            for (const byte b : blob)
+            {
+                out.PushBack(b);
+            }
+            return true;
+        }
+    }
+
     void StateReplication::CaptureSnapshot(scene::Scene& scene, BitWriter& out)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
@@ -696,35 +729,28 @@ namespace foundation::net
             WriteGuid(out, ent.prefab);
             out.WriteVarU32(ent.owner);
             // Gather this entity's serializable components that carry replicated fields.
-            Array<scene::ComponentManagerBase*> comps;
+            struct Captured
+            {
+                StringView typeId;
+                Array<byte> blob;
+            };
+            Array<Captured> comps;
             scene.ForEachManager(
                 [&](scene::ComponentManagerBase& m)
                 {
-                    const Instance inst = m.GetComponentInstance(ent.handle);
-                    if (inst.Type() == nullptr)
+                    Array<byte> blob;
+                    if (CaptureComponentState(m, ent.handle, blob))
                     {
-                        return;
+                        comps.PushBack(Captured{m.SerializationTypeId(), Move(blob)});
                     }
-                    if (ReplicatedProperties(*inst.Type()).IsEmpty())
-                    {
-                        return;
-                    }
-                    if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty())
-                    {
-                        return;
-                    } // need a wire tag
-                    comps.PushBack(&m);
                 });
             out.WriteVarU32(static_cast<u32>(comps.Size()));
-            for (scene::ComponentManagerBase* m : comps)
+            for (const Captured& comp : comps)
             {
                 // Length-prefix each component blob so a peer lacking the type can skip it (forward-compat).
-                BitWriter fields;
-                (void)WriteReplicatedState(fields, m->GetComponentInstance(ent.handle));
-                const Span<const byte> blob = fields.Data();
-                WriteWireString(out, m->SerializationTypeId());
-                out.WriteVarU32(static_cast<u32>(blob.Size()));
-                out.WriteBytes(blob);
+                WriteWireString(out, comp.typeId);
+                out.WriteVarU32(static_cast<u32>(comp.blob.Size()));
+                out.WriteBytes(comp.blob.AsSpan());
             }
         }
     }
@@ -753,6 +779,16 @@ namespace foundation::net
             {
                 continue;
             } // unknown type on this peer - blob already consumed (skip)
+            if (scene::IReplicatedStateSource* source = m->AsReplicatedStateSource())
+            {
+                // Its own state, its own format: only for an entity that has the component (the
+                // prefab spawn brought it; a bare entity has nothing for it to apply to).
+                if (m->HasComponent(entity))
+                {
+                    source->ReadReplicatedState(entity, Span<const byte>(blob.Data(), blob.Size()));
+                }
+                continue;
+            }
             if (m->GetComponentInstance(entity).Type() == nullptr)
             {
                 (void)m->AddDefaultComponent(entity);
@@ -939,23 +975,12 @@ namespace foundation::net
                 scene.ForEachManager(
                     [&](scene::ComponentManagerBase& m)
                     {
-                        const Instance inst = m.GetComponentInstance(e);
-                        if (inst.Type() == nullptr)
+                        Array<byte> state;
+                        if (!CaptureComponentState(m, e, state))
                         {
                             return;
                         }
-                        if (ReplicatedProperties(*inst.Type()).IsEmpty())
-                        {
-                            return;
-                        }
-                        if (!m.IsSerializable() || m.SerializationTypeId().IsEmpty())
-                        {
-                            return;
-                        }
-
-                        BitWriter fields;
-                        (void)WriteReplicatedState(fields, inst);
-                        const Span<const byte> blob = fields.Data();
+                        const Span<const byte> blob = state.AsSpan();
                         const u32 typeHash = HashTypeId(m.SerializationTypeId());
 
                         // Changed if the component is new to this peer or its bytes differ from last-sent.
