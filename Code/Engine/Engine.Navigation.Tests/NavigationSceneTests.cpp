@@ -567,3 +567,77 @@ TEST_CASE("navigation.scene: a version 1 zone record reads with the default agen
     CHECK(zone.maxAgents == 7); // left as it was: the component's default (128) for a fresh one
     CHECK(zone.agentRadius == doctest::Approx(0.6f));
 }
+
+// A warp puts the agent somewhere else at once (a respawn): moving its entity alone is undone, as
+// the crowd owns the position. Warped mid-walk, it stops where it lands, and walks on from there.
+TEST_CASE("navigation.scene: a warped agent is where it was sent, and walks on from there")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navwarp_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navwarp_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(DefaultAllocator(), u8"nav");
+    AddNavigationSceneManagers(scene);
+    scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zoneComp.extents = Float3{15, 10, 15};
+    zoneComp.zone.SetId(zoneInstance->Id());
+    zoneComp.zone.Bind(manager);
+    scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
+    scene.SetLocalPosition(agentEntity, Float3{-5, 0, 0});
+    NavAgentComponent* agent = &scene.GetSystem<NavAgentComponentManager>()->Add(agentEntity);
+    scene.UpdateTransforms();
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+    REQUIRE(agent->agentId >= 0);
+
+    // Walking east, it is warped to the far corner: there next tick, stopped.
+    agent->navigate(5.0f, 0.0f, 0.0f);
+    for (int step = 0; step < 10; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    agent->warp(6.0f, 0.0f, 6.0f);
+    scene.Update(1.0f / 30.0f);
+    Float3 at = scene.GetWorldPosition(agentEntity);
+    CHECK(std::abs(at.x - 6.0f) < 0.3f);
+    CHECK(std::abs(at.z - 6.0f) < 0.3f);
+    CHECK(agent->finished);
+    // And it stays there: the crowd holds it where it was sent, not where it was.
+    for (int step = 0; step < 15; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    at = scene.GetWorldPosition(agentEntity);
+    CHECK(std::abs(at.x - 6.0f) < 0.3f);
+    CHECK(std::abs(at.z - 6.0f) < 0.3f);
+
+    // From there it walks on to a new target.
+    agent->navigate(6.0f, 0.0f, -6.0f);
+    for (int step = 0; step < 360 && !agent->finished; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    at = scene.GetWorldPosition(agentEntity);
+    CHECK(agent->finished);
+    CHECK(std::abs(at.z + 6.0f) < 1.5f);
+
+    scene.SetSimulationEnabled(false);
+    scene.Stop();
+    RemoveTree(u8"scratch_navwarp_db");
+}

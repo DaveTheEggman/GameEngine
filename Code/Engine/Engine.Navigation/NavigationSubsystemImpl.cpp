@@ -227,6 +227,7 @@ namespace engine::navigation
             .Method<&NavAgentComponent::desiredSpeed>("desiredSpeed")
             .Method<&NavAgentComponent::corners>("corners")
             .Method<&NavAgentComponent::stop>("stop")
+            .Method<&NavAgentComponent::warp>("warp", {"x", "y", "z"})
             .Method<&NavAgentComponent::finishedNav>("finished")
             .Method<&NavAgentComponent::remaining>("remaining")
             .Method<&NavAgentComponent::velocityX>("velocityX")

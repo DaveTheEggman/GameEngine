@@ -133,10 +133,14 @@ export namespace engine::navigation
             //    crowd over the new one (the old product stays alive until then: we hold it).
             RebuildReloadedZones(*agents);
 
-            // 1. Apply pending navigate()/stop() requests (crowd works in zone-local space).
+            // 1. Apply pending warp()/navigate()/stop() requests (crowd works in zone-local space).
             agents->ForEach(
-                [this](NavAgentComponent& a, scene::EntityHandle)
+                [this](NavAgentComponent& a, scene::EntityHandle entity)
                 {
+                    if (a.warpRequested)
+                    {
+                        Warp(a, entity);
+                    }
                     if (a.zoneIndex < 0 || a.agentId < 0)
                     {
                         return;
@@ -325,6 +329,38 @@ export namespace engine::navigation
                         a.agentId = AddToCrowd(rz, a, m_scene->GetWorldPosition(entity));
                         a.targetDirty = a.hasTarget && !a.finished; // on its way again
                     });
+            }
+        }
+
+        // A warp: the agent out of its crowd and into the crowd of the zone holding the point (its
+        // own or another), at the navmesh nearest it; the entity moved there too (the same
+        // unparented-agent assumption as the writeback). Outside every zone it stays out of every
+        // crowd, said once, as an agent placed there at the start is.
+        void Warp(NavAgentComponent& a, scene::EntityHandle entity)
+        {
+            a.warpRequested = false;
+            if (a.zoneIndex >= 0 && a.agentId >= 0)
+            {
+                m_zones[static_cast<usize>(a.zoneIndex)].crowd->RemoveAgent(a.agentId);
+            }
+            a.agentId = -1;
+            a.zoneIndex = FindZoneContaining(a.warpTo);
+            Transform t = m_scene->GetLocalTransform(entity);
+            t.position = a.warpTo;
+            m_scene->SetLocalTransform(entity, t);
+            if (a.zoneIndex < 0)
+            {
+                LOG_WARNING(u8"Navigation", u8"agent '{}' warped to ({}, {}, {}), in no navigation zone; it will not move",
+                            m_scene->GetEntityName(entity), a.warpTo.x, a.warpTo.y, a.warpTo.z);
+                return;
+            }
+            RuntimeZone& rz = m_zones[static_cast<usize>(a.zoneIndex)];
+            a.agentId = AddToCrowd(rz, a, a.warpTo);
+            if (a.agentId >= 0)
+            {
+                // Where the crowd placed it: the navmesh under the point, not the point itself.
+                t.position = TransformPoint(rz.crowd->AgentPosition(a.agentId), rz.world);
+                m_scene->SetLocalTransform(entity, t);
             }
         }
 

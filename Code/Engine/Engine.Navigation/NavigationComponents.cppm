@@ -72,6 +72,8 @@ export namespace engine::navigation
         bool hasTarget = false;
         bool targetDirty = false;   // a navigate() request the tick has not applied yet
         bool stopRequested = false; // a stop() request the tick has not applied yet
+        bool warpRequested = false; // a warp() request the tick has not applied yet
+        Float3 warpTo{0, 0, 0};
         bool finished = true;
         f32 remainingDistance = 0.0f;
         Float3 desiredVelocity{0, 0, 0}; // crowd steering output (world space), for ReportOnly
@@ -99,6 +101,19 @@ export namespace engine::navigation
         {
             hasTarget = false;
             stopRequested = true;
+            finished = true;
+        }
+        // Put the agent somewhere else at once (a respawn, a door to another room, a late joiner
+        // placed): the crowd owns an agent's position, so moving its entity is undone next tick.
+        // Applied next tick: out of its crowd and back in at the nearest navmesh to the point (in
+        // whichever zone holds it), stopped, the entity there too.
+        void warp(f32 x, f32 y, f32 z)
+        {
+            warpTo = Float3{x, y, z};
+            warpRequested = true;
+            hasTarget = false;
+            targetDirty = false;
+            stopRequested = false;
             finished = true;
         }
         // Per-call speed control (Lumix parity): applies to the LIVE crowd agent next tick.
