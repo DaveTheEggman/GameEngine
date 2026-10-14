@@ -113,6 +113,10 @@ export namespace foundation::net
         NetworkAuthority authority = NetworkAuthority::Server;
         Guid
             prefab{}; // the source prefab for network spawn (nil = a bare / non-prefab networked entity)
+        // The player it belongs to: 0 = the host, else the client's PeerId on the server (the id
+        // the session's welcome tells that client). Set at spawn, sent in the spawn record, so every
+        // peer knows whose an entity is. Runtime state: not saved with the scene.
+        u32 owner = 0;
     };
 
     // ADL serialization for scene persistence (bidirectional; enum via the temp-u8 idiom).
@@ -278,7 +282,7 @@ export namespace foundation::net
         // re-registered entity keeps its id. `prefab` records the source prefab so a client can network-
         // spawn it (nil for a bare networked entity). Records the id->entity mapping for capture.
         NetworkId AssignNetworkId(scene::Scene& scene, scene::EntityHandle entity,
-                                  const Guid& prefab = {});
+                                  const Guid& prefab = {}, u32 owner = 0);
 
         // Server: give every authored-networked entity (a NetworkComponent) a NetworkId derived from its
         // authored Guid, and register id -> entity. A designer just adds a NetworkComponent in the editor
@@ -321,7 +325,7 @@ export namespace foundation::net
         // Client: the entity for this id. First sight of a spawn record with a prefab id routes through
         // the spawn handler (prefab instance); otherwise a bare tagged entity is created.
         scene::EntityHandle FindOrCreateEntity(scene::Scene& scene, u32 networkId,
-                                               const Guid& prefab, bool spawn);
+                                               const Guid& prefab, u32 owner, bool spawn);
         // Shared apply loop: read `count` component records (tag + length-prefixed blob) onto an entity.
         // If `interp` is set, records each applied interpolatable component at `timestampMs`.
         void ApplyComponentRecords(scene::Scene& scene, scene::EntityHandle entity, NetworkId id,

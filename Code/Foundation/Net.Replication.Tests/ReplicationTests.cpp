@@ -483,6 +483,55 @@ TEST_CASE("replication: a delta spawns a newly-added networked entity via its pr
     CHECK(crep.NetworkedCount() == 2u);
 }
 
+TEST_CASE("replication: an entity's owner reaches a client in the delta and in a late join's snapshot")
+{
+    RttiRegisterValue_Mover();
+    foundation::net::RegisterReplicationComponents();
+    scene::Scene server{DefaultAllocator()};
+    auto* serverNet = server.AddSystem<net::NetworkComponentManager>();
+    server.AddSystem<MoverManager>();
+    net::StateReplication rep;
+    const scene::EntityHandle hosts = server.CreateEntity();
+    const scene::EntityHandle players = server.CreateEntity();
+    rep.AssignNetworkId(server, hosts, Guid{1, 2});             // the host's: owner 0
+    rep.AssignNetworkId(server, players, Guid{3, 4}, /*owner=*/7); // client 7's
+    CHECK(serverNet->Get(players)->owner == 7u);
+
+    auto ownersOn = [](scene::Scene& client)
+    {
+        Array<u32> owners;
+        client.GetSystem<net::NetworkComponentManager>()->ForEach(
+            [&](net::NetworkComponent& nc, scene::EntityHandle) { owners.PushBack(nc.owner); });
+        return owners;
+    };
+    {
+        scene::Scene client{DefaultAllocator()};
+        client.AddSystem<net::NetworkComponentManager>();
+        client.AddSystem<MoverManager>();
+        net::StateReplication crep;
+        net::BitWriter w;
+        rep.CaptureDelta(server, /*peer=*/1, w);
+        net::BitReader r(w.Data());
+        crep.ApplyDelta(client, r);
+        const Array<u32> owners = ownersOn(client);
+        REQUIRE(owners.Size() == 2u);
+        CHECK(((owners[0] == 0u && owners[1] == 7u) || (owners[0] == 7u && owners[1] == 0u)));
+    }
+    {
+        scene::Scene late{DefaultAllocator()};
+        late.AddSystem<net::NetworkComponentManager>();
+        late.AddSystem<MoverManager>();
+        net::StateReplication lrep;
+        net::BitWriter w;
+        rep.CaptureSnapshot(server, w);
+        net::BitReader r(w.Data());
+        lrep.ApplySnapshot(late, r);
+        const Array<u32> owners = ownersOn(late);
+        REQUIRE(owners.Size() == 2u);
+        CHECK(((owners[0] == 0u && owners[1] == 7u) || (owners[0] == 7u && owners[1] == 0u)));
+    }
+}
+
 TEST_CASE("replication: LerpFieldValue interpolates floats/vectors and snaps discrete types")
 {
     CHECK(*net::LerpFieldValue(Variant::From<f32>(0.0f), Variant::From<f32>(10.0f), 0.5f)

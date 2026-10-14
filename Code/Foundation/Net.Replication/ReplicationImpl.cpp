@@ -432,6 +432,7 @@ namespace foundation::net
         builder.Method<&foundation::script::ComponentOf<NetworkComponent>, NetworkComponent>("of");
         builder.Property<&NetworkComponent::id>("id", PropertyFlags::ReadOnly);
         builder.Property<&NetworkComponent::authority>("authority", PropertyFlags::ReadOnly);
+        builder.Property<&NetworkComponent::owner>("owner", PropertyFlags::ReadOnly); // whose: 0 = the host
     }
 
     // NetworkedTransform: unlike NetworkComponent, its fields ARE replicated (kReplicatedAttribute), so
@@ -535,7 +536,7 @@ namespace foundation::net
     void StateReplication::SetRelevance(RelevanceFn fn) { m_relevance = Move(fn); }
 
     NetworkId StateReplication::AssignNetworkId(scene::Scene& scene, scene::EntityHandle entity,
-                                                const Guid& prefab)
+                                                const Guid& prefab, u32 owner)
     {
         auto* netMgr = scene.GetSystem<NetworkComponentManager>();
         if (netMgr == nullptr)
@@ -551,6 +552,7 @@ namespace foundation::net
         {
             nc.prefab = prefab;
         }
+        nc.owner = owner;
         m_netIdToEntity.InsertOrAssign(nc.id.value, entity);
         return nc.id;
     }
@@ -622,7 +624,7 @@ namespace foundation::net
     }
 
     scene::EntityHandle StateReplication::FindOrCreateEntity(scene::Scene& scene, u32 networkId,
-                                                             const Guid& prefab, bool spawn)
+                                                             const Guid& prefab, u32 owner, bool spawn)
     {
         if (const scene::EntityHandle* found = m_netIdToEntity.Find(networkId))
         {
@@ -648,6 +650,10 @@ namespace foundation::net
             nc.authority =
                 NetworkAuthority::Server; // the client's view: the server owns this entity
             nc.prefab = prefab;
+            if (spawn)
+            {
+                nc.owner = owner; // whose it is (a later update carries no spawn record)
+            }
         }
         m_netIdToEntity.InsertOrAssign(networkId, e);
         return e;
@@ -667,6 +673,7 @@ namespace foundation::net
         {
             u32 id;
             Guid prefab;
+            u32 owner;
             scene::EntityHandle handle;
         };
         Array<Ent> entities;
@@ -675,7 +682,7 @@ namespace foundation::net
             {
                 if (nc.id.IsValid())
                 {
-                    entities.PushBack(Ent{nc.id.value, nc.prefab, e});
+                    entities.PushBack(Ent{nc.id.value, nc.prefab, nc.owner, e});
                 }
             });
 
@@ -687,6 +694,7 @@ namespace foundation::net
             out.WriteU32(ent.id);
             out.WriteU8(kFlagSpawn);
             WriteGuid(out, ent.prefab);
+            out.WriteVarU32(ent.owner);
             // Gather this entity's serializable components that carry replicated fields.
             Array<scene::ComponentManagerBase*> comps;
             scene.ForEachManager(
@@ -799,11 +807,12 @@ namespace foundation::net
 
             const bool spawn = (flags & kFlagSpawn) != 0u;
             const Guid prefab = spawn ? ReadGuid(in) : Guid{};
+            const u32 owner = spawn ? in.ReadVarU32() : 0u; // the spawn record: prefab, then owner
             if (!in.Ok())
             {
                 break;
             }
-            const scene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, spawn);
+            const scene::EntityHandle entity = FindOrCreateEntity(scene, networkId, prefab, owner, spawn);
             const u32 componentCount = in.ReadVarU32();
             ApplyComponentRecords(scene, entity, NetworkId{networkId}, componentCount, in, interp,
                                   timestampMs);
@@ -895,6 +904,7 @@ namespace foundation::net
             bool removed = false;
             bool spawn = false;
             Guid prefab{};
+            u32 owner = 0;
             Array<CompRecord> comps;
         };
         Array<Entry> entries;
@@ -919,7 +929,7 @@ namespace foundation::net
                 {
                     if (oldEb != nullptr)
                     {
-                        entries.PushBack(Entry{nid, true, false, Guid{}, {}});
+                        entries.PushBack(Entry{nid, true, false, Guid{}, 0, {}});
                     }
                     return; // do not add to nextBaseline: the peer must not know this entity
                 }
@@ -971,7 +981,7 @@ namespace foundation::net
                 if (oldEb == nullptr || !changed.IsEmpty())
                 { // new entity (spawn), or something changed
                     entries.PushBack(
-                        Entry{nid, false, /*spawn=*/oldEb == nullptr, nc.prefab, Move(changed)});
+                        Entry{nid, false, /*spawn=*/oldEb == nullptr, nc.prefab, nc.owner, Move(changed)});
                 }
                 nextBaseline.InsertOrAssign(nid, Move(newEb));
             });
@@ -983,7 +993,7 @@ namespace foundation::net
         {
             if (!present.Contains(entry.key))
             {
-                entries.PushBack(Entry{entry.key, true, false, Guid{}, {}});
+                entries.PushBack(Entry{entry.key, true, false, Guid{}, 0, {}});
             }
         }
 
@@ -1008,6 +1018,7 @@ namespace foundation::net
             if (entry.spawn)
             {
                 WriteGuid(out, entry.prefab);
+                out.WriteVarU32(entry.owner);
             }
             out.WriteVarU32(static_cast<u32>(entry.comps.Size()));
             for (const CompRecord& comp : entry.comps)
