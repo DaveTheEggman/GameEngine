@@ -22,9 +22,9 @@
 /// resends simply never fire (acks flow; redundant but correct - the keep-v1-simple
 /// ruling).
 ///
-/// The BROWSER-side client socket (emscripten/websocket.h) is the follow-on half; this
-/// module is the native accept path plus everything both halves share (frame codec,
-/// handshake math), unit-tested on desktop where sockets work headless.
+/// The module holds both halves: the native accept path, the browser-side client socket
+/// (`WebSocketClientSocket`, emscripten/websocket.h, web builds only), and what they share
+/// (frame codec, handshake math), unit-tested on desktop where sockets work headless.
 
 module;
 #include "Core/Prelude.h"
