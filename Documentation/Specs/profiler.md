@@ -1,7 +1,8 @@
 # Profiler - CPU and GPU on one timeline, in the editor and in a capture file
 
-> STATUS: P0 (the capture store), P1 (GPU timings and statistics), P2 (the RHI's counters) and
-> P3 (the stream, capture files and `profiler_capture`) BUILT 2026-10-13; P4 onward to come. Decisions taken and revised the same day (below). Backlog entry it closes:
+> STATUS: P0 (the capture store), P1 (GPU timings and statistics), P2 (the RHI's counters), P3
+> (the stream, capture files and `profiler_capture`) and P4 (`Profiler.UI` and the overlay) BUILT
+> 2026-10-13; P5 (the editor's panel) to come. Decisions taken and revised the same day (below). Backlog entry it closes:
 > `Plans/backlog-0.1.md` (Seeded: GPU profiler + profiler visualization). Read CONVENTIONS.md first.
 
 ## What it is for
@@ -210,16 +211,31 @@ The two assemblies:
 
 - **The in-game overlay** (`ProfilerOverlay`, compact): `FrameTimeGraph`, `FrameStats`, a
   `TopList` for scopes and one for GPU passes, a `CounterStrip`, on a translucent rounded panel in
-  a corner. Off by default; F3 (a project setting may change it), `--profile-overlay` or a script
-  call turns it on, in any build the profiler is compiled into (all but Shipping), in the Game
-  tab and in exported players, the web included. Engine.UI pushes it topmost as a global screen
-  overlay (`UISubsystem::PushScreenOverlay`), so it draws in the UI's overlay pass after the
-  scene, survives scene changes, and needs nothing a player does not already carry.
-- **The editor's Profiler panel** (in the View menu, beside Console): `ProfilerToolbar`,
+  a corner. Whether an application has one, and what turns it on, is the application's decision
+  (user 2026-10-13): Engine.UI only offers the place to draw, its screen tier's global overlay
+  layer (`UISubsystem::PushScreenOverlay` / `RemoveScreenOverlay`), above every scene, surviving
+  scene changes. A `ProfilerOverlayHost` (Engine.DefaultApp) shows it there, arms the profiler
+  while it shows and refreshes it each frame. The default application owns one: off by default;
+  F3 toggles it, the player's `--profile-overlay` and the web player's `?profile-overlay` show it
+  from the start, in any build the profiler is compiled into (all but Shipping), exported players
+  and the web included. A script asks the app: `run.setProfilerOverlay(shown)` and
+  `run.profilerAvailable()`, bound in every build so a script compiles the same in Shipping,
+  where nothing shows and the profiler reads unavailable; an app that wires nothing leaves both
+  harmless. The editor embeds the default application, so Play in editor gets the same overlay
+  without a special case (user 2026-10-13); it shows the whole editor process, as the panel does.
+  Two viewers at once (a PIE game's overlay, the editor's panel) leave each other alone: arms are
+  counted, and reading the store's history is passive.
+- **The editor's Profiler panel** (a tab docked with the Console, in the View menu; user
+  2026-10-13: start and stop in its toolbar, the views embedded): `ProfilerToolbar`,
   `FrameTimeGraph` as the frame strip (click a frame, drag a range, Pause freezes), the
   `Timeline` of the selection with a `ScopeTable` beside it, `CounterStrip` lanes under it. It
-  shows the editor's own frames, a Play-in-editor game's (the Game tab runs in-process), or a
-  capture file opened from a player.
+  shows the editor process as a whole, and says so: every page, preview and Play-in-editor run
+  in one frame, never presented as one game's. A game's own numbers come from its player (the
+  overlay, or a capture from it opened in the panel). So it never disturbs another viewer: its
+  Pause freezes its own view, never the store; it does not change the store's history length
+  while anything watches (that clears the history), copying frames out instead when it wants
+  more; and it saves captures through the process's one recorder, saying so when a capture is
+  already running.
 
 A game can embed any piece itself (a debug menu of its own showing `FrameTimeGraph`), since they
 are ordinary views.
@@ -274,10 +290,14 @@ are ordinary views.
   the tool: the headless host runs no frames to capture.
 - **P4 `Profiler.UI` and the overlay**: the views `FrameTimeGraph`, `FrameStats`, `TopList`,
   `CounterStrip`, and the overlay assembled from them; off by default; F3, `--profile-overlay`, a
-  script call; Engine.UI pushes it as a global screen overlay; Game tab and players, web
-  included. Tests: each view measures and draws its numbers from a source holding a known history
-  (its VG batch holds the graph's points, the bars' lengths); the overlay is off unless turned on.
-  The user checks it by eye.
+  script call;
+  the application's `ProfilerOverlayHost` puts it on Engine.UI's global screen overlay layer;
+  players, web included. Tests: each view measures and draws its numbers from a source holding a
+  known history (its VG batch holds the graph's points, the bars' lengths); the overlay is off
+  unless turned on. The user checks it by eye. As built: each view computes a model from the
+  source (the graph's points, the rows), which the draw and the tests read; the CPU top list
+  ranks scopes by their own time, so an enclosing scope does not always lead. The script call is
+  `run.setProfilerOverlay` / `run.profilerAvailable`, which the default app wires to its host.
 - **P5 the Profiler panel**: the views `Timeline`, `ScopeTable`, `ProfilerToolbar`; the panel
   assembled from them with the P4 views; opening a capture; the user docs page. Tests: a
   `Timeline` lays out a known frame's lanes and nesting, zoom keeps the point under the pointer,

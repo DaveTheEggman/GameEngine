@@ -94,8 +94,9 @@
   and the spec-gloss style conversion for real specular maps. Test against Bistro v5.2 (FBX only)
   at `~/Downloads/Bistro_v5_2`.
 - **The profiler: CPU and GPU on one timeline, an overlay and a panel** (user 2026-08-26 and
-  2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0 to P3 (the store, GPU
-  timings, the device's counters, capture files and `profiler_capture`) built 2026-10-13
+  2026-10-13): in progress, `Specs/profiler.md` (phases P0 to P5); P0 to P4 (the store, GPU
+  timings, the device's counters, capture files and `profiler_capture`, the views and the
+  overlay) built 2026-10-13
   (week-2026-10-10).
 
 ## Other

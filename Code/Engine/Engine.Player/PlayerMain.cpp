@@ -16,7 +16,7 @@
 // both share PlayerApplication.h.
 //
 // Usage: Engine.Player <projectDir> [--scene <source-db-path>] [--exit-after <seconds>]
-//                      [--profile-capture <seconds>]
+//                      [--profile-capture <seconds>] [--profile-overlay]
 //                      [--data-root <dir>]  (engine data; default = the Data/.dataroot walk)
 //                      [--screenshot <png> [--screenshot-frame N | --screenshot-after S]
 //                       [--screenshot-count N] [--screenshot-exit]]

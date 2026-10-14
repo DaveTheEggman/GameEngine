@@ -124,6 +124,11 @@ namespace
         return 0;
     }();
 }
+// `?profile-overlay` in the page's address shows the profiler overlay from the start, as the
+// desktop player's --profile-overlay does (the browser has no argv); F3 toggles it either way.
+EM_JS(int, PageWantsProfilerOverlay, (), {
+    return new URLSearchParams(location.search).has("profile-overlay") ? 1 : 0;
+});
 EM_JS(int, UserDataPersistent, (), { return Module.userDataPersistent ? 1 : 0; });
 // The page's loading card (shell.html) stays up until the game runs; a page without one has
 // nothing to take down.
@@ -239,7 +244,10 @@ namespace
     class WebPlayerApplication final : public engine::player::PlayerApplication
     {
     public:
-        WebPlayerApplication() : PlayerApplication(MakeOptions()) {}
+        WebPlayerApplication() : PlayerApplication(MakeOptions())
+        {
+            SetProfilerOverlayAtStart(PageWantsProfilerOverlay() != 0);
+        }
 
         // The first update means the game is running: the page's loading card can go.
         void OnUpdate(foundation::runtime::IApplicationHost& host, f32 deltaTime) override

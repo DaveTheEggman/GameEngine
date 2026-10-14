@@ -22,6 +22,7 @@ module;
 
 export module engine.defaultapp;
 export import :screenshot; // ScreenshotCapture + the --screenshot flags
+export import :profiler_overlay; // ProfilerOverlayHost (F3, --profile-overlay)
 
 import foundation.core;
 import foundation.rhi;
@@ -196,7 +197,12 @@ export namespace engine::runtime
         /// The --screenshot flags (ScreenshotOptionsFromArguments): capture at frame N or after
         /// S seconds, optionally exit once written. OnCommandLine reads them for every app.
         void SetScreenshotOptions(ScreenshotOptions options) { m_screenshotOptions = core::Move(options); }
-        void OnCommandLine(int argc, char** argv) override;
+        void OnCommandLine(int argc, char** argv) override; // --screenshot ..., --profile-overlay
+        /// Show the profiler overlay once the UI is up (`--profile-overlay`; the web player's
+        /// `?profile-overlay`). F3 toggles it at any time.
+        void SetProfilerOverlayAtStart(bool shown) noexcept { m_profilerOverlayAtStart = shown; }
+        /// The overlay host, made on first use; it shows on this app's UI.
+        [[nodiscard]] ProfilerOverlayHost& ProfilerOverlay();
         /// Exit the host after this many seconds of updates (0 = never). The player's --exit-after.
         void SetExitAfterSeconds(core::f32 seconds) noexcept { m_exitAfterSeconds = seconds; }
 
@@ -355,6 +361,8 @@ export namespace engine::runtime
         core::u32 m_screenshotsTaken = 0; // of the --screenshot run (--screenshot-count frames, then done)
         bool m_screenshotExitPending = false;
         bool m_profilerArmedByKey = false; // the P key armed the profiler (for the rest of the run)
+        bool m_profilerOverlayAtStart = false; // --profile-overlay: the overlay shown from the start
+        core::UniquePtr<ProfilerOverlayHost> m_profilerOverlay; // made on first show (F3, --profile-overlay)
         core::f32 m_exitAfterSeconds = 0.0f;
         core::f32 m_runSeconds = 0.0f;
 
