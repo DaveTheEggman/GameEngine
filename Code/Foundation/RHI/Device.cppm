@@ -191,7 +191,7 @@ export namespace foundation::rhi
         /// The bytes one query of `type` takes in the buffer ResolveQuerySet writes: 8 for a
         /// timestamp or occlusion count, a backend's own record for pipeline statistics (0 when
         /// the device has none, Features::pipelineStatisticsQueries).
-        [[nodiscard]] virtual u32 QueryResultSize(QueryType type) const noexcept = 0;
+        [[nodiscard]] virtual u32 QueryResultSize(QueryType queryType) const noexcept = 0;
         /// One resolved pipeline-statistics query (QueryResultSize(PipelineStatistics) bytes at
         /// `result`) in the RHI's terms; all zero without the feature.
         [[nodiscard]] virtual PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept = 0;

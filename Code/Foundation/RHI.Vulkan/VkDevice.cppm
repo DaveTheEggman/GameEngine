@@ -404,9 +404,9 @@ export namespace foundation::rhi::vk
         // A statistics pool counts the RHI's six counters (VkQuerySet), written in bit order:
         // input vertices, input primitives, vertex invocations, clipping primitives, fragment
         // invocations, compute invocations.
-        u32 QueryResultSize(QueryType type) const noexcept override
+        u32 QueryResultSize(QueryType queryType) const noexcept override
         {
-            if (type == QueryType::PipelineStatistics)
+            if (queryType == QueryType::PipelineStatistics)
             {
                 return features.pipelineStatisticsQueries
                            ? VkQuerySetImpl::kPipelineStatisticsCounters * 8u

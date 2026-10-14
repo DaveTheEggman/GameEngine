@@ -127,9 +127,9 @@ export namespace foundation::rhi::webgpu
         bool MemoryBudget(u64&, u64&) const override { return false; }
 
         // No pipeline statistics on WebGPU: a statistics result takes no room and reads as zeros.
-        [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
+        [[nodiscard]] u32 QueryResultSize(QueryType queryType) const noexcept override
         {
-            return type == QueryType::PipelineStatistics ? 0u : 8u;
+            return queryType == QueryType::PipelineStatistics ? 0u : 8u;
         }
         [[nodiscard]] PipelineStatistics DecodePipelineStatistics(const void*) const noexcept override
         {

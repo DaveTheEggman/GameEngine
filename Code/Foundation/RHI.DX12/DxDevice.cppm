@@ -185,9 +185,9 @@ export namespace foundation::rhi::dx12
         [[nodiscard]] bool NeedsClipSpaceYFlip() const noexcept override { return false; }
 
         // A statistics query resolves to D3D12's own eleven-counter record.
-        [[nodiscard]] u32 QueryResultSize(QueryType type) const noexcept override
+        [[nodiscard]] u32 QueryResultSize(QueryType queryType) const noexcept override
         {
-            return type == QueryType::PipelineStatistics
+            return queryType == QueryType::PipelineStatistics
                        ? static_cast<u32>(sizeof(D3D12_QUERY_DATA_PIPELINE_STATISTICS))
                        : 8u;
         }

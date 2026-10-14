@@ -183,15 +183,15 @@ export namespace editor
         static constexpr f32 kStraightPitch = 1.5707963f; // straight down or up
         static constexpr f32 kLookPitch = 1.55f;          // the mouse-look limit
 
-        /// Frame a sphere in a view of vertical field of view `fovY` (radians): keep the view
+        /// Frame a sphere in a view of vertical field of view `viewFovY` (radians): keep the view
         /// direction, stand back far enough that the sphere fits with a margin, and put the orbit
         /// pivot on its centre, so Alt+drag orbits it afterwards. Eases there over glideSeconds
         /// when `ease` (Advance moves the glide on); any input that moves the camera stops the
         /// glide where it is. The scene view's frame-the-selection.
-        void FrameSphere(Float3 center, f32 radius, f32 fovY, bool ease = true)
+        void FrameSphere(Float3 center, f32 radius, f32 viewFovY, bool ease = true)
         {
             radius = Max(0.25f, radius);
-            const f32 distance = 1.1f * radius / Max(0.05f, Sin(0.5f * fovY));
+            const f32 distance = 1.1f * radius / Max(0.05f, Sin(0.5f * viewFovY));
             const Float3 target = center - Forward() * distance;
             if (!ease || glideSeconds <= 0.0f)
             {

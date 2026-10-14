@@ -77,9 +77,9 @@ export namespace foundation::rhi::validation
         {
             return m_inner->MemoryBudget(budgetBytes, usedBytes);
         }
-        u32 QueryResultSize(QueryType type) const noexcept override
+        u32 QueryResultSize(QueryType queryType) const noexcept override
         {
-            return m_inner->QueryResultSize(type);
+            return m_inner->QueryResultSize(queryType);
         }
         PipelineStatistics DecodePipelineStatistics(const void* result) const noexcept override
         {
