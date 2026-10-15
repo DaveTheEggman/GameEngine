@@ -442,6 +442,17 @@ export namespace foundation::render
 
         [[nodiscard]] static materials::PipelineConfig
         ConfigFor(const MeshRenderData& md, const RenderRecordContext& ctx, bool instanced);
+        // The same for one submesh slot's material: a slot draws with its own program (a custom
+        // shader on one slot, PBR on the rest), over the mesh's per-draw state (its fade).
+        [[nodiscard]] static materials::PipelineConfig ConfigFor(const MeshRenderData& md, const materials::Material* material,
+                                                          const RenderRecordContext& ctx, bool instanced);
+        // A submesh's pipeline: its slot material's when that differs from the mesh's and draws in
+        // the same pass (the same colour targets); else the mesh's `base`, skinning flags as given.
+        [[nodiscard]] static materials::PipelineConfig SlotConfigFor(const MeshRenderData& md,
+                                                              const materials::PipelineConfig& base,
+                                                              const materials::Material* slot,
+                                                              const RenderRecordContext& ctx, bool instanced,
+                                                              bool skinned);
 
         bool MakeLayout(const rhi::BindGroupLayoutEntry& entry, rhi::BindGroupLayout*& out);
 

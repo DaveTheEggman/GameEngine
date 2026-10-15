@@ -95,6 +95,12 @@
   read that slot as packed ORM (not the default: a true Phong specular map would turn to metal),
   and the spec-gloss style conversion for real specular maps. Test against Bistro v5.2 (FBX only)
   at `~/Downloads/Bistro_v5_2`.
+- **A slot's own depth and shadow program.** The forward pass draws each submesh with its slot's
+  material (2026-10-15), but the depth prepass, shadows and picking still draw a mesh (and an
+  instanced set) whole with its first material (`MeshRenderer::DepthLikeFor` over `md.material`):
+  a custom shader that moves its vertices or cuts out, on any slot but the first, casts and
+  occludes as if it did neither. Wanted: per-submesh depth draws where a slot's material has its
+  own depth program, wind, or a cutout.
 
 ### UI framework: gaps and bugs found by the UI survey (2026-10-14)
 

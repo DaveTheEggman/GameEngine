@@ -1294,7 +1294,8 @@ namespace foundation::render
             {
                 return;
             }
-            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            const materials::PipelineConfig own = SlotConfigFor(md, config, m, ctx, /*instanced*/ false, skinned);
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(own, plLayout, ctx.colorFormat);
             if (pso == nullptr)
             {
                 return;
@@ -1437,7 +1438,8 @@ namespace foundation::render
             {
                 return;
             }
-            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            const materials::PipelineConfig own = SlotConfigFor(head, config, m, ctx, /*instanced*/ true, skinned);
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(own, plLayout, ctx.colorFormat);
             if (pso == nullptr)
             {
                 return;
@@ -1779,7 +1781,8 @@ namespace foundation::render
             {
                 return;
             }
-            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(config, plLayout, ctx.colorFormat);
+            const materials::PipelineConfig own = SlotConfigFor(mm, config, m, ctx, /*instanced*/ true, skinned);
+            rhi::RenderPipeline* pso = m_psoCache->GetPipeline(own, plLayout, ctx.colorFormat);
             if (pso == nullptr)
             {
                 return;
@@ -2065,9 +2068,39 @@ namespace foundation::render
                                                       const RenderRecordContext& ctx,
                                                       bool instanced)
     {
+        return ConfigFor(md, md.material, ctx, instanced);
+    }
+
+    materials::PipelineConfig MeshRenderer::SlotConfigFor(const MeshRenderData& md,
+                                                          const materials::PipelineConfig& base,
+                                                          const materials::Material* slot,
+                                                          const RenderRecordContext& ctx, bool instanced,
+                                                          bool skinned)
+    {
+        if (slot == nullptr || slot == md.material)
+        {
+            return base;
+        }
+        materials::PipelineConfig config = ConfigFor(md, slot, ctx, instanced);
+        // A slot of another blend class (a transparent slot on an opaque mesh) belongs to another
+        // pass, whose targets this one does not have: it keeps the mesh's pipeline.
+        if (config.colorTargetCount != base.colorTargetCount)
+        {
+            return base;
+        }
+        if (skinned)
+        {
+            config.vertexLayout = materials::VertexLayoutType::SkinnedMesh;
+            config.shaderFlags |= shaders::ShaderFlags::Skinned;
+        }
+        return config;
+    }
+
+    materials::PipelineConfig MeshRenderer::ConfigFor(const MeshRenderData& md, const materials::Material* material,
+                                                      const RenderRecordContext& ctx, bool instanced)
+    {
         materials::PipelineConfig config =
-            (md.material != nullptr) ? md.material->pipeline
-                                     : materials::PipelineConfig::ForOpaqueMesh(u8"forward");
+            (material != nullptr) ? material->pipeline : materials::PipelineConfig::ForOpaqueMesh(u8"forward");
         config.depthFormat = ctx.depthFormat;
         // Scene-pass MSAA: the opaque pass records at the view's count (ctx set it), the
         // transparent pass at 1 - so the forward mesh PSO matches its pass's MSAA attachments. Shadow
@@ -2078,7 +2111,7 @@ namespace foundation::render
         {
             config.shaderFlags |= shaders::ShaderFlags::Instanced;
         }
-        if (MaterialWantsWind(md.material))
+        if (MaterialWantsWind(material))
         {
             config.shaderFlags |= shaders::ShaderFlags::Wind; // the material's Wind* lanes sway it
         }
