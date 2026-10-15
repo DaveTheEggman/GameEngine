@@ -31,6 +31,7 @@ import editor.mcp;        // ProjectSession + the operations the MCP host serves
 import :mcp_host;         // EditorMcpHost (per project, pumped per frame)
 import :mcp_operations;   // EditorProjectOperations (the host's cook / import / export)
 import :mcp_page_tools;   // the page tools the host adds over this application's pages
+import :mcp_layout_tools; // layout_get / panel_dock, over this application's dock
 import :mcp_window_tools; // editor_screenshot, over this application's windows
 import :window_capture;   // EditorWindowCapture (the tool, View > Screenshot, --screenshot)
 import :mcp_action_tools; // the action bridge, unattended

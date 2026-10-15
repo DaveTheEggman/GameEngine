@@ -1957,6 +1957,13 @@ export namespace foundation::ui::toolkit
             return static_cast<i32>(m_panels.Size());
         }
 
+        /// The registered panel at `index` (below RegisteredPanelCount), in registration order.
+        [[nodiscard]] DockablePanel* RegisteredPanelAt(i32 index) const
+        {
+            return (index >= 0 && index < static_cast<i32>(m_panels.Size())) ? m_panels[static_cast<usize>(index)].Get()
+                                                                           : nullptr;
+        }
+
         /// Finds a registered panel by its PersistenceId.
         [[nodiscard]] DockablePanel* FindPanelById(StringView persistenceId)
         {

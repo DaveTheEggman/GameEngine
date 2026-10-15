@@ -34,7 +34,7 @@ target_sources(Editor.App
         EditorProfilerToolsImpl.cpp
         EditorMcpHostImpl.cpp
         EditorProjectOperationsImpl.cpp
-        EditorPageToolsImpl.cpp EditorActionToolsImpl.cpp
+        EditorPageToolsImpl.cpp EditorActionToolsImpl.cpp EditorLayoutToolsImpl.cpp
     PUBLIC
         FILE_SET editorapp_modules TYPE CXX_MODULES FILES
             Layout.cppm
@@ -76,6 +76,7 @@ target_sources(Editor.App
             EditorMcpHost.cppm
             EditorProjectOperations.cppm
             EditorPageTools.cppm
+            EditorLayoutTools.cppm
             EditorActionTools.cppm
             AssetDragData.cppm
             ProjectPicture.cppm

@@ -2547,6 +2547,8 @@ namespace editor::app
             }
         };
         RegisterPageTools(m_mcpHost->Server(), Move(pageSeams));
+        // layout_get / panel_dock: the dock the tabs are dragged in.
+        RegisterLayoutTools(m_mcpHost->Server(), *m_shell.Docks());
         // editor_screenshot, over the same capture as View > Screenshot.
         WindowToolSeams windowSeams;
         windowSeams.windows = [this]() { return CapturableWindows(); };
