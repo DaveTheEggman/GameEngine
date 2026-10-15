@@ -219,6 +219,7 @@ export namespace engine::render
         // members. Runtime-only.
         Array<Float4x4> memberWorld;
         Array<u32> memberClips;
+        Array<Color> memberTints; // linear
         Array<Float4x4> drawTransforms;
         Array<u32> drawClips;
         Array<Color> drawTints;
@@ -544,12 +545,19 @@ export namespace engine::render
     {
         scene::EntityRef instancedMesh; // the entity whose InstancedMeshComponent draws it
         u32 clip = 0;                   // its clip in that mesh's pose pool
+        // Its own tint (sRGB, as entered), times the set's colour when the set authors no tints:
+        // the instance's colour, which a custom shader reads as its input colour (a glow, a mark).
+        Color tint = Color{1.0f, 1.0f, 1.0f, 1.0f};
     };
 
     inline void Serialize(ISerializer& ar, InstanceMemberComponent& c)
     {
         foundation::core::Serialize(ar, "instancedMesh", c.instancedMesh);
         foundation::core::Serialize(ar, "clip", c.clip);
+        if (ar.Mode() == SerializeMode::Write || ar.Version() >= 1) // a version 0 member is untinted
+        {
+            foundation::core::Serialize(ar, "tint", c.tint);
+        }
     }
 
     class InstanceMemberComponentManager final : public scene::SerializableComponentManager<InstanceMemberComponent>

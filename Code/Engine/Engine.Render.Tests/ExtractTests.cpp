@@ -20,6 +20,8 @@ import foundation.resource;
 import foundation.rhi;
 import foundation.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
 import foundation.texture.resource; // texture::Texture (the sky-texture product)
+import foundation.xml;               // XmlDocument (a version 0 member record)
+import foundation.xml.serialization; // XmlSerializer
 
 using namespace foundation::core;
 using namespace engine::render;
@@ -456,6 +458,80 @@ TEST_CASE("instanced-mesh: members draw after the authored instances, where they
     CHECK(rd3->instanceClips[0] == 2u);
     // Members are drawn, never authored: the set's own list stays empty for a save.
     CHECK(set.instances.IsEmpty());
+}
+
+// A member's tint: its instance's colour (decoded to linear), times the set's colour when the set
+// authors no tints; untinted members leave the set drawing with its one shared colour.
+TEST_CASE("instanced-mesh: a member draws with its own tint, times the set's colour")
+{
+    scene::Scene scene(DefaultAllocator(), u8"world");
+    auto* mgr = scene.AddSystem<InstancedMeshComponentManager>();
+    auto* members = scene.AddSystem<InstanceMemberComponentManager>();
+    RefPtr<geometry::StaticMesh> cube = geometry::Primitives::Cube(DefaultAllocator(), 1.0f);
+    const scene::EntityHandle crowd = scene.CreateEntity(u8"Guests");
+    InstancedMeshComponent& set = mgr->Add(crowd);
+    set.mesh = cube;
+    set.color = Color{0.5f, 1.0f, 1.0f, 1.0f};
+    const Float4x4 authored[1] = {Float4x4::Identity()};
+    set.SetInstances(Span<const Float4x4>{authored, 1});
+    const scene::EntityHandle a = scene.CreateEntity(u8"A");
+    members->Add(a).instancedMesh = scene.GetEntityId(crowd);
+    const scene::EntityHandle b = scene.CreateEntity(u8"B");
+    members->Add(b).instancedMesh = scene.GetEntityId(crowd);
+    scene.UpdateTransforms();
+    const auto extract = [&](ExtractedScene& out)
+    {
+        ExtractInstancedMeshesInto(scene, out);
+        REQUIRE(out.Items().Size() == 1u);
+        return static_cast<const MultiMeshRenderData*>(out.Items()[0]);
+    };
+
+    // Untinted: one shared colour, no per-instance list.
+    ExtractedScene plain{DefaultAllocator()};
+    CHECK(extract(plain)->tints == nullptr);
+
+    // B glows red: every instance gets a tint, the authored one and A the set's colour, B its red
+    // times it.
+    members->Get(b)->tint = Color{1.0f, 0.0f, 0.0f, 1.0f};
+    ExtractedScene glowing{DefaultAllocator()};
+    const MultiMeshRenderData* rd = extract(glowing);
+    REQUIRE(rd->instanceCount == 3u);
+    REQUIRE(rd->tints != nullptr);
+    const Color shared = ToLinear(set.color);
+    CHECK(NearlyEqual(rd->tints[0], shared, 1.0e-4f));
+    CHECK(NearlyEqual(rd->tints[1], shared, 1.0e-4f));
+    CHECK(NearlyEqual(rd->tints[2], Color{shared.r, 0.0f, 0.0f, 1.0f}, 1.0e-4f));
+
+    // With authored tints the set's colour steps aside: B is its own red, decoded.
+    set.tints.PushBack(Color{0.0f, 0.0f, 1.0f, 1.0f});
+    ++set.version;
+    members->Get(b)->tint = Color{0.5f, 0.0f, 0.0f, 1.0f};
+    ExtractedScene authoredTints{DefaultAllocator()};
+    rd = extract(authoredTints);
+    REQUIRE(rd->tints != nullptr);
+    CHECK(NearlyEqual(rd->tints[0], Color{0.0f, 0.0f, 1.0f, 1.0f}, 1.0e-4f));
+    CHECK(NearlyEqual(rd->tints[1], Color{1.0f, 1.0f, 1.0f, 1.0f}, 1.0e-4f));
+    CHECK(NearlyEqual(rd->tints[2], ToLinear(Color{0.5f, 0.0f, 0.0f, 1.0f}), 1.0e-4f));
+}
+
+TEST_CASE("instanced-mesh: a version 0 member record reads untinted")
+{
+    RegisterRenderComponentReflection();
+    const TypeInfo& type = TypeOf<InstanceMemberComponent>();
+    CHECK(type.dataVersion == 1u);
+    foundation::xml::XmlDocument doc(DefaultAllocator());
+    REQUIRE(doc.Parse(u8"<root><string name=\"instancedMesh\">ae819bca-060e-50be-8a37-e04da2a14d92</string>"
+                      u8"<u32 name=\"clip\">2</u32></root>") == foundation::xml::XmlResult::Ok);
+    foundation::xml::XmlSerializer reader(doc);
+    const SerializedDataVersion chain[] = {{type.id, 0}};
+    reader.PushVersionScope(chain, 1);
+    InstanceMemberComponent member;
+    member.tint = Color{0.2f, 0.2f, 0.2f, 1.0f};
+    Serialize(reader, member);
+    reader.PopVersionScope();
+    CHECK(reader.IsOk()); // no tint asked of a version 0 record
+    CHECK(member.clip == 2u);
+    CHECK(NearlyEqual(member.tint, Color{0.2f, 0.2f, 0.2f, 1.0f}, 1.0e-6f)); // left as it was: white for a new one
 }
 
 TEST_CASE("extract: authored (sRGB) colours reach render data decoded to linear")

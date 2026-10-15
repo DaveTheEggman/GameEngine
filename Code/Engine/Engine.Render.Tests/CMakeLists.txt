@@ -10,7 +10,8 @@ add_executable(Engine.Render.Tests
 
 target_link_libraries(Engine.Render.Tests PRIVATE
     Engine::Render Foundation::Geometry.Resource Foundation::Materials.Resource Foundation::Scene.Resource
-    Foundation::Resource Foundation::VFS Foundation::Content Foundation::RHI.Null doctest::doctest)
+    Foundation::Resource Foundation::VFS Foundation::Content Foundation::RHI.Null Foundation::Xml
+    Foundation::Xml.Serialization doctest::doctest)
 
 target_compile_definitions(Engine.Render.Tests PRIVATE
     DOCTEST_CONFIG_NO_EXCEPTIONS_BUT_WITH_ALL_ASSERTS)

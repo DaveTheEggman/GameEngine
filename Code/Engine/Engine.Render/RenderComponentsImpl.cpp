@@ -140,7 +140,11 @@ namespace engine::render
             .PropAttribute("description", String(u8"The entity whose instanced mesh draws this one"))
             .Property<&InstanceMemberComponent::clip>("clip")
             .PropAttribute("description",
-                           String(u8"Its clip: the index in the instanced skinning's clip list"));
+                           String(u8"Its clip: the index in the instanced skinning's clip list"))
+            .Property<&InstanceMemberComponent::tint>("tint")
+            .PropAttribute("description",
+                           String(u8"Its own tint, times the set's colour: the colour a custom shader reads"))
+            .DataVersion(1); // v1: tint
     }
 
     REFLECT_VALUE(CameraComponent, "rtti::engine::render")

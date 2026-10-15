@@ -222,6 +222,7 @@ namespace engine::render
             {
                 c.memberWorld.Clear();
                 c.memberClips.Clear();
+                c.memberTints.Clear();
             });
         if (auto* members = scene.GetSystem<InstanceMemberComponentManager>())
         {
@@ -240,6 +241,7 @@ namespace engine::render
                     }
                     set->memberWorld.PushBack(scene.GetWorldMatrix(e));
                     set->memberClips.PushBack(m.clip);
+                    set->memberTints.PushBack(ToLinear(m.tint));
                 });
         }
         mgr->ForEach(
@@ -322,20 +324,29 @@ namespace engine::render
                 rd->key = PackEntity(e);
                 rd->transforms = drawn.Data(); // borrowed for the frame (immutable snapshot)
                 const bool tinted = !c.linearTints.IsEmpty() && c.linearTints.Size() == c.instances.Size();
-                if (tinted && hasMembers)
+                bool memberTinted = false;
+                for (const Color& tint : c.memberTints)
                 {
-                    // The authored tints, then members untinted.
+                    memberTinted = memberTinted || tint.r != 1.0f || tint.g != 1.0f || tint.b != 1.0f || tint.a != 1.0f;
+                }
+                const bool perInstance = tinted || memberTinted;
+                if (perInstance && hasMembers)
+                {
+                    // The authored tints (or the set's colour for each), then each member's tint,
+                    // times the set's colour where the set authors none.
+                    const Color shared = ToLinear(c.color);
                     c.drawTints.Clear();
-                    for (const Color& tint : c.linearTints)
+                    for (usize i = 0; i < c.instances.Size(); ++i)
                     {
-                        c.drawTints.PushBack(tint);
+                        c.drawTints.PushBack(tinted ? c.linearTints[i] : shared);
                     }
-                    for (usize i = 0; i < c.memberWorld.Size(); ++i)
+                    const Color base = tinted ? Color{1.0f, 1.0f, 1.0f, 1.0f} : shared;
+                    for (const Color& tint : c.memberTints)
                     {
-                        c.drawTints.PushBack(Color{1.0f, 1.0f, 1.0f, 1.0f});
+                        c.drawTints.PushBack(Color{tint.r * base.r, tint.g * base.g, tint.b * base.b, tint.a * base.a});
                     }
                 }
-                rd->tints = tinted ? (hasMembers ? c.drawTints.Data() : c.linearTints.Data()) : nullptr;
+                rd->tints = perInstance ? (hasMembers ? c.drawTints.Data() : c.linearTints.Data()) : nullptr;
                 rd->instanceCount = drawnCount;
                 rd->version = c.composedVersion;
                 rd->mesh = c.mesh.Get();
