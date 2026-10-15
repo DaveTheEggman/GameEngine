@@ -1264,6 +1264,40 @@ namespace editor
         RefreshResolutionChoices(true);
     }
 
+    Span<const GameResolutionChoice> GameEditorPage::ResolutionChoices()
+    {
+        RefreshResolutionChoices(false);
+        return Span<const GameResolutionChoice>(m_resolutionChoices.Data(), m_resolutionChoices.Size());
+    }
+
+    bool GameEditorPage::SelectResolution(StringView key)
+    {
+        RefreshResolutionChoices(false);
+        for (usize i = 0; i < m_resolutionChoices.Size(); ++i)
+        {
+            if (m_resolutionChoices[i].key.AsView() == key)
+            {
+                m_resolutionRebuilding = true; // the dropdown shows it; its handler stays out
+                m_resolutionCombo->SetSelectedIndex(static_cast<i32>(i));
+                m_resolutionRebuilding = false;
+                m_resolutionKey = m_resolutionChoices[i].key;
+                SaveResolutionKey();
+                ApplyResolution();
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void GameEditorPage::SelectPhonePreview(bool on)
+    {
+        m_resolutionRebuilding = true; // the toggle shows it; its handler stays out
+        m_phoneToggle->SetIsChecked(on);
+        m_resolutionRebuilding = false;
+        SetPhonePreview(on);
+        SaveResolutionKey();
+    }
+
     void GameEditorPage::SetPhonePreview(bool on)
     {
         m_phonePreview = on;

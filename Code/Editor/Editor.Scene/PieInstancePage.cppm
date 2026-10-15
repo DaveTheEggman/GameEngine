@@ -4,8 +4,8 @@
 //
 // IPieInstancePage: what one play-in-editor instance, a Game tab, lets the PIE tools act through:
 // its id, its run's start and stop, the state of the run, a capture of what it renders, the scene
-// and game script it runs, and a scripted input timeline in place of the viewport's (P4). The
-// Game page publishes it (EditorPage::Service<IPieInstancePage>).
+// and game script it runs, a scripted input timeline in place of the viewport's (P4), and the
+// resolution it draws at. The Game page publishes it (EditorPage::Service<IPieInstancePage>).
 module;
 #include "Core/Prelude.h"
 
@@ -16,6 +16,7 @@ import foundation.input;
 import foundation.scene;
 import editor.core;
 import :scene_page_interface; // ViewportCapture
+import :game_resolution;      // GameResolutionChoice
 
 using namespace foundation::core;
 
@@ -79,6 +80,19 @@ export namespace editor
         virtual void EndScriptedInput() = 0;
         /// A script is installed (until the viewport's input is back).
         [[nodiscard]] virtual bool IsScripted() const noexcept = 0;
+
+        /// The resolutions the tab's dropdown offers, in its order, fresh (an export preset or a
+        /// preview resolution added since shows).
+        [[nodiscard]] virtual Span<const GameResolutionChoice> ResolutionChoices() = 0;
+        /// The chosen one's key.
+        [[nodiscard]] virtual StringView ResolutionKey() const noexcept = 0;
+        /// Chooses the entry with this key as the dropdown does: shown there, kept for the
+        /// project, applied at once. False when no entry has it.
+        virtual bool SelectResolution(StringView key) = 0;
+        /// The tab previews a phone held upright (its Phone toggle).
+        [[nodiscard]] virtual bool PhonePreview() const noexcept = 0;
+        /// Sets the Phone toggle as a click does: shown, kept for the project, applied at once.
+        virtual void SelectPhonePreview(bool on) = 0;
 
     protected:
         ~IPieInstancePage() = default;

@@ -448,6 +448,11 @@ export namespace editor
         {
             return m_scripted.Get() != nullptr;
         }
+        [[nodiscard]] Span<const GameResolutionChoice> ResolutionChoices() override;
+        [[nodiscard]] StringView ResolutionKey() const noexcept override { return m_resolutionKey.AsView(); }
+        bool SelectResolution(StringView key) override;
+        [[nodiscard]] bool PhonePreview() const noexcept override { return m_phonePreview; }
+        void SelectPhonePreview(bool on) override;
 
         // Bind (and re-bind after dock/float moves) the viewport to the window hosting it -
         // the same RendererFor dance as ScenePage. Without this the viewport never gets a

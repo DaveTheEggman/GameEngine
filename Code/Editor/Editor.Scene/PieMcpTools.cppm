@@ -3,8 +3,8 @@
 // Editor::Scene - :pie_tools partition (agent-playtesting-and-asset-creation.md P3).
 //
 // The play-in-editor tools the editor's MCP host serves through the scene editor's tool
-// contribution: pie_start, pie_stop, pie_state, pie_list, pie_screenshot and pie_run (the
-// playtest, PieRunToolImpl.cpp). PIE is not one game:
+// contribution: pie_start, pie_stop, pie_state, pie_list, pie_resolution, pie_screenshot and
+// pie_run (the playtest, PieRunToolImpl.cpp). PIE is not one game:
 // every Game tab runs its own instance, so every call addresses ONE by its `pie` id (`game-page`
 // for the primary, `game-page-1`, ... for Play New Instance's), defaulting to the primary, and
 // every answer names the instance it is about. A tab is reached through the interface it
@@ -25,7 +25,7 @@ using namespace foundation::core;
 export namespace editor
 {
     /// The number of tools RegisterPieTools registers; a tripwire like kSceneLiveToolCount.
-    inline constexpr usize kPieToolCount = 6;
+    inline constexpr usize kPieToolCount = 7;
     /// The primary Game tab's PIE id.
     inline constexpr StringView kPrimaryPieId = u8"game-page";
 

@@ -96,6 +96,28 @@ namespace
         }
         [[nodiscard]] bool IsScripted() const noexcept override { return scripted.Get() != nullptr; }
 
+        // The dropdown: the project's, two preview resolutions and the panel's, the project's
+        // chosen.
+        [[nodiscard]] Span<const GameResolutionChoice> ResolutionChoices() override
+        {
+            return Span<const GameResolutionChoice>(resolutions.Data(), resolutions.Size());
+        }
+        [[nodiscard]] StringView ResolutionKey() const noexcept override { return resolutionKey.AsView(); }
+        bool SelectResolution(StringView key) override
+        {
+            for (const GameResolutionChoice& choice : resolutions)
+            {
+                if (choice.key.AsView() == key)
+                {
+                    resolutionKey = choice.key;
+                    return true;
+                }
+            }
+            return false;
+        }
+        [[nodiscard]] bool PhonePreview() const noexcept override { return phone; }
+        void SelectPhonePreview(bool on) override { phone = on; }
+
         /// One rendered frame of the run: the clock, then the page's advance of the script (an
         /// ended script goes, as the page's release frame then restore do).
         void Frame(f64 dt)
@@ -145,6 +167,17 @@ namespace
         String fault;
         ViewportCapture capture;
         u32 captureRequests = 0;
+        Array<GameResolutionChoice> resolutions = []()
+        {
+            Array<GameResolutionChoice> out;
+            out.PushBack(GameResolutionChoice{String(u8"project"), String(u8"Project 1920x1080"), 1920, 1080});
+            out.PushBack(GameResolutionChoice{String(u8"preset:HD"), String(u8"HD 1280x720"), 1280, 720});
+            out.PushBack(GameResolutionChoice{String(u8"preset:Steam Deck"), String(u8"Steam Deck 1280x800"), 1280, 800});
+            out.PushBack(GameResolutionChoice{String(u8"panel"), String(u8"Fit to panel"), 0, 0});
+            return out;
+        }();
+        String resolutionKey{u8"project"};
+        bool phone = false;
 
     private:
         String m_pieId;
@@ -745,4 +778,49 @@ TEST_CASE("pie-tools: a second run is refused, and an abandoned run hands the in
     CHECK_FALSE(Pump(rig.server, 3, u8"pie_run", args).finished);
     CHECK(host->scriptsBegun == 2u);
     rig.server.AbandonCall(3);
+}
+
+TEST_CASE("pie-tools: pie_resolution reads the tab's choice and chooses by key, label or size")
+{
+    PlayRig rig;
+    HeadlessGamePage* host = rig.Open(u8"game-page");
+    HeadlessGamePage* client = rig.Open(u8"game-page-1");
+
+    // Read: the chosen entry, the toggle, and every entry the dropdown offers.
+    Answer got = Pump(rig.server, u8"pie_resolution", u8"{}");
+    REQUIRE(got.ok);
+    CHECK(got.payload.Get(u8"pie").AsString() == u8"game-page");
+    CHECK(got.payload.Get(u8"resolution").Get(u8"key").AsString() == u8"project");
+    CHECK(got.payload.Get(u8"resolution").Get(u8"width").AsNumber() == 1920.0);
+    CHECK_FALSE(got.payload.Get(u8"phone").AsBool());
+    CHECK(got.payload.Get(u8"choices").Count() == 4);
+
+    // By size: the first entry of that size, on the tab asked for only.
+    got = Pump(rig.server, u8"pie_resolution", u8"{\"pie\":\"game-page-1\",\"resolution\":\"1280x720\"}");
+    REQUIRE(got.ok);
+    CHECK(client->resolutionKey == u8"preset:HD");
+    CHECK(host->resolutionKey == u8"project");
+    CHECK(got.payload.Get(u8"resolution").Get(u8"label").AsString() == u8"HD 1280x720");
+
+    // By label, in any case, with the phone toggle.
+    got = Pump(rig.server, u8"pie_resolution",
+               u8"{\"pie\":\"game-page-1\",\"resolution\":\"steam deck 1280x800\",\"phone\":true}");
+    REQUIRE(got.ok);
+    CHECK(client->resolutionKey == u8"preset:Steam Deck");
+    CHECK(client->phone);
+    CHECK(got.payload.Get(u8"phone").AsBool());
+
+    // By key; the toggle stays as it was when not asked.
+    got = Pump(rig.server, u8"pie_resolution", u8"{\"pie\":\"game-page-1\",\"resolution\":\"panel\"}");
+    REQUIRE(got.ok);
+    CHECK(client->resolutionKey == u8"panel");
+    CHECK(client->phone);
+    CHECK(got.payload.Get(u8"resolution").Get(u8"width").AsNumber() == 0.0);
+
+    // Nothing of that name: an error naming what there is; the choice stands.
+    got = Pump(rig.server, u8"pie_resolution", u8"{\"pie\":\"game-page-1\",\"resolution\":\"640x480\"}");
+    REQUIRE(got.finished);
+    CHECK_FALSE(got.ok);
+    CHECK(got.error.AsView().ContainsIgnoreCase(u8"preset:HD"));
+    CHECK(client->resolutionKey == u8"panel");
 }

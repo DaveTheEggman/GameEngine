@@ -23,6 +23,38 @@ namespace editor
     {
         constexpr StringView kPieArgument = u8"the PIE instance's id, as pie_list reports it "
                                             u8"(default: the primary, `game-page`)";
+
+        /// The entry an agent asks for (pie_resolution): by its key ("preset:HD"), by its label as
+        /// the dropdown shows it, in any case ("hd 1280x720"), or by a size ("1280x720", the first
+        /// entry of that size). Empty when none matches. Kept here, not inline in :game_resolution:
+        /// GCC 15 then fails to read the partition's importers back ("Bad file data").
+        [[nodiscard]] Optional<usize> MatchGameResolution(Span<const GameResolutionChoice> choices, StringView asked)
+        {
+            for (usize i = 0; i < choices.Size(); ++i)
+            {
+                if (choices[i].key.AsView() == asked)
+                {
+                    return i;
+                }
+            }
+            for (usize i = 0; i < choices.Size(); ++i)
+            {
+                const StringView label = choices[i].label.AsView();
+                if (label.Size() == asked.Size() && label.ContainsIgnoreCase(asked))
+                {
+                    return i;
+                }
+            }
+            for (usize i = 0; i < choices.Size(); ++i)
+            {
+                if (choices[i].width > 0 && Format(u8"{}x{}", choices[i].width, choices[i].height).AsView() == asked)
+                {
+                    return i;
+                }
+            }
+            return {};
+        }
+
         /// Frames: five minutes at 60 Hz, the cook Play waits on included, then pie_start gives
         /// up.
         constexpr u32 kStartPumpLimit = 18000;
@@ -429,6 +461,81 @@ namespace editor
                 JsonValue out = JsonValue::MakeObject();
                 out.Set(u8"count", JsonValue::MakeNumber(static_cast<f64>(items.Count())));
                 out.Set(u8"instances", Move(items));
+                return out;
+            });
+
+        server.RegisterTool(
+            u8"pie_resolution",
+            u8"The resolution one Game tab draws the game at, as its dropdown sets it, and its "
+            u8"Phone toggle (a phone held upright). Without `resolution` or `phone`, reads them. "
+            u8"`resolution` chooses an entry by its key (`project`, `export:<preset>`, "
+            u8"`preset:<name>`, `panel`), its label as the dropdown shows it (any case), or a size "
+            u8"(`1280x720`, the first entry of that size); `phone` sets the toggle. A choice is the "
+            u8"dropdown's own: shown there, kept for the project (every Game tab opens at it), "
+            u8"applied at once, running or not. Returns {pie, resolution, phone, choices}, each "
+            u8"entry {key, label, width, height} (0 x 0: the panel's size). An entry that matches "
+            u8"nothing is an error listing the choices.",
+            SchemaBuilder()
+                .Str(u8"pie", kPieArgument)
+                .Str(u8"resolution", u8"the entry to choose: a key, a label or a size like 1280x720")
+                .Boolean(u8"phone", u8"preview a phone held upright (the Phone toggle)")
+                .Build(),
+            ToolAnnotations::Adjusts(),
+            [ctx](const JsonValue& args) -> ToolOutcome
+            {
+                Result<EditorPage*, String> resolved = ResolvePie(*ctx, args);
+                if (!resolved.HasValue())
+                {
+                    return Err(Move(resolved.Error()));
+                }
+                IPieInstancePage& pie = *PieOf(resolved.Value());
+                const auto entry = [](const GameResolutionChoice& choice)
+                {
+                    JsonValue out = JsonValue::MakeObject();
+                    out.Set(u8"key", JsonValue::MakeString(choice.key));
+                    out.Set(u8"label", JsonValue::MakeString(choice.label));
+                    out.Set(u8"width", JsonValue::MakeNumber(static_cast<f64>(choice.width)));
+                    out.Set(u8"height", JsonValue::MakeNumber(static_cast<f64>(choice.height)));
+                    return out;
+                };
+                const auto listing = [&](Span<const GameResolutionChoice> choices)
+                {
+                    JsonValue items = JsonValue::MakeArray();
+                    for (const GameResolutionChoice& choice : choices)
+                    {
+                        items.Add(entry(choice));
+                    }
+                    return items;
+                };
+                const String asked = args.Get(u8"resolution").AsString();
+                if (!asked.IsEmpty())
+                {
+                    const Span<const GameResolutionChoice> choices = pie.ResolutionChoices();
+                    const Optional<usize> match = MatchGameResolution(choices, asked.AsView());
+                    if (!match.HasValue())
+                    {
+                        String known;
+                        for (const GameResolutionChoice& choice : choices)
+                        {
+                            known += Format(u8"{}{} ({})", known.IsEmpty() ? u8"" : u8", ", choice.key.AsView(),
+                                            choice.label.AsView())
+                                         .AsView();
+                        }
+                        return Err(Format(u8"no resolution '{}' in {}'s dropdown; it offers: {}", asked.AsView(),
+                                          pie.PieId(), known.AsView()));
+                    }
+                    (void)pie.SelectResolution(choices[match.Value()].key.AsView());
+                }
+                if (args.Get(u8"phone").IsBool())
+                {
+                    pie.SelectPhonePreview(args.Get(u8"phone").AsBool());
+                }
+                const Span<const GameResolutionChoice> choices = pie.ResolutionChoices();
+                JsonValue out = JsonValue::MakeObject();
+                out.Set(u8"pie", JsonValue::MakeString(String(pie.PieId())));
+                out.Set(u8"resolution", entry(choices[FindGameResolution(choices, pie.ResolutionKey())]));
+                out.Set(u8"phone", JsonValue::MakeBool(pie.PhonePreview()));
+                out.Set(u8"choices", listing(choices));
                 return out;
             });
 
