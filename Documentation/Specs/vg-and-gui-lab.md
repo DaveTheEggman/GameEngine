@@ -99,7 +99,14 @@ phases and gotchas hold; F1 to F3 are its P0 to P2, re-cut.
   dropped; both script backends set runs.
 - **F3 Real shaping.** `Fonts.HarfBuzz` behind the factory, `ITextShaper` widened to a script, a
   language, a direction and a font list, with itemization and fallback inside the shaper; then the
-  bidi algorithm for mixed-direction paragraphs. Its licence is checked, and its text kept beside
+  bidi algorithm for mixed-direction paragraphs. HarfBuzz is not hard-coded anywhere (user
+  2026-10-15): it is one implementation of our shaper interface, and the interface evolves to
+  carry what shaping needs (script, language, direction, a font list, OpenType features, clusters
+  and offsets back) in our own types, designed from what text layout asks rather than from
+  HarfBuzz's API. No HarfBuzz type or header crosses it; the stb shaper implements the widened
+  interface too and stays a first-class backend (the headless and the minimal builds, and the
+  baseline the tests compare against), and another shaper could replace HarfBuzz without touching
+  a consumer. Its licence is checked, and its text kept beside
   it, when it is added. Tests (that spec's): Arabic joins and its glyph count differs from its
   codepoints; an `fi` ligature is one glyph over a shared cluster; an RTL paragraph with embedded
   Latin lays out and hit tests; the stb backend still passes F1's suite. The atlas question that
