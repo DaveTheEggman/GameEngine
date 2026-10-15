@@ -22,6 +22,14 @@ carry RTTI, no reflected properties). It becomes the lab: where the CSS-shaped m
 animation, and a UI that is scriptable from the core are proven, then moved into `foundation.ui`
 a piece at a time.
 
+## References
+
+GPUI, Zed's UI framework, and its community fork GPUI-CE were surveyed on 2026-10-15 (clones at
+`~/Dev/CPP/zed`, `crates/gpui*`, and `~/Dev/CPP/gpui-ce`). Their GPUI crates are Apache-2.0: code and
+shaders may be adapted with the licence text kept beside them and the attribution credited (two
+snippets inside carry MIT notices of their own). Zed's component crate (`crates/ui`) is
+GPL-3.0-or-later, a design reference only. Where a phase below names GPUI, that is what it takes.
+
 ## Part 1: VG
 
 Facts first (read 2026-10-14): VG's fills already include multi-stop linear, radial and conic
@@ -41,16 +49,26 @@ with a 0.75 px fringe (`VG/Tessellation.cppm`).
   composites it once, so a group fades as one (no children showing through each other, no
   double-blended cross-fades). Then filters on a layer (blur, desaturate, a colour matrix) and a
   backdrop filter (blur what is behind a panel). Tests: a group of overlapping shapes at 50%
-  opacity probed for single blending; a blur's falloff.
+  opacity probed for single blending; a blur's falloff. GPUI-CE has these (offscreen isolation for
+  group opacity, `filter: blur` and `backdrop-filter: blur` as a half-size downsample and a separable
+  Gaussian); its offscreen target is the whole viewport, so ours sizes a layer to its bounds, for
+  the web build's budget.
 - **V4 An analytic box.** A rounded box with border and shadow drawn as one signed-distance
   primitive (fill, border and shadow from one coverage function), so the three cannot disagree, a
   thin border has no halo, and small radii are exact; multiple shadows and per-side borders follow
   from it. The tessellated path stays for arbitrary paths. Tests: pixel probes against the
-  tessellated result; a border with no outer halo.
+  tessellated result; a border with no outer halo. Starting point: GPUI's quad and shadow shaders
+  (`zed/crates/gpui_wgpu/src/shaders.wgsl`): per-corner radii, per-side borders whose inner edge is
+  a quarter ellipse where neighbouring widths differ, dashed borders, a half-pixel coverage ramp, no
+  fringe on a side of zero width, and the analytic rounded-box shadow (an erf blur), inset shadows
+  too; adapted under its licence. GPUI draws fill, border and shadow as separate primitives over
+  the same snapped bounds; ours keeps them one coverage function where it can.
 - **V5 Device pixels under scaling.** A scaled canvas (a game UI at a reference resolution) lays out
   at its real scale, as DPI does, so edges land on device pixels; strokes of odd device width snap
   their centres. (This touches `foundation.ui`'s canvas scaler as well as VG.) Tests: a 2 px border
-  at 0.48 scale lands on whole device pixels.
+  at 0.48 scale lands on whole device pixels. GPUI's rules are the model: lengths rounded before
+  layout, edges rounded in absolute device space after it, a stroke never thinner than one device
+  pixel, and a clip that covers whole pixels rather than cutting them.
 
 Each phase lands with its tests and is used by `foundation.ui` where it applies (its shadow radius
 bug and its unused `opacity` are fixed alongside, from the backlog).
@@ -63,6 +81,19 @@ bug and its unused `opacity` are fixed alongside, from the backlog).
   add classes, listen to events, from either language. Markup, sheets, scripts and an inspector all
   read the same reflected table. Tests: both backends build a small tree, style it and receive a
   click.
+  **Handles** (user question 2026-10-14, GPUI's model): the tree owns its elements; what a script or
+  a callback holds is a weak handle, a slot index and a generation into the GUI's element table,
+  resolved on every access. A destroyed element's handle reads as invalid (`isValid()` false) and
+  any other use of it is the script error a removed component's handle raises ("the object is
+  gone"), never a silent no-op: one rule for entities, components and UI. A callback a widget holds
+  captures the script object weakly, so a script and its widgets never keep each other alive.
+  Destroying an element from a script is queued to the end of the UI's update, so nothing is freed
+  under a running handler. Creation names its place (`parent.add(...)`), since a detached element
+  would have no owner. GPUI does the same with `Entity<T>` and `WeakEntity<T>` over a slot map of
+  counts (`zed/crates/gpui/src/app/entity_map.rs`), deferring releases to its effect flush; unlike
+  GPUI, a stale use here is an error, not ignored. Tests: a handle to a destroyed element is invalid
+  and its use is a script error in both backends; a slot reused by a new element does not answer
+  to the old handle; a destroy inside a click handler completes after it.
 - **G2 The applier catches up with the parser.** `box-shadow` (several), `transform` (translate,
   rotate, scale, skew, with an origin), gradients from sheets with angles and stops, per-side
   borders, `var()` everywhere. Tests per property.
@@ -101,6 +132,16 @@ bug and its unused `opacity` are fixed alongside, from the backlog).
     routed by focus (the innermost scope wins), and fillable from the game's input map (Back is
     Escape and the East button). Once proven, `foundation.ui`'s `ICommand` and `ShortcutManager`,
     and perhaps the editor's action registry, converge on it.
+  - **Dispatch, after GPUI** (`zed/crates/gpui/src/key_dispatch.rs`, `keymap.rs`,
+    `keymap/context.rs`): a command runs through the focus path, capture then bubble, a bubbling
+    handler stopping it unless it says otherwise; a command is available (enabled, its controls
+    lit) when a handler for it is on the focus path, so moving focus greys and lights the right
+    menu items with no bookkeeping; each scope may declare a context, and a binding names the
+    contexts it applies in with a small predicate (`&&`, `||`, `!`, `==`), the deepest matching
+    context winning and then the later binding; a binding to nothing unbinds a key; multi-key
+    chords; the focus ring shows only after keyboard or gamepad input. GPUI has no directional or
+    gamepad navigation, no focus scopes or focus memory, and no label, icon or checked state on an
+    action; those stay as specified above.
   Tests: the picker over grid and irregular layouts, overrides and scopes (wrap, contain, focus
   memory), repeat timing, and a command's state reaching a button, a menu item and a binding.
 
@@ -117,3 +158,6 @@ then; likely the CSS front end and the motion first, the reflected object model 
 - V3: the offscreen pool's budget on the web build.
 - G1: whether the lab's widgets become `Object`s with reflected properties directly, or are
   described to the binding by a reflected facade; to decide in G1's first layer.
+- G1: whether `foundation.ui`'s script handles, which own their views today (a stale one is a quiet
+  no-op), move to the lab's weak handles when lab features move over: one rule everywhere, but a
+  change for existing scripts (a stale handle becomes an error).
