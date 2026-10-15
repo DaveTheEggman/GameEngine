@@ -271,3 +271,12 @@ TEST_CASE("sample project: Shader Gallery reads, cooks and its overrides match")
     // map; the overrides are the camera's starting yaw and pitch
     CheckSampleProject(u8"ShaderGallery", u8"scratch_shadergallery_versions", {50u, 45.0, 2u});
 }
+
+TEST_CASE("sample project: Masquerade reads, cooks and its overrides match")
+{
+    // 3 maps and 3 hunter prefabs, 6 rigged costumes with their clips and materials (the masks and
+    // fabrics on 2 custom shaders), the palace, canal and garden kits, 3 navigation zones, 6
+    // scripts, 4 UI documents, 10 generated sounds and music, the profiles and the input map; the
+    // overrides are the guests', bots', player's, camera's and Ball's settings and references
+    CheckSampleProject(u8"Masquerade", u8"scratch_masquerade_versions", {338u, 293.0, 957u});
+}
