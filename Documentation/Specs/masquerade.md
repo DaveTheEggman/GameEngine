@@ -3,7 +3,7 @@
 > STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
 > (the crowd's engine features) and P3 (the ball, solo: three maps, the round, bots) BUILT
 > 2026-10-14; P4 (the ball over the network) built and played in two Game tabs 2026-10-14, two
-> machines and a browser to try. Agreed (user 2026-10-14): the masked
+> machines and a browser to try; P5 (the look and sound) designed 2026-10-15. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -184,6 +184,28 @@ From a survey of the code (2026-10-14):
     results give way to it when the Ball's replicated end clears.
 - **P5 The look and sound**: custom shaders for the masks (a sheen that shifts with the view),
   the silk, and the reveal; lantern light, the orchestra and its cues, the UI.
+  Design (2026-10-15, from a survey of the engine): the night look (lanterns, bloom, exposure) and
+  the flare's light are in place from P3; what P5 adds:
+  - **Engine: a shader per submesh.** A mesh with several material slots builds every slot's
+    pipeline from the first slot's material (`MeshRenderer::ResolveSingle` and `ResolveMultiMesh`,
+    and the instanced depth pass), so a custom shader on a mask slot would draw with the body's
+    program. Each submesh takes its own material's pipeline, forward, depth and shadow.
+  - **Engine: a tint per crowd member.** An instance member draws untinted, and nothing per instance
+    reaches a script; `InstanceMemberComponent.tint`, scriptable, feeds the instance's tint, which a
+    surface shader reads as `input.color`. The reveal uses it: a flaring hunter's mask glows on
+    every peer, as the flare bit already replicates.
+  - **The masks**: one surface shader for every costume's mask material, a metallic sheen whose
+    colour shifts with the angle to the eye (a fresnel over a thin-film hue), so the crowd glints
+    as the camera moves; the member's tint, when lit, adds a pulsing emissive glow that blooms.
+  - **The silk**: a surface shader for the gowns' and coats' silk, a soft sheen along the cloth
+    that brightens at grazing angles, so the crowd reads as fabric under the lanterns.
+  - **The sound, generated** (as Lamplight's, `Tools/sounds.py`, under the project's licence): the
+    orchestra's three pieces (a waltz for the stroll, a slow air for gathering, a quick dance), each
+    a seamless loop, played by `Audio::playMusic` on every peer when the replicated cue changes, so
+    the music is the cue a player must follow; the crowd's murmur, a tag, a miss, a flare, a note
+    chime, the round's end, and the UI's clicks.
+  - **The UI**: the title, the HUD and the results in the ball's colours (gold on a deep night
+    blue), the HUD's mark shown as a swatch of the costume's colour beside its name.
 - **P6 Ship**: web, Steam Deck, README pictures, the website's card, a docs page.
 - **P7 `wss://`** (gap 8): the client's choice of `wss://`, and a docs page on putting a TLS
   reverse proxy (Caddy, nginx) in front of a dedicated host, so the site's demo can join a hosted
