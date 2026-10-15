@@ -196,6 +196,57 @@ TEST_CASE("reliable: unreliable messages can drop under loss (no resend)")
     CHECK(delivered < 50u); // lossy + no resend => some are gone forever
 }
 
+// More than a packet's worth due at once (a replication delta of a crowd) goes out the same update,
+// not a packet a tick: at one a tick a big delta drained over several ticks while the next ones
+// queued behind it, and the delay grew without end.
+TEST_CASE("reliable: a burst bigger than a packet goes out in one update")
+{
+    net::SimConditions sim;
+    sim.latencyMs = 10.0f;
+    Fixture fx(sim);
+    fx.server.SetAccepting(true);
+    const net::PeerId sp = fx.client.Connect(fx.sb->LocalEndpoint());
+    fx.Pump(20);
+    (void)DrainReceived(fx.server);
+
+    for (u8 i = 0; i < 20; ++i)
+    {
+        Array<byte> m;
+        m.Resize(1000); // one to a packet
+        m[0] = static_cast<byte>(i);
+        fx.client.Send(sp, 1, m.AsSpan(), net::Reliability::ReliableOrdered);
+    }
+    fx.Pump(3); // the latency and a step or two: far fewer updates than messages
+    const Array<u8> got = DrainReceived(fx.server);
+    REQUIRE(got.Size() == 20u);
+    for (u8 i = 0; i < 20; ++i)
+    {
+        CHECK(got[i] == i);
+    }
+}
+
+// Unreliable messages that do not fit the packet wait for the next one; they used to be dropped.
+TEST_CASE("reliable: unreliable messages beyond one packet are sent, not dropped")
+{
+    net::SimConditions sim;
+    sim.latencyMs = 10.0f;
+    Fixture fx(sim);
+    fx.server.SetAccepting(true);
+    const net::PeerId sp = fx.client.Connect(fx.sb->LocalEndpoint());
+    fx.Pump(20);
+    (void)DrainReceived(fx.server);
+
+    for (u8 i = 0; i < 10; ++i)
+    {
+        Array<byte> m;
+        m.Resize(600); // two do not fit one packet
+        m[0] = static_cast<byte>(i);
+        fx.client.Send(sp, 1, m.AsSpan(), net::Reliability::Unreliable);
+    }
+    fx.Pump(3);
+    CHECK(DrainReceived(fx.server).Size() == 10u); // no loss in the sim: all of them
+}
+
 TEST_CASE("reliable: RTT is estimated from acks")
 {
     net::SimConditions sim;

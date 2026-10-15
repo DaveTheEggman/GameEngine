@@ -43,6 +43,7 @@ export namespace foundation::net
         u32 maxMessageBytes = 256u * 1024u; // largest message (reassembled) - bigger is dropped
         u32 maxPacketBytes = 1200; // soft budget per datagram (< typical MTU); large reliable
                                    // messages fragment into this-sized pieces + reassemble
+        u32 maxPacketsPerUpdate = 64; // most Data packets one update sends a connection (a burst cap)
     };
 
     enum class ConnectionState : u8
@@ -427,6 +428,7 @@ export namespace foundation::net
                 rec.reliableIds.PushBack(m.id);
                 m.lastSentMs = m_nowMs;
             }
+            usize unreliableTaken = 0;
             for (OutMessage& m : c.pendingUnreliable)
             {
                 if (m.data.Size() + 12u > budget)
@@ -435,6 +437,14 @@ export namespace foundation::net
                 }
                 chosen.PushBack(&m);
                 budget -= (m.data.Size() + 12u);
+                ++unreliableTaken;
+            }
+            // One that fits no packet at all (unreliable messages are not fragmented) goes, rather
+            // than holding the queue up for ever.
+            if (unreliableTaken == 0 && !c.pendingUnreliable.IsEmpty() &&
+                c.pendingUnreliable[0].data.Size() + 12u > m_cfg.maxPacketBytes)
+            {
+                unreliableTaken = 1;
             }
             w.WriteVarU32(static_cast<u32>(chosen.Size()));
             for (OutMessage* m : chosen)
@@ -455,9 +465,14 @@ export namespace foundation::net
                 w.WriteVarU32(static_cast<u32>(m->data.Size()));
                 w.WriteBytes(Span<const byte>(m->data.Data(), m->data.Size()));
             }
-            c.pendingUnreliable.Clear(); // unreliable: sent once
             RecordSent(c, static_cast<SentPacket&&>(rec));
             RawSend(c, w);
+            // Unreliable: sent once. Only those this packet carried leave the queue (they were
+            // written above, so it is safe to drop them now); the rest go in the next packet.
+            for (usize i = 0; i < unreliableTaken; ++i)
+            {
+                c.pendingUnreliable.RemoveAt(0);
+            }
         }
 
         void RecordSent(Connection& c, SentPacket&& rec)
@@ -491,13 +506,21 @@ export namespace foundation::net
             }
             // Connected: send a Data packet when a reliable message is DUE for (re)send, an unreliable is
             // queued, an ack is owed, or a keepalive is due. RTT-timed resend => no per-tick flooding.
-            const bool haveWork = AnyReliableDue(c) || !c.pendingUnreliable.IsEmpty();
+            // As many packets as the due work fills (a delta bigger than a packet, a burst), up to a
+            // cap: one a tick drained a big delta over several ticks while the next ones queued behind
+            // it, and the lag grew without end. Each reliable sent is stamped, so the loop ends.
             const bool keepAliveDue =
                 (m_nowMs - c.lastSendMs) >= static_cast<f64>(m_cfg.keepAliveMs);
-            if (haveWork || c.ackPending || keepAliveDue)
+            if (AnyReliableDue(c) || !c.pendingUnreliable.IsEmpty() || c.ackPending || keepAliveDue)
             {
                 c.ackPending = false;
                 SendDataPacket(c);
+                for (u32 more = 1; more < m_cfg.maxPacketsPerUpdate &&
+                                   (AnyReliableDue(c) || !c.pendingUnreliable.IsEmpty());
+                     ++more)
+                {
+                    SendDataPacket(c);
+                }
             }
         }
 
