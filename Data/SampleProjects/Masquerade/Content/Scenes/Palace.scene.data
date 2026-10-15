@@ -38671,16 +38671,13 @@
 					<string name="script">a28076e4-d276-4b8b-9e81-3ba6ff72c108</string>
 					<bool name="enabled">true</bool>
 					<f32 name="updateInterval">0</f32>
-					<array name="overrides" count="3">
+					<array name="overrides" count="2">
 						<u64 name="nameHash">8056904078410733902</u64>
 						<u8 name="kind">7</u8>
 						<string name="guid">175a7d1b-c4a9-57b8-abf7-dab6337b3f6f</string>
 						<u64 name="nameHash">876332341124989774</u64>
 						<u8 name="kind">7</u8>
 						<string name="guid">2af490a6-4bf7-50dc-a3f5-5117c950620f</string>
-						<u64 name="nameHash">3245108620458275816</u64>
-						<u8 name="kind">2</u8>
-						<f64 name="number">0</f64>
 					</array>
 				</array>
 			</object>
