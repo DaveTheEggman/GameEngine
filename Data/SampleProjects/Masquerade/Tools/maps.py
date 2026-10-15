@@ -225,6 +225,7 @@ class Builder:
             d.entity("Guest%d" % (n + 1), (x + math.sin(a) * r, 0.0, z + math.cos(a) * r),
                      yaw(self.rng.uniform(-180, 180)), parent=groups[costume], eid=e)
             self.agent(e)
+            self.networked(e)
             d.add(e, "instance_member", instancedMesh=meshes[costume], clip=0)
             d.script(e, (guest_script, {"spots": ("entity", self.spots), "players": ("entity", players)}))
 
@@ -248,9 +249,11 @@ class Builder:
 
         ball = d.stable_id("entity")
         d.entity("Ball", eid=ball)
+        self.networked(ball)
         d.script(ball, (asset("ScriptClassAsset", "Ball"), {
             "player": ("entity", player), "bot1": ("entity", bots[0]), "bot2": ("entity", bots[1]),
-            "bot3": ("entity", bots[2]), "crowd": ("entity", crowd), "spots": ("entity", self.spots)}))
+            "bot3": ("entity", bots[2]), "crowd": ("entity", crowd), "spots": ("entity", self.spots),
+            "players": ("entity", players), "hunterPrefab": ("asset", self.hunter_prefab(meshes))}))
 
     def hunter(self, name, pos, meshes, avoid=True, parent=None):
         """A hunter: an agent like any guest, wearing one of six looks (a child per costume, each an
@@ -260,6 +263,7 @@ class Builder:
         e = d.stable_id("entity")
         d.entity(name, pos, parent=parent, eid=e)
         self.agent(e, avoid)
+        self.networked(e)
         for k, c in enumerate(COSTUMES):
             look = d.stable_id("entity")
             d.entity("Look" + c, parent=e, eid=look, active=(k == 0))
@@ -269,6 +273,34 @@ class Builder:
         d.add(flare, "light", type=1, color={"r": 1.0, "g": 0.78, "b": 0.30, "a": 1.0}, intensity=0.0, range=6.0,
               castsShadows=False)
         return e
+
+    def networked(self, e):
+        """Replicated over the network: an authored network id (both peers load the same scene, so
+        the id matches by the entity's guid) and its transform sent, smoothed on clients."""
+        self.d.add(e, "net.Network")
+        self.d.add(e, "net.Transform")
+
+    def hunter_prefab(self, meshes):
+        """The prefab the host spawns for a joining player (Ball.as, Net.spawnFor): a hunter as
+        hunter() makes one, its looks naming this map's costume meshes (so a prefab per map), its
+        Player behaviour finding the camera and the crowd by name. Written over the last one."""
+        doc = Doc("Hunter" + self.name)
+        e = doc.stable_id("entity")
+        doc.entity("Hunter", eid=e)
+        doc.add(e, "navigation.Agent", radius=0.3, height=1.7, maxSpeed=3.2, maxAcceleration=6.0, avoidOthers=False)
+        doc.add(e, "net.Network")
+        doc.add(e, "net.Transform")
+        for k, c in enumerate(COSTUMES):
+            look = doc.stable_id("entity")
+            doc.entity("Look" + c, parent=e, eid=look, active=(k == 0))
+            doc.add(look, "instance_member", instancedMesh=meshes[c], clip=0)
+        flare = doc.stable_id("entity")
+        doc.entity("Flare", (0.0, 2.1, 0.0), parent=e, eid=flare)
+        doc.add(flare, "light", type=1, color={"r": 1.0, "g": 0.78, "b": 0.30, "a": 1.0}, intensity=0.0, range=6.0,
+                castsShadows=False)
+        doc.script(e, (asset("ScriptClassAsset", "Player"), {}))
+        found = [a["guid"] for a in ASSETS if a["type"] == "PrefabDocument" and a["name"] == doc.name]
+        return doc.write(found[0] if found else None, prefab=True, group="Prefabs")
 
     def agent(self, e, avoid=True):
         """A guest's body: an agent the crowd steers. The player's goes straight where the stick
@@ -344,6 +376,7 @@ def palace():
     for x in (15.0, 22.0, 29.0):
         b.chandelier(x, 9.5, 5.2)
     dais = b.prop("Dais", (22.0, 0.0, 3.8), (6.0, 0.4, 3.0), name="Dais")
+    b.networked(dais)  # the cue replicates
     d.script(dais, (asset("ScriptClassAsset", "Orchestra"), {}))
 
     # The places guests go: groups across the courtyard, along the ballroom's walls and under the
@@ -480,6 +513,7 @@ def canal():
                  (6.0, 39.4), (20.0, 39.4), (28.0, 39.4), (42.0, 39.4)):
         b.lantern(x, z)
     dais = b.prop("Dais", (24.0, 0.0, 6.0), (6.0, 1.2, 3.0), name="Dais")  # its collider too tall to climb
+    b.networked(dais)  # the cue replicates
     d.script(dais, (asset("ScriptClassAsset", "Orchestra"), {}))
 
     # Where guests go: groups about the campo, along both quays, and on the bridges' tops.
@@ -543,6 +577,7 @@ def gardens():
     for x in (17.0, 27.0):
         b.chandelier(x, 7.0, 4.8)
     dais = b.prop("Dais", (22.0, 0.0, 3.8), (6.0, 1.2, 3.0), name="Dais")  # its collider too tall to climb
+    b.networked(dais)  # the cue replicates
     d.script(dais, (asset("ScriptClassAsset", "Orchestra"), {}))
 
     # The garden's edge: a balustrade round the lawn and the terrace's ends.

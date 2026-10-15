@@ -2,7 +2,8 @@
 
 > STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
 > (the crowd's engine features) and P3 (the ball, solo: three maps, the round, bots) BUILT
-> 2026-10-14; P4 next. Agreed (user 2026-10-14): the masked
+> 2026-10-14; P4 (the ball over the network) built and played in two Game tabs 2026-10-14, two
+> machines and a browser to try. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -151,10 +152,11 @@ From a survey of the code (2026-10-14):
   the HUD, pause and the results. Then the Canal (a campo on a canal with quays, two walkable
   bridges and gondolas on a loop under them, from its own Blender kit) and choosing a map on the
   title, a best round kept for each. Then the Gardens (an orangery, a terrace, a hedge maze of
-  two rings round the fountain), the third map. P3 is built; P4 (the network) next.
+  two rings round the fountain), the third map. P3 is built.
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
-  browser.
+  browser. Built and played in two tabs (joining, moving, tagging, notes, the clock, the round's
+  end and the next round).
   Design (2026-10-14, from a survey of the engine):
   - **What replicates**: every guest, the bots, the host's player, the Ball and the orchestra
     carry `net.Network` and `net.Transform`; both peers load the same scene, so authored ids match
@@ -176,6 +178,10 @@ From a survey of the code (2026-10-14):
   - **The camera** on a client follows the player's own hunter, which tells it so when it appears.
   - **The HUD** on every peer reads the Ball's replicated state for the local seat; notes go to one
     player by `rpcTo`.
+  - **Menus in a networked round** do not stop the scene (the host runs the world for everyone, and
+    a joiner's scene must keep hearing it): the pause menu and the results cover a round that goes
+    on, the player standing still under them. Only the host starts another round, and a joiner's
+    results give way to it when the Ball's replicated end clears.
 - **P5 The look and sound**: custom shaders for the masks (a sheen that shifts with the view),
   the silk, and the reveal; lantern light, the orchestra and its cues, the UI.
 - **P6 Ship**: web, Steam Deck, README pictures, the website's card, a docs page.

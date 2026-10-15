@@ -1,6 +1,7 @@
 <screen mode="modal" transition="fade" default-focus="play-btn">
 
-  <!-- The title (Masquerade.as): a round at the ball in one of the maps, or quit; the best round on each. -->
+  <!-- The title (Masquerade.as): a map to choose (the best round on each), then play it alone, host it
+       on the network, or join a host at an address on the same map; or quit. -->
   <Flex direction="vertical" justify="center" align="center" padding="32">
     <Panel padding="28" style="background: rounded-rect(#120814E8, radius=16);">
       <Flex direction="vertical" align="center" spacing="6" width="600">
@@ -16,6 +17,17 @@
         <Button id="gardens-btn" text="The Gardens" width="420" height="42" font-size="22" style="background: state-list(normal=rounded-rect(#22102A, radius=10, border=#7A5A28, border-width=2), hover=rounded-rect(#30183A, radius=10, border=#E0B860, border-width=3), pressed=rounded-rect(#3E2048, radius=10, border=#F4D080, border-width=4), focused=rounded-rect(#22102A, radius=10, border=#F4D080, border-width=4), disabled=rounded-rect(#140A18, radius=10, border=#3A2A20, border-width=2)); text-color: #F4E6C8;"/>
         <Label text="A hedge maze round a fountain, and an orangery where the orchestra plays" font-size="15" style="text-color: #B8A080;"/>
         <Label id="gardens-best" text="" font-size="14" style="text-color: #A89070;"/>
+        <Spacer spacer-height="6"/>
+        <Label id="map-choice" text="" font-size="17" style="text-color: #F4D080;"/>
+        <Flex direction="horizontal" justify="center" spacing="10">
+          <Button id="solo-btn" text="Play alone" width="200" height="40" font-size="20" style="background: state-list(normal=rounded-rect(#22102A, radius=10, border=#7A5A28, border-width=2), hover=rounded-rect(#30183A, radius=10, border=#E0B860, border-width=3), pressed=rounded-rect(#3E2048, radius=10, border=#F4D080, border-width=4), focused=rounded-rect(#22102A, radius=10, border=#F4D080, border-width=4), disabled=rounded-rect(#140A18, radius=10, border=#3A2A20, border-width=2)); text-color: #F4E6C8;"/>
+          <Button id="host-btn" text="Host" width="200" height="40" font-size="20" style="background: state-list(normal=rounded-rect(#22102A, radius=10, border=#7A5A28, border-width=2), hover=rounded-rect(#30183A, radius=10, border=#E0B860, border-width=3), pressed=rounded-rect(#3E2048, radius=10, border=#F4D080, border-width=4), focused=rounded-rect(#22102A, radius=10, border=#F4D080, border-width=4), disabled=rounded-rect(#140A18, radius=10, border=#3A2A20, border-width=2)); text-color: #F4E6C8;"/>
+        </Flex>
+        <Flex direction="horizontal" justify="center" spacing="10">
+          <EditText id="address" text="127.0.0.1" placeholder="the host's address" width="200" height="40"/>
+          <Button id="join-btn" text="Join" width="200" height="40" font-size="20" style="background: state-list(normal=rounded-rect(#22102A, radius=10, border=#7A5A28, border-width=2), hover=rounded-rect(#30183A, radius=10, border=#E0B860, border-width=3), pressed=rounded-rect(#3E2048, radius=10, border=#F4D080, border-width=4), focused=rounded-rect(#22102A, radius=10, border=#F4D080, border-width=4), disabled=rounded-rect(#140A18, radius=10, border=#3A2A20, border-width=2)); text-color: #F4E6C8;"/>
+        </Flex>
+        <Label id="net-status" text="" font-size="14" style="text-color: #C8A070;"/>
         <Spacer spacer-height="8"/>
         <Button id="quit-btn" text="Quit" width="200" height="40" font-size="20" style="background: state-list(normal=rounded-rect(#22102A, radius=10, border=#7A5A28, border-width=2), hover=rounded-rect(#30183A, radius=10, border=#E0B860, border-width=3), pressed=rounded-rect(#3E2048, radius=10, border=#F4D080, border-width=4), focused=rounded-rect(#22102A, radius=10, border=#F4D080, border-width=4), disabled=rounded-rect(#140A18, radius=10, border=#3A2A20, border-width=2)); text-color: #F4E6C8;"/>
         <Spacer spacer-height="8"/>

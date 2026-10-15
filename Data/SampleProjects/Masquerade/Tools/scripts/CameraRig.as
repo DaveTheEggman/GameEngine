@@ -20,6 +20,16 @@ class CameraRig
 
     CameraRig(Entity@ entity) { @self = entity; }
 
+    // Follow another entity from now on (a client's own hunter, which appears after the scene).
+    void onFollow(Entity@ who)
+    {
+        @target = who;
+        if (target !is null && target.isValid())
+        {
+            m_focus = target.worldPosition();
+        }
+    }
+
     void onStart()
     {
         if (target !is null && target.isValid())

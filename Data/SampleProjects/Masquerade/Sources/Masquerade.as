@@ -1,10 +1,13 @@
 // Masquerade - the game's orchestrator (the reserved class Game): the title, a round at the ball
 // under its HUD, the pause menu, and the results.
 //
-// The round itself is the scene's (Ball.as): this hears it. "Hud" (four times a second: your
+// The title picks a map, then plays it alone, hosts it (the server on `kPort`, then the map) or
+// joins a host (the map first, then the connection, so the map's networked entities are in place
+// for the host's first snapshot). The round itself is the scene's (Ball.as): this hears it. "Hud" (four times a second: your
 // points, the seconds left, your target's costume, your place), "Note" (something happened to
-// you, or a mask flared) and "RoundOver" (everyone's points). Pause (Escape or Start) holds the
-// round still under the pause menu. The title picks the map; the save keeps each map's best round
+// you, or a mask flared), "RoundOver" (everyone's points) and "RoundStart" (the host began another
+// round). Pause (Escape or Start) shows the pause menu, holding the round still when playing alone
+// (a networked round goes on). The title picks the map; the save keeps each map's best round
 // ("best.Palace", "best.Canal", "best.Gardens").
 
 const float kControlsShown = 7.0f; // how long the controls show as a round starts (s)
@@ -21,6 +24,12 @@ const int kNoteGotTarget = 1;
 const int kNoteMissed = 2;
 const int kNoteTagged = 3;
 const int kNoteFlare = 4;
+const int kNoteWrongMap = 5;
+const int kNoteFull = 6;
+const int kPort = 7777;
+const int kAlone = 0;
+const int kHosting = 1;
+const int kJoining = 2;
 
 class Game
 {
@@ -29,6 +38,9 @@ class Game
     private float m_note = 0.0f;         // how long the HUD's word shows yet
     private float m_controlsShow = 0.0f; // how long the controls panel shows yet
     private int m_map = 0;               // 0 the Palace, 1 the Canal, 2 the Gardens
+    private int m_mode = kAlone;
+    private string m_address = "127.0.0.1";
+    private float m_connectIn = -1.0f;   // a joiner: until it connects, once its map has loaded
 
     void launch()
     {
@@ -45,6 +57,11 @@ class Game
         Screen@ s = ui::push(kTitleDoc);
         s.findButton("play-btn").onClick(Action(this.onPalace));
         s.findButton("canal-btn").onClick(Action(this.onCanal));
+        s.findButton("solo-btn").onClick(Action(this.onSolo));
+        s.findButton("host-btn").onClick(Action(this.onHost));
+        s.findButton("join-btn").onClick(Action(this.onJoin));
+        s.findLabel("map-choice").setText("The map: " + mapTitle(m_map));
+        s.findLabel("net-status").setText("");
         s.findButton("canal-btn").setEnabled(!kCanal.IsNil());
         s.findButton("gardens-btn").onClick(Action(this.onGardens));
         s.findButton("gardens-btn").setEnabled(!kGardens.IsNil());
@@ -54,9 +71,46 @@ class Game
         s.findLabel("gardens-best").setText(bestLine(2));
     }
 
-    private void onPalace() { m_map = 0; startRound(); }
-    private void onCanal() { m_map = 1; startRound(); }
-    private void onGardens() { m_map = 2; startRound(); }
+    private void onPalace() { choose(0); }
+    private void onCanal() { choose(1); }
+    private void onGardens() { choose(2); }
+
+    private void choose(int map)
+    {
+        m_map = map;
+        ui::findLabel("map-choice").setText("The map: " + mapTitle(map));
+    }
+
+    private string mapTitle(int map)
+    {
+        return map == 0 ? "the Palace" : (map == 1 ? "the Canal" : "the Gardens");
+    }
+
+    private void onSolo()
+    {
+        m_mode = kAlone;
+        startRound();
+    }
+
+    private void onHost()
+    {
+        if (!Net::startServer(kPort))
+        {
+            ui::findLabel("net-status").setText("Could not host on port " + kPort);
+            return;
+        }
+        m_mode = kHosting;
+        startRound();
+    }
+
+    private void onJoin()
+    {
+        TextBox@ box = ui::findTextBox("address");
+        m_address = (box !is null && box.text.length() > 0) ? box.text : "127.0.0.1";
+        m_mode = kJoining;
+        startRound();
+        m_connectIn = 0.2f; // once the map has loaded
+    }
 
     private string mapName(int map) { return map == 0 ? "Palace" : (map == 1 ? "Canal" : "Gardens"); }
 
@@ -91,6 +145,14 @@ class Game
         if (!m_inRound)
         {
             return;
+        }
+        if (m_connectIn >= 0.0f && run::sceneReady())
+        {
+            m_connectIn -= dt; // a moment more, for the scene's first frame
+            if (m_connectIn < 0.0f && !Net::connect(m_address, kPort))
+            {
+                note("Could not reach " + m_address);
+            }
         }
         if (Input::wasPressed("Pause"))
         {
@@ -161,6 +223,14 @@ class Game
         {
             note("A mask flares: a hunter, there");
         }
+        else if (what == kNoteWrongMap)
+        {
+            note("The host is at another map: choose it and join again");
+        }
+        else if (what == kNoteFull)
+        {
+            note("Every seat is taken: you are watching");
+        }
     }
 
     void onRoundOver(Float4 scores)
@@ -170,7 +240,7 @@ class Game
             return;
         }
         m_inRound = false;
-        run::setTimeScale(0.0f);
+        holdStill();
         int you = int(scores.x);
         string key = "best." + mapName(m_map);
         int best = Save::getInt(key, -100000);
@@ -193,19 +263,31 @@ class Game
         s.findLabel("res-3").setText("Hunter 3   " + int(scores.w));
         s.findLabel("res-best").setText(record ? "Your best round yet" : "Your best: " + best + " points");
         s.findButton("again-btn").onClick(Action(this.onAgain));
+        s.findButton("again-btn").setVisible(m_mode != kJoining); // the host starts the next round
         s.findButton("title-btn").onClick(Action(this.onTitle));
+    }
+
+    // The host started another round in the same scene: a joiner leaves its results for it.
+    void onRoundStart(int unused)
+    {
+        if (m_inRound || m_mode != kJoining)
+        {
+            return;
+        }
+        enterRound();
     }
 
     // ---- the pause menu ----
     private void pause()
     {
         m_paused = true;
-        run::setTimeScale(0.0f);
+        holdStill();
         m_controlsShow = 0.0f;
         ui::find("hud-controls").setVisible(false); // the menu shows them itself
         Screen@ s = ui::push(kPauseDoc);
         s.findButton("resume-btn").onClick(Action(this.onResume));
         s.findButton("restart-btn").onClick(Action(this.onAgain));
+        s.findButton("restart-btn").setVisible(m_mode != kJoining); // the host's to start over
         s.findButton("title-btn").onClick(Action(this.onTitle));
     }
 
@@ -217,11 +299,67 @@ class Game
         }
         m_paused = false;
         ui::pop();
-        run::setTimeScale(1.0f);
+        letGo();
     }
 
-    private void onAgain() { startRound(); }
-    private void onTitle() { showTitle(); }
+    // Another round: alone, the map afresh; hosting, the same scene goes on (the players' hunters
+    // with it) and the Ball starts over ("Restart").
+    private void onAgain()
+    {
+        if (m_mode == kHosting)
+        {
+            enterRound();
+            run::currentScene().events.emit("Restart", 0); // Ball.as starts over
+            return;
+        }
+        startRound();
+    }
+
+    // Alone, the scene stops behind a menu. In a networked round it goes on (the host runs the
+    // world for everyone, and a joiner's scene must keep hearing the host: a new round, say), so
+    // the player hears "Menu" instead and stands still under it.
+    private void holdStill()
+    {
+        if (m_mode == kAlone)
+        {
+            run::setTimeScale(0.0f);
+        }
+        else
+        {
+            run::currentScene().events.emit("Menu", 1);
+        }
+    }
+
+    private void letGo()
+    {
+        run::setTimeScale(1.0f);
+        if (m_mode != kAlone)
+        {
+            run::currentScene().events.emit("Menu", 0);
+        }
+    }
+
+    // The HUD over the scene that is already running.
+    private void enterRound()
+    {
+        ui::clear();
+        ui::push(kHudDoc);
+        m_inRound = true;
+        m_paused = false;
+        m_note = 0.0f;
+        letGo();
+    }
+
+    private void onTitle()
+    {
+        if (m_mode != kAlone)
+        {
+            Net::disconnect();
+            m_mode = kAlone;
+        }
+        m_connectIn = -1.0f;
+        showTitle();
+    }
 
     private void note(string text)
     {

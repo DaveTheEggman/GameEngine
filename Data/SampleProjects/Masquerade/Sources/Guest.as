@@ -50,6 +50,7 @@ class Guest
     private float m_walked = 0.0f;                      // seconds on the way
     private array<Entity@> m_spots;
     private bool m_approaching = false; // a bot walking to someone it means to tag
+    private bool m_handedOver = false;  // a client's guest, its agent stopped for the host's transforms
     private bool m_aside = false;       // stepping out of a player's way
     private float m_asideFor = 0.0f;
     private int m_asideActivity = 0;    // what it was doing, to go back to
@@ -94,6 +95,13 @@ class Guest
         if (authority() && d > 0.0f)
         {
             decide(d);
+        }
+        else if (!m_handedOver)
+        {
+            // Joined: the host moves this guest now, so its own agent (walking since the scene
+            // loaded) stops, or it would fight the replicated transform.
+            NavAgentComponent::of(self).stop();
+            m_handedOver = true;
         }
         playClip(uint(activity));
         turn(d);

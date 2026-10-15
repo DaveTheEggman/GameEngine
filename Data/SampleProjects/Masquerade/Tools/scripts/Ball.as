@@ -14,9 +14,14 @@
 //   guesses instead: someone in its target's costume, often wrong, and its mask flares.
 // - The game (Masquerade.as) hears what the player needs: "Hud" each quarter second (score,
 //   seconds left, the target's costume, the hunter's rank), "Note" when something happens to the
-//   player, and "RoundOver" with the scores.
+//   player, "RoundOver" with the scores, and "RoundStart" when the host starts another.
 //
-// The host decides; the round state is replicated for the network (P4).
+// Over the network the host decides, and every peer's Ball follows its replicated state: each
+// seat's owner (a player id, or -1 for a bot), costume and target, the scores, the time, which masks
+// flare. A joining player takes a bot's seat (the host spawns them a hunter, `hunterPrefab`, where
+// the bot stands; the bot wanders on as a plain guest) and gives it back on leaving. A client's
+// input and tags come by RPC ("input", "tag"); notes go to one player ("note"). Entity active flags
+// do not replicate, so every peer shows each hunter's look from the replicated costumes itself.
 
 const int kHunters = 4;
 const int kCostumes = 6;
@@ -30,6 +35,8 @@ const int kNoteGotTarget = 1;  // you tagged your target
 const int kNoteMissed = 2;     // you tagged the wrong person: your mask flares
 const int kNoteTagged = 3;     // your hunter tagged you: a new costume, somewhere else
 const int kNoteFlare = 4;      // someone's mask flares: a hunter, there
+const int kNoteWrongMap = 5;   // the host is at another map: you have left
+const int kNoteFull = 6;       // every seat is a player's: you watch
 
 class Ball
 {
@@ -51,6 +58,8 @@ class Ball
     [20.0, "Shortest wait before a bot guesses (s)"] float guessMin;
     [45.0, "Longest wait before a bot guesses (s)"] float guessMax;
     [15.0, "A bot gives up walking up to someone after this (s)"] float approachGiveUp;
+    [null, "Where players' hunters go (guests make way for its children)"] Entity@ players;
+    ["asset:Prefab", "The hunter the host spawns for a joining player"] Guid@ hunterPrefab;
 
     [0.0, "Seconds left in the round", replicated] float timeLeft;
     [false, "The round is over", replicated] bool over;
@@ -58,8 +67,25 @@ class Ball
     [0, "Seat 1's score", replicated] int score1;
     [0, "Seat 2's score", replicated] int score2;
     [0, "Seat 3's score", replicated] int score3;
+    [0, "Seat 0's owner: a player id (0 the host), or -1 for a bot", replicated] int owner0;
+    [-1, "Seat 1's owner", replicated] int owner1;
+    [-1, "Seat 2's owner", replicated] int owner2;
+    [-1, "Seat 3's owner", replicated] int owner3;
+    [0, "Seat 0's costume", replicated] int costume0;
+    [0, "Seat 1's costume", replicated] int costume1;
+    [0, "Seat 2's costume", replicated] int costume2;
+    [0, "Seat 3's costume", replicated] int costume3;
+    [1, "Seat 0's target seat", replicated] int target0;
+    [2, "Seat 1's target seat", replicated] int target1;
+    [3, "Seat 2's target seat", replicated] int target2;
+    [0, "Seat 3's target seat", replicated] int target3;
+    [0, "Which seats' masks flare (a bit a seat)", replicated] int flaring;
 
     private array<Entity@> m_hunters;
+    private array<Entity@> m_bots;     // each seat's own body when no player has it (seat 0: the host's player)
+    private array<int> m_dressed;      // the costume each seat's body shows now (-1 not yet)
+    private array<Entity@> m_known;    // players' hunters, as they announce themselves ("Hunter")
+    private bool m_overTold = false;
     private array<array<Entity@>> m_groups; // the guests in each costume
     private array<Entity@> m_spots;
     private array<int> m_costume;   // each hunter's
@@ -86,6 +112,25 @@ class Ball
         m_hunters.insertLast(bot1);
         m_hunters.insertLast(bot2);
         m_hunters.insertLast(bot3);
+        for (int h = 0; h < kHunters; ++h)
+        {
+            m_bots.insertLast(m_hunters[h]);
+            m_dressed.insertLast(-1);
+        }
+        // The network's half: the host hears input, tags, joins and leaves; a client its notes and
+        // the host's map. Registered on every peer (a handler that never fires costs nothing).
+        NetNumberHandler@ input = NetNumberHandler(this.onNetInput);
+        Net::on("input", input);
+        NetHandler@ tag = NetHandler(this.onNetTag);
+        Net::on("tag", tag);
+        NetNumberHandler@ note = NetNumberHandler(this.onNetNote);
+        Net::on("note", note);
+        NetTextHandler@ map = NetTextHandler(this.onNetMap);
+        Net::on("map", map);
+        NetHandler@ joined = NetHandler(this.onJoined);
+        Net::onJoin(joined);
+        NetHandler@ left = NetHandler(this.onLeft);
+        Net::onLeave(left);
         m_groups.resize(kCostumes);
         int k = 0;
         Entity@ group = crowd !is null && crowd.isValid() ? crowd.firstChild() : null;
@@ -136,7 +181,7 @@ class Ball
         for (int i = 0; i < kHunters; ++i)
         {
             m_target[order[i]] = order[(i + 1) % kHunters];
-            dress(i, Random::intRange(0, kCostumes - 1));
+            m_costume[i] = Random::intRange(0, kCostumes - 1);
             m_reveal[i] = 0.0f;
             m_suspicion[i] = 0.0f;
             m_guessIn[i] = Random::range(guessMin, guessMax);
@@ -149,12 +194,122 @@ class Ball
         score3 = 0;
         timeLeft = roundSeconds;
         over = false;
+        publish();
+    }
+
+    // The host's seat state into the replicated properties every peer reads.
+    private void publish()
+    {
+        costume0 = m_costume[0];
+        costume1 = m_costume[1];
+        costume2 = m_costume[2];
+        costume3 = m_costume[3];
+        target0 = m_target[0];
+        target1 = m_target[1];
+        target2 = m_target[2];
+        target3 = m_target[3];
+    }
+
+    private int costumeOf(int seat)
+    {
+        return seat == 0 ? costume0 : (seat == 1 ? costume1 : (seat == 2 ? costume2 : costume3));
+    }
+
+    private int targetOf(int seat)
+    {
+        return seat == 0 ? target0 : (seat == 1 ? target1 : (seat == 2 ? target2 : target3));
+    }
+
+    private int ownerOf(int seat)
+    {
+        return seat == 0 ? owner0 : (seat == 1 ? owner1 : (seat == 2 ? owner2 : owner3));
+    }
+
+    private void setOwner(int seat, int owner)
+    {
+        if (seat == 0) owner0 = owner;
+        else if (seat == 1) owner1 = owner;
+        else if (seat == 2) owner2 = owner;
+        else owner3 = owner;
+    }
+
+    // The seat a player holds, or -1.
+    private int seatOfPlayer(int player)
+    {
+        for (int h = 0; h < kHunters; ++h)
+        {
+            if (ownerOf(h) == player)
+            {
+                return h;
+            }
+        }
+        return -1;
+    }
+
+    // The player this peer plays as: 0 the host (and offline), else the id the host gave it.
+    private int localPlayer()
+    {
+        int me = Net::localPlayer();
+        return me < 0 ? 0 : me;
+    }
+
+    // Every peer: each seat's body (its bot, or the hunter of the player who holds it), dressed in
+    // the seat's replicated costume.
+    private void follow()
+    {
+        for (int h = 0; h < kHunters; ++h)
+        {
+            Entity@ body = m_bots[h];
+            int owner = ownerOf(h);
+            if (owner > 0)
+            {
+                @body = null;
+                for (uint k = 0; k < m_known.length(); ++k)
+                {
+                    NetworkComponent@ net = NetworkComponent::of(m_known[k]);
+                    if (m_known[k].isValid() && net !is null && int(net.owner) == owner)
+                    {
+                        @body = m_known[k];
+                    }
+                }
+                if (body is null)
+                {
+                    continue; // its hunter has not reached this peer yet
+                }
+            }
+            if (!(body is m_hunters[h]))
+            {
+                @m_hunters[h] = body;
+                m_dressed[h] = -1;
+            }
+            if (m_dressed[h] != costumeOf(h))
+            {
+                dress(h, costumeOf(h));
+            }
+        }
+    }
+
+    // A player's hunter announcing itself (Player.as, on every peer), so the seats can find it.
+    void onHunter(Entity@ hunter)
+    {
+        m_known.insertLast(hunter);
     }
 
     void onCue(int cue) { m_cue = cue; }
 
-    void onTag(int seat)
+    // The host: another round in the same scene (Masquerade.as, hosting), the players kept.
+    void onRestart(int unused)
     {
+        if (!Net::isClient())
+        {
+            startRound();
+        }
+    }
+
+    // A tag by a player (the host's own Player.as sends its player id; a client's comes by RPC).
+    void onTag(int player)
+    {
+        int seat = seatOfPlayer(player);
         if (Net::isClient() || over || seat < 0 || seat >= kHunters)
         {
             return;
@@ -210,19 +365,35 @@ class Ball
         {
             addScore(seat, targetPoints);
             respawn(victim);
-            if (seat == 0)
-            {
-                self.scene.events.emit("Note", kNoteGotTarget);
-            }
-            if (victim == 0)
-            {
-                self.scene.events.emit("Note", kNoteTagged);
-            }
+            note(seat, kNoteGotTarget);
+            note(victim, kNoteTagged);
             return;
         }
         addScore(seat, -missPoints);
         m_reveal[seat] = revealSeconds;
-        self.scene.events.emit("Note", seat == 0 ? kNoteMissed : kNoteFlare);
+        note(seat, kNoteMissed);
+        for (int h = 0; h < kHunters; ++h) // everyone else sees the flare
+        {
+            if (h != seat)
+            {
+                note(h, kNoteFlare);
+            }
+        }
+    }
+
+    // A note to the player at a seat: the host's own as an event here, a client's by RPC, a bot's
+    // nowhere.
+    private void note(int seat, int what)
+    {
+        int owner = ownerOf(seat);
+        if (owner == 0)
+        {
+            self.scene.events.emit("Note", what);
+        }
+        else if (owner > 0)
+        {
+            Net::rpcNumberTo(owner, "note", double(what));
+        }
     }
 
     private void respawn(int seat)
@@ -240,7 +411,8 @@ class Ball
             }
         }
         NavAgentComponent::of(m_hunters[seat]).warp(at.x, at.y, at.z);
-        dress(seat, (m_costume[seat] + Random::intRange(1, kCostumes - 1)) % kCostumes);
+        m_costume[seat] = (m_costume[seat] + Random::intRange(1, kCostumes - 1)) % kCostumes;
+        publish(); // every peer dresses it (follow)
         m_reveal[seat] = 0.0f;
         m_lastPos[seat] = at;
         int hunterSeat = hunterOf(seat);
@@ -252,10 +424,10 @@ class Ball
         }
     }
 
-    // A hunter's costume: the one look of its six shown.
+    // A hunter's costume: the one look of its six shown (on this peer: active flags do not replicate).
     private void dress(int seat, int costume)
     {
-        m_costume[seat] = costume;
+        m_dressed[seat] = costume;
         int k = 0;
         Entity@ child = m_hunters[seat].firstChild();
         while (child !is null && child.isValid())
@@ -276,7 +448,9 @@ class Ball
         {
             return;
         }
+        follow();
         flares(d);
+        tell(d);
         if (Net::isClient() || over)
         {
             return;
@@ -285,8 +459,7 @@ class Ball
         if (timeLeft <= 0.0f)
         {
             timeLeft = 0.0f;
-            over = true;
-            self.scene.events.emit("RoundOver", Float4(float(score0), float(score1), float(score2), float(score3)));
+            over = true; // every peer tells its game (tell)
             return;
         }
         m_sample -= d;
@@ -302,24 +475,67 @@ class Ball
         }
         for (int b = 1; b < kHunters; ++b)
         {
-            hunt(b, d);
+            if (ownerOf(b) < 0) // a seat a player holds hunts for itself
+            {
+                hunt(b, d);
+            }
         }
-        m_hud -= d;
-        if (m_hud <= 0.0f)
-        {
-            m_hud = 0.25f;
-            self.scene.events.emit("Hud", Float4(float(score0), timeLeft, float(m_costume[m_target[0]]), float(rank(0))));
-        }
-    }
-
-    // A flaring mask: its light pulses while the reveal lasts, on every peer.
-    private void flares(float d)
-    {
-        for (int h = 0; h < kHunters && h < int(m_hunters.length()); ++h)
+        int mask = 0;
+        for (int h = 0; h < kHunters; ++h)
         {
             if (m_reveal[h] > 0.0f)
             {
                 m_reveal[h] = Math::Max(m_reveal[h] - d, 0.0f);
+                mask |= 1 << h;
+            }
+        }
+        flaring = mask;
+    }
+
+    // Every peer: the game hears this peer's player's seat (the HUD four times a second) and the
+    // round's end, from the replicated state.
+    private void tell(float d)
+    {
+        int seat = seatOfPlayer(localPlayer());
+        m_hud -= d;
+        if (m_hud <= 0.0f && seat >= 0)
+        {
+            m_hud = 0.25f;
+            self.scene.events.emit("Hud", Float4(float(scoreOf(seat)), timeLeft, float(costumeOf(targetOf(seat))),
+                                                 float(rank(seat))));
+        }
+        if (!over && m_overTold)
+        {
+            m_overTold = false;
+            self.scene.events.emit("RoundStart", 0); // a new round: the host started another
+        }
+        if (over && !m_overTold)
+        {
+            m_overTold = true;
+            // The player's own score first, then the others' in seat order.
+            array<float> others;
+            for (int h = 0; h < kHunters; ++h)
+            {
+                if (h != seat)
+                {
+                    others.insertLast(float(scoreOf(h)));
+                }
+            }
+            self.scene.events.emit("RoundOver", Float4(float(seat >= 0 ? scoreOf(seat) : 0), others[0], others[1],
+                                                       others[2]));
+        }
+    }
+
+    // A flaring mask: its light pulses while the seat's flare bit is set, on every peer.
+    private float m_pulse = 0.0f;
+    private void flares(float d)
+    {
+        m_pulse += d;
+        for (int h = 0; h < kHunters && h < int(m_hunters.length()); ++h)
+        {
+            if (m_hunters[h] is null || !m_hunters[h].isValid())
+            {
+                continue;
             }
             Entity@ flare = m_hunters[h].findChildByName("Flare");
             if (flare !is null && flare.isValid())
@@ -327,9 +543,113 @@ class Ball
                 LightComponent@ light = LightComponent::of(flare);
                 if (light !is null)
                 {
-                    light.intensity = m_reveal[h] > 0.0f ? 6.0f + 4.0f * Math::Sin(m_reveal[h] * 12.0f) : 0.0f;
+                    bool on = (flaring & (1 << h)) != 0;
+                    light.intensity = on ? 6.0f + 4.0f * Math::Sin(m_pulse * 12.0f) : 0.0f;
                 }
             }
+        }
+    }
+
+    // ---- the network ----
+
+    // The host: a client's stick, sprint and dance (Player.as packs them in one number), to the
+    // hunter that player holds.
+    void onNetInput(int sender, double packed)
+    {
+        int seat = seatOfPlayer(sender);
+        if (Net::isClient() || seat < 0 || m_hunters[seat] is null)
+        {
+            return;
+        }
+        int v = int(packed);
+        int flags = v % 4;
+        v /= 4;
+        float z = float(v % 201) / 100.0f - 1.0f;
+        float x = float(v / 201) / 100.0f - 1.0f;
+        m_hunters[seat].send("Input", Float4(x, z, (flags & 1) != 0 ? 1.0f : 0.0f, (flags & 2) != 0 ? 1.0f : 0.0f));
+    }
+
+    void onNetTag(int sender)
+    {
+        if (!Net::isClient())
+        {
+            onTag(sender);
+        }
+    }
+
+    // A client: a note for its player, from the host.
+    void onNetNote(int sender, double what)
+    {
+        if (Net::isClient())
+        {
+            self.scene.events.emit("Note", int(what));
+        }
+    }
+
+    // A client: the host's map, on joining. At another map, it leaves and says why.
+    void onNetMap(int sender, const string &in name)
+    {
+        if (Net::isClient() && name != self.scene.name())
+        {
+            Net::disconnect();
+            self.scene.events.emit("Note", kNoteWrongMap);
+        }
+    }
+
+    // The host: a player has joined. They take a bot's seat: a hunter spawned for them where the
+    // bot stands, in its costume; the bot wanders on as a plain guest. No bot seat left: they watch.
+    void onJoined(int player)
+    {
+        if (Net::isClient())
+        {
+            return;
+        }
+        Net::rpcTextTo(player, "map", self.scene.name());
+        for (int h = 1; h < kHunters; ++h)
+        {
+            if (ownerOf(h) >= 0)
+            {
+                continue;
+            }
+            stopChase(h);
+            Float3 at = m_bots[h].worldPosition();
+            Entity@ hunter = Net::spawnFor(player, hunterPrefab, at.x, at.y, at.z);
+            if (hunter is null || !hunter.isValid())
+            {
+                return;
+            }
+            if (players !is null && players.isValid())
+            {
+                hunter.setParent(players, true); // guests make way for it
+            }
+            m_known.insertLast(hunter);
+            setOwner(h, player);
+            return;
+        }
+        Net::rpcNumberTo(player, "note", double(kNoteFull));
+    }
+
+    // The host: a player has left. Their seat goes back to its bot, and their hunter goes.
+    void onLeft(int player)
+    {
+        if (Net::isClient())
+        {
+            return;
+        }
+        int seat = seatOfPlayer(player);
+        if (seat <= 0)
+        {
+            return;
+        }
+        Entity@ hunter = m_hunters[seat];
+        setOwner(seat, -1);
+        @m_hunters[seat] = m_bots[seat];
+        m_dressed[seat] = -1;
+        m_suspicion[seat] = 0.0f;
+        m_guessIn[seat] = Random::range(guessMin, guessMax);
+        if (hunter !is null && hunter.isValid() && !(hunter is m_bots[seat]))
+        {
+            hunter.destroy();
         }
     }
 
