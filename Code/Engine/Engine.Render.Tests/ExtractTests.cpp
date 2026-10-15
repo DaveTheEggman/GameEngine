@@ -20,7 +20,7 @@ import foundation.resource;
 import foundation.rhi;
 import foundation.rhi.null; // NullDevice (headless RenderSubsystem for the DebugView keying test)
 import foundation.texture.resource; // texture::Texture (the sky-texture product)
-import foundation.xml;               // XmlDocument (a version 0 member record)
+import foundation.xml;               // XmlDocument (a member's record)
 import foundation.xml.serialization; // XmlSerializer
 
 using namespace foundation::core;
@@ -514,24 +514,27 @@ TEST_CASE("instanced-mesh: a member draws with its own tint, times the set's col
     CHECK(NearlyEqual(rd->tints[2], ToLinear(Color{0.5f, 0.0f, 0.0f, 1.0f}), 1.0e-4f));
 }
 
-TEST_CASE("instanced-mesh: a version 0 member record reads untinted")
+TEST_CASE("instanced-mesh: a member's tint is saved and read back")
 {
     RegisterRenderComponentReflection();
-    const TypeInfo& type = TypeOf<InstanceMemberComponent>();
-    CHECK(type.dataVersion == 1u);
+    CHECK(TypeOf<InstanceMemberComponent>().dataVersion == 1u); // v1: tint
+    String text;
+    {
+        foundation::xml::XmlSerializer writer(DefaultAllocator());
+        InstanceMemberComponent member;
+        member.clip = 2;
+        member.tint = Color{1.0f, 0.5f, 0.25f, 0.4f};
+        Serialize(writer, member);
+        writer.GetOutput(text);
+    }
     foundation::xml::XmlDocument doc(DefaultAllocator());
-    REQUIRE(doc.Parse(u8"<root><string name=\"instancedMesh\">ae819bca-060e-50be-8a37-e04da2a14d92</string>"
-                      u8"<u32 name=\"clip\">2</u32></root>") == foundation::xml::XmlResult::Ok);
+    REQUIRE(doc.Parse(text.AsView()) == foundation::xml::XmlResult::Ok);
     foundation::xml::XmlSerializer reader(doc);
-    const SerializedDataVersion chain[] = {{type.id, 0}};
-    reader.PushVersionScope(chain, 1);
-    InstanceMemberComponent member;
-    member.tint = Color{0.2f, 0.2f, 0.2f, 1.0f};
-    Serialize(reader, member);
-    reader.PopVersionScope();
-    CHECK(reader.IsOk()); // no tint asked of a version 0 record
-    CHECK(member.clip == 2u);
-    CHECK(NearlyEqual(member.tint, Color{0.2f, 0.2f, 0.2f, 1.0f}, 1.0e-6f)); // left as it was: white for a new one
+    InstanceMemberComponent back;
+    Serialize(reader, back);
+    CHECK(reader.IsOk());
+    CHECK(back.clip == 2u);
+    CHECK(NearlyEqual(back.tint, Color{1.0f, 0.5f, 0.25f, 0.4f}, 1.0e-6f));
 }
 
 TEST_CASE("extract: authored (sRGB) colours reach render data decoded to linear")

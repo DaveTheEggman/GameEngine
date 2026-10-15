@@ -554,10 +554,7 @@ export namespace engine::render
     {
         foundation::core::Serialize(ar, "instancedMesh", c.instancedMesh);
         foundation::core::Serialize(ar, "clip", c.clip);
-        if (ar.Mode() == SerializeMode::Write || ar.Version() >= 1) // a version 0 member is untinted
-        {
-            foundation::core::Serialize(ar, "tint", c.tint);
-        }
+        foundation::core::Serialize(ar, "tint", c.tint);
     }
 
     class InstanceMemberComponentManager final : public scene::SerializableComponentManager<InstanceMemberComponent>
