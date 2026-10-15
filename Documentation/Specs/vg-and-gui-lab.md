@@ -78,6 +78,32 @@ bug and its unused `opacity` are fixed alongside, from the backlog).
   shadows, gradients, blur and animated states, written in AngelScript), the proof that it looks
   the part.
 
+- **G7 Navigation and commands (must-haves, user 2026-10-14; every other phase designs for them).**
+  `foundation.ui` has a spatial picker with code-only directional overrides (`View::NextFocusUp`
+  and the rest, `FocusManager::MoveFocus`), an `ICommand` buttons bind to, and keyboard-only
+  shortcuts (`ShortcutManager`); the lab has focus but no directional navigation.
+  - **Spatial navigation, automatic by default**: a geometric picker takes the best candidate in the
+    pressed direction (overlap on the cross axis preferred, distance weighed, hidden, disabled and
+    clipped widgets skipped), so most screens need no authoring.
+  - **Overrides where the geometry is wrong**: `nav-up`, `nav-down`, `nav-left`, `nav-right` (a
+    widget's id, `none` to stop, `auto`) and `nav-next`/`nav-prev` for the tab order (document
+    order otherwise), from markup, sheets and script.
+  - **Focus scopes**: a container says what happens at its edge (pass to the neighbours, the default;
+    wrap, for menus and carousels; contain, for dialogs); re-entering a scope returns to its last
+    focused child; each screen or scope names its default focus.
+  - **Gamepad feel**: a held direction repeats with acceleration; focus scrolls into view; the focus
+    ring shows in gamepad and keyboard use only; a widget that uses the directions while active (a
+    slider, a list) gives them back at its ends. A debug overlay draws the navigation graph.
+  - **One command model**: a command has an id, a label, an icon, enabled and checked states and an
+    execute, reflected so scripts define and run them; buttons, menu items, shortcuts and gamepad
+    buttons bind to commands by id, so one disabled command greys every control bound to it.
+  - **Bindings**: keys and gamepad buttons alike, scoped (global, a screen, the focused subtree) and
+    routed by focus (the innermost scope wins), and fillable from the game's input map (Back is
+    Escape and the East button). Once proven, `foundation.ui`'s `ICommand` and `ShortcutManager`,
+    and perhaps the editor's action registry, converge on it.
+  Tests: the picker over grid and irregular layouts, overrides and scopes (wrap, contain, focus
+  memory), repeat timing, and a command's state reaching a button, a menu item and a binding.
+
 ## Moving into `foundation.ui`
 
 Once a lab feature is proven (tests, the showcase, the user's look), it moves into `foundation.ui`
