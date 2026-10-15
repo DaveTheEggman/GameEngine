@@ -18,6 +18,13 @@ Guid kResultsDoc = Guid("3d968c6d-1b40-4e01-8f82-d36fd8008188");
 Guid kPalace = Guid("20eb69af-217d-4b37-93d2-d032e63094fb");
 Guid kCanal = Guid("67c261b3-8da6-4a11-bab2-c96595b651cf");
 Guid kGardens = Guid("6c8abc4e-60ff-4614-864b-68fd5dc21e19");
+// sounds.py's: what the round says to the player, and the buttons.
+Guid kTagSound = Guid("ea04649b-1257-4914-9348-2c9369d71bb4");
+Guid kMissSound = Guid("beb39d19-017a-498f-a6d0-6ebb036b5f13");
+Guid kFlareSound = Guid("2eb1ef65-d86b-4806-8a02-94b50e9702ea");
+Guid kChimeSound = Guid("75d06e2f-5b1f-468e-96fd-e4177e8a3a8f");
+Guid kFanfare = Guid("5a0d5172-db3d-44be-8922-f9249c64fa39");
+Guid kClick = Guid("98658096-7e9e-4891-9f68-7b1f7125b3a2");
 
 // Ball.as's notes.
 const int kNoteGotTarget = 1;
@@ -77,6 +84,7 @@ class Game
 
     private void choose(int map)
     {
+        sound(kClick);
         m_map = map;
         ui::findLabel("map-choice").setText("The map: " + mapTitle(map));
     }
@@ -88,12 +96,14 @@ class Game
 
     private void onSolo()
     {
+        sound(kClick);
         m_mode = kAlone;
         startRound();
     }
 
     private void onHost()
     {
+        sound(kClick);
         if (!Net::startServer(kPort))
         {
             ui::findLabel("net-status").setText("Could not host on port " + kPort);
@@ -105,6 +115,7 @@ class Game
 
     private void onJoin()
     {
+        sound(kClick);
         TextBox@ box = ui::findTextBox("address");
         m_address = (box !is null && box.text.length() > 0) ? box.text : "127.0.0.1";
         m_mode = kJoining;
@@ -119,7 +130,11 @@ class Game
         int best = Save::getInt("best." + mapName(map), -100000);
         return best == -100000 ? "No round played yet" : "Best round: " + best + " points";
     }
-    private void onQuit() { run::requestExit(0); }
+    private void onQuit()
+    {
+        sound(kClick);
+        run::requestExit(0);
+    }
 
     // ---- a round ----
     private void startRound()
@@ -195,7 +210,9 @@ class Game
         {
             return;
         }
-        ui::findLabel("hud-target").setText("Your mark wears " + costumeName(int(hud.z)));
+        Label@ mark = ui::findLabel("hud-target");
+        mark.setText(costumeName(int(hud.z)));
+        mark.setTextColor(costumeColour(int(hud.z)));
         ui::findLabel("hud-score").setText("Points " + int(hud.x));
         ui::findLabel("hud-time").setText(clock(hud.y));
         ui::findLabel("hud-rank").setText(place(int(hud.w)) + " of 4");
@@ -209,26 +226,32 @@ class Game
         }
         if (what == kNoteGotTarget)
         {
+            sound(kTagSound);
             note("Your mark is tagged. They will be back, dressed anew");
         }
         else if (what == kNoteMissed)
         {
+            sound(kMissSound);
             note("Wrong guest! Your mask flares");
         }
         else if (what == kNoteTagged)
         {
+            sound(kMissSound);
             note("Tagged! A new costume, somewhere else");
         }
         else if (what == kNoteFlare)
         {
+            sound(kFlareSound);
             note("A mask flares: a hunter, there");
         }
         else if (what == kNoteWrongMap)
         {
+            sound(kChimeSound);
             note("The host is at another map: choose it and join again");
         }
         else if (what == kNoteFull)
         {
+            sound(kChimeSound);
             note("Every seat is taken: you are watching");
         }
     }
@@ -241,6 +264,7 @@ class Game
         }
         m_inRound = false;
         holdStill();
+        sound(kFanfare);
         int you = int(scores.x);
         string key = "best." + mapName(m_map);
         int best = Save::getInt(key, -100000);
@@ -299,6 +323,7 @@ class Game
         }
         m_paused = false;
         ui::pop();
+        sound(kClick);
         letGo();
     }
 
@@ -306,6 +331,7 @@ class Game
     // with it) and the Ball starts over ("Restart").
     private void onAgain()
     {
+        sound(kClick);
         if (m_mode == kHosting)
         {
             enterRound();
@@ -352,6 +378,7 @@ class Game
 
     private void onTitle()
     {
+        sound(kClick);
         if (m_mode != kAlone)
         {
             Net::disconnect();
@@ -359,6 +386,11 @@ class Game
         }
         m_connectIn = -1.0f;
         showTitle();
+    }
+
+    private void sound(Guid clip)
+    {
+        Audio::playOneShot(clip, AudioBus::Effects, 0.8f);
     }
 
     private void note(string text)
@@ -379,6 +411,18 @@ class Game
         if (costume == 3) return "a black coat";
         if (costume == 4) return "a plum coat";
         return "an ivory coat";
+    }
+
+    // Each costume's colour, lightened enough to read on the HUD's night blue (the black coat as
+    // a silver grey).
+    private Color costumeColour(int costume)
+    {
+        if (costume == 0) return Color(0.95f, 0.45f, 0.55f, 1.0f);
+        if (costume == 1) return Color(0.35f, 0.85f, 0.85f, 1.0f);
+        if (costume == 2) return Color(0.98f, 0.80f, 0.35f, 1.0f);
+        if (costume == 3) return Color(0.78f, 0.80f, 0.86f, 1.0f);
+        if (costume == 4) return Color(0.85f, 0.55f, 0.90f, 1.0f);
+        return Color(1.0f, 0.96f, 0.86f, 1.0f);
     }
 
     private string place(int p)

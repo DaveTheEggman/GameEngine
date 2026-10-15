@@ -547,6 +547,23 @@ class Ball
                     light.intensity = on ? 6.0f + 4.0f * Math::Sin(m_pulse * 12.0f) : 0.0f;
                 }
             }
+            glow(m_hunters[h], (flaring & (1 << h)) != 0);
+        }
+    }
+
+    // A flaring mask glows (Mask.hlsl: the instance's tint alpha below 1 is the glow; the cloth,
+    // drawn with the same tint, keeps its colour). Every look of the hunter, so the one shown does.
+    private void glow(Entity@ hunter, bool on)
+    {
+        Entity@ child = hunter.firstChild();
+        while (child !is null && child.isValid())
+        {
+            InstanceMemberComponent@ look = InstanceMemberComponent::of(child);
+            if (look !is null)
+            {
+                look.tint = Color(1.0f, 1.0f, 1.0f, on ? 0.0f : 1.0f);
+            }
+            @child = child.nextSibling();
         }
     }
 
