@@ -174,6 +174,36 @@ TEST_CASE("profiler panel views: the timeline lays a frame's lanes and nesting o
     CHECK(stage.Draw() > 0);
 }
 
+// Every draw recomputes the bars; the bar under the pointer must survive it, or the hover box
+// (its name and time) never draws.
+TEST_CASE("profiler panel views: a draw keeps the timeline's hovered bar")
+{
+    KnownSource source;
+    OneFrame(source);
+    auto timeline = MakeRef<Timeline>(DefaultAllocator(), DefaultAllocator());
+    timeline->SetSource(&source);
+    Stage stage(*timeline, Float2{Timeline::kHeaderWidth + 600.0f, 240.0f});
+    timeline->SetFrames(LastFrames(source, 1));
+    REQUIRE(!timeline->Bars().IsEmpty());
+    const Timeline::Bar first = timeline->Bars()[0];
+
+    fui::MouseEventArgs over = Mouse(first.rect.x + 2.0f, first.rect.y + 2.0f);
+    timeline->OnMouseMove(over);
+    REQUIRE(timeline->Hovered() != nullptr);
+    const usize plain = stage.Draw();
+    REQUIRE(timeline->Hovered() != nullptr); // still hovered after the draw's recompute
+    CHECK(timeline->Hovered()->name == first.name);
+
+    // A zoom with the pointer still: the hovered bar is whatever is under the pointer now.
+    timeline->ZoomAt(first.rect.x + 200.0f, 4.0f);
+    (void)stage.Draw();
+    CHECK(timeline->Hovered() == timeline->BarAt(Float2{first.rect.x + 2.0f, first.rect.y + 2.0f}));
+
+    timeline->OnMouseLeave();
+    CHECK(stage.Draw() < plain); // gone: the box no longer drawn
+    CHECK(timeline->Hovered() == nullptr);
+}
+
 TEST_CASE("profiler panel views: zoom keeps the time under the pointer; a drag pans")
 {
     KnownSource source;

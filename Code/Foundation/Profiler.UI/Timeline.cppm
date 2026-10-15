@@ -234,8 +234,9 @@ export namespace foundation::profiler::ui
                 e.Handled = true;
                 return;
             }
-            const Bar* bar = BarAt(Float2{e.X, e.Y});
-            const i32 hovered = bar != nullptr ? static_cast<i32>(bar - m_bars.Data()) : -1;
+            m_pointer = Float2{e.X, e.Y};
+            m_pointerIn = true;
+            const i32 hovered = HoveredAt(m_pointer);
             if (hovered != m_hovered)
             {
                 m_hovered = hovered;
@@ -259,6 +260,7 @@ export namespace foundation::profiler::ui
 
         void OnMouseLeave() override
         {
+            m_pointerIn = false;
             if (m_hovered >= 0)
             {
                 m_hovered = -1;
@@ -333,6 +335,21 @@ export namespace foundation::profiler::ui
             m_bars.Clear();
             m_frameEdges.Clear();
             m_hovered = -1;
+            ComputeBars();
+            // The bars are new: the one under the pointer is found again, so a recompute (every
+            // draw does one) keeps the hover and its box.
+            m_hovered = m_pointerIn ? HoveredAt(m_pointer) : -1;
+        }
+
+        // The index of the bar under `at`, or -1.
+        [[nodiscard]] i32 HoveredAt(Float2 at) const
+        {
+            const Bar* bar = BarAt(at);
+            return bar != nullptr ? static_cast<i32>(bar - m_bars.Data()) : -1;
+        }
+
+        void ComputeBars()
+        {
             const IProfileSource& source = SourceOrEmpty();
             if (m_frames.empty || PlotWidth() <= 0.0f)
             {
@@ -518,6 +535,8 @@ export namespace foundation::profiler::ui
         f64 m_viewEnd = 1.0;
         f32 m_scrollY = 0.0f;
         i32 m_hovered = -1;
+        Float2 m_pointer{0.0f, 0.0f}; // where the pointer last was over the view
+        bool m_pointerIn = false;
         bool m_panning = false;
         f32 m_lastX = 0.0f;
         NameId m_highlight = 0;
