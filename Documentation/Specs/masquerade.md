@@ -1,8 +1,8 @@
 # Masquerade - the fifth sample, social stealth in a crowd over the network
 
 > STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
-> (the crowd's engine features) BUILT 2026-10-14; P3 in progress (the Palace, its guests and the
-> player). Agreed (user 2026-10-14): the masked
+> (the crowd's engine features) and P3 (the ball, solo: three maps, the round, bots) BUILT
+> 2026-10-14; P4 next. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -150,7 +150,8 @@ From a survey of the code (2026-10-14):
   (sprinting, flaring, off the cue) and walk up to it, or guess; the game script gives a title,
   the HUD, pause and the results. Then the Canal (a campo on a canal with quays, two walkable
   bridges and gondolas on a loop under them, from its own Blender kit) and choosing a map on the
-  title, a best round kept for each. Next: the Gardens.
+  title, a best round kept for each. Then the Gardens (an orangery, a terrace, a hedge maze of
+  two rings round the fountain), the third map. P3 is built; P4 (the network) next.
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
   browser.

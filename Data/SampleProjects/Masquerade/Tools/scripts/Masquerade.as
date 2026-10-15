@@ -5,7 +5,7 @@
 // points, the seconds left, your target's costume, your place), "Note" (something happened to
 // you, or a mask flared) and "RoundOver" (everyone's points). Pause (Escape or Start) holds the
 // round still under the pause menu. The title picks the map; the save keeps each map's best round
-// ("best.Palace", "best.Canal").
+// ("best.Palace", "best.Canal", "best.Gardens").
 
 const float kControlsShown = 7.0f; // how long the controls show as a round starts (s)
 Guid kTitleDoc = Guid("{{UI:Title}}");
@@ -14,6 +14,7 @@ Guid kPauseDoc = Guid("{{UI:Pause}}");
 Guid kResultsDoc = Guid("{{UI:Results}}");
 Guid kPalace = Guid("{{Scene:Palace}}");
 Guid kCanal = Guid("{{Scene:Canal}}");
+Guid kGardens = Guid("{{Scene:Gardens}}");
 
 // Ball.as's notes.
 const int kNoteGotTarget = 1;
@@ -27,7 +28,7 @@ class Game
     private bool m_paused = false;
     private float m_note = 0.0f;         // how long the HUD's word shows yet
     private float m_controlsShow = 0.0f; // how long the controls panel shows yet
-    private int m_map = 0;               // 0 the Palace, 1 the Canal
+    private int m_map = 0;               // 0 the Palace, 1 the Canal, 2 the Gardens
 
     void launch()
     {
@@ -45,15 +46,19 @@ class Game
         s.findButton("play-btn").onClick(Action(this.onPalace));
         s.findButton("canal-btn").onClick(Action(this.onCanal));
         s.findButton("canal-btn").setEnabled(!kCanal.IsNil());
+        s.findButton("gardens-btn").onClick(Action(this.onGardens));
+        s.findButton("gardens-btn").setEnabled(!kGardens.IsNil());
         s.findButton("quit-btn").onClick(Action(this.onQuit));
         s.findLabel("palace-best").setText(bestLine(0));
         s.findLabel("canal-best").setText(bestLine(1));
+        s.findLabel("gardens-best").setText(bestLine(2));
     }
 
     private void onPalace() { m_map = 0; startRound(); }
     private void onCanal() { m_map = 1; startRound(); }
+    private void onGardens() { m_map = 2; startRound(); }
 
-    private string mapName(int map) { return map == 0 ? "Palace" : "Canal"; }
+    private string mapName(int map) { return map == 0 ? "Palace" : (map == 1 ? "Canal" : "Gardens"); }
 
     private string bestLine(int map)
     {
@@ -78,7 +83,7 @@ class Game
         controls.fadeTo(1.0f, 0.3f);
         m_controlsShow = kControlsShown;
         run::setTimeScale(1.0f);
-        run::loadScene(m_map == 0 ? kPalace : kCanal);
+        run::loadScene(m_map == 0 ? kPalace : (m_map == 1 ? kCanal : kGardens));
     }
 
     void update(float dt)

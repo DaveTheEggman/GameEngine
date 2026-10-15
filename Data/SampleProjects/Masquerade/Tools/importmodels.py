@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """importmodels.py [Name ...]: the Blender models in generated/ imported through the editor's MCP,
 then cooked: the palace kit (blender/palace.py, generated/Palace) into Models/Palace, the canal kit
-(blender/canal.py, generated/Canal) into Models/Canal, and the guests
+(blender/canal.py, generated/Canal) into Models/Canal, the garden kit (blender/gardens.py,
+generated/Gardens) into Models/Gardens, and the guests
 (blender/guest.py, generated/Guests) into Models/Guests, each model its own group
 (Models/Palace/Column, Models/Guests/GuestGownRose). With names, only those. A re-run re-imports
 over the same assets, keeping their ids.
 
     blender --background --factory-startup --python blender/palace.py -- generated/Palace
     blender --background --factory-startup --python blender/canal.py -- generated/Canal
+    blender --background --factory-startup --python blender/gardens.py -- generated/Gardens
     blender --background --factory-startup --python blender/guest.py -- generated/Guests
     python3 importmodels.py
 """
@@ -17,7 +19,8 @@ sys.path.insert(0, HERE)
 from scenegen import mcp
 
 # Each folder of generated models, and the group its models land under.
-FOLDERS = (("Palace", "Models/Palace"), ("Canal", "Models/Canal"), ("Guests", "Models/Guests"))
+FOLDERS = (("Palace", "Models/Palace"), ("Canal", "Models/Canal"), ("Gardens", "Models/Gardens"),
+           ("Guests", "Models/Guests"))
 
 only = set(sys.argv[1:])
 for folder, group in FOLDERS:

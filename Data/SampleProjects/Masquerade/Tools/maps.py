@@ -137,7 +137,7 @@ class Builder:
                 mid, length = (lo + hi) / 2, hi - lo
                 pos = (mid, height / 2, z0) if along_x else (x0, height / 2, mid)
                 size = (length, height, thick) if along_x else (thick, height, length)
-                self.solid("%s%d_%d" % (kind, int(mid), int(z0 if along_x else x0)), pos, size)
+                self.solid("%s%d_%d" % (short(kind), int(mid), int(z0 if along_x else x0)), pos, size)
                 stretch.clear()
 
         for s in range(n):
@@ -147,7 +147,7 @@ class Builder:
                 close()
                 continue
             piece = alt if (every and alt and s % every == every // 2) else kind
-            self.place("%s%d_%d" % (piece, int(at[0]), int(at[2])), piece, at,
+            self.place("%s%d_%d" % (short(piece), int(at[0]), int(at[2])), piece, at,
                        (0, 0, 0, 1) if along_x else yaw(90.0))
             stretch.append(c)
         close()
@@ -495,7 +495,108 @@ def canal():
     return b.write()
 
 
-MAPS = {"Palace": palace, "Canal": canal}
+def gardens():
+    """The Gardens: an orangery to the north (x 10..34, z 2..12, a marble hall walled on three sides,
+    orange trees in pots, the orchestra, open to the south through a colonnade), a gravel terrace
+    in front of it, and a lawn with a hedge maze in it (x 10..34, z 20..40: two rings of hedges round
+    a clearing with the fountain, their gaps staggered, a few cross hedges for dead ends), statues,
+    urns and lanterns, inside a balustrade. Guests stroll the paths in twos and threes, and the
+    hedges, 1.8 m high, hide them from each other but not from the camera above."""
+    b = Builder("Gardens")
+    d = b.d
+    moon = d.stable_id("entity")
+    d.entity("Moon", rot=quat_mul(yaw(-40.0), pitch(-50.0)), eid=moon)
+    d.add(moon, "light", type=0, color={"r": 0.55, "g": 0.65, "b": 1.0, "a": 1.0}, intensity=0.4,
+          castsShadows=True)
+
+    # The ground, one surface a cell (flush tiles laid twice would fight for the pixels): marble in
+    # the orangery, gravel on the terrace and the paths, lawn elsewhere; one slab collider under it.
+    cells = {}
+    for i in range(1, 21):
+        for j in range(6, 21):
+            cells[(i, j)] = "Gardens/Grass"
+    for i in range(2, 20):
+        for j in range(6, 8):
+            cells[(i, j)] = "Gardens/Gravel"   # the terrace, z 12..16
+    for j in range(8, 10):
+        for i in (10, 11):
+            cells[(i, j)] = "Gardens/Gravel"   # the path down to the maze, x 20..24
+    for i in range(5, 17):
+        for j in range(1, 6):
+            cells[(i, j)] = "Marble"           # the orangery, x 10..34, z 2..12
+    for (i, j), kind in sorted(cells.items()):
+        b.place("%s%d_%d" % (short(kind), i, j), kind, (GRID * (i + 0.5), 0.0, GRID * (j + 0.5)))
+    b.solid("Ground", (22.0, -0.25, 22.0), (44.0, 0.5, 40.0))
+
+    # The orangery: the palace's walls with windows on three sides, piers at the corners, a
+    # colonnade open to the terrace, orange trees in rows, chandeliers and the orchestra.
+    b.run("Wall", (10, 2), (34, 2), 5.0, 0.4, every=2, alt="Window")
+    b.run("Wall", (10, 2), (10, 12), 5.0, 0.4, every=2, alt="Window")
+    b.run("Wall", (34, 2), (34, 12), 5.0, 0.4, every=2, alt="Window")
+    for x, z in ((10, 2), (34, 2), (10, 12), (34, 12)):
+        b.prop("Pier", (x, 0.0, z), (0.6, 5.2, 0.6))
+    for k in range(6):
+        b.prop("Column", (12.0 + 4.0 * k, 0.0, 12.0), (0.6, 5.0, 0.6))
+    for x in (13.0, 31.0):
+        for z in (5.0, 9.0):
+            b.prop("Planter", (x, 0.0, z), (0.8, 2.2, 0.8))
+    for x in (17.0, 27.0):
+        b.chandelier(x, 7.0, 4.8)
+    dais = b.prop("Dais", (22.0, 0.0, 3.8), (6.0, 1.2, 3.0), name="Dais")  # its collider too tall to climb
+    d.script(dais, (asset("ScriptClassAsset", "Orchestra"), {}))
+
+    # The garden's edge: a balustrade round the lawn and the terrace's ends.
+    b.run("Balustrade", (2, 12), (2, 42), 1.0, 0.3)
+    b.run("Balustrade", (42, 12), (42, 42), 1.0, 0.3)
+    b.run("Balustrade", (2, 42), (42, 42), 1.0, 0.3, skip={(21.0, 42.0), (23.0, 42.0)})
+    b.run("Balustrade", (2, 12), (10, 12), 1.0, 0.3)
+    b.run("Balustrade", (34, 12), (42, 12), 1.0, 0.3)
+
+    # The maze: two rings round a clearing, their gaps staggered so the way in winds, and cross
+    # hedges in the corridor between the rings for dead ends.
+    def hedges(a, c, gaps=()):
+        b.run("Gardens/Hedge", a, c, 1.8, 0.8, skip=set(gaps))
+    hedges((10, 20), (34, 20), [(21.0, 20.0), (23.0, 20.0)])        # outer north: the way in
+    hedges((10, 40), (34, 40), [(21.0, 40.0), (23.0, 40.0)])        # outer south
+    hedges((10, 20), (10, 40), [(10.0, 29.0), (10.0, 31.0)])        # outer west
+    hedges((34, 20), (34, 40), [(34.0, 29.0), (34.0, 31.0)])        # outer east
+    hedges((14, 24), (30, 24), [(27.0, 24.0)])                      # inner north: in at the east end
+    hedges((14, 36), (30, 36), [(17.0, 36.0)])                      # inner south: in at the west end
+    hedges((14, 24), (14, 36), [(14.0, 35.0)])                      # inner west
+    hedges((30, 24), (30, 36), [(30.0, 25.0)])                      # inner east
+    hedges((18, 20), (18, 24))                                      # cross hedges between the rings
+    hedges((26, 36), (26, 40))
+    hedges((10, 27), (14, 27))
+    hedges((30, 33), (34, 33))
+    for x, z in ((10, 20), (34, 20), (10, 40), (34, 40), (14, 24), (30, 24), (14, 36), (30, 36)):
+        b.prop("Gardens/HedgeCorner", (float(x), 0.0, float(z)), (0.8, 1.8, 0.8))
+    b.place("Fountain", "Fountain", (22.0, 0.0, 30.0))
+    b.solid("Fountain", (22.0, 0.35, 30.0), (5.6, 0.7, 5.6))
+    b.solid("FountainTurned", (22.0, 0.35, 30.0), (5.6, 0.7, 5.6), yaw(45.0))
+    for x, z, turn in ((17.0, 26.5, 0.0), (27.0, 33.5, 180.0)):
+        b.prop("Bench", (x, 0.0, z), (1.6, 0.45, 0.5), yaw(turn))
+
+    # Statues at the maze's outer corners, urns along the terrace, lanterns about the lawn.
+    for x, z in ((7.0, 18.0), (37.0, 18.0), (7.0, 41.0), (37.0, 41.0)):
+        b.prop("Gardens/Statue", (x, 0.0, z), (0.9, 2.6, 0.9))
+    for x in (6.0, 16.0, 28.0, 38.0):
+        b.prop("Gardens/Urn", (x, 0.0, 12.8), (0.6, 1.2, 0.6))
+    for x, z in ((19.0, 18.0), (25.0, 18.0), (5.0, 26.0), (39.0, 26.0), (5.0, 36.0), (39.0, 36.0),
+                 (20.0, 28.0), (24.0, 32.0)):
+        b.lantern(x, z)
+
+    spots = [(16, 6), (22, 8), (28, 6), (18, 10), (26, 10),            # the orangery
+             (8, 14), (16, 14), (28, 14), (36, 14),                     # the terrace
+             (6, 22), (6, 30), (6, 38), (38, 22), (38, 30), (38, 38), (14, 18), (30, 18),  # the lawn
+             (12, 22), (32, 22), (12, 38), (32, 38), (12, 33), (32, 27), (21, 22), (23, 38),  # the maze
+             (18, 28), (26, 28), (18, 32), (26, 32)]                    # the clearing
+    b.spots = b.points("Spots", spots)
+    b.crowd(150, spots, (22.0, 15.0))
+    b.navigation((2.0, 2.0, 42.0, 42.0))
+    return b.write()
+
+
+MAPS = {"Palace": palace, "Canal": canal, "Gardens": gardens}
 
 
 def write(name):
