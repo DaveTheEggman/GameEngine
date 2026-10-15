@@ -596,6 +596,7 @@ TEST_CASE("navigation.scene: a warped agent is where it was sent, and walks on f
     scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
     NavMeshZoneComponent& zoneComp = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
     zoneComp.extents = Float3{15, 10, 15};
+    zoneComp.maxAgents = 1; // one slot: a warp that kept its old one could not take a new one
     zoneComp.zone.SetId(zoneInstance->Id());
     zoneComp.zone.Bind(manager);
     scene::EntityHandle agentEntity = scene.CreateEntity(u8"agent");
@@ -614,6 +615,7 @@ TEST_CASE("navigation.scene: a warped agent is where it was sent, and walks on f
     }
     agent->warp(6.0f, 0.0f, 6.0f);
     scene.Update(1.0f / 30.0f);
+    CHECK(agent->agentId >= 0); // back in its crowd
     Float3 at = scene.GetWorldPosition(agentEntity);
     CHECK(std::abs(at.x - 6.0f) < 0.3f);
     CHECK(std::abs(at.z - 6.0f) < 0.3f);
@@ -771,7 +773,7 @@ TEST_CASE("navigation.scene: an agent that does not avoid others shoulders past 
         f32 closest = 100.0f;
         f32 endX = 0.0f;
     };
-    auto walk = [&](bool avoidOthers) -> Run
+    auto walk = [&](bool avoidOthers, bool offOnceRunning = false) -> Run
     {
         scene::Scene scene(DefaultAllocator(), u8"nav");
         AddNavigationSceneManagers(scene);
@@ -796,6 +798,10 @@ TEST_CASE("navigation.scene: an agent that does not avoid others shoulders past 
         for (int step = 0; step < 150; ++step) // 5 s at 30 Hz, 1.5 m/s
         {
             w = agents->Get(walker);
+            if (offOnceRunning && step == 1)
+            {
+                w->avoidOthers = false; // changed live, as a script or the inspector does
+            }
             w->move(1.5f, 0.0f);
             scene.Update(1.0f / 30.0f);
             const Float3 p = scene.GetWorldPosition(walker);
@@ -811,6 +817,8 @@ TEST_CASE("navigation.scene: an agent that does not avoid others shoulders past 
 
     const Run avoiding = walk(true);
     const Run straight = walk(false);
+    const Run turnedOff = walk(true, true);
+    CHECK(turnedOff.endX > 1.0f);     // the change reached its crowd: it went past too
     CHECK(avoiding.closest > 1.0f);   // held back, short of the one in its way
     CHECK(avoiding.endX < 0.0f);      // and never got past it
     CHECK(straight.endX > 1.0f);      // past it
@@ -883,4 +891,77 @@ TEST_CASE("navigation.scene: an agent added later joins its crowd, and a destroy
     scene.SetSimulationEnabled(false);
     scene.Stop();
     RemoveTree(u8"scratch_navlate_db");
+}
+
+// A destroyed agent's crowd slot is freed in the crowd it was in, before a reloaded navmesh
+// rebuilds that crowd: the rebuilt crowd numbers its agents afresh, so the old slot number would
+// name another agent there. Here the first is destroyed in the frame the zone reloads, and the
+// second, which the rebuilt crowd puts in slot 0, still walks to where it was going.
+TEST_CASE("navigation.scene: an agent destroyed as its zone reloads leaves the old crowd, not another agent")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navgonereload_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navgonereload_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    const auto write = [](content::Instance& instance, f32 half)
+    {
+        Array<byte> blob;
+        BakeGroundZone(blob, half);
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(instance.WriteObject(src).IsOk());
+    };
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    write(*zoneInstance, 10.0f);
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(DefaultAllocator(), u8"navgonereload");
+    AddNavigationSceneManagers(scene);
+    const scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zone = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zone.extents = Float3{15, 10, 15};
+    zone.zone.SetId(zoneInstance->Id());
+    zone.zone.Bind(manager);
+    auto* agents = scene.GetSystem<NavAgentComponentManager>();
+    const scene::EntityHandle first = scene.CreateEntity(u8"first");
+    scene.SetLocalPosition(first, Float3{-5, 0, 3});
+    agents->Add(first);
+    const scene::EntityHandle second = scene.CreateEntity(u8"second");
+    scene.SetLocalPosition(second, Float3{-5, 0, -3});
+    agents->Add(second);
+    scene.UpdateTransforms();
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+    REQUIRE(agents->Get(first)->agentId == 0);
+    REQUIRE(agents->Get(second)->agentId == 1);
+
+    agents->Get(second)->navigate(5.0f, 0.0f, -3.0f);
+    for (int step = 0; step < 10; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+
+    // In one frame: the first goes and the zone's navmesh reloads.
+    scene.DestroyEntity(first);
+    write(*zoneInstance, 12.0f);
+    REQUIRE(manager.Reload(zoneInstance->Id()));
+    scene.Update(1.0f / 30.0f);
+    REQUIRE(agents->Get(second) != nullptr);
+    CHECK(agents->Get(second)->agentId == 0); // the rebuilt crowd's first slot
+
+    for (int step = 0; step < 360 && !agents->Get(second)->finished; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    CHECK(agents->Get(second)->finished);
+    CHECK(std::abs(scene.GetWorldPosition(second).x - 5.0f) < 1.5f);
+
+    scene.SetSimulationEnabled(false);
+    scene.Stop();
+    RemoveTree(u8"scratch_navgonereload_db");
 }

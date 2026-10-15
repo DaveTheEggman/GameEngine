@@ -131,12 +131,9 @@ export namespace engine::navigation
             }
             PROFILE_SCOPE("Navigation.Update");
 
-            // 0. A zone whose navmesh was re-baked and reloaded since its crowd was built gets a
-            //    crowd over the new one (the old product stays alive until then: we hold it).
-            RebuildReloadedZones(*agents);
-
-            // A destroyed agent leaves its crowd (else it stands there for ever, an obstacle no one
-            // can see, holding a slot).
+            // 0. A destroyed agent leaves its crowd (else it stands there for ever, an obstacle no
+            //    one can see, holding a slot). Before any rebuild below: its slot number names a
+            //    slot of the crowd it was in, and a rebuilt crowd hands that number to another.
             for (const NavAgentComponentManager::ReleasedAgent& gone : agents->TakeReleased())
             {
                 if (gone.zoneIndex >= 0 && static_cast<usize>(gone.zoneIndex) < m_zones.Size())
@@ -144,6 +141,10 @@ export namespace engine::navigation
                     m_zones[static_cast<usize>(gone.zoneIndex)].crowd->RemoveAgent(gone.agentId);
                 }
             }
+
+            // A zone whose navmesh was re-baked and reloaded since its crowd was built gets a crowd
+            // over the new one (the old product stays alive until then: we hold it).
+            RebuildReloadedZones(*agents);
 
             // 1. Apply pending warp()/navigate()/stop() requests (crowd works in zone-local space).
             agents->ForEach(
