@@ -2,8 +2,8 @@
 
 > STATUS: APPROVED 2026-10-14 (user direction: "fix VG first"; keep the experimental GUI alive as a
 > smaller experimental UI framework, improve its shortfalls, build it on our RTTI so it is
-> scriptable, and prove things there before they move into `foundation.ui`). Read CONVENTIONS.md
-> first.
+> scriptable, and prove things there before they move into `foundation.ui`). Starts once
+> Masquerade is finished, all its phases (user 2026-10-14). Read CONVENTIONS.md first.
 
 ## Why
 
