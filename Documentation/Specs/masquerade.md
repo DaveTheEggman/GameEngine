@@ -155,6 +155,27 @@ From a survey of the code (2026-10-14):
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
   browser.
+  Design (2026-10-14, from a survey of the engine):
+  - **What replicates**: every guest, the bots, the host's player, the Ball and the orchestra
+    carry `net.Network` and `net.Transform`; both peers load the same scene, so authored ids match
+    by the entities' guids. Guests' and players' `activity` and the cue already replicate (P1).
+    Gondolas follow their path on every peer, unreplicated.
+  - **Seats**: the Ball replicates each seat's owner (a player id, or a bot), costume and target,
+    and the scores, time and end. An entity's active flag does not replicate, so every peer's Ball
+    dresses the hunters (shows each one's look) from the replicated costumes.
+  - **Hosting and joining**: the title gets Host and Join. Host picks a map, starts the server and
+    loads it. Join takes an address and a map, loads the map, and connects once it is loaded, so the
+    client's authored entities are registered before the host's first snapshot. The host tells a
+    joiner its map; a client on another map is told so and leaves.
+  - **A joining player takes a bot's seat**: the host spawns a hunter prefab for them
+    (`Net.spawnFor`) where the bot stands, in its costume; the bot wanders on as a plain guest. On
+    leaving, the seat goes back to the bot and the hunter is destroyed.
+  - **Input to the host**: a client's own hunter sends its stick, sprint and dance (an `input` RPC,
+    15 times a second and on a change) and its tags (`tag`); the host's Ball applies them to that
+    player's hunter. The host's own player reads its input directly.
+  - **The camera** on a client follows the player's own hunter, which tells it so when it appears.
+  - **The HUD** on every peer reads the Ball's replicated state for the local seat; notes go to one
+    player by `rpcTo`.
 - **P5 The look and sound**: custom shaders for the masks (a sheen that shifts with the view),
   the silk, and the reveal; lantern light, the orchestra and its cues, the UI.
 - **P6 Ship**: web, Steam Deck, README pictures, the website's card, a docs page.
