@@ -80,6 +80,22 @@ namespace
              Float3{maxX, h, minZ});
     }
 
+    // A walkable floor raised to `y` over [minX,maxX] x [minZ,maxZ], wound to face +Y.
+    void AddFloor(Array<Float3>& verts, Array<u32>& indices, f32 minX, f32 maxX, f32 minZ, f32 maxZ, f32 y)
+    {
+        const u32 base = static_cast<u32>(verts.Size());
+        verts.PushBack(Float3{minX, y, minZ});
+        verts.PushBack(Float3{maxX, y, minZ});
+        verts.PushBack(Float3{maxX, y, maxZ});
+        verts.PushBack(Float3{minX, y, maxZ});
+        indices.PushBack(base + 0);
+        indices.PushBack(base + 3);
+        indices.PushBack(base + 2);
+        indices.PushBack(base + 0);
+        indices.PushBack(base + 2);
+        indices.PushBack(base + 1);
+    }
+
     bool BytesEqual(const Array<byte>& a, const Array<byte>& b)
     {
         if (a.Size() != b.Size())
@@ -198,6 +214,32 @@ TEST_CASE("navigation: disconnected destination is reported incomplete, not fail
     const Status st = query.FindPath(Float3{-6, 0, 0}, Float3{6, 0, 0}, path);
     CHECK(st.IsOk());          // both ends are ON the mesh
     CHECK_FALSE(path.complete); // ...but the destination is unreachable
+}
+
+// A climb that is a whole number of cells counts in full: 0.25 m over 0.05 m cells is five, though
+// 0.25 / 0.05 is 4.9999999 in floats. A floor 0.24 m up is within it and joins the ground.
+TEST_CASE("navigation: a climb of a whole number of cells counts every one of them")
+{
+    Array<Float3> verts;
+    Array<u32> indices;
+    AddGround(verts, indices, -10, 0, -5, 5);
+    AddFloor(verts, indices, 0, 10, -5, 5, 0.24f);
+    NavigationBakeParams params;
+    params.cellSize = 0.2f;
+    params.cellHeight = 0.05f;
+    params.agentMaxClimb = 0.25f;
+    params.agentRadius = 0.3f;
+    Array<byte> blob;
+    REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
+                                         Span<const u32>{indices.Data(), indices.Size()}, params, blob)
+                .IsOk());
+    NavigationMesh mesh(DefaultAllocator());
+    REQUIRE(mesh.Load(Span<const byte>{blob.Data(), blob.Size()}).IsOk());
+    NavigationMeshQuery query(DefaultAllocator(), mesh);
+    REQUIRE(query.IsValid());
+    NavigationPath path;
+    REQUIRE(query.FindPath(Float3{-5, 0, 0}, Float3{5, 0.24f, 0}, path).IsOk());
+    CHECK(path.complete); // up the step: it was cut off when the climb came out at four cells
 }
 
 TEST_CASE("navigation: DebugTriangles enumerates the live navmesh surface")

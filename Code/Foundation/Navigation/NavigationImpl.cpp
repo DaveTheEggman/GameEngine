@@ -170,9 +170,12 @@ namespace foundation::navigation
             cfg.cs = params.cellSize;
             cfg.ch = params.cellHeight;
             cfg.walkableSlopeAngle = params.agentMaxSlopeDegrees;
-            cfg.walkableHeight = static_cast<int>(std::ceil(params.agentHeight / cfg.ch));
-            cfg.walkableClimb = static_cast<int>(std::floor(params.agentMaxClimb / cfg.ch));
-            cfg.walkableRadius = static_cast<int>(std::ceil(params.agentRadius / cfg.cs));
+            // In cells, a setting that is a whole number of them counting as exactly that many:
+            // 0.25 / 0.05 is 4.9999999 in floats, and a bare floor made a 0.25 m climb 0.2 m.
+            constexpr float kWhole = 1e-4f;
+            cfg.walkableHeight = static_cast<int>(std::ceil(params.agentHeight / cfg.ch - kWhole));
+            cfg.walkableClimb = static_cast<int>(std::floor(params.agentMaxClimb / cfg.ch + kWhole));
+            cfg.walkableRadius = static_cast<int>(std::ceil(params.agentRadius / cfg.cs - kWhole));
             cfg.maxEdgeLen = static_cast<int>(12.0f / cfg.cs);
             cfg.maxSimplificationError = 1.3f;
             cfg.minRegionArea = static_cast<int>(rcSqr(8));
