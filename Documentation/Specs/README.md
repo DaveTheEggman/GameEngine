@@ -32,7 +32,8 @@ implementing agent's work).
 | [ui-theme-migration.md](ui-theme-migration.md) | #135 | L (P0 shipped; P1-P4 phased) |
 | [ui-layout-and-style-model.md](ui-layout-and-style-model.md) | - | XL (PROPOSED: uniform LayoutStyle, real cascade, box model, transitions; P0-P4) |
 | [ui-browser-parity-tests.md](ui-browser-parity-tests.md) | - | M (PROPOSED: measured Chrome expectations for layout, not derived ones) |
-| [ui-text-and-gaps.md](ui-text-and-gaps.md) | - | L (PROPOSED: shaping + inline runs; the UI gap list vs RmlUi/MewUI) |
+| [ui-text-and-gaps.md](ui-text-and-gaps.md) | - | L (text track scheduled as vg-and-gui-lab's F line; the UI gap list vs RmlUi/MewUI) |
+| [vg-and-gui-lab.md](vg-and-gui-lab.md) | - | XL (APPROVED 2026-10-14, after Masquerade: VG V1-V5, text F1-F4, then the experimental GUI as a scriptable lab G1-G7) |
 | [whiteboxing.md](whiteboxing.md) | - | M (PROPOSED: parametric blockout pieces driving mesh + collider; P0-P3) |
 | [scene-format-reference.md](scene-format-reference.md) | - | M (RULED 2026-09-27, ready to build: the worked example scene and the component/settings wire schema, recorded from the Serialize bodies, generated at run time and served live by both hosts with component_schema; the reference hop declared on the runtime factory; pregeneration and the golden later) |
 | [script-run-modules.md](script-run-modules.md) | - | M (PROPOSED: one script module per run shared by Game, Levels and behaviours; hot reload that migrates live state; Luau loads only what changed; P0-P2) |

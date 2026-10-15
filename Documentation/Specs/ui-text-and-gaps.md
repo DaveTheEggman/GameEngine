@@ -1,6 +1,8 @@
 # UI gaps: real text shaping, inline runs, and what else we are missing
 
-> STATUS: PROPOSED 2026-09-23, not scheduled. Sized L for the text track (P0-P2), with the
+> STATUS: PROPOSED 2026-09-23; its text track (P0-P2) is scheduled as the F line of
+> `vg-and-gui-lab.md` (2026-10-15), re-cut with inline runs ahead of bidi, and its gap 7's font
+> effects as F4. The rest of the gap list stands here. Sized L for the text track (P0-P2), with the
 > remaining gaps named and sized but not specified to phase depth. Origin: a user ask ("compare
 > MewUI and RmlUi against our UI stack and tell me where we are lacking"), answered after
 > reading RmlUi (`~/Dev/CPP/RmlUi`, 54k lines of core) and MewUI (`~/Dev/CS/MewUI`, 227k lines

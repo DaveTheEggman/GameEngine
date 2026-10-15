@@ -1,9 +1,11 @@
-# VG first, then the experimental GUI as a scriptable lab
+# VG and text first, then the experimental GUI as a scriptable lab
 
 > STATUS: APPROVED 2026-10-14 (user direction: "fix VG first"; keep the experimental GUI alive as a
 > smaller experimental UI framework, improve its shortfalls, build it on our RTTI so it is
 > scriptable, and prove things there before they move into `foundation.ui`). Starts once
-> Masquerade is finished, all its phases (user 2026-10-14). Read CONVENTIONS.md first.
+> Masquerade is finished, all its phases (user 2026-10-14). The F line (text: runs, shaping,
+> effects) added 2026-10-15, after VG and before the lab (user: "before lab work"). Read
+> CONVENTIONS.md first.
 
 ## Why
 
@@ -72,6 +74,40 @@ with a 0.75 px fringe (`VG/Tessellation.cppm`).
 
 Each phase lands with its tests and is used by `foundation.ui` where it applies (its shadow radius
 bug and its unused `opacity` are fixed alongside, from the backlog).
+
+## Part 1b: F, text
+
+The same kind of work as VG: underneath both frameworks, so `foundation.ui` gains it at once (user
+2026-10-15: "before lab work"). It adopts the text track of `ui-text-and-gaps.md` (proposed
+2026-09-23, its decisions kept: the glyph model changes before the shaper does; HarfBuzz is a
+backend behind the existing `SetShaperFactory`, not a dependency of Fonts; rich text is a sibling
+of `Label`, which keeps its single-run contract and measure cache), with inline runs brought ahead
+of bidi, since mixed colour and weight in one line is what the games ask for first. That spec's
+phases and gotchas hold; F1 to F3 are its P0 to P2, re-cut.
+
+- **F1 The glyph model.** `GlyphPosition` carries a cluster, a glyph id and offsets; the stb
+  shaper fills them degenerately; hit testing, cursor movement and the 21 files that use
+  `GlyphPosition` move to clusters. Tests: every text test green with no visual change; cluster
+  behaviour pinned for a one-to-one script before any shaper can vary it.
+- **F2 Inline runs and rich text.** A `TextDocument` of runs (text, family, size, colour,
+  weight, italic, underline) and inline objects (an icon on the baseline), laid out into lines by
+  an inline formatter, behind a rich text control beside `Label`. A small markup for it, the same
+  from SML and from script (a colour, bold and italic, a size, an icon, a link with an id the
+  script hears), and a script surface that sets the markup or the runs: "Your mark wears [a rose
+  gown]" in its colour is one label. Tests: a paragraph mixing two sizes and three colours measures
+  and wraps; an icon sits on the baseline; a malformed tag is shown as text and logged, never
+  dropped; both script backends set runs.
+- **F3 Real shaping.** `Fonts.HarfBuzz` behind the factory, `ITextShaper` widened to a script, a
+  language, a direction and a font list, with itemization and fallback inside the shaper; then the
+  bidi algorithm for mixed-direction paragraphs. Its licence is checked, and its text kept beside
+  it, when it is added. Tests (that spec's): Arabic joins and its glyph count differs from its
+  codepoints; an `fi` ligature is one glyph over a shared cluster; an RTL paragraph with embedded
+  Latin lays out and hit tests; the stb backend still passes F1's suite. The atlas question that
+  spec names (bake by glyph id, or by codepoint with a runtime fallback) is decided here.
+- **F4 Text effects.** Outline, shadow and glow per run, from the distance-field fonts the engine
+  already bakes (`Fonts.DistanceField.Baker`), so a HUD's text reads over any scene without a
+  panel behind it. Tests: an outline's width and a shadow's offset probed in pixels; effects on one
+  run of a rich paragraph and not its neighbours.
 
 ## Part 2: the GUI lab (`Code/Experimental/GUI`)
 
