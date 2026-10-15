@@ -216,18 +216,20 @@ TEST_CASE("navigation: disconnected destination is reported incomplete, not fail
     CHECK_FALSE(path.complete); // ...but the destination is unreachable
 }
 
-// A climb that is a whole number of cells counts in full: 0.25 m over 0.05 m cells is five, though
-// 0.25 / 0.05 is 4.9999999 in floats. A floor 0.24 m up is within it and joins the ground.
+// A climb that is a whole number of cells counts in full: 0.45 m over 0.15 m cells is three, though
+// 0.45 / 0.15 is 2.9999998 in floats (0.25 / 0.05, by contrast, divides to exactly 5). The bake
+// rounds a surface's top up to a whole cell (the ground's to the first, a floor 0.5 m up to the
+// fourth), so that floor is three cells up: within the climb, it joins the ground.
 TEST_CASE("navigation: a climb of a whole number of cells counts every one of them")
 {
     Array<Float3> verts;
     Array<u32> indices;
     AddGround(verts, indices, -10, 0, -5, 5);
-    AddFloor(verts, indices, 0, 10, -5, 5, 0.24f);
+    AddFloor(verts, indices, 0, 10, -5, 5, 0.5f);
     NavigationBakeParams params;
     params.cellSize = 0.2f;
-    params.cellHeight = 0.05f;
-    params.agentMaxClimb = 0.25f;
+    params.cellHeight = 0.15f;
+    params.agentMaxClimb = 0.45f;
     params.agentRadius = 0.3f;
     Array<byte> blob;
     REQUIRE(NavigationMeshBuilder::Build(Span<const Float3>{verts.Data(), verts.Size()},
@@ -238,8 +240,8 @@ TEST_CASE("navigation: a climb of a whole number of cells counts every one of th
     NavigationMeshQuery query(DefaultAllocator(), mesh);
     REQUIRE(query.IsValid());
     NavigationPath path;
-    REQUIRE(query.FindPath(Float3{-5, 0, 0}, Float3{5, 0.24f, 0}, path).IsOk());
-    CHECK(path.complete); // up the step: it was cut off when the climb came out at four cells
+    REQUIRE(query.FindPath(Float3{-5, 0, 0}, Float3{5, 0.5f, 0}, path).IsOk());
+    CHECK(path.complete); // up the step: it was cut off when the climb came out at two cells
 }
 
 TEST_CASE("navigation: DebugTriangles enumerates the live navmesh surface")

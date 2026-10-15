@@ -171,7 +171,7 @@ namespace foundation::navigation
             cfg.ch = params.cellHeight;
             cfg.walkableSlopeAngle = params.agentMaxSlopeDegrees;
             // In cells, a setting that is a whole number of them counting as exactly that many:
-            // 0.25 / 0.05 is 4.9999999 in floats, and a bare floor made a 0.25 m climb 0.2 m.
+            // 0.45 / 0.15 is 2.9999998 in floats, and a bare floor made a 0.45 m climb 0.3 m.
             constexpr float kWhole = 1e-4f;
             cfg.walkableHeight = static_cast<int>(std::ceil(params.agentHeight / cfg.ch - kWhole));
             cfg.walkableClimb = static_cast<int>(std::floor(params.agentMaxClimb / cfg.ch + kWhole));
