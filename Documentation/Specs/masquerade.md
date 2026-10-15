@@ -3,7 +3,7 @@
 > STATUS: APPROVED 2026-10-14. P0 (network commands for scripts), P1 (replicated state) and P2
 > (the crowd's engine features) and P3 (the ball, solo: three maps, the round, bots) BUILT
 > 2026-10-14; P4 (the ball over the network) built and played in two Game tabs 2026-10-14, two
-> machines and a browser to try; P5 (the look and sound) designed 2026-10-15. Agreed (user 2026-10-14): the masked
+> machines and a browser to try; P5 (the look and sound) built 2026-10-15, to be looked at and heard. Agreed (user 2026-10-14): the masked
 > ball idea; AngelScript (the Luau sample is out of 0.1); an authoritative host that plays, with
 > players joining it natively or from a browser through the host's WebSocket gateway (a browser
 > never hosts, by design); `wss://` last, as the client's choice of `wss://` plus a documented TLS
@@ -206,6 +206,12 @@ From a survey of the code (2026-10-14):
     chime, the round's end, and the UI's clicks.
   - **The UI**: the title, the HUD and the results in the ball's colours (gold on a deep night
     blue), the HUD's mark shown as a swatch of the costume's colour beside its name.
+  As built: the two engine layers (c54cefc85, 4a9e5a8d9; a member's records move to data
+  version 1, Masquerade's migrated); `Tools/shaders/Mask.hlsl` and `Silk.hlsl`, applied by
+  `shaders.py`, the flare's glow carried by the tint's alpha so the cloth on the same instance keeps
+  its colour; `Tools/sounds.py` generates the three pieces and the sounds, the Crowd plays the
+  murmur, `Orchestra.as` the cue's piece and `Masquerade.as` the rest. The HUD names the mark's
+  costume in its colour rather than a swatch: a script can colour a label's text, not a panel.
 - **P6 Ship**: web, Steam Deck, README pictures, the website's card, a docs page.
 - **P7 `wss://`** (gap 8): the client's choice of `wss://`, and a docs page on putting a TLS
   reverse proxy (Caddy, nginx) in front of a dedicated host, so the site's demo can join a hosted
