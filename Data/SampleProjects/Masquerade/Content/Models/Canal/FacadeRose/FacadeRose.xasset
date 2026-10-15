@@ -1,0 +1,82 @@
+<root>
+	<string name="guid">ef8be336-1107-4eab-aabd-a6bcf8d434be</string>
+	<string name="typeNamespace">rtti::pipeline::modelimporter</string>
+	<string name="typeName">ModelManifestAsset</string>
+	<array name="dataVersions" count="1">
+		<u64 name="type">2440385714661564817</u64>
+		<u32 name="version">3</u32>
+	</array>
+	<object name="payload">
+		<string name="fileName">FacadeRose.glb</string>
+		<array name="meshGuids" count="1">
+			<string>80a3d32e-60bb-4fef-8db8-e7485bf7710d</string>
+		</array>
+		<array name="meshSkinned" count="1">
+			<u8>0</u8>
+		</array>
+		<array name="meshMaterial" count="1">
+			<i32>0</i32>
+		</array>
+		<array name="meshMaterialSlots" count="1">
+			<object>
+				<array name="slots" count="5">
+					<i32>0</i32>
+					<i32>1</i32>
+					<i32>2</i32>
+					<i32>3</i32>
+					<i32>4</i32>
+				</array>
+			</object>
+		</array>
+		<array name="collisionGuids" count="0"/>
+		<array name="materialGuids" count="5">
+			<string>173c3b79-f0e3-4231-a936-0f715c4877f3</string>
+			<string>2b89cac2-601a-4b39-9e2e-c31beaa6668a</string>
+			<string>d36f267f-3853-4b35-8b34-e32de1e8b226</string>
+			<string>039f9902-2cf0-4eaf-b192-5dd70eefd2d5</string>
+			<string>b0ed71c1-fbfb-4f0f-ace3-74bd55dcf4da</string>
+		</array>
+		<array name="materialAlbedo" count="5">
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+			<string>00000000-0000-0000-0000-000000000000</string>
+		</array>
+		<array name="nodes" count="1">
+			<string name="name">FacadeRose</string>
+			<i32 name="parent">-1</i32>
+			<object name="t">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+			</object>
+			<object name="r">
+				<f32 name="x">0</f32>
+				<f32 name="y">0</f32>
+				<f32 name="z">0</f32>
+				<f32 name="w">1</f32>
+			</object>
+			<object name="s">
+				<f32 name="x">1</f32>
+				<f32 name="y">1</f32>
+				<f32 name="z">1</f32>
+			</object>
+			<i32 name="mesh">0</i32>
+		</array>
+		<string name="skeletonGuid">00000000-0000-0000-0000-000000000000</string>
+		<i32 name="skeletonParentNode">-2</i32>
+		<array name="animationGuids" count="0"/>
+		<object name="boundsMin">
+			<f32 name="x">-1</f32>
+			<f32 name="y">0</f32>
+			<f32 name="z">-0.28</f32>
+		</object>
+		<object name="boundsMax">
+			<f32 name="x">1</f32>
+			<f32 name="y">8</f32>
+			<f32 name="z">0.45</f32>
+		</object>
+		<array name="entries" count="0"/>
+	</object>
+</root>

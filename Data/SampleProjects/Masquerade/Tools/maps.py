@@ -78,6 +78,11 @@ def quat_mul(a, b):
             aw * bz + ax * by - ay * bx + az * bw, aw * bw - ax * bx - ay * by - az * bz)
 
 
+def short(kind):
+    """A kit piece's own name (Canal/Bridge -> Bridge), for entity names."""
+    return kind.split("/")[-1]
+
+
 def strings(guids):
     return ["<string>%s</string>" % g for g in guids]
 
@@ -92,8 +97,9 @@ class Builder:
         look(self.d, "Night")
 
     def place(self, name, kind, pos, rot=(0, 0, 0, 1), parent=None):
-        """A palace kit piece, its materials as imported."""
-        parts = model("Models/Palace/" + kind)
+        """A kit piece, its materials as imported: "Kit/Piece" (Canal/Bridge), or a palace piece by
+        its name alone."""
+        parts = model("Models/" + (kind if "/" in kind else "Palace/" + kind))
         e = self.d.stable_id("entity")
         self.d.entity(name, pos, rot, parent=parent, eid=e)
         self.d.add(e, "mesh", mesh=parts["mesh"], materials=strings(parts["materials"]))
@@ -112,9 +118,9 @@ class Builder:
         i0, j0, i1, j1 = cells
         for i in range(i0, i1):
             for j in range(j0, j1):
-                self.place("%s%d_%d" % (kind, i, j), kind, (GRID * (i + 0.5), 0.0, GRID * (j + 0.5)))
+                self.place("%s%d_%d" % (short(kind), i, j), kind, (GRID * (i + 0.5), 0.0, GRID * (j + 0.5)))
         w, h = GRID * (i1 - i0), GRID * (j1 - j0)
-        self.solid(kind, (GRID * i0 + w / 2, -0.25, GRID * j0 + h / 2), (w, 0.5, h))
+        self.solid(short(kind), (GRID * i0 + w / 2, -0.25, GRID * j0 + h / 2), (w, 0.5, h))
 
     def run(self, kind, a, b, height, thick, skip=(), every=None, alt=None):
         """A run of 2 m edges from a to b (metres, along x or z): `kind` on each, `alt` on every
@@ -148,8 +154,8 @@ class Builder:
 
     def prop(self, kind, pos, size, rot=(0, 0, 0, 1), name=None):
         """A kit piece standing on the ground with a box collider of `size` (x, height, z)."""
-        e = self.place(name or "%s%d_%d" % (kind, int(pos[0]), int(pos[2])), kind, pos, rot)
-        self.solid(kind + "%d_%d" % (int(pos[0]), int(pos[2])), (pos[0], size[1] / 2, pos[2]),
+        e = self.place(name or "%s%d_%d" % (short(kind), int(pos[0]), int(pos[2])), kind, pos, rot)
+        self.solid(short(kind) + "%d_%d" % (int(pos[0]), int(pos[2])), (pos[0], size[1] / 2, pos[2]),
                    size, rot)
         return e
 
@@ -170,11 +176,13 @@ class Builder:
                    9.0, 13.0, parent=e)
 
     def points(self, name, spots):
-        """A parent entity whose children are places (the guests' `spots`)."""
+        """A parent entity whose children are places (the guests' `spots`): (x, z) on the ground, or
+        (x, y, z) above it (a bridge's top)."""
         parent = self.d.stable_id("entity")
         self.d.entity(name, eid=parent)
-        for k, (x, z) in enumerate(spots):
-            self.d.entity("%s%d" % (name[:-1] if name.endswith("s") else name, k), (x, 0.0, z), parent=parent)
+        for k, spot in enumerate(spots):
+            at = (spot[0], 0.0, spot[1]) if len(spot) == 2 else tuple(spot)
+            self.d.entity("%s%d" % (name[:-1] if name.endswith("s") else name, k), at, parent=parent)
         return parent
 
     # ---- the guests, the hunters, the ball ----
@@ -209,7 +217,8 @@ class Builder:
         for c in COSTUMES:
             groups[c] = d.stable_id("entity")
             d.entity(c, parent=crowd, eid=groups[c])
-        placed = [(self.rng.choice(spots), self.rng.choice(COSTUMES)) for _ in range(count)]
+        ground = [spot for spot in spots if len(spot) == 2]  # guests start on the ground, not on a bridge
+        placed = [(self.rng.choice(ground), self.rng.choice(COSTUMES)) for _ in range(count)]
         for n, ((x, z), costume) in enumerate(placed):
             a, r = self.rng.uniform(-math.pi, math.pi), 1.6 * math.sqrt(self.rng.uniform(0.05, 1.0))
             e = d.stable_id("entity")
@@ -232,7 +241,7 @@ class Builder:
                                                                  "height": 9.0}))
         bots = []
         for k in range(3):
-            bx, bz = self.rng.choice(spots)
+            bx, bz = self.rng.choice(ground)
             bot = self.hunter("Bot%d" % (k + 1), (bx + 1.0, 0.0, bz), meshes)
             d.script(bot, (guest_script, {"spots": ("entity", self.spots), "players": ("entity", players)}))
             bots.append(bot)
@@ -268,7 +277,7 @@ class Builder:
         self.d.add(e, "navigation.Agent", radius=0.3, height=1.7, maxSpeed=3.2, maxAcceleration=6.0,
                    avoidOthers=avoid)
 
-    def navigation(self, bounds):
+    def navigation(self, bounds, climb=0.25):
         x0, z0, x1, z1 = bounds
         e = self.d.stable_id("entity")
         self.d.entity("NavZone", ((x0 + x1) / 2, 1.5, (z0 + z1) / 2), eid=e)
@@ -280,7 +289,7 @@ class Builder:
         # steps up nothing taller than a kerb: the fountain's basin, the benches and the dais are
         # in the way, not walked over.
         self.d.add(e, "navigation.Zone", extents={"x": (x1 - x0) / 2, "y": 3.0, "z": (z1 - z0) / 2}, zone=zone,
-                   agentRadius=0.3, cellSize=0.2, cellHeight=0.05, agentMaxClimb=0.25, maxAgents=256)
+                   agentRadius=0.3, cellSize=0.2, cellHeight=0.05, agentMaxClimb=climb, maxAgents=256)
 
     def write(self):
         scenes = [a for a in ASSETS if a["type"] == "SceneDocument" and a["name"] == self.name]
@@ -351,7 +360,142 @@ def palace():
     return b.write()
 
 
-MAPS = {"Palace": palace}
+def spline_points(points):
+    """A path's points with Catmull-Rom handles (a sixth of the chord between neighbours, in and out
+    mirrored), wrapping round for a closed loop; an array of structs written flat, each element's
+    fields one after another, as the engine writes it (Snowline's course.py)."""
+    items = []
+    n = len(points)
+    for i, p in enumerate(points):
+        a, b = points[(i - 1) % n], points[(i + 1) % n]
+        h = [(b[k] - a[k]) / 6.0 for k in range(3)]
+        items.append('<object name="position">%s</object><object name="in">%s</object>'
+                     '<object name="out">%s</object><u8 name="mode">0</u8>' % (
+                         "".join('<f32 name="%s">%s</f32>' % (k, repr(float(v))) for k, v in zip("xyz", p)),
+                         "".join('<f32 name="%s">%s</f32>' % (k, repr(-float(v))) for k, v in zip("xyz", h)),
+                         "".join('<f32 name="%s">%s</f32>' % (k, repr(float(v))) for k, v in zip("xyz", h))))
+    return items
+
+
+CANAL_FACADES = ("FacadeOchre", "FacadeRose", "FacadeWhite")
+CANAL_DOORS = ("DoorOchre", "DoorRose", "DoorWhite")
+WATER_Y = -0.9
+BRIDGE_L, BRIDGE_W, BRIDGE_RISE, BRIDGE_RAMP = 8.0, 3.0, 1.8, 2.8
+
+
+def facade_row(b, a, c, turn, door_every=3):
+    """House fronts along a run of 2 m edges from a to c (metres, along x or z), facing `turn`
+    degrees about +Y (0 faces +Z), colours at random and a door every so often; one collider for
+    the whole row, the houses behind it being out of reach."""
+    (x0, z0), (x1, z1) = a, c
+    along_x = z0 == z1
+    n = int(round(abs((x1 - x0) if along_x else (z1 - z0)) / GRID))
+    sign = 1 if (x1 > x0 if along_x else z1 > z0) else -1
+    for k in range(n):
+        m = (x0 if along_x else z0) + sign * GRID * (k + 0.5)
+        at = (m, 0.0, z0) if along_x else (x0, 0.0, m)
+        kind = "Canal/" + b.rng.choice(CANAL_DOORS if k % door_every == 1 else CANAL_FACADES)
+        b.place("%s%d_%d" % (short(kind), int(at[0]), int(at[2])), kind, at, yaw(turn))
+    length = GRID * n
+    mid = ((x0 + x1) / 2, 4.0, z0) if along_x else (x0, 4.0, (z0 + z1) / 2)
+    b.solid("Houses%d_%d" % (int(mid[0]), int(mid[2])), mid, (length, 8.0, 0.5) if along_x else (0.5, 8.0, length))
+
+
+def canal_bridge(b, x, z):
+    """A bridge across the canal at (x, z), its length along z: the model, and colliders for its walk
+    (two ramps and the level top) and its parapets, so the navigation bakes a way over it. Its 33
+    degree ramps need the Canal's higher climb (see canal()): Recast drops a walkable cell whose
+    neighbours' floors differ by more than the climb, and across a ramp cell they differ by about
+    0.26 m."""
+    b.place("Bridge%d" % int(x), "Canal/Bridge", (x, 0.0, z))
+    half, top, ramp = BRIDGE_L / 2, BRIDGE_RISE, BRIDGE_RAMP
+    angle = math.degrees(math.atan2(top, ramp))
+    slope = math.hypot(top, ramp)
+    for sign in (-1, 1):
+        # A ramp: its top face rising from the bank to the level top. A positive turn about X tips
+        # +z down, so the south ramp (sign +1, low at its +z bank end) turns positive and the north
+        # ramp negative.
+        b.solid("BridgeRamp%d_%d" % (int(x), sign), (x, top / 2 - 0.12, z + sign * (half - ramp / 2)),
+                (BRIDGE_W, 0.25, slope), pitch(sign * angle))
+    b.solid("BridgeTop%d" % int(x), (x, top - 0.12, z), (BRIDGE_W, 0.25, 2 * (half - ramp)))
+    for side in (-1, 1):
+        b.solid("BridgeParapet%d_%d" % (int(x), side), (x + side * (BRIDGE_W / 2 - 0.12), (top + 1.0) / 2, z),
+                (0.25, top + 1.0, BRIDGE_L))
+
+
+def canal():
+    """The Canal: a campo (a square, x 6..42, z 4..30) with houses round three sides, a wellhead, mask
+    stalls and the orchestra, on a canal running east-west across the south (z 30..36, its water
+    below the quays), a narrow quay beyond it (z 36..40) along a balustrade, two bridges over it,
+    and gondolas passing under them. The crowd thins out across the campo and squeezes onto the quays
+    and the bridges."""
+    b = Builder("Canal")
+    d = b.d
+    moon = d.stable_id("entity")
+    d.entity("Moon", rot=quat_mul(yaw(-50.0), pitch(-45.0)), eid=moon)
+    d.add(moon, "light", type=0, color={"r": 0.55, "g": 0.65, "b": 1.0, "a": 1.0}, intensity=0.35,
+          castsShadows=True)
+
+    b.ground("Canal/Paving", (3, 2, 21, 15))   # the campo and its quay: x 6..42, z 4..30
+    b.ground("Canal/Paving", (0, 18, 24, 20))  # the south quay: x 0..48, z 36..40
+    for i in range(0, 24):                     # the water, below the quays (no collider: no walking)
+        for j in range(15, 18):
+            b.place("Water%d_%d" % (i, j), "Canal/Water", (GRID * (i + 0.5), 0.0, GRID * (j + 0.5)))
+    # The quays' edges: the campo's faces the water to the south (+z), the south quay's to the north.
+    for i in range(3, 21):
+        b.place("CopingN%d" % i, "Canal/Coping", (GRID * (i + 0.5), 0.0, 30.0), yaw(180.0))
+    for i in range(0, 24):
+        b.place("CopingS%d" % i, "Canal/Coping", (GRID * (i + 0.5), 0.0, 36.0))
+
+    # The houses: the campo's north row facing south, its west and east rows facing in. The south
+    # quay's far side is a low balustrade, not houses: the camera stands south of the player and
+    # would look at the backs of a row there, through 8 m of wall.
+    facade_row(b, (6, 4), (42, 4), 0.0)
+    facade_row(b, (6, 4), (6, 30), 90.0)
+    facade_row(b, (42, 4), (42, 30), -90.0)
+    b.run("Balustrade", (0, 40), (48, 40), 1.0, 0.3)
+
+    canal_bridge(b, 14.0, 33.0)
+    canal_bridge(b, 34.0, 33.0)
+    for x, z in ((4.0, 30.6), (9.0, 30.6), (21.0, 35.4), (27.0, 35.4), (40.0, 30.6), (45.0, 35.4)):
+        b.place("Pole%d_%d" % (int(x), int(z)), "Canal/Pole", (x, 0.0, z))
+
+    # The gondolas: a loop along the canal, east on the north lane and west on the south, turning
+    # beyond the ends of the map, two boats on it half a loop apart.
+    loop = [(-6, 32.2), (10, 32.2), (24, 32.2), (38, 32.2), (54, 32.2), (57, 33.0), (54, 33.8), (38, 33.8),
+            (24, 33.8), (10, 33.8), (-6, 33.8), (-9, 33.0)]
+    path = d.stable_id("entity")
+    d.entity("GondolaPath", eid=path)
+    d.add(path, "spline", points=spline_points([(x, WATER_Y, z) for x, z in loop]), closed=True)
+    for k, start in enumerate((0.0, 64.0)):
+        boat = b.place("Gondola%d" % (k + 1), "Canal/Gondola", (loop[0][0], WATER_Y, loop[0][1]))
+        d.add(boat, "path_follow", spline=path, speed=1.4, distance=start, loop=True, playing=True,
+              alignToTangent=True)
+
+    b.prop("Canal/Wellhead", (24.0, 0.0, 17.0), (1.4, 1.1, 1.4))
+    for x, z, turn in ((12.0, 9.0, 0.0), (36.0, 9.0, 0.0), (9.0, 22.0, 90.0)):
+        b.prop("Canal/Stall", (x, 0.0, z), (2.0, 2.3, 1.0) if turn == 0.0 else (1.0, 2.3, 2.0), yaw(turn))
+    # The south quay's lanterns stand back against the balustrade, out of the narrow quay's way.
+    for x, z in ((10.0, 14.0), (38.0, 14.0), (10.0, 27.0), (38.0, 27.0), (20.0, 28.5), (28.0, 28.5),
+                 (6.0, 39.4), (20.0, 39.4), (28.0, 39.4), (42.0, 39.4)):
+        b.lantern(x, z)
+    dais = b.prop("Dais", (24.0, 0.0, 6.0), (6.0, 1.2, 3.0), name="Dais")  # its collider too tall to climb
+    d.script(dais, (asset("ScriptClassAsset", "Orchestra"), {}))
+
+    # Where guests go: groups about the campo, along both quays, and on the bridges' tops.
+    spots = [(12, 13), (18, 11), (30, 11), (36, 13), (16, 18), (32, 18), (12, 22), (24, 22), (36, 22),
+             (10, 18), (38, 18), (18, 26), (30, 26), (24, 11), (8, 28), (40, 28), (14, 28), (34, 28),
+             (4, 38), (10, 38), (16, 38), (24, 38), (32, 38), (38, 38), (44, 38),
+             (14.0, BRIDGE_RISE, 33.0), (34.0, BRIDGE_RISE, 33.0)]
+    b.spots = b.points("Spots", spots)
+    b.crowd(150, spots, (24.0, 38.5))
+    # A higher climb than the Palace's, for the bridges' ramps (canal_bridge); nothing knee-high
+    # stands in the campo to be climbed instead, and the dais's collider is tall for it.
+    b.navigation((0.0, 3.0, 48.0, 41.0), climb=0.5)
+    return b.write()
+
+
+MAPS = {"Palace": palace, "Canal": canal}
 
 
 def write(name):

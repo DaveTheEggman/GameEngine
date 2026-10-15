@@ -148,7 +148,9 @@ From a survey of the code (2026-10-14):
   respawns elsewhere in a new costume (the engine's new `NavAgentComponent.warp`), anyone else
   costs points and flares the tagger's mask; bots grow suspicious of a target that stands out
   (sprinting, flaring, off the cue) and walk up to it, or guess; the game script gives a title,
-  the HUD, pause and the results. Next: the Canal and the Gardens, and choosing a map.
+  the HUD, pause and the results. Then the Canal (a campo on a canal with quays, two walkable
+  bridges and gondolas on a loop under them, from its own Blender kit) and choosing a map on the
+  title, a best round kept for each. Next: the Gardens.
 - **P4 The ball, over the network**: host and join menus, players as guests, tagging and the
   round by RPC, scores replicated; playtested with two Game tabs, then two machines and a
   browser.

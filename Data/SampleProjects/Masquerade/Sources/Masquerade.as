@@ -4,7 +4,8 @@
 // The round itself is the scene's (Ball.as): this hears it. "Hud" (four times a second: your
 // points, the seconds left, your target's costume, your place), "Note" (something happened to
 // you, or a mask flared) and "RoundOver" (everyone's points). Pause (Escape or Start) holds the
-// round still under the pause menu. The save keeps the best round's points ("best.Palace").
+// round still under the pause menu. The title picks the map; the save keeps each map's best round
+// ("best.Palace", "best.Canal").
 
 const float kControlsShown = 7.0f; // how long the controls show as a round starts (s)
 Guid kTitleDoc = Guid("aef79ca5-c3b5-4a90-b02f-ba8f04a22bd5");
@@ -12,6 +13,7 @@ Guid kHudDoc = Guid("2c758b72-4a6a-49d9-a13b-c2646c166f04");
 Guid kPauseDoc = Guid("a8e7955f-11cb-4e14-a8dc-d05e2a923722");
 Guid kResultsDoc = Guid("3d968c6d-1b40-4e01-8f82-d36fd8008188");
 Guid kPalace = Guid("20eb69af-217d-4b37-93d2-d032e63094fb");
+Guid kCanal = Guid("67c261b3-8da6-4a11-bab2-c96595b651cf");
 
 // Ball.as's notes.
 const int kNoteGotTarget = 1;
@@ -25,6 +27,7 @@ class Game
     private bool m_paused = false;
     private float m_note = 0.0f;         // how long the HUD's word shows yet
     private float m_controlsShow = 0.0f; // how long the controls panel shows yet
+    private int m_map = 0;               // 0 the Palace, 1 the Canal
 
     void launch()
     {
@@ -39,11 +42,24 @@ class Game
         run::setTimeScale(0.0f); // whatever is behind the title holds still
         ui::clear();
         Screen@ s = ui::push(kTitleDoc);
-        s.findButton("play-btn").onClick(Action(this.onPlay));
+        s.findButton("play-btn").onClick(Action(this.onPalace));
+        s.findButton("canal-btn").onClick(Action(this.onCanal));
+        s.findButton("canal-btn").setEnabled(!kCanal.IsNil());
         s.findButton("quit-btn").onClick(Action(this.onQuit));
+        s.findLabel("palace-best").setText(bestLine(0));
+        s.findLabel("canal-best").setText(bestLine(1));
     }
 
-    private void onPlay() { startRound(); }
+    private void onPalace() { m_map = 0; startRound(); }
+    private void onCanal() { m_map = 1; startRound(); }
+
+    private string mapName(int map) { return map == 0 ? "Palace" : "Canal"; }
+
+    private string bestLine(int map)
+    {
+        int best = Save::getInt("best." + mapName(map), -100000);
+        return best == -100000 ? "No round played yet" : "Best round: " + best + " points";
+    }
     private void onQuit() { run::requestExit(0); }
 
     // ---- a round ----
@@ -62,7 +78,7 @@ class Game
         controls.fadeTo(1.0f, 0.3f);
         m_controlsShow = kControlsShown;
         run::setTimeScale(1.0f);
-        run::loadScene(kPalace);
+        run::loadScene(m_map == 0 ? kPalace : kCanal);
     }
 
     void update(float dt)
@@ -151,11 +167,12 @@ class Game
         m_inRound = false;
         run::setTimeScale(0.0f);
         int you = int(scores.x);
-        int best = Save::getInt("best.Palace", -100000);
+        string key = "best." + mapName(m_map);
+        int best = Save::getInt(key, -100000);
         bool record = you > best;
         if (record)
         {
-            Save::setInt("best.Palace", you);
+            Save::setInt(key, you);
             Save::flush();
         }
         int place = 1;
