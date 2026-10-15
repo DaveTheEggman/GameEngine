@@ -160,6 +160,20 @@ export namespace foundation::net
             c->state = ConnectionState::Disconnected;
         }
 
+        /// Says goodbye to every connection, connected or still connecting, as Disconnect does
+        /// to one: the other ends hear it at once instead of waiting out their timeout.
+        void DisconnectAll()
+        {
+            for (Connection& c : m_connections)
+            {
+                if (c.state != ConnectionState::Disconnected)
+                {
+                    SendControl(c, PacketType::Disconnect);
+                    c.state = ConnectionState::Disconnected;
+                }
+            }
+        }
+
         [[nodiscard]] bool Poll(NetEvent& out) override
         {
             if (m_eventHead >= m_events.Size())

@@ -93,6 +93,12 @@ export namespace foundation::net
     class NetworkManager
     {
     public:
+        // Closing an endpoint (a game leaving, a host stopping) tells every peer, so a host frees a
+        // leaver's seat at once and a client sees its host go, instead of each waiting out the
+        // transport's timeout. The socket is still open here: an owned one goes after the session,
+        // and a borrowed one outlives the manager.
+        ~NetworkManager() { m_session.Transport().DisconnectAll(); }
+
         // Sim/test: BORROW an external socket (SimDatagramNetwork or a shared UDP socket). The session
         // is live immediately; the manager does not own the socket, so it must outlive the manager.
         explicit NetworkManager(IDatagramSocket& socket, const ReliableConfig& config = {})

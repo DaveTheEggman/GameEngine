@@ -125,6 +125,56 @@ TEST_CASE(
     CHECK(arg == doctest::Approx(7.25));
 }
 
+// A client that closes (a player leaving the game) says so: the host drops it within a few
+// updates, not at its timeout, and a host that closes is gone for its client as soon.
+TEST_CASE("net-manager: an endpoint that closes tells its peers at once")
+{
+    net::SimDatagramNetwork network(foundation::core::DefaultAllocator(), net::SimConditions{});
+    net::IDatagramSocket* sv = network.CreateSocket();
+    net::IDatagramSocket* cs = network.CreateSocket();
+    net::NetworkManager server(*sv);
+    server.StartServer(/*dedicated=*/true);
+    {
+        net::NetworkManager client(*cs);
+        (void)client.ConnectTo(sv->LocalEndpoint());
+        for (int i = 0; i < 40 && server.Session().PeerCount() == 0u; ++i)
+        {
+            network.Advance(10.0f);
+            server.Update(10.0f);
+            client.Update(10.0f);
+        }
+        REQUIRE(server.Session().PeerCount() == 1u);
+    } // the client closes
+    for (int i = 0; i < 10; ++i) // 100 ms, far inside the timeout
+    {
+        network.Advance(10.0f);
+        server.Update(10.0f);
+    }
+    CHECK(server.Session().PeerCount() == 0u);
+
+    // The other way: the host closes, and its client knows within as long.
+    net::IDatagramSocket* sv2 = network.CreateSocket();
+    net::NetworkManager client(*network.CreateSocket());
+    {
+        net::NetworkManager host(*sv2);
+        host.StartServer(/*dedicated=*/true);
+        (void)client.ConnectTo(sv2->LocalEndpoint());
+        for (int i = 0; i < 40 && client.Session().PeerCount() == 0u; ++i)
+        {
+            network.Advance(10.0f);
+            host.Update(10.0f);
+            client.Update(10.0f);
+        }
+        REQUIRE(client.Session().PeerCount() == 1u);
+    }
+    for (int i = 0; i < 10; ++i)
+    {
+        network.Advance(10.0f);
+        client.Update(10.0f);
+    }
+    CHECK(client.Session().PeerCount() == 0u);
+}
+
 TEST_CASE("net-manager: the Net facade type registers")
 {
     net::RegisterNetScriptFacade(); // idempotent; must not crash + registers the reflected type
