@@ -818,3 +818,69 @@ TEST_CASE("navigation.scene: an agent that does not avoid others shoulders past 
     CHECK(straight.stray < 0.5f);     // near its line
     RemoveTree(u8"scratch_navavoid_db");
 }
+
+// An agent added after the scene starts (a spawned prefab's, a network spawn's) joins the crowd on
+// the next update, and a destroyed one leaves it: in a zone that takes one agent, the first, gone,
+// makes room for a second added later, which then walks.
+TEST_CASE("navigation.scene: an agent added later joins its crowd, and a destroyed one leaves it")
+{
+    RegisterNavigationResource();
+    RegisterNavigationComponentReflection();
+    RemoveTree(u8"scratch_navlate_db");
+    foundation::vfs::NativeFileSystem mount(u8"scratch_navlate_db", foundation::core::DefaultAllocator());
+    content::ContentDatabase db(DefaultAllocator(), mount, BinarySerializerFactory(), u8".rasset");
+    Array<byte> blob;
+    BakeGroundZone(blob);
+    auto* zoneInstance = db.RootGroup()->CreateInstance(u8"zone", NavigationZoneSource::StaticType());
+    REQUIRE(zoneInstance != nullptr);
+    {
+        NavigationZoneSource src;
+        src.navMeshBlob.Resize(blob.Size());
+        MemCopy(src.navMeshBlob.Data(), blob.Data(), blob.Size());
+        REQUIRE(zoneInstance->WriteObject(src).IsOk());
+    }
+    NavigationZoneFactory factory(DefaultAllocator());
+    ResourceManager manager(DefaultAllocator(), db);
+    manager.AddFactory(&factory);
+
+    scene::Scene scene(DefaultAllocator(), u8"navlate");
+    AddNavigationSceneManagers(scene);
+    const scene::EntityHandle zoneEntity = scene.CreateEntity(u8"zone");
+    NavMeshZoneComponent& zone = scene.GetSystem<NavMeshZoneComponentManager>()->Add(zoneEntity);
+    zone.extents = Float3{15, 10, 15};
+    zone.maxAgents = 1; // room for one
+    zone.zone.SetId(zoneInstance->Id());
+    zone.zone.Bind(manager);
+    auto* agents = scene.GetSystem<NavAgentComponentManager>();
+    const scene::EntityHandle first = scene.CreateEntity(u8"first");
+    scene.SetLocalPosition(first, Float3{-5, 0, 0});
+    agents->Add(first);
+    scene.UpdateTransforms();
+    scene.Start();
+    scene.SetSimulationEnabled(true);
+    REQUIRE(agents->Get(first)->agentId >= 0);
+
+    scene.DestroyEntity(first);
+    scene.Update(1.0f / 30.0f); // its slot is given back
+
+    const scene::EntityHandle second = scene.CreateEntity(u8"second");
+    scene.SetLocalPosition(second, Float3{-5, 0, 2});
+    agents->Add(second);
+    scene.UpdateTransforms();
+    scene.Update(1.0f / 30.0f); // it joins
+    NavAgentComponent* agent = agents->Get(second);
+    REQUIRE(agent != nullptr);
+    CHECK(agent->agentId >= 0);
+
+    agent->navigate(5.0f, 0.0f, 2.0f);
+    for (int step = 0; step < 360 && !agents->Get(second)->finished; ++step)
+    {
+        scene.Update(1.0f / 30.0f);
+    }
+    CHECK(agents->Get(second)->finished);
+    CHECK(std::abs(scene.GetWorldPosition(second).x - 5.0f) < 1.5f);
+
+    scene.SetSimulationEnabled(false);
+    scene.Stop();
+    RemoveTree(u8"scratch_navlate_db");
+}

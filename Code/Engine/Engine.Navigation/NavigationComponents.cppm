@@ -71,6 +71,7 @@ export namespace engine::navigation
 
         // Runtime (transient):
         i32 agentId = -1;   // crowd agent handle within its zone, -1 = not registered
+        bool registered = false; // tried for a crowd (at the start, or on the first update after it was added)
         i32 zoneIndex = -1; // subsystem live-zone index, -1 = outside every zone
         Float3 target{0, 0, 0};
         bool hasTarget = false;
@@ -239,6 +240,32 @@ export namespace engine::navigation
             : SerializableComponentManager<NavAgentComponent>(u8"navigation.Agent")
         {
         }
+
+        // An agent whose component went (its entity destroyed, or the component removed), for the
+        // navigation to take out of its crowd on its next update.
+        struct ReleasedAgent
+        {
+            i32 zoneIndex = -1;
+            i32 agentId = -1;
+        };
+        [[nodiscard]] Array<ReleasedAgent> TakeReleased()
+        {
+            Array<ReleasedAgent> out = Move(m_released);
+            m_released.Clear();
+            return out;
+        }
+
+    protected:
+        void OnComponentDestroyed(NavAgentComponent& c, foundation::scene::EntityHandle) override
+        {
+            if (c.agentId >= 0)
+            {
+                m_released.PushBack(ReleasedAgent{c.zoneIndex, c.agentId});
+            }
+        }
+
+    private:
+        Array<ReleasedAgent> m_released;
     };
 
     // Registers the component reflection (displayName/category, the `.of` handle + agent methods,

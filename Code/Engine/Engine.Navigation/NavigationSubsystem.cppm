@@ -100,10 +100,12 @@ export namespace engine::navigation
             {
                 if (auto* agents = m_scene->GetSystem<NavAgentComponentManager>())
                 {
+                    (void)agents->TakeReleased(); // their crowds are gone with the zones
                     agents->ForEach([](NavAgentComponent& a, scene::EntityHandle)
                                     {
                                         a.agentId = -1;
                                         a.zoneIndex = -1;
+                                        a.registered = false;
                                         a.hasTarget = false;
                                         a.finished = true;
                                     });
@@ -133,10 +135,24 @@ export namespace engine::navigation
             //    crowd over the new one (the old product stays alive until then: we hold it).
             RebuildReloadedZones(*agents);
 
+            // A destroyed agent leaves its crowd (else it stands there for ever, an obstacle no one
+            // can see, holding a slot).
+            for (const NavAgentComponentManager::ReleasedAgent& gone : agents->TakeReleased())
+            {
+                if (gone.zoneIndex >= 0 && static_cast<usize>(gone.zoneIndex) < m_zones.Size())
+                {
+                    m_zones[static_cast<usize>(gone.zoneIndex)].crowd->RemoveAgent(gone.agentId);
+                }
+            }
+
             // 1. Apply pending warp()/navigate()/stop() requests (crowd works in zone-local space).
             agents->ForEach(
                 [this](NavAgentComponent& a, scene::EntityHandle entity)
                 {
+                    if (!a.registered)
+                    {
+                        Register(a, entity); // added since the start (a spawned prefab's)
+                    }
                     if (a.warpRequested)
                     {
                         Warp(a, entity);
@@ -395,38 +411,43 @@ export namespace engine::navigation
             {
                 return;
             }
-            agents->ForEach(
-                [this](NavAgentComponent& a, scene::EntityHandle entity)
-                {
-                    const Float3 worldPos = m_scene->GetWorldPosition(entity);
-                    a.zoneIndex = FindZoneContaining(worldPos);
-                    a.agentId = -1;
-                    if (a.zoneIndex < 0)
-                    {
-                        // Said, not silent: an agent that never moves is otherwise a mystery.
-                        LOG_WARNING(u8"Navigation",
-                                    u8"agent '{}' at ({}, {}, {}) is in no navigation zone; it will not move",
-                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
-                        return;
-                    }
-                    RuntimeZone& rz = m_zones[static_cast<usize>(a.zoneIndex)];
-                    a.agentId = AddToCrowd(rz, a, worldPos);
-                    if (a.agentId < 0)
-                    {
-                        LOG_WARNING(u8"Navigation",
-                                    u8"agent '{}' at ({}, {}, {}): the zone's crowd is full; it will not move",
-                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
-                    }
-                    else if (rz.crowd->AgentState(a.agentId).state == nav::NavAgentCrowdState::Invalid)
-                    {
-                        // Detour still adds an agent it could not place, in a state that never
-                        // moves, so the slot alone says nothing.
-                        LOG_WARNING(u8"Navigation",
-                                    u8"agent '{}' at ({}, {}, {}) found no navmesh where it stands; it "
-                                    u8"will not move (is it on baked ground, and was the zone baked?)",
-                                    m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
-                    }
-                });
+            agents->ForEach([this](NavAgentComponent& a, scene::EntityHandle entity) { Register(a, entity); });
+        }
+
+        // One agent into the crowd of the zone it stands in: every agent at the start, and one added
+        // later (a spawned prefab's) on the first update that sees it. Once, whatever the outcome,
+        // so an agent outside every zone is said once, not every frame.
+        void Register(NavAgentComponent& a, scene::EntityHandle entity)
+        {
+            a.registered = true;
+            const Float3 worldPos = m_scene->GetWorldPosition(entity);
+            a.zoneIndex = FindZoneContaining(worldPos);
+            a.agentId = -1;
+            if (a.zoneIndex < 0)
+            {
+                // Said, not silent: an agent that never moves is otherwise a mystery.
+                LOG_WARNING(u8"Navigation",
+                            u8"agent '{}' at ({}, {}, {}) is in no navigation zone; it will not move",
+                            m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
+                return;
+            }
+            RuntimeZone& rz = m_zones[static_cast<usize>(a.zoneIndex)];
+            a.agentId = AddToCrowd(rz, a, worldPos);
+            if (a.agentId < 0)
+            {
+                LOG_WARNING(u8"Navigation",
+                            u8"agent '{}' at ({}, {}, {}): the zone's crowd is full; it will not move",
+                            m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
+            }
+            else if (rz.crowd->AgentState(a.agentId).state == nav::NavAgentCrowdState::Invalid)
+            {
+                // Detour still adds an agent it could not place, in a state that never
+                // moves, so the slot alone says nothing.
+                LOG_WARNING(u8"Navigation",
+                            u8"agent '{}' at ({}, {}, {}) found no navmesh where it stands; it "
+                            u8"will not move (is it on baked ground, and was the zone baked?)",
+                            m_scene->GetEntityName(entity), worldPos.x, worldPos.y, worldPos.z);
+            }
         }
 
         // First zone whose (world-space, axis-aligned from center+extents) box contains `worldPos`.
